@@ -2,8 +2,10 @@
 """Static sanity checks for the Tinyguard Godot project.
 
 Runs without Godot. Verifies required files/dirs, res:// references in
-project.godot and .tscn/.tres files, basic .tscn structure, and that .gd
-files are indented with tabs. It does NOT prove the project runs in Godot.
+project.godot and .tscn/.tres files, basic .tscn structure, NodePath values
+and $Node paths used by scene root scripts, class_name uniqueness and
+script_class of .tres files, and that .gd files are indented with tabs.
+It does NOT prove the project runs in Godot.
 
 Usage: python3 tools/validate_project.py
 """
@@ -45,6 +47,26 @@ HEADER_RE = re.compile(r"^\[(\w+)(.*)\]$")
 ATTR_RE = re.compile(r'(\w+)=("[^"]*"|\S+)')
 
 errors: list[str] = []
+# res:// path of every script -> its class_name (filled before scenes are checked).
+class_names: dict[str, str] = {}
+
+
+def resolve_node_path(base: str, target: str) -> str:
+    """Resolves a relative NodePath against a scene node path ("." is root)."""
+    parts = [] if base == "." else base.split("/")
+    for seg in target.split("/"):
+        if seg == "..":
+            if not parts:
+                return "<outside scene>"
+            parts.pop()
+        elif seg not in (".", ""):
+            parts.append(seg)
+    return "/".join(parts) or "."
+
+
+def inside_instance(node_path: str, instanced: set[str]) -> bool:
+    """True if node_path lies below an instanced sub-scene (not listed here)."""
+    return any(node_path.startswith(inst + "/") for inst in instanced)
 
 
 def check_layout() -> None:
@@ -89,15 +111,24 @@ def check_scene(path: Path) -> None:
         errors.append(f"{rel}: expected format=3 (Godot 4)")
 
     ext_ids, sub_ids, used_ext, used_sub = set(), set(), set(), set()
+    ext_paths: dict[str, str] = {}
     node_paths = {"."}
+    instanced: set[str] = set()
+    node_path_refs: list[tuple[str, str]] = []  # (owner node, NodePath value)
+    root_script_id = ""
+    resource_script_id = ""
+    current = ""  # node path of the block being read, "" outside nodes
+    in_resource = False
     has_root = False
     for line in lines[1:]:
         m = HEADER_RE.match(line)
         if m:
             kind, attrs = m.group(1), dict(ATTR_RE.findall(m.group(2)))
             ident = attrs.get("id", "").strip('"')
+            current, in_resource = "", kind == "resource"
             if kind == "ext_resource":
                 ext_ids.add(ident)
+                ext_paths[ident] = attrs.get("path", "").strip('"')
             elif kind == "sub_resource":
                 sub_ids.add(ident)
             elif kind == "node":
@@ -107,13 +138,37 @@ def check_scene(path: Path) -> None:
                     if has_root:
                         errors.append(f"{rel}: more than one root node")
                     has_root = True
+                    current = "."
                     continue
                 parent = parent.strip('"')
-                if parent not in node_paths:
+                if parent not in node_paths and not inside_instance(parent, instanced):
                     errors.append(f"{rel}: node {name} has unknown parent {parent}")
-                node_paths.add(name if parent == "." else f"{parent}/{name}")
+                current = name if parent == "." else f"{parent}/{name}"
+                node_paths.add(current)
+                if "instance" in attrs:
+                    instanced.add(current)
+        script = re.match(r'script = ExtResource\("([^"]+)"\)', line)
+        if script and current == ".":
+            root_script_id = script.group(1)
+        if script and in_resource:
+            resource_script_id = script.group(1)
+        for value in re.findall(r'NodePath\("([^"]*)"\)', line):
+            if current:
+                node_path_refs.append((current, value))
         used_ext.update(re.findall(r'ExtResource\("([^"]+)"\)', line))
         used_sub.update(re.findall(r'SubResource\("([^"]+)"\)', line))
+
+    for owner, value in node_path_refs:
+        target = resolve_node_path(owner, value)
+        if target not in node_paths and not inside_instance(target, instanced):
+            errors.append(f"{rel}: NodePath(\"{value}\") on {owner} does not resolve")
+    if root_script_id in ext_paths:
+        check_script_node_refs(rel, ext_paths[root_script_id], node_paths, instanced)
+    script_class = header.get("script_class", "").strip('"')
+    if script_class:
+        actual = class_names.get(ext_paths.get(resource_script_id, ""), "")
+        if actual != script_class:
+            errors.append(f"{rel}: script_class={script_class}, script declares {actual or 'none'}")
 
     for ident in used_ext - ext_ids:
         errors.append(f"{rel}: ExtResource {ident} is not declared")
@@ -127,6 +182,32 @@ def check_scene(path: Path) -> None:
     check_res_paths(path)
 
 
+def check_script_node_refs(rel: Path, res_path: str, node_paths: set[str],
+                           instanced: set[str]) -> None:
+    """Checks $Node/Path lookups of a script attached to a scene's root."""
+    script = ROOT / res_path[len("res://"):]
+    if not script.is_file():
+        return
+    for ref in sorted(set(re.findall(r"\$([\w/]+)", script.read_text(encoding="utf-8")))):
+        if ref not in node_paths and not inside_instance(ref, instanced):
+            errors.append(f"{rel}: {res_path} uses ${ref}, no such node in the scene")
+
+
+def collect_class_names() -> None:
+    seen: dict[str, str] = {}
+    for path in sorted(ROOT.rglob("*.gd")):
+        if ".godot" in path.parts:
+            continue
+        m = re.search(r"^class_name\s+(\w+)", path.read_text(encoding="utf-8"), re.M)
+        if not m:
+            continue
+        res = "res://" + path.relative_to(ROOT).as_posix()
+        if m.group(1) in seen:
+            errors.append(f"class_name {m.group(1)} declared in {seen[m.group(1)]} and {res}")
+        seen[m.group(1)] = res
+        class_names[res] = m.group(1)
+
+
 def check_gdscript(path: Path) -> None:
     rel = path.relative_to(ROOT)
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -137,6 +218,7 @@ def check_gdscript(path: Path) -> None:
 def main() -> int:
     check_layout()
     check_project_settings()
+    collect_class_names()
     for pattern in ("*.tscn", "*.tres"):
         for path in ROOT.rglob(pattern):
             if ".godot" not in path.parts:
