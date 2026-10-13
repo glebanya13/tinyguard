@@ -153,7 +153,9 @@ func _toggle_speed() -> void:
 
 func _process(_delta: float) -> void:
 	var next: int = _wave_manager.current_wave + 1
-	_hud.set_next_wave(next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next))
+	_hud.set_next_wave(
+		next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next)
+	)
 	_auto_select_near_hero()
 	_update_target_ring()
 
@@ -248,7 +250,9 @@ func _plant_trees(decor: Node3D) -> void:
 func _build_walk_grid() -> void:
 	await get_tree().physics_frame
 	var b: Array = level["bounds"]
-	walk_grid.build(get_world_3d().direct_space_state, Rect2(b[0], b[1], b[2], b[3]), WALK_OBSTACLE_MASK)
+	walk_grid.build(
+		get_world_3d().direct_space_state, Rect2(b[0], b[1], b[2], b[3]), WALK_OBSTACLE_MASK
+	)
 	_hero.walk_grid = walk_grid
 
 
@@ -355,20 +359,34 @@ func _refresh_card() -> void:
 			var data: TowerData = _tower_types()[i]
 			var ok: bool = _build_manager.can_build(slot, data)
 			short = short and not ok
-			buttons.append({
-				"id": StringName("build_%d" % i), "icon": data.icon, "gold": data.cost_gold,
-				"wood": data.cost_wood, "enabled": ok,
-				"tooltip": "%s (%d): %s" % [data.display_name, i + 1, _stats_text(data, 0)],
-			})
+			(
+				buttons
+				. append(
+					{
+						"id": StringName("build_%d" % i),
+						"icon": data.icon,
+						"gold": data.cost_gold,
+						"wood": data.cost_wood,
+						"enabled": ok,
+						"tooltip": "%s (%d): %s" % [data.display_name, i + 1, _stats_text(data, 0)],
+					}
+				)
+			)
 		info["hint"] = "Не хватает золота или дерева" if short else ""
 	else:
 		var data: TowerData = slot.tower.data
 		var level_index: int = slot.tower.level
 		var cost: Vector2i = data.upgrade_cost(level_index)
-		info["title"] = "%s · ур. %d/%d" % [data.display_name, level_index + 1, data.max_level() + 1]
+		info["title"] = (
+			"%s · ур. %d/%d" % [data.display_name, level_index + 1, data.max_level() + 1]
+		)
 		info["stats"] = _stats_text(data, level_index)
-		var upgrade := {"id": &"upgrade", "icon": UPGRADE_ICON, "enabled": _build_manager.can_upgrade(slot),
-				"tooltip": "Улучшить (U)"}
+		var upgrade := {
+			"id": &"upgrade",
+			"icon": UPGRADE_ICON,
+			"enabled": _build_manager.can_upgrade(slot),
+			"tooltip": "Улучшить (U)"
+		}
 		if cost.x < 0:
 			upgrade["label"] = "макс."
 			info["hint"] = "Максимальный уровень"
@@ -380,11 +398,27 @@ func _refresh_card() -> void:
 				info["hint"] = "Не хватает золота или дерева"
 		buttons.append(upgrade)
 		var refund: Vector2i = data.sell_value(level_index)
-		buttons.append({"id": &"sell", "icon": COIN_ICON, "gold": refund.x, "wood": refund.y, "gain": true,
-				"enabled": true, "tooltip": "Продать за 70%% вложенного (X)"})
+		buttons.append(
+			{
+				"id": &"sell",
+				"icon": COIN_ICON,
+				"gold": refund.x,
+				"wood": refund.y,
+				"gain": true,
+				"enabled": true,
+				"tooltip": "Продать за 70%% вложенного (X)"
+			}
+		)
 	if slot != null:
-		buttons.append({"id": &"cancel", "icon": CANCEL_ICON, "label": "Esc", "enabled": true,
-				"tooltip": "Снять выбор (Esc)"})
+		buttons.append(
+			{
+				"id": &"cancel",
+				"icon": CANCEL_ICON,
+				"label": "Esc",
+				"enabled": true,
+				"tooltip": "Снять выбор (Esc)"
+			}
+		)
 	if _pending_command != &"":
 		info["hint"] = "Рыцарь идёт к площадке…"
 	_show_range(slot)
@@ -408,20 +442,42 @@ func _forge_card() -> Dictionary:
 	var next_damage: String = ""
 	if sword.x >= 0:
 		next_damage = " → %d" % _hero.sword_damage_levels[_hero.sword_level + 1]
-	info["stats"] = "Меч: урон %d%s · замок: %d/%d жизней" % [
-		_hero.attack_damage, next_damage, _game_state.lives, _game_state.starting_lives]
-	var upgrade := {"id": &"sword", "icon": SWORD_ICON, "enabled": _game_state.can_afford(sword),
-			"tooltip": "Закалить меч (U)"}
+	info["stats"] = (
+		"Меч: урон %d%s · замок: %d/%d жизней"
+		% [_hero.attack_damage, next_damage, _game_state.lives, _game_state.starting_lives]
+	)
+	var upgrade := {
+		"id": &"sword",
+		"icon": SWORD_ICON,
+		"enabled": _game_state.can_afford(sword),
+		"tooltip": "Закалить меч (U)"
+	}
 	if sword.x < 0:
 		upgrade["label"] = "макс."
 	else:
 		upgrade["gold"] = sword.x
 		upgrade["wood"] = sword.y
-	var repair := {"id": &"repair", "icon": HEART_ICON, "wood": _game_state.repair_wood,
-			"enabled": _game_state.can_repair(), "tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives}
-	info["hint"] = "Ремонт стен: +%d жизни за %d дерева" % [_game_state.repair_lives, _game_state.repair_wood]
-	info["buttons"] = [upgrade, repair, {"id": &"cancel", "icon": CANCEL_ICON, "label": "Esc", "enabled": true,
-			"tooltip": "Закрыть (Esc)"}]
+	var repair := {
+		"id": &"repair",
+		"icon": HEART_ICON,
+		"wood": _game_state.repair_wood,
+		"enabled": _game_state.can_repair(),
+		"tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives
+	}
+	info["hint"] = (
+		"Ремонт стен: +%d жизни за %d дерева" % [_game_state.repair_lives, _game_state.repair_wood]
+	)
+	info["buttons"] = [
+		upgrade,
+		repair,
+		{
+			"id": &"cancel",
+			"icon": CANCEL_ICON,
+			"label": "Esc",
+			"enabled": true,
+			"tooltip": "Закрыть (Esc)"
+		}
+	]
 	return info
 
 
@@ -449,8 +505,10 @@ func _hint_text() -> String:
 
 
 func _stats_text(data: TowerData, index: int) -> String:
-	var text := "Урон %d · радиус %.1f · %.2f с" % [
-		data.damage_levels[index], data.range_levels[index], data.interval_levels[index]]
+	var text := (
+		"Урон %d · радиус %.1f · %.2f с"
+		% [data.damage_levels[index], data.range_levels[index], data.interval_levels[index]]
+	)
 	if data.splash_levels[index] > 0.0:
 		text += " · по площади %.1f м" % data.splash_levels[index]
 	if data.slow_levels[index] < 1.0:

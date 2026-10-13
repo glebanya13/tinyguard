@@ -4,7 +4,9 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	LevelCatalog.selected_id = int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
+	LevelCatalog.selected_id = (
+		int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
+	)
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()
 
@@ -28,6 +30,16 @@ func _run() -> void:
 		if arrived[0]:
 			reached += 1
 		else:
-			print("  FAIL slot ", (slot as Node3D).global_position, " hero stopped at ", hero.global_position)
-	print("RESULT: %s (reached %d/%d slots)" % ["PASS" if reached == slots.size() else "FAIL", reached, slots.size()])
+			print(
+				"  FAIL slot ",
+				(slot as Node3D).global_position,
+				" hero stopped at ",
+				hero.global_position
+			)
+	print(
+		(
+			"RESULT: %s (reached %d/%d slots)"
+			% ["PASS" if reached == slots.size() else "FAIL", reached, slots.size()]
+		)
+	)
 	quit(0 if reached == slots.size() else 1)

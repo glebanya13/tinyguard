@@ -3,6 +3,9 @@ extends Resource
 ## Buildable tower type: name, icon, prices (gold + wood) and stats per level
 ## (index 0 = level 1).
 
+## Share of everything spent on a tower that selling it returns.
+const SELL_REFUND := 0.7
+
 @export var display_name: String = ""
 @export var icon: Texture2D
 ## Scene instantiated on a slot; its root must use tower.gd.
@@ -22,10 +25,6 @@ extends Resource
 ## Speed multiplier applied to hit enemies (1 = no slow).
 @export var slow_levels: Array[float] = [1.0, 1.0, 1.0]
 @export var slow_duration: float = 1.6
-
-
-## Share of everything spent on a tower that selling it returns.
-const SELL_REFUND := 0.7
 
 
 ## Gold and wood spent on a tower of `level` (build + upgrades).

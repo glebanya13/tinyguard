@@ -26,7 +26,9 @@ func build(trees: Array[WoodTree]) -> void:
 		model.free()
 		for i in list.size():
 			var tree: WoodTree = list[i]
-			multimesh.set_instance_transform(i, global_transform.affine_inverse() * tree.model_transform())
+			multimesh.set_instance_transform(
+				i, global_transform.affine_inverse() * tree.model_transform()
+			)
 			_slots[tree] = [variant, i]
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multimesh

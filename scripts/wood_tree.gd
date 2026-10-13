@@ -17,14 +17,14 @@ const HIGHLIGHT: Material = preload("res://assets/materials/highlight.tres")
 @export var variant: StringName = &"round"
 ## Scale of the model only (physics bodies must stay unscaled).
 @export var model_scale: float = 1.0
-
-## Set before adding the tree; null = always draw the own model.
-var grove: Grove = null
 @export var wood_per_hit: int = 3
 @export var hits: int = 4
 @export var regrow_time: float = 60.0
 ## Physics layers that keep a stump from growing back (the hero, layer 2).
 @export_flags_3d_physics var regrow_blockers: int = 2
+
+## Set before adding the tree; null = always draw the own model.
+var grove: Grove = null
 
 var _hits_left: int = 0
 var _tree: Node3D = null
@@ -65,7 +65,9 @@ func set_highlighted(on: bool) -> void:
 
 ## World transform of the standing model (for the grove's MultiMesh).
 func model_transform() -> Transform3D:
-	return global_transform * Transform3D(Basis(_yaw).scaled(Vector3.ONE * model_scale), Vector3.ZERO)
+	return (
+		global_transform * Transform3D(Basis(_yaw).scaled(Vector3.ONE * model_scale), Vector3.ZERO)
+	)
 
 
 func is_choppable() -> bool:
@@ -101,8 +103,12 @@ func chop(from: Vector3) -> int:
 		tween.tween_callback(_set_animated.bind(false))
 	else:
 		_stump.visible = true
-		tween.tween_property(_tree, "quaternion", Quaternion(axis, PI * 0.5) * _yaw, 0.7) \
-				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		(
+			tween
+			. tween_property(_tree, "quaternion", Quaternion(axis, PI * 0.5) * _yaw, 0.7)
+			. set_trans(Tween.TRANS_QUAD)
+			. set_ease(Tween.EASE_IN)
+		)
 		tween.tween_property(_tree, "scale", Vector3.ONE * 0.01 * model_scale, 0.35)
 		tween.tween_callback(_tree.hide)
 		get_tree().create_timer(regrow_time, false).timeout.connect(_regrow)
@@ -122,8 +128,12 @@ func _regrow() -> void:
 	if _tween:
 		_tween.kill()
 	_tween = create_tween()
-	_tween.tween_property(_tree, "scale", Vector3.ONE * model_scale, 1.2) \
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	(
+		_tween
+		. tween_property(_tree, "scale", Vector3.ONE * model_scale, 1.2)
+		. set_trans(Tween.TRANS_BACK)
+		. set_ease(Tween.EASE_OUT)
+	)
 	_tween.tween_callback(_stump.hide)
 	_tween.tween_callback(_set_animated.bind(false))
 

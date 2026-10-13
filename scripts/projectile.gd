@@ -22,7 +22,9 @@ var _duration: float = 0.0
 
 
 ## Call after the projectile is in the tree and positioned at the muzzle.
-func launch(target: Enemy, damage: float, splash: float = 0.0, slow: float = 1.0, slow_time: float = 0.0) -> void:
+func launch(
+	target: Enemy, damage: float, splash: float = 0.0, slow: float = 1.0, slow_time: float = 0.0
+) -> void:
 	_target = target
 	_damage = damage
 	_splash = splash

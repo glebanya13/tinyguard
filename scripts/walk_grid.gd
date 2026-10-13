@@ -47,7 +47,9 @@ func block(point: Vector3, radius: float) -> void:
 	for dx in range(-r, r + 1):
 		for dy in range(-r, r + 1):
 			var cell := center + Vector2i(dx, dy)
-			var near: bool = _cell_center(cell).distance_to(Vector2(point.x, point.z)) <= radius + CELL * 0.5
+			var near: bool = (
+				_cell_center(cell).distance_to(Vector2(point.x, point.z)) <= radius + CELL * 0.5
+			)
 			if near and _astar.is_in_boundsv(cell) and not _astar.is_point_solid(cell):
 				_astar.set_point_solid(cell)
 				cells.append(cell)

@@ -80,7 +80,9 @@ func clear_selection() -> void:
 
 func can_build(slot: TowerSlot, data: TowerData) -> bool:
 	return (
-		slot != null and slot.is_free() and data != null
+		slot != null
+		and slot.is_free()
+		and data != null
 		and game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
 	)
 

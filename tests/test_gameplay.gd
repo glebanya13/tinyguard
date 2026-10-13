@@ -7,7 +7,9 @@ var _failures := 0
 
 
 func _initialize() -> void:
-	LevelCatalog.selected_id = int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
+	LevelCatalog.selected_id = (
+		int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
+	)
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()
 
@@ -50,9 +52,18 @@ func _run() -> void:
 	var hero: Hero = main.get_node("Level/Hero")
 	var level: Dictionary = main.level
 	check(gs.gold == 0 and gs.wood == 0, "start with 0 gold / 0 wood")
-	check(get_nodes_in_group(TowerSlot.GROUP).size() == level["slots"].size(), "slots built: %d" % level["slots"].size())
-	check(get_nodes_in_group(WoodTree.GROUP).size() >= level["trees"].size() + 10, "trees built: %d" % get_nodes_in_group(WoodTree.GROUP).size())
-	check((main.get_node("Level/EnemyPath") as Path3D).curve.point_count == level["path"].size(), "path built")
+	check(
+		get_nodes_in_group(TowerSlot.GROUP).size() == level["slots"].size(),
+		"slots built: %d" % level["slots"].size()
+	)
+	check(
+		get_nodes_in_group(WoodTree.GROUP).size() >= level["trees"].size() + 10,
+		"trees built: %d" % get_nodes_in_group(WoodTree.GROUP).size()
+	)
+	check(
+		(main.get_node("Level/EnemyPath") as Path3D).curve.point_count == level["path"].size(),
+		"path built"
+	)
 	check(wm.get_total_waves() == int(level["waves"]["count"]), "waves: %d" % wm.get_total_waves())
 
 	# Chop a tree: standing next to it is enough (auto action).
@@ -101,7 +112,10 @@ func _run() -> void:
 	bm.select_slot(slot)
 	await tap_key(KEY_X)
 	await frames(3)
-	check(slot.is_free() and gs.gold == gold_before + 70, "sold for 70%% (+%d gold)" % (gs.gold - gold_before))
+	check(
+		slot.is_free() and gs.gold == gold_before + 70,
+		"sold for 70%% (+%d gold)" % (gs.gold - gold_before)
+	)
 	# Forge: sword upgrade and castle repair.
 	gs.add_gold(300)
 	gs.add_wood(300)
@@ -130,7 +144,21 @@ func _run() -> void:
 	await frames(1)
 	hero.try_attack()
 	await frames(60)
-	check(not is_instance_valid(enemy) or enemy.health < hp, "sword hurts enemy (hp %s -> %s, dist %.2f)" % [hp, enemy.health if is_instance_valid(enemy) else -1.0, hero.global_position.distance_to(enemy.global_position) if is_instance_valid(enemy) else -1.0])
+	check(
+		not is_instance_valid(enemy) or enemy.health < hp,
+		(
+			"sword hurts enemy (hp %s -> %s, dist %.2f)"
+			% [
+				hp,
+				enemy.health if is_instance_valid(enemy) else -1.0,
+				(
+					hero.global_position.distance_to(enemy.global_position)
+					if is_instance_valid(enemy)
+					else -1.0
+				)
+			]
+		)
+	)
 
 	print("RESULT: %s (%d failures)" % ["PASS" if _failures == 0 else "FAIL", _failures])
 	quit(_failures)

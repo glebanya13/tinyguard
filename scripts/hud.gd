@@ -130,7 +130,9 @@ func set_next_wave(wave: int, seconds: float, boss: bool = false) -> void:
 	if seconds >= 0.0 and key != _next_wave_key:
 		_next_wave_key = key
 		_next_boss_icon.visible = boss
-		_next_wave_label.text = "%s %d через %d с" % ["Босс! Волна" if boss else "Волна", wave, ceili(seconds)]
+		_next_wave_label.text = (
+			"%s %d через %d с" % ["Босс! Волна" if boss else "Волна", wave, ceili(seconds)]
+		)
 
 
 ## Sword for enemies, axe for trees.
@@ -163,8 +165,13 @@ func show_boss_banner() -> void:
 	_boss_banner.pivot_offset = _boss_banner.size / 2.0
 	var tween := create_tween()
 	tween.tween_property(_boss_banner, "modulate:a", 1.0, 0.25)
-	tween.parallel().tween_property(_boss_banner, "scale", Vector2.ONE, 0.35) \
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	(
+		tween
+		. parallel()
+		. tween_property(_boss_banner, "scale", Vector2.ONE, 0.35)
+		. set_trans(Tween.TRANS_BACK)
+		. set_ease(Tween.EASE_OUT)
+	)
 	tween.tween_interval(2.2)
 	tween.tween_property(_boss_banner, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(_boss_banner.hide)
@@ -185,8 +192,12 @@ func popup(text: String, screen_pos: Vector2, color: Color, icon: Texture2D = nu
 	_popups.add_child(label)
 	label.position = screen_pos - Vector2(24.0, 20.0)
 	var tween := label.create_tween()
-	tween.tween_property(label, "position:y", label.position.y - 60.0, 0.9) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	(
+		tween
+		. tween_property(label, "position:y", label.position.y - 60.0, 0.9)
+		. set_trans(Tween.TRANS_QUAD)
+		. set_ease(Tween.EASE_OUT)
+	)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, 0.9).set_delay(0.3)
 	tween.tween_callback(label.queue_free)
 
@@ -242,8 +253,12 @@ func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
 			star.scale = Vector2.ZERO
 			var tween := star.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 			tween.tween_interval(0.3 + 0.25 * i)
-			tween.tween_property(star, "scale", Vector2.ONE, 0.35) \
-					.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			(
+				tween
+				. tween_property(star, "scale", Vector2.ONE, 0.35)
+				. set_trans(Tween.TRANS_BACK)
+				. set_ease(Tween.EASE_OUT)
+			)
 	_stars.visible = victory
 	_pause_button.hide()
 	_speed_button.hide()

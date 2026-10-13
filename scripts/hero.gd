@@ -47,6 +47,9 @@ var joystick_vector: Vector2 = Vector2.ZERO
 ## Walkable grid for orders; without it the hero walks in a straight line.
 var walk_grid: WalkGrid = null
 
+## Forge level of the sword, 0-based.
+var sword_level: int = 0
+
 var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
 ## Remaining corners of the route to _order_target (the target is last).
@@ -55,9 +58,6 @@ var _order_reach: float = 0.1
 var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
 var _last_distance: float = INF
-## Forge level of the sword, 0-based.
-var sword_level: int = 0
-
 var _cooldown_left: float = 0.0
 var _attack_left: float = 0.0
 
@@ -87,7 +87,12 @@ func _physics_process(delta: float) -> void:
 		direction = _screen_to_world(input)
 	elif _has_order:
 		direction = _order_direction(delta)
-	if auto_action and direction == Vector3.ZERO and _cooldown_left <= 0.0 and get_focus_target(true) != null:
+	if (
+		auto_action
+		and direction == Vector3.ZERO
+		and _cooldown_left <= 0.0
+		and get_focus_target(true) != null
+	):
 		try_attack()
 	if _attack_left > 0.0:
 		direction *= 0.3  # plant the feet while swinging
@@ -101,7 +106,9 @@ func _physics_process(delta: float) -> void:
 func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable()) -> void:
 	_has_order = true
 	_order_target = Vector3(target.x, 0.0, target.z)
-	_waypoints = walk_grid.find_path(global_position, _order_target) if walk_grid else PackedVector3Array()
+	_waypoints = (
+		walk_grid.find_path(global_position, _order_target) if walk_grid else PackedVector3Array()
+	)
 	if not _waypoints.is_empty():
 		_waypoints.remove_at(_waypoints.size() - 1)  # the target itself is handled below
 	_order_reach = reach
