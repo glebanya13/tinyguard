@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="AudioStream" path="res://assets/audio/music_loop.wav" id="19_music"]
@@ -80,6 +80,18 @@ height = 0.01
 radial_segments = 48
 rings = 1
 
+[sub_resource type="StandardMaterial3D" id="arrow_mat"]
+shading_mode = 0
+albedo_color = Color(1, 0.82, 0.25, 1)
+
+[sub_resource type="CylinderMesh" id="arrow_mesh"]
+material = SubResource("arrow_mat")
+top_radius = 0.28
+bottom_radius = 0.0
+height = 0.5
+radial_segments = 4
+rings = 1
+
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
@@ -125,6 +137,11 @@ mesh = SubResource("range_mesh")
 [node name="Fill" type="MeshInstance3D" parent="RangeRing"]
 cast_shadow = 0
 mesh = SubResource("range_disc")
+
+[node name="GuideArrow" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+mesh = SubResource("arrow_mesh")
 
 [node name="GameState" type="Node" parent="."]
 script = ExtResource("4_game_state")

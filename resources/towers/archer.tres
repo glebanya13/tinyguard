@@ -7,6 +7,7 @@
 [resource]
 script = ExtResource("1_data")
 display_name = "Лучник"
+role = "быстрые выстрелы по одной цели"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 15

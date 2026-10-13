@@ -7,6 +7,8 @@ extends Resource
 const SELL_REFUND := 0.7
 
 @export var display_name: String = ""
+## One-line role for the build menu ("fast, single target").
+@export var role: String = ""
 @export var icon: Texture2D
 ## Scene instantiated on a slot; its root must use tower.gd.
 @export var scene: PackedScene

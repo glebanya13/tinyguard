@@ -161,7 +161,22 @@ def icon_whirl():
     return tg.join([sword, ring, head], "Whirl")
 
 
-ICONS = {"whirl": icon_whirl, "coin": icon_coin, "heart": icon_heart, "sword": icon_sword, "crown": icon_crown,
+def icon_hammer():
+    """Smith's hammer over an anvil: the forge."""
+    handle = tg.cylinder("handle", 0.045, 0.04, 0.75, (0, 0, -0.2), "wood", verts=10)
+    head = tg.box("head", (0.42, 0.2, 0.2), (0, 0, 0.6), "steel", bevel=0.03, bevel_seg=2)
+    band = tg.box("band", (0.1, 0.22, 0.22), (0, 0, 0.6), "gold", bevel=0.01, bevel_seg=1)
+    hammer = tg.join([handle, head, band], "Hammer")
+    hammer.rotation_euler = (0, math.radians(-35), 0)
+    hammer.location = (0.25, -0.12, -0.38)
+    tg.apply_all_transforms(hammer)
+    anvil_top = tg.box("anvil_top", (0.7, 0.3, 0.14), (-0.05, 0.1, -0.33), "iron", bevel=0.03, bevel_seg=2)
+    horn = tg.cylinder("horn", 0.07, 0.0, 0.25, (-0.52, 0.1, -0.33), "iron", verts=10, rot=(0, -90, 0))
+    anvil_body = tg.box("anvil_body", (0.34, 0.24, 0.2), (-0.05, 0.1, -0.5), "iron", bevel=0.02, bevel_seg=1)
+    return tg.join([hammer, anvil_top, horn, anvil_body], "Forge")
+
+
+ICONS = {"hammer": icon_hammer, "whirl": icon_whirl, "coin": icon_coin, "heart": icon_heart, "sword": icon_sword, "crown": icon_crown,
          "hourglass": icon_hourglass, "flag": icon_flag, "upgrade": icon_upgrade, "lock": icon_lock,
          "star": icon_star, "cancel": icon_cancel}
 

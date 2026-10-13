@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/sword.png" id="i_sword"]
 [ext_resource type="Texture2D" path="res://ui/icons/star.png" id="i_star"]
 [ext_resource type="Texture2D" path="res://ui/icons/whirl.png" id="i_whirl"]
+[ext_resource type="Texture2D" path="res://ui/icons/hammer.png" id="i_hammer"]
 
 [sub_resource type="StyleBoxFlat" id="atk_normal"]
 content_margin_left = 14.0
@@ -259,7 +260,7 @@ offset_bottom = -9.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-texture = ExtResource("i_sword")
+texture = ExtResource("i_hammer")
 expand_mode = 1
 stretch_mode = 5
 

@@ -4,6 +4,8 @@ extends Node3D
 ## systems together through their signals and turns the hero's command card
 ## into orders (walk to the slot, then build).
 
+enum GuideStep { NONE, CHOP, GOLD, BUILD }
+
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
@@ -63,6 +65,7 @@ var _pending_command: StringName = &""
 @onready var _hero: Hero = $Level/Hero
 @onready var _target_ring: MeshInstance3D = $TargetRing
 @onready var _range_ring: MeshInstance3D = $RangeRing
+@onready var _guide_arrow: MeshInstance3D = $GuideArrow
 @onready var _ring_material: StandardMaterial3D = _target_ring.mesh.surface_get_material(0)
 @onready var _wave_horn: AudioStreamPlayer = $Sfx/WaveHorn
 @onready var _boss_roar: AudioStreamPlayer = $Sfx/BossRoar
@@ -160,6 +163,7 @@ func _process(_delta: float) -> void:
 	_auto_select_near_hero()
 	_update_target_ring()
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
+	_update_guide_arrow()
 
 
 ## Ring under whatever the next swing hits; the attack button shows an axe
@@ -355,7 +359,10 @@ func _refresh_card() -> void:
 	_hud.show_hint("")
 	if slot.is_free():
 		info["title"] = "Площадка для башни"
-		info["stats"] = "Выберите башню"
+		var roles: PackedStringArray = []
+		for data: TowerData in _tower_types():
+			roles.append("%s — %s" % [data.display_name, data.role])
+		info["stats"] = "\n".join(roles)
 		var short := true
 		for i in _tower_types().size():
 			var data: TowerData = _tower_types()[i]
@@ -492,18 +499,66 @@ func _toggle_forge() -> void:
 
 ## Step-by-step hint for new players while nothing is selected.
 func _hint_text() -> String:
+	match _guide_step():
+		GuideStep.CHOP:
+			return "Подойдите к дереву или нажмите на него — рыцарь сам нарубит дров"
+		GuideStep.GOLD:
+			return "Бейте слизней у тропы — за них дают золото"
+		GuideStep.BUILD:
+			return "Нажмите на каменную площадку и постройте башню"
+	return ""
+
+
+## What a new player should do next (until HINT_TOWERS towers stand).
+func _guide_step() -> GuideStep:
 	var towers: int = 0
 	for node: Node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
 		if not (node as TowerSlot).is_free():
 			towers += 1
 	if towers >= HINT_TOWERS:
-		return ""
+		return GuideStep.NONE
 	var cheapest: TowerData = _tower_types()[0]
 	if _game_state.wood < cheapest.cost_wood:
-		return "Подойдите к дереву или нажмите на него — рыцарь сам нарубит дров"
+		return GuideStep.CHOP
 	if _game_state.gold < cheapest.cost_gold:
-		return "Бейте слизней у тропы — за них дают золото"
-	return "Нажмите на каменную площадку и постройте башню"
+		return GuideStep.GOLD
+	return GuideStep.BUILD
+
+
+## Bouncing arrow over the next thing to do: a tree, a slime, a free slot.
+func _update_guide_arrow() -> void:
+	var target: Node3D = null
+	if _build_manager.selected_slot == null and not _forge_open:
+		match _guide_step():
+			GuideStep.CHOP:
+				target = _nearest_in_group(
+					WoodTree.GROUP, func(n: Node) -> bool: return (n as WoodTree).is_choppable()
+				)
+			GuideStep.GOLD:
+				target = _nearest_in_group(
+					Enemy.GROUP, func(n: Node) -> bool: return (n as Enemy).is_alive()
+				)
+			GuideStep.BUILD:
+				target = _nearest_in_group(
+					TowerSlot.GROUP, func(n: Node) -> bool: return (n as TowerSlot).is_free()
+				)
+	_guide_arrow.visible = target != null and target != _hero.get_focus_target()
+	if _guide_arrow.visible:
+		var bob: float = 0.18 * sin(Time.get_ticks_msec() * 0.006)
+		var height: float = 2.6 if target is WoodTree else 1.0
+		_guide_arrow.global_position = target.global_position + Vector3(0.0, height + bob, 0.0)
+		_guide_arrow.rotation.y = Time.get_ticks_msec() * 0.002
+
+
+func _nearest_in_group(group: StringName, accept: Callable) -> Node3D:
+	var best: Node3D = null
+	var best_distance: float = INF
+	for node: Node in get_tree().get_nodes_in_group(group):
+		var d: float = (node as Node3D).global_position.distance_squared_to(_hero.global_position)
+		if d < best_distance and accept.call(node):
+			best_distance = d
+			best = node as Node3D
+	return best
 
 
 func _stats_text(data: TowerData, index: int) -> String:
