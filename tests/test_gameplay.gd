@@ -165,12 +165,11 @@ func _run() -> void:
 	e.setup(load("res://resources/enemies/slime.tres"), 10.0)
 	main.get_node("Level/EnemyPath").add_child(e)
 	await frames(30)  # attack cooldown from the previous swing
-	if true:
-		hero.global_position = Vector3(e.global_position.x + 1.5, 0, e.global_position.z)
-		var before: float = e.health
-		check(hero.try_spin(), "whirlwind")
-		check(e.health < before, "whirlwind damages an enemy 1.5 m away")
-		check(not hero.try_spin() and hero.spin_cooldown_left() > 10.0, "whirlwind cooldown")
+	hero.global_position = Vector3(e.global_position.x + 1.5, 0, e.global_position.z)
+	var before: float = e.health
+	check(hero.try_spin(), "whirlwind")
+	check(e.health < before, "whirlwind damages an enemy 1.5 m away")
+	check(not hero.try_spin() and hero.spin_cooldown_left() > 10.0, "whirlwind cooldown")
 
 	print("RESULT: %s (%d failures)" % ["PASS" if _failures == 0 else "FAIL", _failures])
 	quit(_failures)
