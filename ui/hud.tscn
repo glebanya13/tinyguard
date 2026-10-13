@@ -186,9 +186,9 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -344.0
+offset_left = -508.0
 offset_top = 14.0
-offset_right = -20.0
+offset_right = -170.0
 offset_bottom = 66.0
 grow_horizontal = 0
 mouse_filter = 2
@@ -217,6 +217,34 @@ custom_minimum_size = Vector2(56, 40)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "▶▶"
+
+[node name="TopRight" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -158.0
+offset_top = 12.0
+offset_right = -20.0
+offset_bottom = 68.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="SpeedButton" type="Button" parent="Root/TopRight"]
+custom_minimum_size = Vector2(64, 56)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 22
+text = "×1"
+
+[node name="PauseButton" type="Button" parent="Root/TopRight"]
+custom_minimum_size = Vector2(64, 56)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 22
+text = "❚❚"
 
 [node name="HintPill" type="PanelContainer" parent="Root"]
 visible = false
@@ -391,9 +419,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -230.0
-offset_top = -150.0
+offset_top = -200.0
 offset_right = 230.0
-offset_bottom = 150.0
+offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -408,6 +436,19 @@ theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 56
 text = "Победа!"
 horizontal_alignment = 1
+
+[node name="Stars" type="HBoxContainer" parent="Root/EndScreen/EndPanel/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="ContinueButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+process_mode = 3
+custom_minimum_size = Vector2(300, 70)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Продолжить"
 
 [node name="RestartButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3

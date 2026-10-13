@@ -45,6 +45,15 @@ func _ready() -> void:
 			button.tooltip_text = "Пройдите предыдущий уровень"
 		else:
 			button.icon = STAR_ICON if LevelCatalog.is_completed(id) else CASTLE_ICON
+			var earned: int = LevelCatalog.stars(id)
+			if earned > 0:
+				var stars := Label.new()
+				stars.text = "★".repeat(earned) + "☆".repeat(3 - earned)
+				stars.add_theme_color_override("font_color", Color(1.0, 0.84, 0.3))
+				stars.add_theme_font_size_override("font_size", 22)
+				stars.position = Vector2(2, 74)
+				stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				button.add_child(stars)
 			button.pressed.connect(_select.bind(id))
 		_site_layer.add_child(button)
 		var number := Label.new()
@@ -69,6 +78,11 @@ func _process(delta: float) -> void:
 		var bob: float = sin(_time * 2.4 + i) * 4.0 if i + 1 == _selected else 0.0
 		var screen: Vector2 = _camera.unproject_position(_sites[i].global_position)
 		button.position = screen - button.size / 2.0 + Vector2(0.0, bob)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		get_tree().quit()  # Android back on the map leaves the game
 
 
 func _select(id: int) -> void:

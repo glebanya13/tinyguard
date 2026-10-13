@@ -43,6 +43,8 @@ var level: Dictionary = {}
 var walk_grid := WalkGrid.new()
 
 var _focused_tree: WoodTree = null
+var _paused: bool = false
+var _ended: bool = false
 
 ## Command to run when the hero reaches the selected slot, or &"".
 var _pending_command: StringName = &""
@@ -92,6 +94,9 @@ func _ready() -> void:
 	_hud.next_wave_pressed.connect(_on_next_wave_pressed)
 	_hud.restart_pressed.connect(_on_restart_pressed)
 	_hud.map_pressed.connect(_on_map_pressed)
+	_hud.pause_pressed.connect(_toggle_pause)
+	_hud.continue_pressed.connect(_toggle_pause)
+	_hud.speed_pressed.connect(_toggle_speed)
 	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
 	_hero.order_cancelled.connect(_on_hero_order_ended)
 	_hero.order_finished.connect(_on_hero_order_ended)
@@ -104,6 +109,38 @@ func _ready() -> void:
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_build_walk_grid.call_deferred()
+
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			# Android back button: pause menu (and back out of it).
+			_toggle_pause()
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			# Phone call, home button: never let waves run unattended.
+			if OS.has_feature("mobile") and not _paused and not _ended:
+				_toggle_pause()
+
+
+func _toggle_pause() -> void:
+	if _ended:
+		return
+	_paused = not _paused
+	get_tree().paused = _paused
+	if _paused:
+		_hero.cancel_order()
+		_hud.show_pause_menu()
+	else:
+		_hud.hide_pause_menu()
+
+
+func _toggle_speed() -> void:
+	Engine.time_scale = 1.0 if Engine.time_scale > 1.0 else 2.0
+	_hud.set_speed(roundi(Engine.time_scale))
 
 
 func _process(_delta: float) -> void:
@@ -426,9 +463,10 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 func _on_all_waves_cleared() -> void:
 	if _game_state.is_defeated:
 		return
-	LevelCatalog.complete(int(level["id"]))
+	var stars: int = LevelCatalog.stars_for(_game_state.lives, _game_state.starting_lives)
+	LevelCatalog.complete(int(level["id"]), stars)
 	_victory_sound.play()
-	_end_game("Победа!", true)
+	_end_game("Победа!", true, stars)
 
 
 func _on_defeated() -> void:
@@ -437,10 +475,12 @@ func _on_defeated() -> void:
 	_end_game("Поражение", false)
 
 
-func _end_game(message: String, victory: bool) -> void:
+func _end_game(message: String, victory: bool, stars: int = 0) -> void:
+	_ended = true
+	Engine.time_scale = 1.0
 	_hero.cancel_order()
 	_build_manager.clear_selection()
-	_hud.show_end_screen(message, victory)
+	_hud.show_end_screen(message, victory, stars)
 	get_tree().paused = true
 
 
@@ -449,6 +489,7 @@ func _end_game(message: String, victory: bool) -> void:
 ## SceneTree.paused is the only state that survives a reload: clear it first.
 func _on_restart_pressed() -> void:
 	get_tree().paused = false
+	Engine.time_scale = 1.0
 	var error: Error = get_tree().reload_current_scene()
 	if error != OK:
 		push_error("Restart failed: %s" % error_string(error))

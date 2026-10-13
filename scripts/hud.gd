@@ -11,6 +11,9 @@ signal attack_pressed
 signal next_wave_pressed
 signal restart_pressed
 signal map_pressed
+signal pause_pressed
+signal continue_pressed
+signal speed_pressed
 signal joystick_changed(vector: Vector2)
 
 const VICTORY_COLOR := Color(0.98, 0.8, 0.4)
@@ -18,6 +21,8 @@ const DEFEAT_COLOR := Color(1.0, 0.5, 0.45)
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COST_COLOR := Color(0.2, 0.13, 0.05)
+const PAUSE_COLOR := Color(1.0, 0.96, 0.87)
+const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 ## Keyboard/gamepad action for each command id.
@@ -31,6 +36,7 @@ const SHORTCUTS := {
 
 var _button_ids: Array[StringName] = []
 var _hint_tween: Tween = null
+var _joystick_visible: bool = false
 ## Touch build: no keyboard hints or hover tooltips.
 var _touch: bool = OS.has_feature("mobile")
 
@@ -55,6 +61,10 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _joystick: Control = $Root/Joystick
 @onready var _end_screen: Control = $Root/EndScreen
 @onready var _message_label: Label = $Root/EndScreen/EndPanel/Content/MessageLabel
+@onready var _stars: HBoxContainer = $Root/EndScreen/EndPanel/Content/Stars
+@onready var _continue_button: Button = $Root/EndScreen/EndPanel/Content/ContinueButton
+@onready var _speed_button: Button = $Root/TopRight/SpeedButton
+@onready var _pause_button: Button = $Root/TopRight/PauseButton
 @onready var _restart_button: Button = $Root/EndScreen/EndPanel/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/EndPanel/Content/MapButton
 
@@ -62,6 +72,15 @@ var _touch: bool = OS.has_feature("mobile")
 func _ready() -> void:
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
+	_continue_button.pressed.connect(continue_pressed.emit)
+	_continue_button.shortcut = _shortcut(&"pause")
+	_pause_button.pressed.connect(pause_pressed.emit)
+	_speed_button.pressed.connect(speed_pressed.emit)
+	_pause_button.shortcut = _shortcut(&"pause")
+	_speed_button.shortcut = _shortcut(&"speed")
+	if not _touch:
+		_pause_button.tooltip_text = "Пауза (P)"
+		_speed_button.tooltip_text = "Скорость игры (F)"
 	_attack_button.pressed.connect(attack_pressed.emit)
 	if not _touch:
 		_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
@@ -182,16 +201,58 @@ func update_card(info: Dictionary) -> void:
 	_fit_card.call_deferred()
 
 
-## Victory/defeat screen. Its buttons work while the tree is paused.
-func show_end_screen(text: String, victory: bool) -> void:
+func set_speed(multiplier: int) -> void:
+	_speed_button.text = "×%d" % multiplier
+
+
+## Victory/defeat screen with 0..3 stars. Its buttons work while the tree is paused.
+func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
+	_show_menu(text, VICTORY_COLOR if victory else DEFEAT_COLOR)
+	_continue_button.hide()
+	for i in 3:
+		var star := TextureRect.new()
+		star.texture = STAR_ICON
+		star.custom_minimum_size = Vector2(64, 64)
+		star.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		star.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		star.modulate = Color.WHITE if i < stars else Color(0.2, 0.22, 0.3, 0.8)
+		_stars.add_child(star)
+		if i < stars:
+			star.pivot_offset = Vector2(32, 32)
+			star.scale = Vector2.ZERO
+			var tween := star.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			tween.tween_interval(0.3 + 0.25 * i)
+			tween.tween_property(star, "scale", Vector2.ONE, 0.35) \
+					.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_stars.visible = victory
+	_pause_button.hide()
+	_speed_button.hide()
+
+
+## Pause menu: continue, restart, back to the map.
+func show_pause_menu() -> void:
+	_show_menu("Пауза", PAUSE_COLOR)
+	_stars.hide()
+	_continue_button.show()
+
+
+func hide_pause_menu() -> void:
+	_end_screen.hide()
+	_card.visible = not _button_ids.is_empty()
+	_attack_button.show()
+	_joystick.visible = _joystick_visible
+
+
+func _show_menu(text: String, color: Color) -> void:
+	if not _end_screen.visible:
+		_joystick_visible = _joystick.visible
 	_message_label.text = text
-	_message_label.add_theme_color_override("font_color", VICTORY_COLOR if victory else DEFEAT_COLOR)
+	_message_label.add_theme_color_override("font_color", color)
 	_restart_button.disabled = false
 	_map_button.disabled = false
 	_card.hide()
 	_attack_button.hide()
 	_joystick.hide()
-	_next_wave_pill.hide()
 	_end_screen.show()
 
 
@@ -298,4 +359,5 @@ func _on_end_button_pressed(next: Signal) -> void:
 	# The scene change happens later in the frame; ignore repeated taps.
 	_restart_button.disabled = true
 	_map_button.disabled = true
+	_continue_button.disabled = true
 	next.emit()
