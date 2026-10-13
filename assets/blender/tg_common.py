@@ -577,15 +577,14 @@ def ensure_import_settings(glb: Path) -> None:
         lines += [f"{k}={v}" for k, v in _IMPORT_PARAMS.items()]
         imp.write_text("\n".join(lines) + "\n")
         return
-    out, skip = [], False
+    out, depth = [], 0
     for line in imp.read_text().splitlines():
         key = line.split("=", 1)[0]
-        if skip:
-            if line == "}":
-                skip = False
+        if depth > 0:  # inside a multi-line _subresources value
+            depth += line.count("{") - line.count("}")
             continue
         if key == "_subresources":
-            skip = not line.endswith("{}")  # multi-line value runs until a lone "}"
+            depth = line.count("{") - line.count("}")
             continue
         if key in _IMPORT_PARAMS:
             continue

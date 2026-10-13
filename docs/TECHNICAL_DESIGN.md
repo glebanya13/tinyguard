@@ -23,7 +23,9 @@
 Main (Node3D, main.gd)               — связывает системы сигналами
 ├── WorldEnvironment, Sun, Camera     — окружение, свет, изометрия
 ├── Level (Node3D)                    — статическая карта из примитивов
-│   ├── Ground, PathA/B/C, Spawn, Base
+│   ├── Terrain (level_01_terrain.glb, no_shadow.gd) — земля, тропа, мелкий декор
+│   ├── Base (castle.glb), Spawn (spawn_portal.glb), Decor (level_01_decor.glb)
+│   ├── Hero (hero.tscn)              — герой у замка, пока только визуал
 │   ├── TowerSlot1..3 (tower_slot.tscn) — площадки, Area3D на слое 1
 │   │   └── PlaceholderTower (tower.tscn) — стартовая башня в TowerSlot2
 │   └── EnemyPath (Path3D)            — маршрут; враги спавнятся его детьми
@@ -171,6 +173,37 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 - Тап/клик → луч из камеры → `PhysicsRayQueryParameters3D` (см. «Строительство»).
 - Слои коллизий: 1 — площадки (используется), 2 — башни (зарезервирован).
   Враги коллизий не имеют.
+
+## Визуал и игровая логика
+
+Логика не зависит от мешей: модели — дочерние узлы `Model` (инстансы `.glb`), у них
+нет коллизий, они не участвуют в выборе цели и в лучах выбора площадок.
+
+| Скрипт | Где | Что делает |
+|---|---|---|
+| `looping_model.gd` | `Model` героя и слайма | зацикливает анимацию `idle`, случайная фаза |
+| `tower_model.gd` | `Model` башни | по сигналу `Tower.fired(target)` поворачивает `Turret` к цели и играет `attack` |
+| `no_shadow.gd` | террейн, кольца площадок | отключает отбрасывание теней у мешей ниже (экономия draw calls) |
+| `hud_icon.gd` | HUD | рисует иконки флага, монеты, сердца |
+
+- `tower.gd` только испускает `fired` и выпускает снаряд у кончика арбалета
+  (`muzzle_reach`); урон, радиус и темп не менялись.
+- `projectile.gd` разворачивает стрелу по направлению полёта (`look_at`).
+- Слайм в `enemy.tscn` повёрнут на 180°: модель смотрит в +Z, а `PathFollow3D` ведёт по −Z.
+- Все модели используют один материал `assets/materials/tg_palette.tres`
+  (альбедо-палитра × цвет вершин с AO; roughness/metallic из ORM).
+- Тени: один ортогональный каскад, `shadow_blur = 1.5`; мелкие пропсы теней не отбрасывают.
+- Замер (Godot 4.3, Compatibility, 1280×720, программный OpenGL): 50–72 draw calls,
+  ~75 тыс. треугольников в кадре с идущей волной. FPS на телефоне не измерялся.
+
+## Интерфейс
+
+`ui/hud.tscn` с темой `ui/theme.tres`: `Root` (Control, `mouse_filter = IGNORE`) →
+`TopBar` (таблетки волны, золота, жизней), `StartWaveButton`, `BuildMenu`,
+`EndScreen` (затемнение + панель с `MessageLabel` и `RestartButton`). Контейнеры и
+иконки не перехватывают клики, чтобы касание проходило к карте.
+`Hud.show_end_screen(text, victory)` красит заголовок золотым или коралловым и прячет
+кнопку волны.
 
 ## Ссылки на узлы в сценах
 

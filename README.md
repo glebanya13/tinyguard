@@ -3,8 +3,11 @@
 Небольшая оригинальная 3D Tower Defense для Android в low-poly стиле.
 Движок — **Godot 4.x**, язык — **GDScript**, рендерер — **Compatibility** (OpenGL ES 3).
 
-> Статус: этап 2 — минимальный игровой цикл и строительство башен на площадках.
-> Код проверен статически; **запуск в Godot ещё не проверялся.**
+> Статус: игровой цикл, строительство, перезапуск и визуальный срез (герой, башня,
+> слайм, замок, окружение, HUD). Проверено в Godot 4.3 на Linux (headless и программный
+> OpenGL); на Mac и Android — ещё нет.
+
+![Tinyguard, уровень 1](docs/screenshots/level_01.png)
 
 ## Концепция
 
@@ -26,24 +29,26 @@
 tinyguard/
 ├── project.godot          # настройки проекта (Compatibility, landscape)
 ├── icon.svg               # временная иконка
+├── assets/
+│   ├── blender/           # Python-скрипты, генерирующие все модели (см. README там)
+│   ├── models/            # GLB + .glb.import (общий материал)
+│   └── materials/         # палитра-атлас и общий материал tg_palette.tres
 ├── scenes/
 │   ├── main.tscn          # уровень: карта, башня, тропа, GameState, WaveManager, HUD
 │   ├── enemy.tscn         # враг (PathFollow3D)
 │   ├── tower.tscn         # башня (стрельба по ближайшему врагу)
 │   ├── tower_slot.tscn    # площадка под башню (Area3D)
-│   └── projectile.tscn    # снаряд
-├── scripts/               # main, enemy, tower, tower_slot, tower_data, projectile,
-│                          # wave_manager, wave_config, build_manager, game_state, hud
+│   ├── hero.tscn          # герой-рыцарь (визуал, анимация idle)
+│   └── projectile.tscn    # стрела
+├── scripts/               # логика: main, enemy, tower, tower_slot, tower_data, projectile,
+│                          #   wave_manager, wave_config, build_manager, game_state, hud
+│                          # визуал: tower_model, looping_model, no_shadow, hud_icon
 ├── resources/
 │   ├── waves_level_01.tres  # параметры волн
 │   └── tower_archer.tres    # башня: название, цена, сцена
-├── ui/hud.tscn            # показатели и кнопка «Начать волну»
-├── assets/
-│   ├── blender/           # исходники .blend
-│   ├── models/            # экспорт .glb для Godot
-│   └── materials/         # общие материалы .tres
+├── ui/                    # hud.tscn, theme.tres
 ├── tools/validate_project.py  # проверка структуры без Godot
-└── docs/                  # дизайн, архитектура, арт-гайд, роадмап
+└── docs/                  # дизайн, архитектура, арт-гайд, план ассетов, роадмап
 ```
 
 ## Запуск
@@ -101,4 +106,6 @@ python3 tools/validate_project.py
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — механики
 - [`docs/TECHNICAL_DESIGN.md`](docs/TECHNICAL_DESIGN.md) — архитектура
 - [`docs/ART_GUIDE.md`](docs/ART_GUIDE.md) — визуальный стиль
+- [`docs/ASSET_PLAN.md`](docs/ASSET_PLAN.md) — план и итог 3D-ассетов
+- [`assets/blender/README.md`](assets/blender/README.md) — сборка моделей в Blender
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — этапы разработки

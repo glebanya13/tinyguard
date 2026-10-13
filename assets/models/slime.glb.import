@@ -31,6 +31,7 @@ animation/trimming=false
 animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
+gltf/naming_version=1
 _subresources={
 "materials": {
 "TG_Palette": {
@@ -39,5 +40,4 @@ _subresources={
 }
 }
 }
-gltf/naming_version=1
 gltf/embedded_image_handling=0
