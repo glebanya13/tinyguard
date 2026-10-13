@@ -44,6 +44,27 @@ Main (Node3D, main.gd)               — строит уровень из дан
 └── HUD (ui/hud.tscn)                 — показатели, командная карта, атака, баннер босса
 ```
 
+## Пауза, скорость, звёзды, кузница
+
+- Пауза — `SceneTree.paused`; меню паузы и экран конца — один узел `HUD/EndScreen`
+  (кнопки с `process_mode = ALWAYS`). Пауза включается кнопкой, действием `pause`,
+  `NOTIFICATION_WM_GO_BACK_REQUEST` (`application/config/quit_on_go_back=false`) и
+  на мобильных при `NOTIFICATION_APPLICATION_PAUSED/FOCUS_OUT`. На карте «Назад» — выход.
+- ×2 — `Engine.time_scale`, сбрасывается в конце уровня и при выходе со сцены.
+- Звёзды и звук — `LevelCatalog` (`user://progress.cfg`: `stars_<id>`, `settings/sound`);
+  тесты подменяют `LevelCatalog.save_path`.
+- Кузница — карта команд `main.gd` (`_forge_card`), цены меча — `@export` героя,
+  ремонт — `@export` `GameState` (`repair_lives`, `repair_wood`).
+- Продажа — `BuildManager.sell()` → `TowerData.sell_value()` (70 %), `WalkGrid.unblock()`.
+- «Вихрь» — `Hero.try_spin()`, эффект `scenes/fx/spin_fx.tscn`.
+
+## Тесты и баланс
+
+`tests/run_all.sh <godot>` — headless-тесты: `test_gameplay.gd` (рубка, постройка,
+улучшение, продажа, кузница, вихрь, боссы; на каждом уровне), `test_walk.gd` (рыцарь
+доходит до всех площадок), `test_pause.gd` (пауза, «Назад», ×2, звёзды, звук).
+`tools/balance_sim.py` — дискретная симуляция волн с жадным игроком и героем у замка.
+
 ## Камера
 
 - `Camera3D`, `projection = Orthogonal`, `size ≈ 10`.
@@ -148,7 +169,10 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 Стоящие деревья рисует `Grove`: по одному `MultiMeshInstance3D` на модель
 (около 50 деревьев = 2 draw call вместо 50). Дерево, которое качается, падает,
 растёт или подсвечено как цель, прячет свой экземпляр и показывает собственную
-модель. Замер на уровне 1: 90–120 draw calls в кадре (было 150–180).
+модель. Замер на уровне 1: 85–120 draw calls в кадре (было 150–180).
+Декор, земля и дальний лес не отбрасывают теней: кадр уровня 1 ≈ 99 тыс.
+треугольников (было 127 тыс.), уровня 3 ≈ 109 тыс. Полоска HP видна только у
+раненых врагов и боссов; HUD обновляет текст только при изменениях.
 
 Приказы героя идут по `WalkGrid` (`AStarGrid2D`, клетка 0.5 м): сетка строится
 один раз после первого физического кадра запросами `intersect_shape` (цилиндр
