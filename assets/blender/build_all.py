@@ -23,6 +23,8 @@ BUILDERS = {
     "castle": "build_castle",
     "environment": "build_environment",
     "terrain": "build_terrain",
+    "icons": "build_icons",
+    "worldmap": "build_worldmap",
 }
 
 

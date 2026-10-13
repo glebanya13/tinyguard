@@ -73,6 +73,25 @@ PALETTE: dict[str, tuple[str, float, float]] = {
     "slime": ("EA5A4E", 0.25, 0.0),
     "slime_dark": ("B53A3A", 0.3, 0.0),
     "slime_light": ("FFA08C", 0.2, 0.0),
+    # enemy variants
+    "slime_fast": ("F2A33A", 0.25, 0.0),
+    "slime_fast_dark": ("C9762A", 0.3, 0.0),
+    "slime_tank": ("B8323F", 0.3, 0.0),
+    "slime_tank_dark": ("7E2030", 0.35, 0.0),
+    "king": ("B23A72", 0.25, 0.0),
+    "king_dark": ("6E2350", 0.3, 0.0),
+    "ruby": ("E23B4F", 0.15, 0.2),
+    # towers
+    "iron": ("4C525F", 0.45, 0.6),
+    "iron_dark": ("2F333C", 0.5, 0.5),
+    "ice": ("7FD3F2", 0.15, 0.0),
+    "ice_light": ("D6F6FF", 0.1, 0.0),
+    "ice_dark": ("3E8FC4", 0.2, 0.0),
+    # world map
+    "sea": ("5FA8D3", 0.3, 0.0),
+    "sea_light": ("8CC8E8", 0.3, 0.0),
+    "sand": ("E8D3A0", 0.95, 0.0),
+    "snow": ("F4F7FA", 0.8, 0.0),
 }
 GRID = 8
 CELL_PX = 32

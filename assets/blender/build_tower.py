@@ -192,27 +192,138 @@ def build_slot_ring(rng):
     return tg.join(parts, "SlotRing")
 
 
-def build() -> list:
-    rng = random.Random(3)
+def build_cannon_turret():
+    """Iron cannon on a wooden carriage. Turret yaws; Gun recoils."""
+    swivel = tg.cylinder("swivel", 0.15, 0.14, 0.06, (0, 0, TOP), "wood_dark", verts=14)
+    ring = tg.torus("swivel_ring", 0.145, 0.014, (0, 0, TOP + 0.03), "gold", seg=18, minor_seg=6)
+    cheeks = [tg.box(f"cheek{s}", (0.04, 0.26, 0.16), (0.11 * s, 0.0, TOP + 0.13), "wood", bevel=0.015, bevel_seg=1)
+              for s in (-1, 1)]
+    wheels = [tg.cylinder(f"wheel{s}", 0.075, 0.075, 0.035, (0.15 * s, 0.05, TOP + 0.08), "wood_dark", verts=12,
+                          rot=(0, 90, 0)) for s in (-1, 1)]
+    hubs = [tg.sphere(f"hub{s}", (0.04, 0.04, 0.04), (0.17 * s, 0.05, TOP + 0.08), "gold", seg=8, rings=4)
+            for s in (-1, 1)]
+    turret = tg.join([swivel, ring, *cheeks, *wheels, *hubs], "Turret")
+    tg.pivot(turret, (0, 0, TOP))
+    barrel = tg.lathe("barrel", [(0.085, -0.12), (0.095, -0.08), (0.075, 0.0), (0.065, 0.2), (0.075, 0.24),
+                                 (0.07, 0.27)], "iron", steps=14)
+    barrel.rotation_euler = (math.radians(-90 + 10), 0, 0)  # points -Y, tilted up
+    tg.apply_all_transforms(barrel)
+    bands = [tg.torus(f"band{i}", 0.08, 0.012, (0, -y, 0.012 * i), "gold", seg=16, minor_seg=5,
+                      rot=(90 - 10, 0, 0)) for i, y in enumerate((0.0, 0.2))]
+    breech = tg.sphere("breech", (0.15, 0.15, 0.15), (0, 0.12, -0.02), "iron_dark", seg=12, rings=6)
+    muzzle = tg.torus("muzzle", 0.072, 0.018, (0, -0.27, 0.05), "iron_dark", seg=16, minor_seg=5, rot=(80, 0, 0))
+    gun = tg.join([barrel, *bands, breech, muzzle], "Gun")
+    gun.location = (0, 0, TOP + 0.2)
+    tg.apply_all_transforms(gun)
+    tg.pivot(gun, (0, 0, TOP + 0.2))
+    return turret, gun
+
+
+def build_frost_turret():
+    """Stone pedestal holding a floating ice crystal. Crystal pulses on attack."""
+    pedestal = tg.lathe("pedestal", [(0.2, TOP), (0.16, TOP + 0.05), (0.1, TOP + 0.12), (0.14, TOP + 0.2),
+                                     (0.17, TOP + 0.22)], "stone_light", steps=12)
+    prongs = []
+    for i in range(4):
+        a = math.pi / 2 * i + math.pi / 4
+        pr = tg.cylinder(f"prong{i}", 0.03, 0.012, 0.22, (0.15 * math.cos(a), 0.15 * math.sin(a), TOP + 0.2),
+                         "gold", verts=6, rot=(math.degrees(-0.4 * math.sin(a)), math.degrees(0.4 * math.cos(a)), 0))
+        prongs.append(pr)
+    turret = tg.join([pedestal, *prongs], "Turret")
+    tg.pivot(turret, (0, 0, TOP))
+    # Crystal: two hexagonal pyramids, plus small shards around.
+    def bipyramid(name, r, h_top, h_bot, loc, mat):
+        verts = [(0, 0, h_top), (0, 0, -h_bot)]
+        for i in range(6):
+            a = math.pi / 3 * i
+            verts.append((r * math.cos(a), r * math.sin(a), 0))
+        faces = []
+        for i in range(6):
+            j = (i + 1) % 6
+            faces.append((0, 2 + i, 2 + j))
+            faces.append((1, 2 + j, 2 + i))
+        obj = tg.from_pydata(name, [(x + loc[0], y + loc[1], z + loc[2]) for x, y, z in verts], faces, mat, smooth=False)
+        return obj
+    core = bipyramid("core", 0.13, 0.32, 0.16, (0, 0, TOP + 0.45), "ice")
+    inner = bipyramid("inner", 0.07, 0.2, 0.1, (0, -0.02, TOP + 0.47), "ice_light")
+    shards = [bipyramid(f"shard{i}", 0.04, 0.1, 0.05,
+                        (0.21 * math.cos(a), 0.21 * math.sin(a), TOP + 0.38 + 0.05 * (i % 2)), "ice_dark")
+              for i, a in enumerate([0.3, 2.4, 4.4])]
+    crystal = tg.join([core, inner, *shards], "Crystal")
+    tg.pivot(crystal, (0, 0, TOP + 0.45))
+    return turret, crystal
+
+
+def build_cannonball():
+    ball = tg.sphere("ball", (0.16, 0.16, 0.16), (0, 0, 0), "iron_dark", seg=12, rings=6)
+    shine = tg.sphere("shine", (0.05, 0.03, 0.04), (-0.04, -0.06, 0.04), "steel", seg=6, rings=3)
+    return tg.join([ball, shine], "Ball")
+
+
+def build_frost_shard():
+    verts = [(0, 0.16, 0), (0, -0.08, 0)]
+    for i in range(6):
+        a = math.pi / 3 * i
+        verts.append((0.04 * math.cos(a), 0.0, 0.04 * math.sin(a)))
+    faces = []
+    for i in range(6):
+        j = (i + 1) % 6
+        faces.append((0, 2 + j, 2 + i))
+        faces.append((1, 2 + i, 2 + j))
+    shard = tg.from_pydata("Shard", verts, faces, "ice", smooth=False)
+    glow = tg.sphere("glow", (0.06, 0.12, 0.06), (0, 0.03, 0), "ice_light", seg=8, rings=4)
+    return tg.join([shard, glow], "Shard")
+
+
+def tower_track(kind, part) -> None:
+    if kind == "archer":
+        attack(part)
+    elif kind == "cannon":
+        tg.make_track("attack", {
+            part: [(0, {}), (2, {"loc": (0, 0.12, -0.02), "rot": (8, 0, 0)}), (8, {"loc": (0, -0.02, 0)}),
+                   (12, {})],
+        }, 12)
+    else:
+        tg.make_track("attack", {
+            part: [(0, {}), (3, {"scale": (1.35, 1.35, 1.35), "rot": (0, 0, 40)}), (8, {"scale": (0.92, 0.92, 0.92),
+                   "rot": (0, 0, 70)}), (12, {"rot": (0, 0, 90)})],
+        }, 12)
+
+
+def build_tower_kind(kind: str, rng) -> dict:
     root = tg.empty("Tower")
     base = build_base(rng)
-    turret, bow = build_turret()
     flag = build_flag()
+    if kind == "archer":
+        turret, part = build_turret()
+    elif kind == "cannon":
+        turret, part = build_cannon_turret()
+    else:
+        turret, part = build_frost_turret()
     base = tg.join([base, flag], "Base")  # static parts share one mesh (one draw call)
     lv2, lv3 = build_levels()
     collider = tg.collider_cylinder("TowerBody", 0.43, 1.0)
-    for part in (lv2, lv3, collider):
-        tg.parent(part, root)
-    tg.parent(base, root)
-    tg.parent(turret, root)
-    tg.parent(bow, turret)
-    attack(bow)
-    tower = tg.finish_asset("tower_archer", root, ao_distance=0.25, ao_strength=0.75)
+    for obj in (lv2, lv3, collider, base, turret):
+        tg.parent(obj, root)
+    tg.parent(part, turret)
+    tower_track(kind, part)
+    return tg.finish_asset(f"tower_{kind}", root, ao_distance=0.25, ao_strength=0.75)
+
+
+def _clear() -> None:
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o, do_unlink=True)
-    arrow = build_arrow()
-    out = [tower, tg.finish_asset("arrow", arrow, ao_distance=0.05, ao_strength=0.4, ground=False)]
-    for o in list(bpy.data.objects):
-        bpy.data.objects.remove(o, do_unlink=True)
-    out.append(tg.finish_asset("slot_ring", build_slot_ring(rng), ao_distance=0.08, ao_strength=0.6))
+
+
+def build() -> list:
+    out = []
+    for kind in ("archer", "cannon", "frost"):
+        _clear()
+        out.append(build_tower_kind(kind, random.Random(3)))
+    for name, fn, ao in (("arrow", build_arrow, 0.05), ("cannonball", build_cannonball, 0.05),
+                         ("frost_shard", build_frost_shard, 0.05)):
+        _clear()
+        out.append(tg.finish_asset(name, fn(), ao_distance=ao, ao_strength=0.4, ground=False))
+    _clear()
+    out.append(tg.finish_asset("slot_ring", build_slot_ring(random.Random(3)), ao_distance=0.08, ao_strength=0.6))
     return out

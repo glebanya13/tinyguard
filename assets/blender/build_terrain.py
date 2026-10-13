@@ -1,11 +1,15 @@
-"""Level 01 terrain: grass island with dirt cliffs, the enemy path and path details.
+"""Level terrain: ground with hills, the enemy path, path details and decoration.
 
-Built in world coordinates so it is placed at the origin in Godot.
-Godot (x, y, z) == Blender (x, -z, y). The path follows Level/EnemyPath in
-scenes/main.tscn; its corners are rounded but stay within half a metre of the
-sharp curve enemies walk on.
+Layouts come from resources/levels.json (shared with Godot). For every level this
+builds level_<id>_terrain.glb, level_<id>_decor.glb and level_<id>_forest.glb in
+world coordinates (placed at the origin in Godot). Godot (x, y, z) == Blender
+(x, -z, y). Path corners are rounded (0.75 m) but stay within half a metre of the
+sharp curve enemies walk on (a 0.75 m quadratic corner is 0.27 m off the sharp one).
+Set TG_LEVELS=1,3 to build only some levels.
 """
+import json
 import math
+import os
 import random
 
 import bmesh
@@ -14,33 +18,38 @@ from mathutils import Vector, noise
 import build_environment as env
 import tg_common as tg
 
-# Walkable area for the hero (invisible walls), ground continues to GROUND_HALF.
-PLAY_X, PLAY_Z = 13.0, 9.0
-GROUND_HALF = 34.0
-DENSE_X, DENSE_Z = 14.5, 10.5
+LEVELS_FILE = tg.ROOT / "resources" / "levels.json"
+GROUND_HALF = 40.0
 STEP = 0.5
-# Godot XZ: spawn portal -> curve points -> castle steps.
-PATH = [(-6.05, -2.5), (-1.5, -2.5), (-1.5, 1.5), (4.05, 1.5)]
 PATH_HALF = 0.5
 CORNER_R = 0.75  # > path half width + shoulder (0.6), else the inner edge folds
-SLOTS = [(-3.5, -1.5), (0.5, 0.5), (2.5, 2.5)]
-HERO = (4.3, 3.2)
-# Hand-placed decoration around the board (Godot x, z, yaw degrees, scale). All props
-# are baked into level_01_decor.glb in 10 m chunks; TALL ones also get trunk colliders.
-TALL = [
-    ("pine", -4.8, -3.45, 0, 1.0), ("pine", -3.1, -3.55, 40, 0.85), ("round", -0.4, -3.4, 10, 1.0),
-    ("pine", 1.1, -3.5, 70, 1.1), ("round", 2.7, -3.2, 120, 0.9), ("pine", 4.3, -3.45, 15, 1.0),
-    ("round", 5.35, -2.3, 200, 1.05), ("pine", 5.45, -0.55, 80, 0.9), ("round", -5.4, 0.7, 30, 1.0),
-    ("pine", -5.3, 2.5, 0, 1.1), ("round", -3.9, 3.35, 300, 0.85),
-    ("bush", -2.6, 0.9, 0, 1.0), ("bush", 0.9, -1.4, 90, 0.9), ("bush", -0.3, 2.9, 200, 1.1),
-    ("bush", 2.2, -1.0, 45, 0.85), ("bush", 5.4, 3.4, 10, 1.0),
-]
-SMALL = [
-    ("rock_a", -2.6, -1.0, 30, 1.0), ("rock_b", 3.3, -0.6, 120, 1.0), ("rock_a", -4.6, 1.6, 200, 0.8),
-    ("rock_b", 1.6, 3.45, 60, 0.9), ("rock_a", 3.2, 3.6, 0, 0.7),
-    ("flowers", -2.2, 2.5, 0, 1.2), ("flowers", 1.3, -0.4, 60, 1.2), ("flowers", -4.4, -0.6, 120, 1.2),
-    ("flowers", 3.7, 3.65, 0, 1.0), ("flowers", 0.3, 3.3, 200, 1.2), ("flowers", -0.4, -1.6, 30, 1.1),
-]
+CHUNK = 10.0
+
+# Current level (set by use_level).
+PLAY_X = PLAY_Z = DENSE_X = DENSE_Z = 0.0
+PATH: list = []
+SLOTS: list = []
+HERO: tuple = (0.0, 0.0)
+CASTLE: tuple = (0.0, 0.0)
+PORTAL: tuple = (0.0, 0.0)
+CHOP_TREES: list = []
+
+
+def use_level(lv: dict) -> None:
+    global PLAY_X, PLAY_Z, DENSE_X, DENSE_Z, PATH, SLOTS, HERO, CASTLE, PORTAL, CHOP_TREES
+    x0, z0, w, h = lv["bounds"]
+    PLAY_X, PLAY_Z = w / 2, h / 2
+    DENSE_X, DENSE_Z = PLAY_X + 1.5, PLAY_Z + 1.5
+    pts = [tuple(p) for p in lv["path"]]
+    # Extend the last segment to the castle steps.
+    (ax, az), (bx, bz) = pts[-2], pts[-1]
+    d = Vector((bx - ax, bz - az)).normalized()
+    PATH = pts[:-1] + [(bx + d.x * 0.45, bz + d.y * 0.45)]
+    SLOTS = [tuple(s) for s in lv["slots"]]
+    HERO = tuple(lv["hero"])
+    CASTLE = tuple(lv["castle"])
+    PORTAL = pts[0]
+    CHOP_TREES = [tuple(s) for s in lv["trees"]]
 
 
 def b(gx, gz, h=0.0) -> tuple:
@@ -80,18 +89,20 @@ def dist_to_path(x, z) -> float:
 
 
 def free_spot(x, z, margin=0.75) -> bool:
-    """True where decoration may go: off the path, slots, castle, hero and portal."""
+    """True where decoration may go: off the path, slots, castle, hero, portal and choppable trees."""
     if abs(x) > PLAY_X - 0.3 or abs(z) > PLAY_Z - 0.3:
         return False
     if dist_to_path(x, z) < margin:
         return False
-    if any(math.hypot(x - sx, z - sz) < 0.75 for sx, sz in SLOTS):
+    if any(math.hypot(x - sx, z - sz) < 1.0 for sx, sz in SLOTS):
         return False
-    if x > 3.6 and 0.2 < z < 2.8:  # castle
+    if abs(x - CASTLE[0]) < 1.9 and abs(z - CASTLE[1]) < 1.9:
         return False
-    if math.hypot(x - HERO[0], z - HERO[1]) < 0.55:
+    if math.hypot(x - HERO[0], z - HERO[1]) < 0.8:
         return False
-    if x < -4.9 and abs(z + 2.5) < 1.1:  # portal
+    if math.hypot(x - PORTAL[0], z - PORTAL[1]) < 1.8:
+        return False
+    if any(math.hypot(x - tx, z - tz) < 1.1 for tx, tz in CHOP_TREES):
         return False
     return True
 
@@ -208,7 +219,9 @@ def build_details(rng, pts):
         n = Vector((-t.y, t.x))
         for side in (-1, 1):
             q = p + n * side * rng.uniform(0.6, 0.68) + t * rng.uniform(-0.08, 0.08)
-            if q.x < -5.4 or q.x > 3.8 or rng.random() < 0.25:
+            if rng.random() < 0.25 or math.hypot(q.x - PORTAL[0], q.y - PORTAL[1]) < 1.3:
+                continue
+            if math.hypot(q.x - CASTLE[0], q.y - CASTLE[1]) < 1.9:
                 continue
             if any(math.hypot(q.x - sx, q.y - sz) < 0.62 for sx, sz in SLOTS):
                 continue
@@ -216,7 +229,7 @@ def build_details(rng, pts):
                                 rng.choice(["rock", "stone_light", "rock"])))
     # Grass tufts and scattered pebbles on free ground.
     placed = 0
-    while placed < 260:
+    while placed < 330:
         x, z = rng.uniform(-PLAY_X, PLAY_X), rng.uniform(-PLAY_Z, PLAY_Z)
         if not free_spot(x, z, 0.7):
             continue
@@ -230,7 +243,7 @@ def build_details(rng, pts):
             blades.append(bl)
         parts += blades
         placed += 1
-    for i in range(70):
+    for i in range(90):
         x, z = rng.uniform(-PLAY_X, PLAY_X), rng.uniform(-PLAY_Z, PLAY_Z)
         if free_spot(x, z, 0.65):
             parts.append(pebble(f"peb{i}", rng, x, z, rng.uniform(0.04, 0.07), "rock"))
@@ -246,36 +259,32 @@ CHUNK = 10.0
 def generated_layout(rng):
     """More groves inside the bigger play area and a forest ring outside it."""
     tall, small = [], []
-    taken = [(x, z) for _, x, z, _, _ in TALL]
+    taken = list(CHOP_TREES)
 
     def spaced(x, z, d):
         return all(math.hypot(x - a, z - c) > d for a, c in taken)
     tries = 0
-    while len(tall) < 34 and tries < 5000:
+    while len(tall) < 46 and tries < 8000:
         tries += 1
         x, z = rng.uniform(-PLAY_X + 0.8, PLAY_X - 0.8), rng.uniform(-PLAY_Z + 0.8, PLAY_Z - 0.8)
-        if abs(x) < 6.6 and abs(z) < 4.6:
-            continue  # the original board keeps its hand-placed layout
         if not free_spot(x, z, 1.0) or not spaced(x, z, 1.3):
             continue
         kind = rng.choice(["pine", "pine", "round", "bush"])
         tall.append((kind, x, z, rng.uniform(0, 360), rng.uniform(0.85, 1.2)))
         taken.append((x, z))
     tries = 0
-    while len(small) < 40 and tries < 5000:
+    while len(small) < 60 and tries < 8000:
         tries += 1
         x, z = rng.uniform(-PLAY_X + 0.5, PLAY_X - 0.5), rng.uniform(-PLAY_Z + 0.5, PLAY_Z - 0.5)
-        if abs(x) < 6.6 and abs(z) < 4.6:
-            continue
         if free_spot(x, z, 0.8):
             small.append((rng.choice(["flowers", "flowers", "rock_a", "rock_b"]), x, z, rng.uniform(0, 360),
                           rng.uniform(0.8, 1.2)))
     # Forest ring: dense next to the walls, sparser further out.
     ring = []
-    gx = -27.0
-    while gx <= 27.0:
-        gz = -21.0
-        while gz <= 21.0:
+    gx = -PLAY_X - 13.0
+    while gx <= PLAY_X + 13.0:
+        gz = -PLAY_Z - 13.0
+        while gz <= PLAY_Z + 13.0:
             jx, jz = gx + rng.uniform(-0.6, 0.6), gz + rng.uniform(-0.6, 0.6)
             d = outside(jx, jz)
             if 1.2 < d and (d < 6.0 or rng.random() < 0.2):
@@ -309,37 +318,52 @@ def chunked(layout, prefix):
             for (kx, kz), items in sorted(cells.items())]
 
 
-def build() -> list:
-    rng = random.Random(5)
+def build_level(lv: dict) -> list:
+    use_level(lv)
+    rng = random.Random(5 + lv["id"])
     ground = build_ground()
     path, pts = build_path()
     details = build_details(rng, pts)
-    gen_tall, gen_small, ring = generated_layout(random.Random(13))
+    gen_tall, gen_small, ring = generated_layout(random.Random(13 + lv["id"]))
     terrain = tg.join([ground, path, details], "Terrain")
     for wall in build_walls():
         tg.parent(wall, terrain)
 
     decor = tg.empty("Decor")
-    for chunk in chunked(TALL + gen_tall + SMALL + gen_small, "Chunk"):
+    for chunk in chunked(gen_tall + gen_small, "Chunk"):
         tg.parent(chunk, decor)
-    # The forest ring outside the walls: no shadows in Godot (no_shadow.gd).
     forest = tg.empty("Forest")
     for chunk in chunked(ring, "Ring"):
         tg.parent(chunk, forest)
     # Trunks inside the play area block the hero.
     cols = [tg.collider_cylinder(f"trunk{i}", 0.28 if kind in TREES else 0.32, 1.2, b(x, z, 0))
-            for i, (kind, x, z, _, s) in enumerate(TALL + gen_tall)]
-    trunks = tg.join(cols, "Trunks" + tg.COLLIDER_SUFFIX)
-    tg.parent(trunks, decor)
+            for i, (kind, x, z, _, s) in enumerate(gen_tall)]
+    if cols:
+        tg.parent(tg.join(cols, "Trunks" + tg.COLLIDER_SUFFIX), decor)
     chunks = [c for c in decor.children if not tg.is_collider(c)] + list(forest.children)
 
     def tint(co):
         # Soft colour variation on the grass (AO channel).
         return 0.9 + 0.12 * noise.noise(Vector((co.x * 0.45, co.y * 0.45, 3.0)))
-    out = [tg.finish_asset("level_01_terrain", terrain, ao_distance=0.3, ao_strength=0.6, ground=False, tint=tint,
+    name = f"level_{lv['id']}"
+    out = [tg.finish_asset(f"{name}_terrain", terrain, ao_distance=0.3, ao_strength=0.6, ground=False, tint=tint,
                            occluders=chunks)]
-    out.append(tg.finish_asset("level_01_decor", decor, ao_distance=0.3, ao_strength=0.7, ground=False,
+    out.append(tg.finish_asset(f"{name}_decor", decor, ao_distance=0.3, ao_strength=0.7, ground=False,
                                occluders=[terrain] + list(forest.children)))
-    out.append(tg.finish_asset("level_01_forest", forest, ao_distance=0.3, ao_strength=0.7, ground=False,
+    out.append(tg.finish_asset(f"{name}_forest", forest, ao_distance=0.3, ao_strength=0.7, ground=False,
                                occluders=[terrain]))
+    return out
+
+
+def build() -> list:
+    import bpy
+    levels = json.loads(LEVELS_FILE.read_text(encoding="utf-8"))["levels"]
+    only = os.environ.get("TG_LEVELS")
+    if only:
+        levels = [lv for lv in levels if str(lv["id"]) in only.split(",")]
+    out = []
+    for lv in levels:
+        for o in list(bpy.data.objects):
+            bpy.data.objects.remove(o, do_unlink=True)
+        out += build_level(lv)
     return out

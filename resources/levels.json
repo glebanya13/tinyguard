@@ -1,0 +1,54 @@
+{
+  "_comment": "Level layouts and wave plans. Read by Godot (scripts/level_catalog.gd) and Blender (assets/blender/build_terrain.py). Coordinates are Godot X/Z in metres; path = enemy route from the portal to the castle gate.",
+  "levels": [
+    {
+      "id": 1,
+      "name": "Зелёная долина",
+      "subtitle": "15 волн · босс на 10-й и 15-й",
+      "bounds": [-15, -10, 30, 20],
+      "start": {"gold": 0, "wood": 0, "lives": 20},
+      "waves": {"count": 15, "first_delay": 30, "between": 30, "boss_every": 10, "boss_last": true,
+                "count_base": 6, "count_step": 0.9, "hp_mult": 1.0, "hp_growth": 1.11,
+                "fast_from": 4, "tank_from": 7, "interval": 1.4, "interval_min": 0.55},
+      "path": [[-15.2, -6], [-5, -6], [-5, 0], [-11, 0], [-11, 6], [3, 6], [3, -3], [10, -3], [10, 3], [12.5, 3]],
+      "castle": [13.7, 3],
+      "hero": [11.2, 6.5],
+      "slots": [[-8, -3], [-2, -4.5], [-8, 3], [0, 3], [6.5, 0], [6.5, -5.5], [5.2, 8], [12.3, 0]],
+      "trees": [[-13, 8.2], [-9, 8.6], [-2, 8.6], [9, 8.2], [13, 8.6], [-14, 3], [-1, -8.6], [6, -8.4],
+                [12.5, -7.5], [-9.5, -8.6], [0, 0], [13.5, -3]]
+    },
+    {
+      "id": 2,
+      "name": "Тёмная чаща",
+      "subtitle": "25 волн · боссы на 10, 20 и 25-й",
+      "bounds": [-15, -10, 30, 20],
+      "start": {"gold": 0, "wood": 0, "lives": 15},
+      "waves": {"count": 25, "first_delay": 30, "between": 30, "boss_every": 10, "boss_last": true,
+                "count_base": 7, "count_step": 1.0, "hp_mult": 1.15, "hp_growth": 1.1,
+                "fast_from": 3, "tank_from": 5, "interval": 1.3, "interval_min": 0.45},
+      "path": [[-15.2, 7], [-9, 7], [-9, -7], [-3, -7], [-3, 7], [3, 7], [3, -7], [9, -7], [9, 4], [12.5, 4]],
+      "castle": [13.7, 4],
+      "hero": [11.5, 7.5],
+      "slots": [[-6, 3], [-6, -3], [0, 3], [0, -3], [6, 3], [6, -3], [-12, 3], [12, -3], [-6, 9], [6, -9]],
+      "trees": [[-14, 1], [-12.5, -8], [-1, 9.3], [0, -9.3], [6, 9.3], [13.8, 9.2], [13.5, -8], [-6, 0],
+                [0, 0], [6, 0], [-13.5, -3.5], [12.5, -6]]
+    },
+    {
+      "id": 3,
+      "name": "Королевский тракт",
+      "subtitle": "40 волн · босс каждые 10 волн",
+      "bounds": [-15, -10, 30, 20],
+      "start": {"gold": 0, "wood": 0, "lives": 10},
+      "waves": {"count": 40, "first_delay": 30, "between": 25, "boss_every": 10, "boss_last": true,
+                "count_base": 8, "count_step": 0.8, "hp_mult": 1.3, "hp_growth": 1.085,
+                "fast_from": 2, "tank_from": 4, "interval": 1.2, "interval_min": 0.4},
+      "path": [[-15.2, -8], [12, -8], [12, -3], [-12, -3], [-12, 2], [12, 2], [12, 7], [-10, 7]],
+      "castle": [-11.2, 7],
+      "hero": [-8.5, 9.0],
+      "slots": [[-9, -5.5], [-3, -5.5], [3, -5.5], [9, -5.5], [-8, -0.5], [-2, -0.5], [4, -0.5], [10, -0.5],
+                [-6, 4.5], [0, 4.5], [6, 4.5], [14, -5.5], [-14, -0.5], [14, 4.5]],
+      "trees": [[-14, 5], [14.2, 9.2], [0, 9.3], [6, 9.3], [-4, 9.3], [14.2, -9.3], [5, -9.4], [-5, -9.4],
+                [-13.5, -9.3], [-14, -4.5], [14.2, 0], [-14, 9.2]]
+    }
+  ]
+}

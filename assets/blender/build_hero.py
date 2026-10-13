@@ -248,6 +248,24 @@ def walk(body, head, arm_l, arm_r, cape, leg_l, leg_r) -> None:
     }, 16)
 
 
+def attack(body, head, arm_l, arm_r, cape, leg_l, leg_r, sword) -> None:
+    """Sword slash (12 frames = 0.5 s): wind-up, strike at frame 5, recover.
+    The game deals damage at ~0.2 s (Hero.ATTACK_HIT_TIME)."""
+    tg.make_track("attack", {
+        # Arm hangs along -Z: negative X rotation lifts it forward/up.
+        arm_r: [(0, {}), (3, {"rot": (-165, 0, -15)}), (5, {"rot": (-40, 0, 18)}), (8, {"rot": (-25, 0, 10)}), (12, {})],
+        arm_l: [(0, {}), (3, {"rot": (20, 0, 10)}), (5, {"rot": (-15, 0, -5)}), (12, {})],
+        body: [(0, {}), (3, {"rot": (-6, 0, 22)}), (5, {"rot": (12, 0, -28), "loc": (0, -0.03, 0)}),
+               (8, {"rot": (8, 0, -18)}), (12, {})],
+        head: [(0, {}), (3, {"rot": (4, 0, -8)}), (5, {"rot": (-6, 0, 10)}), (12, {})],
+        cape: [(0, {"rot": (2, 0, 0)}), (5, {"rot": (24, 0, 8)}), (12, {"rot": (2, 0, 0)})],
+        leg_r: [(0, {}), (5, {"rot": (-14, 0, 0)}), (12, {})],
+        leg_l: [(0, {}), (5, {"rot": (12, 0, 0)}), (12, {})],
+        # The sword is held blade-up; flip it to continue the arm line while swinging.
+        sword: [(0, {}), (2, {"rot": (150, 0, 0)}), (5, {"rot": (170, 0, 0)}), (9, {"rot": (160, 0, 0)}), (12, {})],
+    }, 12)
+
+
 def build() -> dict:
     root = tg.empty("Hero")
     leg_r, leg_l = build_legs()
@@ -267,4 +285,5 @@ def build() -> dict:
     tg.parent(sword, arm_r)
     idle(body, head, arm_l, arm_r, cape)
     walk(body, head, arm_l, arm_r, cape, leg_l, leg_r)
+    attack(body, head, arm_l, arm_r, cape, leg_l, leg_r, sword)
     return tg.finish_asset("hero_knight", root, ao_distance=0.12, ao_strength=0.7)

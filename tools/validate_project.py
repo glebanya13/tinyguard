@@ -241,8 +241,60 @@ def check_gdscript(path: Path) -> None:
             errors.append(f"{rel}:{n}: indented with spaces, use tabs")
 
 
+def _seg_dist(p, a, b) -> float:
+    ax, az = a; bx, bz = b; px, pz = p
+    dx, dz = bx - ax, bz - az
+    L2 = dx * dx + dz * dz
+    k = max(0.0, min(1.0, ((px - ax) * dx + (pz - az) * dz) / L2)) if L2 else 0.0
+    return ((ax + dx * k - px) ** 2 + (az + dz * k - pz) ** 2) ** 0.5
+
+
+def check_levels() -> None:
+    """Layout sanity for resources/levels.json (shared by Godot and Blender)."""
+    path = ROOT / "resources" / "levels.json"
+    if not path.is_file():
+        return
+    import json
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for lv in data["levels"]:
+        tag = f"levels.json level {lv['id']}"
+        x0, z0, w, h = lv["bounds"]
+        pts = lv["path"]
+        segs = list(zip(pts, pts[1:]))
+        for i, (a, b) in enumerate(segs):
+            if a[0] != b[0] and a[1] != b[1]:
+                errors.append(f"{tag}: path segment {i} is not axis-aligned")
+            if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.6:
+                errors.append(f"{tag}: path segment {i} shorter than the 0.75 m corner radius x2")
+        for i, (a, b) in enumerate(segs):
+            for j, (c, d) in enumerate(segs):
+                if j <= i + 1:
+                    continue
+                gap = min(_seg_dist(a, c, d), _seg_dist(b, c, d), _seg_dist(c, a, b), _seg_dist(d, a, b))
+                if gap < 3.0:
+                    errors.append(f"{tag}: path segments {i} and {j} only {gap:.1f} m apart")
+        cx, cz = lv["castle"]
+        if not (x0 + 1.2 <= cx <= x0 + w - 1.2 and z0 + 1.2 <= cz <= z0 + h - 1.2):
+            errors.append(f"{tag}: castle outside the play bounds")
+        spots = [("slot", s, 1.3) for s in lv["slots"]] + [("tree", s, 1.2) for s in lv["trees"]]
+        spots.append(("hero", lv["hero"], 0.8))
+        for kind, s, clearance in spots:
+            d = min(_seg_dist(s, a, b) for a, b in segs)
+            if d < clearance:
+                errors.append(f"{tag}: {kind} {s} is {d:.2f} m from the path (< {clearance})")
+            if not (x0 + 0.4 <= s[0] <= x0 + w - 0.4 and z0 + 0.4 <= s[1] <= z0 + h - 0.4):
+                errors.append(f"{tag}: {kind} {s} outside the play bounds")
+            if abs(s[0] - cx) < 1.6 and abs(s[1] - cz) < 1.6:
+                errors.append(f"{tag}: {kind} {s} overlaps the castle")
+        for i, (k1, a, _) in enumerate(spots):
+            for k2, b, _ in spots[i + 1:]:
+                if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.5:
+                    errors.append(f"{tag}: {k1} {a} and {k2} {b} closer than 1.5 m")
+
+
 def main() -> int:
     check_layout()
+    check_levels()
     check_project_settings()
     collect_class_names()
     for pattern in ("*.tscn", "*.tres"):

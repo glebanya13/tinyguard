@@ -122,11 +122,36 @@ def flowers(rng):
     return tg.join(parts, "Flowers")
 
 
+def tree_stump(rng):
+    """What remains of a chopped tree (regrows in the game)."""
+    stump = tg.lathe("stump", [(0.16, 0.0), (0.12, 0.04), (0.105, 0.16), (0.1, 0.18)], "wood", steps=10)
+    top = tg.cylinder("rings", 0.1, 0.1, 0.012, (0, 0, 0.175), "wood_light", verts=10)
+    roots = [tg.cylinder(f"root{i}", 0.04, 0.0, 0.16, (0.11 * math.cos(a), 0.11 * math.sin(a), 0.0), "wood",
+                         verts=5, rot=(0, 75, math.degrees(a))) for i, a in enumerate([0.4, 2.3, 4.2])]
+    chips = [tg.box(f"chip{i}", (0.05, 0.03, 0.01), (0.2 * math.cos(a), 0.2 * math.sin(a), 0.005), "wood_light",
+                    rot=(0, 0, rng.uniform(0, 90))) for i, a in enumerate([1.0, 3.0, 5.2])]
+    return tg.join([stump, top, *roots, *chips], "Stump")
+
+
+def log_pile(rng):
+    """Three stacked logs: the wood resource (icons, pickups)."""
+    parts = []
+    for i, (x, z) in enumerate([(-0.11, 0.09), (0.11, 0.09), (0.0, 0.27)]):
+        log = tg.cylinder(f"log{i}", 0.1, 0.1, 0.5, (x, -0.25, z), "wood", verts=10, rot=(-90, 0, 0))
+        tg.shade(log, 40)
+        cut_a = tg.cylinder(f"cut{i}a", 0.09, 0.09, 0.012, (x, -0.255, z), "wood_light", verts=10, rot=(-90, 0, 0))
+        cut_b = tg.cylinder(f"cut{i}b", 0.09, 0.09, 0.012, (x, 0.243, z), "wood_light", verts=10, rot=(-90, 0, 0))
+        ring = tg.torus(f"ring{i}", 0.05, 0.008, (x, -0.262, z), "wood_dark", seg=12, minor_seg=4, rot=(90, 0, 0))
+        parts += [log, cut_a, cut_b, ring]
+    return tg.join(parts, "Logs")
+
+
 def build() -> list:
     rng = random.Random(21)
     out = []
     for name, fn, ao in (("tree_round", tree_round, 0.3), ("tree_pine", tree_pine, 0.3), ("rock_a", lambda r: rock("Rock", r, 30), 0.15),
-                         ("rock_b", rock_cluster, 0.15), ("bush", bush, 0.15), ("flowers", flowers, 0.06)):
+                         ("rock_b", rock_cluster, 0.15), ("bush", bush, 0.15), ("flowers", flowers, 0.06),
+                         ("tree_stump", tree_stump, 0.08), ("log_pile", log_pile, 0.1)):
         _clear()
         obj = fn(rng)
         out.append(tg.finish_asset(name, obj, ao_distance=ao, ao_strength=0.7))
