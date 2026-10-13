@@ -35,7 +35,8 @@ Main (Node3D, main.gd)               — строит уровень из дан
 │   ├── Hero (hero.tscn)              — ставится в level.hero
 │   ├── EnemyPath (Path3D)            — Curve3D из level.path
 │   └── (в _ready) level_N_terrain/decor/forest.glb, портал, замок,
-│       TowerSlot × N (tower_slot.tscn), WoodTree × N (wood_tree.tscn)
+│       TowerSlot × N (tower_slot.tscn), Grove (MultiMesh стоящих деревьев),
+│       WoodTree × N на метках Chop_<вид>_<i> из level_N_decor.glb
 ├── GameState (Node)                  — золото, дерево, жизни
 ├── WaveManager (Node)                — спавн по WavePlan
 ├── BuildManager (Node)               — площадки, tower_types: archer/cannon/frost.tres
@@ -141,6 +142,22 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 (группа `enemies`) и деревьям (группа `wood_trees`, `WoodTree.chop() -> int`) в
 конусе перед собой; сигнал `wood_gathered(amount, at)`. Деревья — слой коллизий 3,
 маска героя 1 + 3.
+
+Все деревья внутри поля рубятся. `build_terrain.py` не запекает их в декор, а
+кладёт пустышки `Chop_<pine|round>_<i>`; `main.gd` ставит на них `WoodTree`.
+Стоящие деревья рисует `Grove`: по одному `MultiMeshInstance3D` на модель
+(около 50 деревьев = 2 draw call вместо 50). Дерево, которое качается, падает,
+растёт или подсвечено как цель, прячет свой экземпляр и показывает собственную
+модель. Замер на уровне 1: 90–120 draw calls в кадре (было 150–180).
+
+Приказы героя идут по `WalkGrid` (`AStarGrid2D`, клетка 0.5 м): сетка строится
+один раз после первого физического кадра запросами `intersect_shape` (цилиндр
+r = 0.34) к слоям 1 и 3; новая башня блокирует свои клетки. Путь упрощается
+проверкой прямой видимости по клеткам.
+
+Тап (`BuildManager`) срабатывает на отпускание, если палец сдвинулся меньше
+24 px и не было второго пальца (`CameraFollow.is_pinch_gesture()`); щипок и
+колесо мыши меняют `size` орто-камеры в пределах 7–16.
 
 `main.gd` соединяет: `WaveManager → GameState` (награда, потеря жизней),
 `GameState/WaveManager → HUD` (показатели), `HUD → WaveManager` (кнопка).
