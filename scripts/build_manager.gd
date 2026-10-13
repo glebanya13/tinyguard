@@ -11,6 +11,7 @@ signal slot_selected(slot: TowerSlot)
 signal selection_cleared
 signal tower_built(slot: TowerSlot, tower: Tower)
 signal tower_upgraded(slot: TowerSlot, tower: Tower)
+signal tower_sold(slot: TowerSlot, refund: Vector2i)
 signal ground_tapped(point: Vector3)
 
 ## Buildable tower types, in command card order.
@@ -120,6 +121,20 @@ func upgrade(slot: TowerSlot) -> bool:
 		return false
 	slot.tower.apply_level(slot.tower.data, slot.tower.level + 1)
 	tower_upgraded.emit(slot, slot.tower)
+	return true
+
+
+## Removes the tower on `slot` and refunds part of its price.
+func sell(slot: TowerSlot) -> bool:
+	if slot == null or slot.tower == null:
+		return false
+	var refund: Vector2i = slot.tower.data.sell_value(slot.tower.level)
+	slot.remove_tower()
+	game_state.add_gold(refund.x)
+	game_state.add_wood(refund.y)
+	if slot == selected_slot:
+		slot_selected.emit(slot)
+	tower_sold.emit(slot, refund)
 	return true
 
 

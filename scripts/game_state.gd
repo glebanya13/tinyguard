@@ -10,6 +10,9 @@ signal defeated
 @export var starting_gold: int = 0
 @export var starting_wood: int = 0
 @export var starting_lives: int = 20
+## Castle repair at the forge: lives restored and its wood price.
+@export var repair_lives: int = 2
+@export var repair_wood: int = 25
 
 var gold: int = 0
 var wood: int = 0
@@ -61,6 +64,21 @@ func spend(cost: Vector2i) -> bool:
 	wood -= cost.y
 	gold_changed.emit(gold)
 	wood_changed.emit(wood)
+	return true
+
+
+func can_repair() -> bool:
+	return lives < starting_lives and wood >= repair_wood and not is_defeated
+
+
+## Pays wood for up to repair_lives lives (never above the starting lives).
+func repair() -> bool:
+	if not can_repair():
+		return false
+	wood -= repair_wood
+	lives = mini(lives + repair_lives, starting_lives)
+	wood_changed.emit(wood)
+	lives_changed.emit(lives)
 	return true
 
 

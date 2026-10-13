@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/game_state.gd" id="4_game_state"]
@@ -54,6 +54,31 @@ outer_radius = 1.0
 rings = 32
 ring_segments = 4
 
+[sub_resource type="StandardMaterial3D" id="range_mat"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.93, 0.6, 0.55)
+
+[sub_resource type="TorusMesh" id="range_mesh"]
+material = SubResource("range_mat")
+inner_radius = 0.975
+outer_radius = 1.0
+rings = 64
+ring_segments = 3
+
+[sub_resource type="StandardMaterial3D" id="range_fill"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.93, 0.6, 0.12)
+
+[sub_resource type="CylinderMesh" id="range_disc"]
+material = SubResource("range_fill")
+top_radius = 1.0
+bottom_radius = 1.0
+height = 0.01
+radial_segments = 48
+rings = 1
+
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
@@ -90,6 +115,15 @@ bounds = Rect2(-10, -7, 20, 14)
 visible = false
 cast_shadow = 0
 mesh = SubResource("ring_mesh")
+
+[node name="RangeRing" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+mesh = SubResource("range_mesh")
+
+[node name="Fill" type="MeshInstance3D" parent="RangeRing"]
+cast_shadow = 0
+mesh = SubResource("range_disc")
 
 [node name="GameState" type="Node" parent="."]
 script = ExtResource("4_game_state")

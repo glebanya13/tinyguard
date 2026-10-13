@@ -96,6 +96,25 @@ func _run() -> void:
 	await frames(5)
 	check(slot.tower.level == 1, "upgraded")
 
+	# Sell: 70% of 40+60 gold and 30+40 wood back.
+	var gold_before: int = gs.gold
+	bm.select_slot(slot)
+	await tap_key(KEY_X)
+	await frames(3)
+	check(slot.is_free() and gs.gold == gold_before + 70, "sold for 70%% (+%d gold)" % (gs.gold - gold_before))
+	# Forge: sword upgrade and castle repair.
+	gs.add_gold(300)
+	gs.add_wood(300)
+	main._toggle_forge()
+	await frames(2)
+	await tap_key(KEY_U)
+	check(hero.sword_level == 1 and is_equal_approx(hero.attack_damage, 22.0), "sword upgraded")
+	gs.lose_lives(5)
+	var lives: int = gs.lives
+	main._on_command_pressed(&"repair")
+	check(gs.lives == lives + 2, "castle repaired (+2 lives)")
+	main._on_command_pressed(&"cancel")
+
 	# Bosses in the plan.
 	check(wm.plan.is_boss_wave(10) and wm.plan.spawns(10)[-1]["data"].is_boss, "boss on wave 10")
 	check(not wm.plan.is_boss_wave(9), "no boss on wave 9")

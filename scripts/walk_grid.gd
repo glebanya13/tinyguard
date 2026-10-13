@@ -12,6 +12,8 @@ const LINE_STEP := 0.2
 
 var _astar := AStarGrid2D.new()
 var _origin := Vector2.ZERO
+## Cells blocked by block(), per blocked point, so unblock() frees only those.
+var _blocked: Dictionary = {}
 
 
 ## `area` is the level rectangle in X/Z; `mask` the obstacle physics layers.
@@ -41,11 +43,22 @@ func build(space: PhysicsDirectSpaceState3D, area: Rect2, mask: int) -> void:
 func block(point: Vector3, radius: float) -> void:
 	var r: int = ceili(radius / CELL)
 	var center: Vector2i = _to_cell(point)
+	var cells: Array[Vector2i] = []
 	for dx in range(-r, r + 1):
 		for dy in range(-r, r + 1):
 			var cell := center + Vector2i(dx, dy)
-			if _astar.is_in_boundsv(cell) and _cell_center(cell).distance_to(Vector2(point.x, point.z)) <= radius + CELL * 0.5:
+			var near: bool = _cell_center(cell).distance_to(Vector2(point.x, point.z)) <= radius + CELL * 0.5
+			if near and _astar.is_in_boundsv(cell) and not _astar.is_point_solid(cell):
 				_astar.set_point_solid(cell)
+				cells.append(cell)
+	_blocked[center] = cells
+
+
+## Undoes block() at the same point.
+func unblock(point: Vector3) -> void:
+	for cell: Vector2i in _blocked.get(_to_cell(point), []):
+		_astar.set_point_solid(cell, false)
+	_blocked.erase(_to_cell(point))
 
 
 ## Waypoints (on the ground) from `from` to near `to`, without `from`.

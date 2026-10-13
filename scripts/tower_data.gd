@@ -24,6 +24,24 @@ extends Resource
 @export var slow_duration: float = 1.6
 
 
+## Share of everything spent on a tower that selling it returns.
+const SELL_REFUND := 0.7
+
+
+## Gold and wood spent on a tower of `level` (build + upgrades).
+func total_cost(level: int) -> Vector2i:
+	var total := Vector2i(cost_gold, cost_wood)
+	for i in mini(level, upgrade_gold.size()):
+		total += Vector2i(upgrade_gold[i], upgrade_wood[i])
+	return total
+
+
+## What selling a tower of `level` gives back.
+func sell_value(level: int) -> Vector2i:
+	var total: Vector2i = total_cost(level)
+	return Vector2i(floori(total.x * SELL_REFUND), floori(total.y * SELL_REFUND))
+
+
 func max_level() -> int:
 	return damage_levels.size() - 1
 

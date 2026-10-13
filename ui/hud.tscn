@@ -186,9 +186,9 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -508.0
+offset_left = -582.0
 offset_top = 14.0
-offset_right = -170.0
+offset_right = -244.0
 offset_bottom = 66.0
 grow_horizontal = 0
 mouse_filter = 2
@@ -208,6 +208,15 @@ texture = ExtResource("i_hourglass")
 expand_mode = 1
 stretch_mode = 5
 
+[node name="BossIcon" type="TextureRect" parent="Root/NextWavePill/Row"]
+visible = false
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_boss")
+expand_mode = 1
+stretch_mode = 5
+
 [node name="NextWaveLabel" type="Label" parent="Root/NextWavePill/Row"]
 layout_mode = 2
 text = "Волна 1 через 30 с"
@@ -223,7 +232,7 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -158.0
+offset_left = -232.0
 offset_top = 12.0
 offset_right = -20.0
 offset_bottom = 68.0
@@ -231,6 +240,27 @@ grow_horizontal = 0
 mouse_filter = 2
 theme_override_constants/separation = 10
 alignment = 2
+
+[node name="ForgeButton" type="Button" parent="Root/TopRight"]
+custom_minimum_size = Vector2(64, 56)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="TextureRect" parent="Root/TopRight/ForgeButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 5.0
+offset_right = -8.0
+offset_bottom = -9.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("i_sword")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="SpeedButton" type="Button" parent="Root/TopRight"]
 custom_minimum_size = Vector2(64, 56)
@@ -244,7 +274,7 @@ custom_minimum_size = Vector2(64, 56)
 layout_mode = 2
 focus_mode = 0
 theme_override_font_sizes/font_size = 22
-text = "❚❚"
+text = "II"
 
 [node name="HintPill" type="PanelContainer" parent="Root"]
 visible = false

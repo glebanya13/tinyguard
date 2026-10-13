@@ -14,6 +14,7 @@ signal map_pressed
 signal pause_pressed
 signal continue_pressed
 signal speed_pressed
+signal forge_pressed
 signal joystick_changed(vector: Vector2)
 
 const VICTORY_COLOR := Color(0.98, 0.8, 0.4)
@@ -31,6 +32,8 @@ const SHORTCUTS := {
 	&"build_1": &"build_cannon",
 	&"build_2": &"build_frost",
 	&"upgrade": &"upgrade_tower",
+	&"sword": &"upgrade_tower",
+	&"sell": &"sell_tower",
 	&"cancel": &"cancel_command",
 }
 
@@ -64,6 +67,8 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _stars: HBoxContainer = $Root/EndScreen/EndPanel/Content/Stars
 @onready var _continue_button: Button = $Root/EndScreen/EndPanel/Content/ContinueButton
 @onready var _speed_button: Button = $Root/TopRight/SpeedButton
+@onready var _forge_button: Button = $Root/TopRight/ForgeButton
+@onready var _next_boss_icon: Control = $Root/NextWavePill/Row/BossIcon
 @onready var _pause_button: Button = $Root/TopRight/PauseButton
 @onready var _restart_button: Button = $Root/EndScreen/EndPanel/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/EndPanel/Content/MapButton
@@ -76,11 +81,14 @@ func _ready() -> void:
 	_continue_button.shortcut = _shortcut(&"pause")
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_speed_button.pressed.connect(speed_pressed.emit)
+	_forge_button.pressed.connect(forge_pressed.emit)
+	_forge_button.shortcut = _shortcut(&"forge")
 	_pause_button.shortcut = _shortcut(&"pause")
 	_speed_button.shortcut = _shortcut(&"speed")
 	if not _touch:
 		_pause_button.tooltip_text = "Пауза (P)"
 		_speed_button.tooltip_text = "Скорость игры (F)"
+		_forge_button.tooltip_text = "Кузница: меч и ремонт замка (K)"
 	_attack_button.pressed.connect(attack_pressed.emit)
 	if not _touch:
 		_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
@@ -112,11 +120,12 @@ func set_lives(lives: int) -> void:
 	_lives_label.text = str(lives)
 
 
-## Countdown to the next wave; seconds < 0 hides it.
-func set_next_wave(wave: int, seconds: float) -> void:
+## Countdown to the next wave; seconds < 0 hides it. A boss wave shows the king.
+func set_next_wave(wave: int, seconds: float, boss: bool = false) -> void:
 	_next_wave_pill.visible = seconds >= 0.0
 	if seconds >= 0.0:
-		_next_wave_label.text = "Волна %d через %d с" % [wave, ceili(seconds)]
+		_next_boss_icon.visible = boss
+		_next_wave_label.text = "%s %d через %d с" % ["Босс! Волна" if boss else "Волна", wave, ceili(seconds)]
 
 
 ## Sword for enemies, axe for trees.
@@ -193,6 +202,7 @@ func update_card(info: Dictionary) -> void:
 	if ids != _button_ids:
 		_button_ids = ids
 		for child in _buttons.get_children():
+			_buttons.remove_child(child)
 			child.queue_free()
 		for spec: Dictionary in specs:
 			_buttons.add_child(_make_button(spec))
@@ -227,6 +237,7 @@ func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
 	_stars.visible = victory
 	_pause_button.hide()
 	_speed_button.hide()
+	_forge_button.hide()
 
 
 ## Pause menu: continue, restart, back to the map.
@@ -314,10 +325,13 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 			label = "Закрыть"
 		cost.add_child(_cost_label(label))
 		return
-	cost.add_child(_mini_icon(COIN_ICON))
-	cost.add_child(_cost_label(str(spec.get("gold", 0))))
-	cost.add_child(_mini_icon(WOOD_ICON))
-	cost.add_child(_cost_label(str(spec.get("wood", 0))))
+	var sign: String = "+" if spec.get("gain", false) else ""
+	if spec.get("gold", 0) > 0:
+		cost.add_child(_mini_icon(COIN_ICON))
+		cost.add_child(_cost_label(sign + str(spec["gold"])))
+	if spec.get("wood", 0) > 0:
+		cost.add_child(_mini_icon(WOOD_ICON))
+		cost.add_child(_cost_label(sign + str(spec["wood"])))
 
 
 func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:

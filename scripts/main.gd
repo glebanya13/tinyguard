@@ -15,6 +15,8 @@ const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
+const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
+const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
 const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
 const RING_ENEMY_COLOR := Color(1.0, 0.38, 0.32, 0.85)
@@ -44,6 +46,8 @@ var walk_grid := WalkGrid.new()
 
 var _focused_tree: WoodTree = null
 var _paused: bool = false
+var _forge_open: bool = false
+var _castle: Node3D = null
 var _ended: bool = false
 
 ## Command to run when the hero reaches the selected slot, or &"".
@@ -58,6 +62,7 @@ var _pending_command: StringName = &""
 @onready var _hud: Hud = $HUD
 @onready var _hero: Hero = $Level/Hero
 @onready var _target_ring: MeshInstance3D = $TargetRing
+@onready var _range_ring: MeshInstance3D = $RangeRing
 @onready var _ring_material: StandardMaterial3D = _target_ring.mesh.surface_get_material(0)
 @onready var _wave_horn: AudioStreamPlayer = $Sfx/WaveHorn
 @onready var _boss_roar: AudioStreamPlayer = $Sfx/BossRoar
@@ -97,6 +102,9 @@ func _ready() -> void:
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
+	_hud.forge_pressed.connect(_toggle_forge)
+	_build_manager.tower_sold.connect(_on_tower_sold)
+	_game_state.lives_changed.connect(_refresh_card.unbind(1))
 	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
 	_hero.order_cancelled.connect(_on_hero_order_ended)
 	_hero.order_finished.connect(_on_hero_order_ended)
@@ -144,7 +152,8 @@ func _toggle_speed() -> void:
 
 
 func _process(_delta: float) -> void:
-	_hud.set_next_wave(_wave_manager.current_wave + 1, _wave_manager.time_to_next_wave())
+	var next: int = _wave_manager.current_wave + 1
+	_hud.set_next_wave(next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next))
 	_auto_select_near_hero()
 	_update_target_ring()
 
@@ -198,6 +207,7 @@ func _build_level() -> void:
 
 	var last_dir: Vector3 = (_ground(path[-1]) - _ground(path[-2])).normalized()
 	var castle: Node3D = CASTLE_SCENE.instantiate()
+	_castle = castle
 	castle.position = _ground(level["castle"])
 	castle.rotation.y = atan2(-last_dir.x, -last_dir.z)
 	_level_root.add_child(castle)
@@ -252,8 +262,24 @@ func _tower_types() -> Array[TowerData]:
 ## Command card action: the hero walks to the selected slot and acts there.
 func _on_command_pressed(id: StringName) -> void:
 	if id == &"cancel":
+		_forge_open = false
 		_hero.cancel_order()
 		_build_manager.clear_selection()
+		_refresh_card()
+		return
+	if id == &"sword":
+		if _game_state.spend(_hero.sword_upgrade_cost()):
+			_hero.upgrade_sword()
+			_spawn_fx(UPGRADE_FX, _hero.global_position)
+		_refresh_card()
+		return
+	if id == &"repair":
+		if _game_state.repair():
+			_spawn_fx(BUILD_FX, _castle.global_position)
+		_refresh_card()
+		return
+	if id == &"sell":
+		_build_manager.sell(_build_manager.selected_slot)
 		_refresh_card()
 		return
 	var slot: TowerSlot = _build_manager.selected_slot
@@ -309,9 +335,16 @@ func _refresh_card() -> void:
 	var info := {}
 	var buttons: Array[Dictionary] = []
 	if slot == null:
+		_range_ring.hide()
+	if slot == null and _forge_open:
+		_hud.show_hint("")
+		_hud.update_card(_forge_card())
+		return
+	if slot == null:
 		_hud.show_hint(_hint_text())
 		_hud.update_card({})
 		return
+	_forge_open = false
 	_hud.show_hint("")
 	if slot.is_free():
 		info["title"] = "Площадка для башни"
@@ -345,13 +378,57 @@ func _refresh_card() -> void:
 			if not upgrade["enabled"]:
 				info["hint"] = "Не хватает золота или дерева"
 		buttons.append(upgrade)
+		var refund: Vector2i = data.sell_value(level_index)
+		buttons.append({"id": &"sell", "icon": COIN_ICON, "gold": refund.x, "wood": refund.y, "gain": true,
+				"enabled": true, "tooltip": "Продать за 70%% вложенного (X)"})
 	if slot != null:
 		buttons.append({"id": &"cancel", "icon": CANCEL_ICON, "label": "Esc", "enabled": true,
 				"tooltip": "Снять выбор (Esc)"})
 	if _pending_command != &"":
 		info["hint"] = "Рыцарь идёт к площадке…"
+	_show_range(slot)
 	info["buttons"] = buttons
 	_hud.update_card(info)
+
+
+## Attack radius of the tower on `slot` (hidden for a free slot).
+func _show_range(slot: TowerSlot) -> void:
+	_range_ring.visible = slot != null and slot.tower != null
+	if _range_ring.visible:
+		var r: float = slot.tower.range_m
+		_range_ring.global_position = Vector3(slot.global_position.x, 0.07, slot.global_position.z)
+		_range_ring.scale = Vector3(r, 1.0, r)
+
+
+## Forge card: sword upgrade and castle repair.
+func _forge_card() -> Dictionary:
+	var info := {"title": "Кузница"}
+	var sword: Vector2i = _hero.sword_upgrade_cost()
+	var next_damage: String = ""
+	if sword.x >= 0:
+		next_damage = " → %d" % _hero.sword_damage_levels[_hero.sword_level + 1]
+	info["stats"] = "Меч: урон %d%s · замок: %d/%d жизней" % [
+		_hero.attack_damage, next_damage, _game_state.lives, _game_state.starting_lives]
+	var upgrade := {"id": &"sword", "icon": SWORD_ICON, "enabled": _game_state.can_afford(sword),
+			"tooltip": "Закалить меч (U)"}
+	if sword.x < 0:
+		upgrade["label"] = "макс."
+	else:
+		upgrade["gold"] = sword.x
+		upgrade["wood"] = sword.y
+	var repair := {"id": &"repair", "icon": HEART_ICON, "wood": _game_state.repair_wood,
+			"enabled": _game_state.can_repair(), "tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives}
+	info["hint"] = "Ремонт стен: +%d жизни за %d дерева" % [_game_state.repair_lives, _game_state.repair_wood]
+	info["buttons"] = [upgrade, repair, {"id": &"cancel", "icon": CANCEL_ICON, "label": "Esc", "enabled": true,
+			"tooltip": "Закрыть (Esc)"}]
+	return info
+
+
+func _toggle_forge() -> void:
+	_forge_open = not _forge_open
+	if _forge_open:
+		_build_manager.clear_selection()
+	_refresh_card()
 
 
 ## Step-by-step hint for new players while nothing is selected.
@@ -408,6 +485,13 @@ func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 	# Rise out of the dust.
 	tower.scale = Vector3(1.0, 0.2, 1.0)
 	create_tween().tween_property(tower, "scale", Vector3.ONE, 0.45).set_trans(Tween.TRANS_BACK)
+	_refresh_card()
+
+
+func _on_tower_sold(slot: TowerSlot, refund: Vector2i) -> void:
+	walk_grid.unblock(slot.global_position)
+	_spawn_fx(BUILD_FX, slot.global_position)
+	_popup("+%d" % refund.x, slot.global_position + Vector3.UP * 1.2, GOLD_COLOR, COIN_ICON)
 	_refresh_card()
 
 

@@ -23,6 +23,11 @@ signal wood_gathered(amount: int, at: Vector3)
 
 @export_group("Attack")
 @export var attack_damage: float = 14.0
+## Sword damage per forge level (index 0 = starting sword).
+@export var sword_damage_levels: Array[float] = [14.0, 22.0, 32.0, 45.0]
+## Forge prices: [level 1 -> 2, 2 -> 3, 3 -> 4].
+@export var sword_upgrade_gold: Array[int] = [40, 90, 160]
+@export var sword_upgrade_wood: Array[int] = [30, 60, 100]
 ## Reach of the sword from the hero's centre (metres).
 @export var attack_range: float = 1.4
 ## Trees are hit from a little further away (their trunk is thick).
@@ -50,6 +55,9 @@ var _order_reach: float = 0.1
 var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
 var _last_distance: float = INF
+## Forge level of the sword, 0-based.
+var sword_level: int = 0
+
 var _cooldown_left: float = 0.0
 var _attack_left: float = 0.0
 
@@ -100,6 +108,18 @@ func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable
 	_on_arrive = on_arrive
 	_stuck_time = 0.0
 	_last_distance = INF
+
+
+## Price of the next sword level as (gold, wood), or (-1, -1) at the top.
+func sword_upgrade_cost() -> Vector2i:
+	if sword_level >= sword_upgrade_gold.size():
+		return Vector2i(-1, -1)
+	return Vector2i(sword_upgrade_gold[sword_level], sword_upgrade_wood[sword_level])
+
+
+func upgrade_sword() -> void:
+	sword_level = mini(sword_level + 1, sword_damage_levels.size() - 1)
+	attack_damage = sword_damage_levels[sword_level]
 
 
 ## Swings the sword unless it is still cooling down. Returns true on a swing.

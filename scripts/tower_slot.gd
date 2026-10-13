@@ -55,6 +55,15 @@ func place_tower(scene: PackedScene) -> Tower:
 	return new_tower
 
 
+## Frees the tower (if any) and makes the slot free again.
+func remove_tower() -> void:
+	if tower == null:
+		return
+	tower.queue_free()
+	tower = null
+	_update_visuals()
+
+
 func _update_visuals() -> void:
 	if tower != null:
 		state = State.OCCUPIED
