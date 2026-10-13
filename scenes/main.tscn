@@ -1,0 +1,154 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+
+[sub_resource type="Environment" id="env_main"]
+background_mode = 1
+background_color = Color(0.62, 0.80, 0.92, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.85, 0.88, 1, 1)
+ambient_light_energy = 0.45
+
+[sub_resource type="StandardMaterial3D" id="mat_ground"]
+albedo_color = Color(0.42, 0.66, 0.36, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_path"]
+albedo_color = Color(0.86, 0.76, 0.52, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_base"]
+albedo_color = Color(0.30, 0.52, 0.86, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_spawn"]
+albedo_color = Color(0.84, 0.32, 0.28, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_pad"]
+albedo_color = Color(0.45, 0.45, 0.50, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_tower"]
+albedo_color = Color(0.78, 0.76, 0.70, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_roof"]
+albedo_color = Color(0.80, 0.40, 0.25, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="mesh_ground"]
+material = SubResource("mat_ground")
+size = Vector3(12, 0.2, 8)
+
+[sub_resource type="BoxMesh" id="mesh_path_a"]
+material = SubResource("mat_path")
+size = Vector3(5, 0.05, 1)
+
+[sub_resource type="BoxMesh" id="mesh_path_b"]
+material = SubResource("mat_path")
+size = Vector3(1, 0.05, 4)
+
+[sub_resource type="BoxMesh" id="mesh_path_c"]
+material = SubResource("mat_path")
+size = Vector3(5, 0.05, 1)
+
+[sub_resource type="BoxMesh" id="mesh_base"]
+material = SubResource("mat_base")
+size = Vector3(1.2, 1, 1.2)
+
+[sub_resource type="CylinderMesh" id="mesh_spawn"]
+material = SubResource("mat_spawn")
+top_radius = 0.35
+bottom_radius = 0.45
+height = 0.3
+radial_segments = 6
+rings = 0
+
+[sub_resource type="CylinderMesh" id="mesh_pad"]
+material = SubResource("mat_pad")
+top_radius = 0.45
+bottom_radius = 0.45
+height = 0.1
+radial_segments = 8
+rings = 0
+
+[sub_resource type="CylinderMesh" id="mesh_tower_body"]
+material = SubResource("mat_tower")
+top_radius = 0.25
+bottom_radius = 0.32
+height = 0.9
+radial_segments = 6
+rings = 0
+
+[sub_resource type="BoxMesh" id="mesh_tower_head"]
+material = SubResource("mat_roof")
+size = Vector3(0.6, 0.3, 0.6)
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, 0.469846, -0.32899, 0, 0.573576, 0.819152, 0.573576, -0.67101, 0.469846, 0, 10, 0)
+light_energy = 1.1
+shadow_enabled = true
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(0.707107, -0.408248, 0.57735, 0, 0.816497, 0.57735, -0.707107, -0.408248, 0.57735, 11.547, 11.547, 11.547)
+projection = 1
+size = 10.0
+near = 0.1
+far = 100.0
+current = true
+
+[node name="Level" type="Node3D" parent="."]
+
+[node name="Ground" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+mesh = SubResource("mesh_ground")
+
+[node name="PathA" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0.025, -2.5)
+mesh = SubResource("mesh_path_a")
+
+[node name="PathB" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.025, 0)
+mesh = SubResource("mesh_path_b")
+
+[node name="PathC" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.025, 1.5)
+mesh = SubResource("mesh_path_c")
+
+[node name="Spawn" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5, 0.15, -2.5)
+mesh = SubResource("mesh_spawn")
+
+[node name="Base" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 0.5, 1.5)
+mesh = SubResource("mesh_base")
+
+[node name="TowerSlot1" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0.05, -1.5)
+mesh = SubResource("mesh_pad")
+
+[node name="TowerSlot2" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.05, 0.5)
+mesh = SubResource("mesh_pad")
+
+[node name="TowerSlot3" type="MeshInstance3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.05, 2.5)
+mesh = SubResource("mesh_pad")
+
+[node name="PlaceholderTower" type="Node3D" parent="Level"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.1, 0.5)
+
+[node name="Body" type="MeshInstance3D" parent="Level/PlaceholderTower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+mesh = SubResource("mesh_tower_body")
+
+[node name="Head" type="MeshInstance3D" parent="Level/PlaceholderTower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
+mesh = SubResource("mesh_tower_head")

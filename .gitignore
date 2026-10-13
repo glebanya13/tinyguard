@@ -1,0 +1,43 @@
+# --- Godot 4 ---
+# Editor cache and imported assets (regenerated on open)
+.godot/
+# Mono / C# (not used, kept in case)
+.mono/
+data_*/
+mono_crash.*.json
+
+# Android build template and export outputs
+/android/
+*.apk
+*.aab
+*.idsig
+# Signing keys must never be committed
+*.keystore
+*.jks
+# Export credentials (Godot 4.3+ stores them here, but keep explicit)
+export_credentials.cfg
+
+# Builds
+/build/
+/export/
+
+# --- Blender ---
+# Autosave and backup versions (keep only the *.blend source)
+*.blend1
+*.blend2
+*.blend3
+*.blend@
+*.autosave
+quit.blend
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Python tooling ---
+__pycache__/
+*.pyc
