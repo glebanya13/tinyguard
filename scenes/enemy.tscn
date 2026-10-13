@@ -1,8 +1,6 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy"]
-[ext_resource type="PackedScene" path="res://assets/models/slime.glb" id="2_slime"]
-[ext_resource type="Script" path="res://scripts/looping_model.gd" id="3_loop"]
 [ext_resource type="PackedScene" path="res://scenes/fx/death_fx.tscn" id="4_death_fx"]
 
 [sub_resource type="StandardMaterial3D" id="mat_health"]
@@ -20,10 +18,6 @@ rotation_mode = 1
 loop = false
 script = ExtResource("1_enemy")
 death_fx = ExtResource("4_death_fx")
-
-[node name="Model" parent="." instance=ExtResource("2_slime")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
-script = ExtResource("3_loop")
 
 [node name="HealthBar" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.78, 0)
