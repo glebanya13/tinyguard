@@ -40,7 +40,7 @@
       "bounds": [-15, -10, 30, 20],
       "start": {"gold": 0, "wood": 0, "lives": 10},
       "waves": {"count": 40, "first_delay": 30, "between": 25, "boss_every": 10, "boss_last": true,
-                "count_base": 6, "count_step": 0.8, "hp_mult": 1.0, "hp_growth": 1.095,
+                "count_base": 6, "count_step": 0.8, "hp_mult": 1.0, "hp_growth": 1.09,
                 "fast_from": 2, "tank_from": 4, "interval": 1.2, "interval_min": 0.4},
       "path": [[-15.2, -8], [12, -8], [12, -3], [-12, -3], [-12, 2], [12, 2], [12, 7], [-10, 7]],
       "castle": [-11.2, 7],
