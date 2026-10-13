@@ -1,6 +1,13 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/tower.gd" id="2_tower"]
+[ext_resource type="PackedScene" path="res://scenes/projectile.tscn" id="3_projectile"]
+[ext_resource type="Script" path="res://scripts/game_state.gd" id="4_game_state"]
+[ext_resource type="Script" path="res://scripts/wave_manager.gd" id="5_wave_manager"]
+[ext_resource type="Resource" path="res://resources/waves_level_01.tres" id="6_waves"]
+[ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="7_enemy"]
+[ext_resource type="PackedScene" path="res://ui/hud.tscn" id="8_hud"]
 
 [sub_resource type="Environment" id="env_main"]
 background_mode = 1
@@ -85,6 +92,13 @@ rings = 0
 material = SubResource("mat_roof")
 size = Vector3(0.6, 0.3, 0.6)
 
+[sub_resource type="Curve3D" id="curve_enemy_path"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -5.5, 0.05, -2.5, 0, 0, 0, 0, 0, 0, -1.5, 0.05, -2.5, 0, 0, 0, 0, 0, 0, -1.5, 0.05, 1.5, 0, 0, 0, 0, 0, 0, 3.9, 0.05, 1.5),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
+
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
@@ -144,6 +158,8 @@ mesh = SubResource("mesh_pad")
 
 [node name="PlaceholderTower" type="Node3D" parent="Level"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.1, 0.5)
+script = ExtResource("2_tower")
+projectile_scene = ExtResource("3_projectile")
 
 [node name="Body" type="MeshInstance3D" parent="Level/PlaceholderTower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
@@ -152,3 +168,17 @@ mesh = SubResource("mesh_tower_body")
 [node name="Head" type="MeshInstance3D" parent="Level/PlaceholderTower"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
 mesh = SubResource("mesh_tower_head")
+
+[node name="EnemyPath" type="Path3D" parent="Level"]
+curve = SubResource("curve_enemy_path")
+
+[node name="GameState" type="Node" parent="."]
+script = ExtResource("4_game_state")
+
+[node name="WaveManager" type="Node" parent="."]
+script = ExtResource("5_wave_manager")
+config = ExtResource("6_waves")
+enemy_scene = ExtResource("7_enemy")
+enemy_path = NodePath("../Level/EnemyPath")
+
+[node name="HUD" parent="." instance=ExtResource("8_hud")]

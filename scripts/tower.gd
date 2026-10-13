@@ -1,0 +1,53 @@
+class_name Tower
+extends Node3D
+## Shoots projectiles at the nearest enemy within range.
+
+@export var projectile_scene: PackedScene
+## Attack radius in metres, measured on the ground plane.
+@export var range_m: float = 3.0
+## Seconds between shots.
+@export var fire_interval: float = 0.5
+@export var damage: float = 12.0
+## Height above the tower origin where projectiles appear.
+@export var muzzle_height: float = 1.1
+
+var _cooldown: float = 0.0
+
+
+func _process(delta: float) -> void:
+	_cooldown = maxf(_cooldown - delta, 0.0)
+	if _cooldown > 0.0:
+		return
+	var target: Enemy = find_nearest_enemy()
+	if target == null:
+		return
+	_shoot(target)
+	_cooldown = fire_interval
+
+
+func find_nearest_enemy() -> Enemy:
+	var nearest: Enemy = null
+	var nearest_dist_sq: float = range_m * range_m
+	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var enemy := node as Enemy
+		if enemy == null or not enemy.is_alive():
+			continue
+		var offset: Vector3 = enemy.global_position - global_position
+		offset.y = 0.0
+		var dist_sq: float = offset.length_squared()
+		if dist_sq <= nearest_dist_sq:
+			nearest_dist_sq = dist_sq
+			nearest = enemy
+	return nearest
+
+
+func _shoot(target: Enemy) -> void:
+	if projectile_scene == null:
+		push_warning("Tower: projectile_scene is not set")
+		return
+	var projectile := projectile_scene.instantiate() as Projectile
+	# top_level keeps the projectile in world space, independent of the tower.
+	projectile.top_level = true
+	add_child(projectile)
+	projectile.global_position = global_position + Vector3.UP * muzzle_height
+	projectile.launch(target, damage)

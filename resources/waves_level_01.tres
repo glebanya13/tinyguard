@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WaveConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/wave_config.gd" id="1_wave_config"]
+
+[resource]
+script = ExtResource("1_wave_config")
+wave_count = 5
+first_wave_delay = 3.0
+time_between_waves = 5.0
+spawn_interval = 1.6
+base_enemy_count = 5
+enemy_count_step = 1
+base_enemy_health = 30.0
+enemy_health_growth = 1.2
+enemy_speed = 1.2
+enemy_reward = 5
+enemy_base_damage = 1
