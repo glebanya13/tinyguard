@@ -1,0 +1,42 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/one_shot_fx.gd" id="1_fx"]
+
+[sub_resource type="Curve" id="shrink"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="StandardMaterial3D" id="mat_flash"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+
+[sub_resource type="BoxMesh" id="streak"]
+material = SubResource("mat_flash")
+size = Vector3(0.05, 0.05, 0.22)
+
+[node name="SpinFx" type="Node3D"]
+script = ExtResource("1_fx")
+lifetime = 0.6
+
+[node name="Slash" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+emitting = false
+amount = 28
+lifetime = 0.35
+one_shot = true
+explosiveness = 1.0
+mesh = SubResource("streak")
+particle_flag_align_y = true
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 0.1
+emission_ring_radius = 0.5
+emission_ring_inner_radius = 0.4
+direction = Vector3(1, 0, 0)
+spread = 180.0
+flatness = 1.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 4.0
+initial_velocity_max = 5.5
+scale_amount_curve = SubResource("shrink")
+color = Color(1, 0.92, 0.6, 1)

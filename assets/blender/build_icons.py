@@ -149,7 +149,19 @@ def icon_cancel():
     return tg.join([a, b], "Cancel")
 
 
-ICONS = {"coin": icon_coin, "heart": icon_heart, "sword": icon_sword, "crown": icon_crown,
+def icon_whirl():
+    """Sword inside a swirl ring: the hero's spin attack."""
+    sword = icon_sword()
+    sword.scale = (0.8, 0.8, 0.8)
+    tg.apply_all_transforms(sword)
+    ring = tg.torus("ring", 0.5, 0.05, (0, 0, 0), "gold", seg=40, minor_seg=8, rot=(90, 0, 0))
+    # Open the ring into a swirl with an arrow head.
+    tg.deform(ring, lambda c: Vector((c.x * (1 + 0.15 * max(c.x, 0)), c.y, c.z)))
+    head = tg.cylinder("head", 0.13, 0.0, 0.22, (0.55, 0, 0.1), "gold", verts=10, rot=(0, 20, 0))
+    return tg.join([sword, ring, head], "Whirl")
+
+
+ICONS = {"whirl": icon_whirl, "coin": icon_coin, "heart": icon_heart, "sword": icon_sword, "crown": icon_crown,
          "hourglass": icon_hourglass, "flag": icon_flag, "upgrade": icon_upgrade, "lock": icon_lock,
          "star": icon_star, "cancel": icon_cancel}
 

@@ -42,6 +42,13 @@ signal wood_gathered(amount: int, at: Vector3)
 ## Swing on its own at enemies/trees in reach while standing still.
 @export var auto_action: bool = true
 
+@export_group("Whirlwind")
+## Spin attack: hits every enemy around for attack damage x spin_damage_mult.
+@export var spin_radius: float = 2.2
+@export var spin_damage_mult: float = 1.6
+@export var spin_cooldown: float = 12.0
+@export var spin_fx: PackedScene
+
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
 ## Walkable grid for orders; without it the hero walks in a straight line.
@@ -59,6 +66,7 @@ var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
 var _last_distance: float = INF
 var _cooldown_left: float = 0.0
+var _spin_left: float = 0.0
 var _attack_left: float = 0.0
 
 @onready var _model: Node3D = $Model
@@ -76,8 +84,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_cooldown_left = maxf(_cooldown_left - delta, 0.0)
 	_attack_left = maxf(_attack_left - delta, 0.0)
+	_spin_left = maxf(_spin_left - delta, 0.0)
 	if Input.is_action_just_pressed(&"attack"):
 		try_attack()
+	if Input.is_action_just_pressed(&"spin"):
+		try_spin()
 	var input: Vector2 = Input.get_vector(&"move_left", &"move_right", &"move_up", &"move_down")
 	input = (input + joystick_vector).limit_length(1.0)
 	var direction := Vector3.ZERO
@@ -145,6 +156,35 @@ func try_attack() -> bool:
 	_swing_sound.play()
 	get_tree().create_timer(attack_hit_delay, false).timeout.connect(_strike)
 	return true
+
+
+## Whirlwind: one turn of the sword that hits every enemy within spin_radius.
+func try_spin() -> bool:
+	if _spin_left > 0.0:
+		return false
+	cancel_order()
+	_spin_left = spin_cooldown
+	_cooldown_left = attack_cooldown
+	_attack_left = 0.45
+	_anim.play(&"attack", 0.05)
+	_anim.speed_scale = 1.4
+	var tween := create_tween()
+	tween.tween_property(_model, "rotation:y", _model.rotation.y + TAU, 0.45)
+	_swing_sound.play()
+	if spin_fx:
+		var fx := spin_fx.instantiate() as Node3D
+		add_sibling(fx)
+		fx.global_position = global_position
+	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var enemy := node as Enemy
+		if enemy.is_alive() and _flat_distance(enemy) <= spin_radius:
+			enemy.take_damage(attack_damage * spin_damage_mult)
+	return true
+
+
+## Seconds until the whirlwind is ready again (0 = ready).
+func spin_cooldown_left() -> float:
+	return _spin_left
 
 
 ## What a swing would hit now: the nearest living enemy in sword reach, else

@@ -96,6 +96,7 @@ func _ready() -> void:
 
 	_hud.command_pressed.connect(_on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
+	_hud.spin_pressed.connect(_hero.try_spin)
 	_hud.next_wave_pressed.connect(_on_next_wave_pressed)
 	_hud.restart_pressed.connect(_on_restart_pressed)
 	_hud.map_pressed.connect(_on_map_pressed)
@@ -158,6 +159,7 @@ func _process(_delta: float) -> void:
 	)
 	_auto_select_near_hero()
 	_update_target_ring()
+	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 
 
 ## Ring under whatever the next swing hits; the attack button shows an axe

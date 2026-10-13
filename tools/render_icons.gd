@@ -10,6 +10,7 @@ const OUT_DIR := "res://ui/icons"
 ## icon name -> [model, yaw degrees, pitch degrees]
 const ICONS := {
 	"coin": ["res://assets/models/icon_coin.glb", 25.0, -10.0],
+	"whirl": ["res://assets/models/icon_whirl.glb", 10.0, -5.0],
 	"wood": ["res://assets/models/log_pile.glb", 35.0, -25.0],
 	"heart": ["res://assets/models/icon_heart.glb", 20.0, -5.0],
 	"sword": ["res://assets/models/icon_sword.glb", 15.0, -5.0],

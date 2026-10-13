@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/hero.gd" id="1_hero"]
 [ext_resource type="PackedScene" path="res://assets/models/hero_knight.glb" id="2_model"]
 [ext_resource type="AudioStream" path="res://assets/audio/sword_swing.wav" id="3_swing"]
 [ext_resource type="AudioStream" path="res://assets/audio/chop.wav" id="4_chop"]
+[ext_resource type="PackedScene" path="res://scenes/fx/spin_fx.tscn" id="5_spin"]
 
 [sub_resource type="CapsuleShape3D" id="body_shape"]
 radius = 0.26
@@ -14,6 +15,7 @@ collision_layer = 2
 collision_mask = 5
 motion_mode = 1
 script = ExtResource("1_hero")
+spin_fx = ExtResource("5_spin")
 
 [node name="Model" parent="." instance=ExtResource("2_model")]
 

@@ -8,6 +8,7 @@ extends CanvasLayer
 ## A command card button was pressed; `id` is the one passed to update_card().
 signal command_pressed(id: StringName)
 signal attack_pressed
+signal spin_pressed
 signal next_wave_pressed
 signal restart_pressed
 signal map_pressed
@@ -63,6 +64,9 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _card_hint: Label = $Root/CommandCard/Content/Hint
 @onready var _buttons: HBoxContainer = $Root/CommandCard/Content/Buttons
 @onready var _attack_button: Button = $Root/AttackButton
+@onready var _spin_button: Button = $Root/SpinButton
+@onready var _spin_icon: Control = $Root/SpinButton/Icon
+@onready var _spin_label: Label = $Root/SpinButton/Swirl
 @onready var _joystick: Control = $Root/Joystick
 @onready var _end_screen: Control = $Root/EndScreen
 @onready var _message_label: Label = $Root/EndScreen/EndPanel/Content/MessageLabel
@@ -92,8 +96,11 @@ func _ready() -> void:
 		_speed_button.tooltip_text = "Скорость игры (F)"
 		_forge_button.tooltip_text = "Кузница: меч и ремонт замка (K)"
 	_attack_button.pressed.connect(attack_pressed.emit)
+	_spin_button.pressed.connect(spin_pressed.emit)
+	_spin_icon.pivot_offset = _spin_icon.size / 2.0
 	if not _touch:
 		_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
+		_spin_button.tooltip_text = "Вихрь: удар по всем врагам вокруг (Q)"
 	_next_wave_button.pressed.connect(next_wave_pressed.emit)
 	_next_wave_button.tooltip_text = "Вызвать волну сейчас"
 	_joystick.vector_changed.connect(joystick_changed.emit)
@@ -133,6 +140,15 @@ func set_next_wave(wave: int, seconds: float, boss: bool = false) -> void:
 		_next_wave_label.text = (
 			"%s %d через %d с" % ["Босс! Волна" if boss else "Волна", wave, ceili(seconds)]
 		)
+
+
+## Whirlwind button: seconds left on the cooldown (0 = ready).
+func set_spin_cooldown(seconds: float) -> void:
+	var ready: bool = seconds <= 0.0
+	_spin_button.disabled = not ready
+	_spin_label.text = "" if ready else str(ceili(seconds))
+	_spin_icon.modulate.a = 1.0 if ready else 0.35
+	_spin_icon.rotation = 0.0 if not ready else _spin_icon.rotation + 0.02
 
 
 ## Sword for enemies, axe for trees.
@@ -277,6 +293,7 @@ func hide_pause_menu() -> void:
 	_card_hash = 0
 	_card.visible = not _button_ids.is_empty()
 	_attack_button.show()
+	_spin_button.show()
 	_joystick.visible = _joystick_visible
 
 
@@ -289,6 +306,7 @@ func _show_menu(text: String, color: Color) -> void:
 	_map_button.disabled = false
 	_card.hide()
 	_attack_button.hide()
+	_spin_button.hide()
 	_joystick.hide()
 	_end_screen.show()
 
