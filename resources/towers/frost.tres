@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TowerData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://scenes/towers/tower_frost.tscn" id="2_scene"]
+[ext_resource type="Texture2D" path="res://ui/icons/tower_frost.png" id="3_icon"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Мороз"
+icon = ExtResource("3_icon")
+scene = ExtResource("2_scene")
+cost_gold = 30
+cost_wood = 30
+upgrade_gold = Array[int]([45, 70])
+upgrade_wood = Array[int]([35, 50])
+damage_levels = Array[float]([4.0, 7.0, 11.0])
+range_levels = Array[float]([3.0, 3.3, 3.6])
+interval_levels = Array[float]([0.9, 0.8, 0.7])
+splash_levels = Array[float]([0.0, 0.0, 0.0])
+slow_levels = Array[float]([0.55, 0.45, 0.35])

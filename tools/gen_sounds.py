@@ -150,6 +150,49 @@ def jingle(notes, dur_each=0.14):
     return mix(*layers)
 
 
+def cannon_shot():
+    # Deep boom: low sine drop + noise burst.
+    boom = shaped(tone(lambda t: 110 - 140 * t, 0.5), 0.002, 0.14)
+    blast = shaped(lowpass(noise(0.5, 40), 0.18), 0.001, 0.08, 0.9)
+    return mix(boom, blast)
+
+
+def frost_shot():
+    # Icy chime with a shimmering tail.
+    layers = [shaped(tone(lambda t, f=f: f * (1 + 0.004 * math.sin(t * 40)), 0.45), 0.003, 0.12, a)
+              for f, a in ((1568.0, 0.6), (2093.0, 0.4), (2637.0, 0.25))]
+    return mix(*layers)
+
+
+def sword_swing():
+    # Whoosh: band-passed noise sweeping up.
+    out = []
+    raw = noise(0.22, 50)
+    y = 0.0
+    for i, s in enumerate(raw):
+        k = 0.05 + 0.35 * (i / len(raw))
+        y += k * (s - y)
+        out.append(y * env(i / RATE, 0.05, 0.06))
+    return out
+
+
+def chop():
+    # Axe into wood: sharp knock + creak.
+    knock = shaped(tone(lambda t: 320 - 500 * t, 0.12), 0.0008, 0.03)
+    crack = shaped(lowpass(noise(0.12, 60), 0.45), 0.0005, 0.02, 0.8)
+    return mix(knock, crack)
+
+
+def boss_roar():
+    # Low growl with vibrato, for boss waves.
+    def growl(p):
+        return math.sin(p) + 0.5 * math.sin(2 * p + 0.3) + 0.3 * math.sin(3 * p)
+    roar = tone(lambda t: 70 + 18 * math.sin(t * 22), 1.3, growl)
+    rough = lowpass(noise(1.3, 70), 0.06)
+    return [((a + 0.6 * b) * min(1.0, i / (0.15 * RATE)) * min(1.0, (len(roar) - i) / (0.4 * RATE)))
+            for i, (a, b) in enumerate(zip(roar, rough))]
+
+
 def main() -> None:
     write("bow_shot", bow_shot(), 0.6)
     write("slime_hit", slime_hit(), 0.7)
@@ -161,6 +204,11 @@ def main() -> None:
     write("base_hit", base_hit(), 0.8)
     write("victory", jingle([523.25, 659.25, 783.99, 1046.5, 1318.5]), 0.7)
     write("defeat", jingle([392.0, 349.23, 311.13, 261.63], 0.2), 0.7)
+    write("cannon_shot", cannon_shot(), 0.8)
+    write("frost_shot", frost_shot(), 0.6)
+    write("sword_swing", sword_swing(), 0.6)
+    write("chop", chop(), 0.7)
+    write("boss_roar", boss_roar(), 0.8)
 
 
 if __name__ == "__main__":

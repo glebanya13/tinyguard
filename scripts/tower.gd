@@ -20,6 +20,11 @@ signal level_changed(level: int)
 
 ## Current upgrade level, 0-based.
 var level: int = 0
+## Tower type this tower was built from (set by apply_level).
+var data: TowerData = null
+var splash_radius: float = 0.0
+var slow_factor: float = 1.0
+var slow_duration: float = 0.0
 
 var _cooldown: float = 0.0
 
@@ -36,11 +41,15 @@ func _process(delta: float) -> void:
 
 
 ## Takes damage, range and fire interval for `new_level` from the tower data.
-func apply_level(data: TowerData, new_level: int) -> void:
+func apply_level(tower_data: TowerData, new_level: int) -> void:
+	data = tower_data
 	level = clampi(new_level, 0, data.max_level())
 	damage = data.damage_levels[level]
 	range_m = data.range_levels[level]
 	fire_interval = data.interval_levels[level]
+	splash_radius = data.splash_levels[level]
+	slow_factor = data.slow_levels[level]
+	slow_duration = data.slow_duration
 	level_changed.emit(level)
 
 
@@ -72,5 +81,5 @@ func _shoot(target: Enemy) -> void:
 	aim.y = 0.0
 	var reach: Vector3 = aim.normalized() * muzzle_reach if aim.length() > 0.01 else Vector3.ZERO
 	projectile.global_position = global_position + Vector3.UP * muzzle_height + reach
-	projectile.launch(target, damage)
+	projectile.launch(target, damage, splash_radius, slow_factor, slow_duration)
 	fired.emit(target)

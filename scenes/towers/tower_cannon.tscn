@@ -1,0 +1,23 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower.gd" id="1_tower"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_cannon.tscn" id="2_projectile"]
+[ext_resource type="PackedScene" path="res://assets/models/tower_cannon.glb" id="3_model"]
+[ext_resource type="Script" path="res://scripts/tower_model.gd" id="4_tower_model"]
+[ext_resource type="AudioStream" path="res://assets/audio/cannon_shot.wav" id="5_shot"]
+
+[node name="Tower" type="Node3D"]
+script = ExtResource("1_tower")
+projectile_scene = ExtResource("2_projectile")
+
+[node name="Model" parent="." node_paths=PackedStringArray("shot_sound") instance=ExtResource("3_model")]
+script = ExtResource("4_tower_model")
+shot_sound = NodePath("../ShotSound")
+
+[node name="ShotSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_shot")
+volume_db = -10.0
+max_polyphony = 2
+
+[connection signal="fired" from="." to="Model" method="_on_tower_fired"]
+[connection signal="level_changed" from="." to="Model" method="_on_tower_level_changed"]

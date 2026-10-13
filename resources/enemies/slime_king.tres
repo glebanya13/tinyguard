@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/slime_king.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Король слаймов"
+model = ExtResource("2_model")
+health = 520.0
+speed = 0.6
+reward = 40
+base_damage = 8
+health_bar_height = 1.55
+health_bar_width = 1.4
+is_boss = true

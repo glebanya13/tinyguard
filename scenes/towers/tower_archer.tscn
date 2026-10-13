@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/tower.gd" id="1_tower"]
-[ext_resource type="PackedScene" path="res://scenes/projectile.tscn" id="2_projectile"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_arrow.tscn" id="2_projectile"]
 [ext_resource type="PackedScene" path="res://assets/models/tower_archer.glb" id="3_model"]
 [ext_resource type="Script" path="res://scripts/tower_model.gd" id="4_tower_model"]
 [ext_resource type="AudioStream" path="res://assets/audio/bow_shot.wav" id="5_shot"]
