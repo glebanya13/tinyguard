@@ -71,6 +71,7 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _end_screen: Control = $Root/EndScreen
 @onready var _message_label: Label = $Root/EndScreen/EndPanel/Content/MessageLabel
 @onready var _stars: HBoxContainer = $Root/EndScreen/EndPanel/Content/Stars
+@onready var _sound_button: Button = $Root/EndScreen/EndPanel/Content/SoundButton
 @onready var _continue_button: Button = $Root/EndScreen/EndPanel/Content/ContinueButton
 @onready var _speed_button: Button = $Root/TopRight/SpeedButton
 @onready var _forge_button: Button = $Root/TopRight/ForgeButton
@@ -84,6 +85,7 @@ func _ready() -> void:
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
 	_continue_button.pressed.connect(continue_pressed.emit)
+	_sound_button.pressed.connect(_on_sound_pressed)
 	_continue_button.shortcut = _shortcut(&"pause")
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_speed_button.pressed.connect(speed_pressed.emit)
@@ -256,6 +258,7 @@ func set_speed(multiplier: int) -> void:
 func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
 	_show_menu(text, VICTORY_COLOR if victory else DEFEAT_COLOR)
 	_continue_button.hide()
+	_sound_button.hide()
 	for i in 3:
 		var star := TextureRect.new()
 		star.texture = STAR_ICON
@@ -286,6 +289,8 @@ func show_pause_menu() -> void:
 	_show_menu("Пауза", PAUSE_COLOR)
 	_stars.hide()
 	_continue_button.show()
+	_sound_button.show()
+	_update_sound_label()
 
 
 func hide_pause_menu() -> void:
@@ -411,6 +416,15 @@ func _shortcut(action: StringName) -> Shortcut:
 	var shortcut := Shortcut.new()
 	shortcut.events = [event]
 	return shortcut
+
+
+func _on_sound_pressed() -> void:
+	LevelCatalog.set_sound_on(not LevelCatalog.sound_on())
+	_update_sound_label()
+
+
+func _update_sound_label() -> void:
+	_sound_button.text = "Звук: вкл" if LevelCatalog.sound_on() else "Звук: выкл"
 
 
 func _on_end_button_pressed(next: Signal) -> void:

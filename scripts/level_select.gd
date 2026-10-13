@@ -23,10 +23,12 @@ var _camera_base: Transform3D
 @onready var _name_label: Label = $UI/Root/Info/Content/Name
 @onready var _subtitle_label: Label = $UI/Root/Info/Content/Subtitle
 @onready var _play_button: Button = $UI/Root/Info/Content/PlayButton
+@onready var _sound_button: Button = $UI/Root/SoundButton
 
 
 func _ready() -> void:
 	_camera_base = _camera.transform
+	LevelCatalog.apply_sound()
 	var unlocked: int = LevelCatalog.unlocked()
 	for level: Dictionary in LevelCatalog.levels():
 		var id: int = int(level["id"])
@@ -65,6 +67,8 @@ func _ready() -> void:
 		_site_buttons.append(button)
 		_sites.append(site)
 	_play_button.pressed.connect(_on_play_pressed)
+	_sound_button.pressed.connect(_on_sound_pressed)
+	_update_sound_label()
 	_select(clampi(LevelCatalog.selected_id, 1, unlocked))
 
 
@@ -92,6 +96,15 @@ func _select(id: int) -> void:
 	_subtitle_label.text = level["subtitle"]
 	for i in _site_buttons.size():
 		_site_buttons[i].modulate = Color(1.15, 1.1, 0.9) if i + 1 == id else Color.WHITE
+
+
+func _on_sound_pressed() -> void:
+	LevelCatalog.set_sound_on(not LevelCatalog.sound_on())
+	_update_sound_label()
+
+
+func _update_sound_label() -> void:
+	_sound_button.text = "Звук: вкл" if LevelCatalog.sound_on() else "Звук: выкл"
 
 
 func _on_play_pressed() -> void:

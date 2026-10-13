@@ -1,6 +1,7 @@
 class_name LevelCatalog
 extends RefCounted
-## Level layouts and wave plans from resources/levels.json, plus saved progress.
+## Level layouts and wave plans from resources/levels.json, plus saved progress
+## (stars per level) and the sound setting.
 ## The selected level survives scene changes as a static variable.
 
 const LEVELS_PATH := "res://resources/levels.json"
@@ -63,3 +64,22 @@ static func complete(id: int, earned_stars: int = 1) -> void:
 	cfg.set_value("progress", "stars_%d" % id, best)
 	cfg.set_value("progress", "unlocked", maxi(unlocked(), mini(id + 1, levels().size())))
 	cfg.save(save_path)
+
+
+static func sound_on() -> bool:
+	var cfg := ConfigFile.new()
+	cfg.load(save_path)
+	return bool(cfg.get_value("settings", "sound", true))
+
+
+## Mutes or unmutes the master bus and remembers the choice.
+static func set_sound_on(on: bool) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(save_path)
+	cfg.set_value("settings", "sound", on)
+	cfg.save(save_path)
+	apply_sound()
+
+
+static func apply_sound() -> void:
+	AudioServer.set_bus_mute(0, not sound_on())

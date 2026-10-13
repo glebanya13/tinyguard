@@ -193,6 +193,72 @@ def boss_roar():
             for i, (a, b) in enumerate(zip(roar, rough))]
 
 
+def music_loop():
+    """Calm adventure loop: I-V-vi-IV in C, bass, soft pad, plucked melody and
+    light percussion. 16 bars at 100 bpm; the end joins the start seamlessly."""
+    bpm = 100
+    beat = 60.0 / bpm
+    bars = 16
+    total = int(bars * 4 * beat * RATE)
+    out = [0.0] * total
+
+    def note_freq(n):  # MIDI note -> Hz
+        return 440.0 * 2 ** ((n - 69) / 12)
+
+    def add(start_s, dur_s, freq, amp, attack, decay, shape):
+        i0 = int(start_s * RATE)
+        n = int(dur_s * RATE)
+        phase = 0.0
+        step = 2 * math.pi * freq / RATE
+        for k in range(n):
+            idx = (i0 + k) % total  # wrap so the loop stays seamless
+            t = k / RATE
+            e = min(1.0, t / attack) * math.exp(-t / decay)
+            out[idx] += shape(phase) * amp * e
+            phase += step
+
+    def tri(p):
+        x = (p / (2 * math.pi)) % 1.0
+        return 4 * abs(x - 0.5) - 1
+
+    def pluck(p):
+        return math.sin(p) + 0.3 * math.sin(2 * p) + 0.12 * math.sin(3 * p)
+
+    chords = [(48, [60, 64, 67]), (43, [59, 62, 67]), (45, [57, 60, 64]), (41, [57, 60, 65])]
+    scale = [60, 62, 64, 67, 69, 72, 74, 76]
+    rng = random.Random(77)
+    melody_shape = [0, 2, 4, 3, 2, 4, 5, 4, 3, 1, 2, 0, 1, 3, 2, 1]
+    for bar in range(bars):
+        root, chord = chords[bar % 4]
+        t0 = bar * 4 * beat
+        # Bass on beats 1 and 3, an octave jump on the "and" of 4.
+        for b, off in ((0, 0), (2, 0), (3.5, 12)):
+            add(t0 + b * beat, beat * 1.4, note_freq(root - 12 + off), 0.32, 0.01, 0.35, tri)
+        # Pad: soft chord for the whole bar.
+        for n in chord:
+            add(t0, beat * 4, note_freq(n), 0.06, 0.4, 2.5, math.sin)
+        # Melody: eighth notes, phrase changes every 4 bars.
+        for eighth in range(8):
+            if rng.random() < 0.3:
+                continue
+            idx = (melody_shape[(bar * 2 + eighth // 4) % 16] + (eighth % 4 == 2) * 2) % len(scale)
+            n = scale[idx] + (12 if bar % 8 >= 4 and eighth % 2 == 0 else 0)
+            add(t0 + eighth * beat / 2, beat * 0.9, note_freq(n), 0.12, 0.004, 0.22, pluck)
+        # Percussion: soft kick on 1 and 3, shaker on eighths.
+        for b in (0, 2):
+            i0 = int((t0 + b * beat) * RATE)
+            for k in range(int(0.18 * RATE)):
+                t = k / RATE
+                out[(i0 + k) % total] += 0.35 * math.sin(2 * math.pi * (55 + 90 * math.exp(-t * 30)) * t) * math.exp(-t * 18)
+        shaker = noise(0.05, 900 + bar)
+        for eighth in range(8):
+            i0 = int((t0 + eighth * beat / 2) * RATE)
+            amp = 0.05 if eighth % 2 else 0.03
+            for k, v in enumerate(shaker):
+                out[(i0 + k) % total] += v * amp * math.exp(-k / RATE * 60)
+    return lowpass(out, 0.5)
+
+
 def main() -> None:
     write("bow_shot", bow_shot(), 0.6)
     write("slime_hit", slime_hit(), 0.7)
@@ -209,6 +275,7 @@ def main() -> None:
     write("sword_swing", sword_swing(), 0.6)
     write("chop", chop(), 0.7)
     write("boss_roar", boss_roar(), 0.8)
+    write("music_loop", music_loop(), 0.55)
 
 
 if __name__ == "__main__":

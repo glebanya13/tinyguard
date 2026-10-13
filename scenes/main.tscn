@@ -1,6 +1,7 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=28 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="AudioStream" path="res://assets/audio/music_loop.wav" id="19_music"]
 [ext_resource type="Script" path="res://scripts/game_state.gd" id="4_game_state"]
 [ext_resource type="Script" path="res://scripts/wave_manager.gd" id="5_wave_manager"]
 [ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="7_enemy"]
@@ -140,6 +141,12 @@ game_state = NodePath("../GameState")
 camera = NodePath("../Camera")
 
 [node name="Sfx" type="Node" parent="."]
+
+[node name="Music" type="AudioStreamPlayer" parent="Sfx"]
+process_mode = 3
+stream = ExtResource("19_music")
+volume_db = -14.0
+autoplay = true
 
 [node name="WaveHorn" type="AudioStreamPlayer" parent="Sfx"]
 stream = ExtResource("14_horn")
