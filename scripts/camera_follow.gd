@@ -18,6 +18,12 @@ func _ready() -> void:
 		global_position = _focus() + _offset
 
 
+## Jump to the target without smoothing (after the level moved it).
+func snap() -> void:
+	if target:
+		global_position = _focus() + _offset
+
+
 func _process(delta: float) -> void:
 	if target == null:
 		return

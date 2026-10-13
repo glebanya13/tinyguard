@@ -1,32 +1,61 @@
 extends Node3D
-## Root of the level: wires game systems together through their signals and
-## turns the hero's command card into orders (walk to the slot, then build).
+## Root of a level: builds the selected level from resources/levels.json
+## (terrain, castle, portal, path, slots, trees, hero spot), wires the game
+## systems together through their signals and turns the hero's command card
+## into orders (walk to the slot, then build).
 
-enum Command { BUILD, UPGRADE }
-
+const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
+const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
+const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
+const CASTLE_SCENE: PackedScene = preload("res://assets/models/castle.glb")
+const PORTAL_SCENE: PackedScene = preload("res://assets/models/spawn_portal.glb")
+const NO_SHADOW := preload("res://scripts/no_shadow.gd")
 const BUILD_FX := preload("res://scenes/fx/build_fx.tscn")
 const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
+const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
+const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
+const GOLD_COLOR := Color(1.0, 0.85, 0.35)
+const WOOD_COLOR := Color(0.85, 0.65, 0.42)
 ## The hero builds when this close to a slot centre (metres).
 const BUILD_REACH := 1.25
 ## Walking this close to a slot selects it automatically.
 const AUTO_SELECT_REACH := 1.1
+## Height of the path curve above the ground.
+const PATH_HEIGHT := 0.05
+## Camera look-at area is the level bounds shrunk by this margin.
+const CAMERA_MARGIN := 4.0
+## Gold for each second left on the countdown when a wave is called early.
+const EARLY_CALL_GOLD_PER_SECOND := 0.3
 
-## True while the hero walks to carry out a build/upgrade command.
-var _command_pending: bool = false
+var level: Dictionary = {}
 
+## Command to run when the hero reaches the selected slot, or &"".
+var _pending_command: StringName = &""
+
+@onready var _level_root: Node3D = $Level
+@onready var _enemy_path: Path3D = $Level/EnemyPath
+@onready var _camera: Camera3D = $Camera
 @onready var _game_state: GameState = $GameState
 @onready var _wave_manager: WaveManager = $WaveManager
 @onready var _build_manager: BuildManager = $BuildManager
 @onready var _hud: Hud = $HUD
 @onready var _hero: Hero = $Level/Hero
 @onready var _wave_horn: AudioStreamPlayer = $Sfx/WaveHorn
+@onready var _boss_roar: AudioStreamPlayer = $Sfx/BossRoar
 @onready var _base_hit: AudioStreamPlayer = $Sfx/BaseHit
 @onready var _victory_sound: AudioStreamPlayer = $Sfx/Victory
 @onready var _defeat_sound: AudioStreamPlayer = $Sfx/Defeat
 
 
 func _ready() -> void:
-	_game_state.gold_changed.connect(_on_gold_changed)
+	level = LevelCatalog.get_level(LevelCatalog.selected_id)
+	_build_level()
+	_game_state.configure(level["start"])
+	_game_state.reset()
+	_wave_manager.plan = WavePlan.new(level["waves"])
+
+	_game_state.gold_changed.connect(_on_resources_changed.unbind(1))
+	_game_state.wood_changed.connect(_on_resources_changed.unbind(1))
 	_game_state.lives_changed.connect(_hud.set_lives)
 	_game_state.defeated.connect(_on_defeated)
 
@@ -35,26 +64,28 @@ func _ready() -> void:
 	_wave_manager.wave_started.connect(_on_wave_started)
 	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared)
 
-	_build_manager.slot_selected.connect(_on_selection_changed.unbind(1))
-	_build_manager.selection_cleared.connect(_on_selection_changed)
+	_build_manager.slot_selected.connect(_refresh_card.unbind(1))
+	_build_manager.selection_cleared.connect(_refresh_card)
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
 	_build_manager.ground_tapped.connect(_on_ground_tapped)
 
-	_hud.build_pressed.connect(order.bind(Command.BUILD))
-	_hud.upgrade_pressed.connect(order.bind(Command.UPGRADE))
-	_hud.cancel_pressed.connect(_on_cancel_pressed)
+	_hud.command_pressed.connect(_on_command_pressed)
+	_hud.attack_pressed.connect(_hero.try_attack)
+	_hud.next_wave_pressed.connect(_on_next_wave_pressed)
 	_hud.restart_pressed.connect(_on_restart_pressed)
+	_hud.map_pressed.connect(_on_map_pressed)
 	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
 	_hero.order_cancelled.connect(_on_hero_order_ended)
 	_hero.order_finished.connect(_on_hero_order_ended)
+	_hero.wood_gathered.connect(_on_wood_gathered)
 
-	# GameState emitted its initial values before these connections existed.
 	_hud.set_gold(_game_state.gold)
+	_hud.set_wood(_game_state.wood)
 	_hud.set_lives(_game_state.lives)
 	_hud.set_wave(0, _wave_manager.get_total_waves())
 	_refresh_card()
-	_wave_manager.schedule_next_wave(_wave_manager.config.first_wave_delay)
+	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 
 
 func _process(_delta: float) -> void:
@@ -62,37 +93,97 @@ func _process(_delta: float) -> void:
 	_auto_select_near_hero()
 
 
+func _build_level() -> void:
+	var id: int = int(level["id"])
+	for part in ["terrain", "decor", "forest"]:
+		var scene: PackedScene = load("res://assets/models/level_%02d_%s.glb" % [id, part])
+		var node: Node3D = scene.instantiate()
+		if part != "decor":
+			node.set_script(NO_SHADOW)
+		_level_root.add_child(node)
+
+	var path: Array = level["path"]
+	var curve := Curve3D.new()
+	for point: Array in path:
+		curve.add_point(_ground(point, PATH_HEIGHT))
+	_enemy_path.curve = curve
+
+	var first_dir: Vector3 = (_ground(path[1]) - _ground(path[0])).normalized()
+	var portal: Node3D = PORTAL_SCENE.instantiate()
+	portal.position = _ground(path[0])
+	portal.rotation.y = atan2(first_dir.x, first_dir.z)
+	_level_root.add_child(portal)
+
+	var last_dir: Vector3 = (_ground(path[-1]) - _ground(path[-2])).normalized()
+	var castle: Node3D = CASTLE_SCENE.instantiate()
+	castle.position = _ground(level["castle"])
+	castle.rotation.y = atan2(-last_dir.x, -last_dir.z)
+	_level_root.add_child(castle)
+
+	for point: Array in level["slots"]:
+		var slot: Node3D = SLOT_SCENE.instantiate()
+		slot.position = _ground(point, PATH_HEIGHT)
+		_level_root.add_child(slot)
+	for point: Array in level["trees"]:
+		var tree: Node3D = TREE_SCENE.instantiate()
+		tree.position = _ground(point)
+		_level_root.add_child(tree)
+
+	_hero.position = _ground(level["hero"])
+	var b: Array = level["bounds"]
+	_camera.bounds = Rect2(b[0], b[1], b[2], b[3]).grow(-CAMERA_MARGIN)
+	_camera.snap()
+
+
+func _ground(point: Array, height: float = 0.0) -> Vector3:
+	return Vector3(float(point[0]), height, float(point[1]))
+
+
+func _tower_types() -> Array[TowerData]:
+	return _build_manager.tower_types
+
+
 ## Command card action: the hero walks to the selected slot and acts there.
-func order(command: Command) -> void:
+func _on_command_pressed(id: StringName) -> void:
+	if id == &"cancel":
+		_hero.cancel_order()
+		_build_manager.clear_selection()
+		_refresh_card()
+		return
 	var slot: TowerSlot = _build_manager.selected_slot
-	if slot == null or not _command_available(command, slot):
+	if slot == null or not _command_available(id, slot):
 		return
 	if _hero.is_near(slot.global_position, BUILD_REACH):
-		_execute(command, slot)
+		_execute(id, slot)
 	else:
-		_hero.move_to(slot.global_position, BUILD_REACH, _execute.bind(command, slot))
-		_command_pending = true
+		_hero.move_to(slot.global_position, BUILD_REACH, _execute.bind(id, slot))
+		_pending_command = id
 		_refresh_card()
 
 
-func _execute(command: Command, slot: TowerSlot) -> void:
-	if command == Command.BUILD:
-		_build_manager.build_on(slot)
-	else:
+func _execute(id: StringName, slot: TowerSlot) -> void:
+	if id == &"upgrade":
 		_build_manager.upgrade(slot)
+	else:
+		_build_manager.build_on(slot, _tower_for(id))
 	_refresh_card()
 
 
-func _command_available(command: Command, slot: TowerSlot) -> bool:
-	if command == Command.BUILD:
-		return _build_manager.can_build(slot)
-	return _build_manager.can_upgrade(slot)
+func _tower_for(id: StringName) -> TowerData:
+	var index: int = int(String(id).trim_prefix("build_"))
+	return _tower_types()[index]
+
+
+func _command_available(id: StringName, slot: TowerSlot) -> bool:
+	if id == &"upgrade":
+		return _build_manager.can_upgrade(slot)
+	return _build_manager.can_build(slot, _tower_for(id))
 
 
 func _auto_select_near_hero() -> void:
 	# Walking (keys, joystick or a tap on the ground) selects the slot the hero
 	# reaches; a pending build/upgrade command keeps its own target.
-	if _hero.velocity.length() < 0.1 or _command_pending:
+	if _hero.velocity.length() < 0.1 or _pending_command != &"":
 		return
 	var nearest: TowerSlot = null
 	var best: float = AUTO_SELECT_REACH
@@ -109,43 +200,61 @@ func _auto_select_near_hero() -> void:
 
 func _refresh_card() -> void:
 	var slot: TowerSlot = _build_manager.selected_slot
-	var data: TowerData = _build_manager.tower_data
-	var info := {"has_selection": slot != null, "build_cost": data.cost}
+	var info := {}
+	var buttons: Array[Dictionary] = []
 	if slot == null:
 		info["title"] = "Рыцарь-страж"
-		info["stats"] = "Идти: WASD / стрелки или нажать на землю"
-		info["hint"] = "Подойдите к площадке или нажмите на неё"
-		info["upgrade_label"] = "—"
+		info["stats"] = "Ходить: WASD / нажать на землю · Пробел: удар, рубка"
+		info["hint"] = "Рубите деревья ради древесины, бейте слизней ради золота"
 	elif slot.is_free():
-		info["title"] = "Площадка: %s" % data.display_name
-		info["stats"] = _stats_text(data, 0)
-		info["upgrade_label"] = "—"
-		info["show_build"] = true
-		info["can_build"] = _build_manager.can_build(slot)
-		info["hint"] = "" if info["can_build"] else "Недостаточно золота"
+		info["title"] = "Площадка для башни"
+		info["stats"] = "Выберите башню"
+		var short := true
+		for i in _tower_types().size():
+			var data: TowerData = _tower_types()[i]
+			var ok: bool = _build_manager.can_build(slot, data)
+			short = short and not ok
+			buttons.append({
+				"id": StringName("build_%d" % i), "icon": data.icon, "gold": data.cost_gold,
+				"wood": data.cost_wood, "enabled": ok,
+				"tooltip": "%s (%d): %s" % [data.display_name, i + 1, _stats_text(data, 0)],
+			})
+		info["hint"] = "Не хватает золота или дерева" if short else ""
 	else:
-		var level: int = slot.tower.level
-		info["title"] = "%s · ур. %d/%d" % [data.display_name, level + 1, data.max_level() + 1]
-		info["stats"] = _stats_text(data, level)
-		info["show_upgrade"] = true
-		info["upgrade_cost"] = data.upgrade_cost(level)
-		info["can_upgrade"] = _build_manager.can_upgrade(slot)
-		if data.upgrade_cost(level) < 0:
+		var data: TowerData = slot.tower.data
+		var level_index: int = slot.tower.level
+		var cost: Vector2i = data.upgrade_cost(level_index)
+		info["title"] = "%s · ур. %d/%d" % [data.display_name, level_index + 1, data.max_level() + 1]
+		info["stats"] = _stats_text(data, level_index)
+		var upgrade := {"id": &"upgrade", "icon": UPGRADE_ICON, "enabled": _build_manager.can_upgrade(slot),
+				"tooltip": "Улучшить (U)"}
+		if cost.x < 0:
+			upgrade["label"] = "макс."
 			info["hint"] = "Максимальный уровень"
-		elif not info["can_upgrade"]:
-			info["hint"] = "Недостаточно золота"
 		else:
-			info["hint"] = "Дальше: " + _stats_text(data, level + 1)
-	if _command_pending:
+			upgrade["gold"] = cost.x
+			upgrade["wood"] = cost.y
+			info["hint"] = "Дальше: " + _stats_text(data, level_index + 1)
+			if not upgrade["enabled"]:
+				info["hint"] = "Не хватает золота или дерева"
+		buttons.append(upgrade)
+	if slot != null:
+		buttons.append({"id": &"cancel", "icon": CANCEL_ICON, "label": "Esc", "enabled": true,
+				"tooltip": "Снять выбор (Esc)"})
+	if _pending_command != &"":
 		info["hint"] = "Рыцарь идёт к площадке…"
+	info["buttons"] = buttons
 	_hud.update_card(info)
 
 
-func _stats_text(data: TowerData, level: int) -> String:
-	return (
-		"Урон %d · радиус %.1f · %.2f с"
-		% [data.damage_levels[level], data.range_levels[level], data.interval_levels[level]]
-	)
+func _stats_text(data: TowerData, index: int) -> String:
+	var text := "Урон %d · радиус %.1f · %.2f с" % [
+		data.damage_levels[index], data.range_levels[index], data.interval_levels[index]]
+	if data.splash_levels[index] > 0.0:
+		text += " · по площади %.1f м" % data.splash_levels[index]
+	if data.slow_levels[index] < 1.0:
+		text += " · замедление %d%%" % roundi((1.0 - data.slow_levels[index]) * 100.0)
+	return text
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
@@ -154,13 +263,20 @@ func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
 	fx.global_position = at
 
 
-func _on_gold_changed(gold: int) -> void:
-	_hud.set_gold(gold)
+func _popup(text: String, at: Vector3, color: Color) -> void:
+	if not _camera.is_position_behind(at):
+		_hud.popup(text, _camera.unproject_position(at), color)
+
+
+func _on_resources_changed() -> void:
+	_hud.set_gold(_game_state.gold)
+	_hud.set_wood(_game_state.wood)
 	_refresh_card()
 
 
-func _on_selection_changed() -> void:
-	_refresh_card()
+func _on_wood_gathered(amount: int, at: Vector3) -> void:
+	_game_state.add_wood(amount)
+	_popup("+%d" % amount, at + Vector3.UP * 1.6, WOOD_COLOR)
 
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
@@ -177,7 +293,7 @@ func _on_tower_upgraded(slot: TowerSlot, _tower: Tower) -> void:
 
 
 func _on_hero_order_ended() -> void:
-	_command_pending = false
+	_pending_command = &""
 	_refresh_card()
 
 
@@ -185,10 +301,13 @@ func _on_ground_tapped(point: Vector3) -> void:
 	_hero.move_to(point, 0.15)
 
 
-func _on_cancel_pressed() -> void:
-	_hero.cancel_order()
-	_build_manager.clear_selection()
-	_refresh_card()
+func _on_next_wave_pressed() -> void:
+	var left: float = _wave_manager.time_to_next_wave()
+	if left > 0.0 and _wave_manager.start_next_wave():
+		var bonus: int = floori(left * EARLY_CALL_GOLD_PER_SECOND)
+		if bonus > 0:
+			_game_state.add_gold(bonus)
+			_popup("+%d" % bonus, _hero.global_position + Vector3.UP * 2.0, GOLD_COLOR)
 
 
 func _on_enemy_reached_base(damage: int) -> void:
@@ -196,14 +315,18 @@ func _on_enemy_reached_base(damage: int) -> void:
 	_game_state.lose_lives(damage)
 
 
-func _on_wave_started(wave: int, total: int) -> void:
+func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.set_wave(wave, total)
 	_wave_horn.play()
+	if boss:
+		_boss_roar.play()
+		_hud.show_boss_banner()
 
 
 func _on_all_waves_cleared() -> void:
 	if _game_state.is_defeated:
 		return
+	LevelCatalog.complete(int(level["id"]))
 	_victory_sound.play()
 	_end_game("Победа!", true)
 
@@ -222,7 +345,7 @@ func _end_game(message: String, victory: bool) -> void:
 
 
 ## All level state lives in this scene's nodes, so reloading it restores the
-## starting gold, lives and wave and frees old enemies, projectiles and towers.
+## starting resources, lives and wave and frees old enemies and towers.
 ## SceneTree.paused is the only state that survives a reload: clear it first.
 func _on_restart_pressed() -> void:
 	get_tree().paused = false
@@ -230,3 +353,8 @@ func _on_restart_pressed() -> void:
 	if error != OK:
 		push_error("Restart failed: %s" % error_string(error))
 		get_tree().paused = true
+
+
+func _on_map_pressed() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
