@@ -55,7 +55,7 @@ func spawns(wave: int) -> Array[Dictionary]:
 			data = FAST
 		out.append({"data": data, "hp": hp})
 	if is_boss_wave(wave):
-		var bosses: int = 1 + floori(wave / 20.0)
+		var bosses: int = 1 + floori(wave / 30.0)
 		for i in bosses:
 			out.append({"data": BOSS, "hp": pow(hp, BOSS_GROWTH_EXPONENT)})
 	return out
