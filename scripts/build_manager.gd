@@ -1,6 +1,7 @@
 class_name BuildManager
 extends Node
-## Picks tower slots with a camera ray, builds and upgrades towers for gold.
+## Picks tower slots with a camera ray, builds and upgrades towers for gold
+## and wood.
 ## Input arrives as a left mouse press: on Android touches are converted
 ## to mouse events (input_devices/pointing/emulate_mouse_from_touch), so
 ## HUD buttons consume their taps before they reach _unhandled_input.
@@ -12,21 +13,14 @@ signal tower_built(slot: TowerSlot, tower: Tower)
 signal tower_upgraded(slot: TowerSlot, tower: Tower)
 signal ground_tapped(point: Vector3)
 
-@export var tower_data: TowerData
+## Buildable tower types, in command card order.
+@export var tower_types: Array[TowerData] = []
 @export var game_state: GameState
 @export var camera: Camera3D
 @export_flags_3d_physics var slot_collision_mask: int = 1
 @export var ray_length: float = 100.0
 
 var selected_slot: TowerSlot = null
-
-
-func _ready() -> void:
-	# Towers placed in the editor take their stats from the same data.
-	for node: Node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
-		var slot := node as TowerSlot
-		if slot.tower != null:
-			slot.tower.apply_level(tower_data, 0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -68,42 +62,37 @@ func clear_selection() -> void:
 	selection_cleared.emit()
 
 
-func can_afford() -> bool:
-	return game_state.gold >= tower_data.cost
+func can_build(slot: TowerSlot, data: TowerData) -> bool:
+	return (
+		slot != null and slot.is_free() and data != null
+		and game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+	)
 
 
-func can_build(slot: TowerSlot) -> bool:
-	return slot != null and slot.is_free() and game_state.gold >= tower_data.cost
-
-
-## Price of the next upgrade of the tower on `slot`, or -1 if none.
-func upgrade_cost(slot: TowerSlot) -> int:
-	if slot == null or slot.tower == null:
-		return -1
-	return tower_data.upgrade_cost(slot.tower.level)
+## Price of the next upgrade of the tower on `slot` as (gold, wood), or (-1, -1).
+func upgrade_cost(slot: TowerSlot) -> Vector2i:
+	if slot == null or slot.tower == null or slot.tower.data == null:
+		return Vector2i(-1, -1)
+	return slot.tower.data.upgrade_cost(slot.tower.level)
 
 
 func can_upgrade(slot: TowerSlot) -> bool:
-	var cost: int = upgrade_cost(slot)
-	return cost >= 0 and game_state.gold >= cost
+	return game_state.can_afford(upgrade_cost(slot))
 
 
-## Builds on the selected slot. Does nothing and returns false if no free
-## slot is selected or there is not enough gold.
-func build_selected() -> bool:
-	return build_on(selected_slot)
-
-
-func build_on(slot: TowerSlot) -> bool:
-	if slot == null or not slot.is_free():
+## Builds a `data` tower on `slot`. Does nothing and returns false if the
+## slot is taken or gold/wood is short.
+func build_on(slot: TowerSlot, data: TowerData) -> bool:
+	if not can_build(slot, data):
 		return false
-	if not game_state.spend_gold(tower_data.cost):
-		return false
-	var tower: Tower = slot.place_tower(tower_data.scene)
+	var cost := Vector2i(data.cost_gold, data.cost_wood)
+	game_state.spend(cost)
+	var tower: Tower = slot.place_tower(data.scene)
 	if tower == null:
-		game_state.add_gold(tower_data.cost)
+		game_state.add_gold(cost.x)
+		game_state.add_wood(cost.y)
 		return false
-	tower.apply_level(tower_data, 0)
+	tower.apply_level(data, 0)
 	if slot == selected_slot:
 		# Refresh listeners: the selected slot changed from free to occupied.
 		slot_selected.emit(slot)
@@ -112,10 +101,9 @@ func build_on(slot: TowerSlot) -> bool:
 
 
 func upgrade(slot: TowerSlot) -> bool:
-	var cost: int = upgrade_cost(slot)
-	if cost < 0 or not game_state.spend_gold(cost):
+	if not game_state.spend(upgrade_cost(slot)):
 		return false
-	slot.tower.apply_level(tower_data, slot.tower.level + 1)
+	slot.tower.apply_level(slot.tower.data, slot.tower.level + 1)
 	tower_upgraded.emit(slot, slot.tower)
 	return true
 

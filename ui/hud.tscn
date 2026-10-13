@@ -1,9 +1,15 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
-[ext_resource type="Script" path="res://scripts/hud_icon.gd" id="3_icon"]
-[ext_resource type="Script" path="res://scripts/virtual_joystick.gd" id="4_joystick"]
+[ext_resource type="Script" path="res://scripts/virtual_joystick.gd" id="3_joystick"]
+[ext_resource type="Texture2D" path="res://ui/icons/flag.png" id="i_flag"]
+[ext_resource type="Texture2D" path="res://ui/icons/coin.png" id="i_coin"]
+[ext_resource type="Texture2D" path="res://ui/icons/wood.png" id="i_wood"]
+[ext_resource type="Texture2D" path="res://ui/icons/heart.png" id="i_heart"]
+[ext_resource type="Texture2D" path="res://ui/icons/hourglass.png" id="i_hourglass"]
+[ext_resource type="Texture2D" path="res://ui/icons/boss.png" id="i_boss"]
+[ext_resource type="Texture2D" path="res://ui/icons/sword.png" id="i_sword"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -22,7 +28,7 @@ theme = ExtResource("2_theme")
 layout_mode = 0
 offset_left = 20.0
 offset_top = 14.0
-offset_right = 620.0
+offset_right = 820.0
 offset_bottom = 66.0
 mouse_filter = 2
 theme_override_constants/separation = 12
@@ -37,14 +43,16 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="WaveIcon" type="Control" parent="Root/TopBar/WavePill/Row"]
-custom_minimum_size = Vector2(34, 34)
+[node name="Icon" type="TextureRect" parent="Root/TopBar/WavePill/Row"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
-kind = 2
+texture = ExtResource("i_flag")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="WaveLabel" type="Label" parent="Root/TopBar/WavePill/Row"]
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 text = "Волна 0/0"
 
@@ -58,13 +66,38 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="GoldIcon" type="Control" parent="Root/TopBar/GoldPill/Row"]
-custom_minimum_size = Vector2(34, 34)
+[node name="Icon" type="TextureRect" parent="Root/TopBar/GoldPill/Row"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
+texture = ExtResource("i_coin")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="GoldLabel" type="Label" parent="Root/TopBar/GoldPill/Row"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "0"
+
+[node name="WoodPill" type="PanelContainer" parent="Root/TopBar"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"HudPill"
+
+[node name="Row" type="HBoxContainer" parent="Root/TopBar/WoodPill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Icon" type="TextureRect" parent="Root/TopBar/WoodPill/Row"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_wood")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="WoodLabel" type="Label" parent="Root/TopBar/WoodPill/Row"]
 custom_minimum_size = Vector2(56, 0)
 layout_mode = 2
 text = "0"
@@ -79,12 +112,13 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="LivesIcon" type="Control" parent="Root/TopBar/LivesPill/Row"]
-custom_minimum_size = Vector2(34, 34)
+[node name="Icon" type="TextureRect" parent="Root/TopBar/LivesPill/Row"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
-kind = 1
+texture = ExtResource("i_heart")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="LivesLabel" type="Label" parent="Root/TopBar/LivesPill/Row"]
 custom_minimum_size = Vector2(36, 0)
@@ -111,16 +145,61 @@ mouse_filter = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="NextWaveIcon" type="Control" parent="Root/NextWavePill/Row"]
-custom_minimum_size = Vector2(30, 34)
+[node name="Icon" type="TextureRect" parent="Root/NextWavePill/Row"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
-kind = 6
+texture = ExtResource("i_hourglass")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="NextWaveLabel" type="Label" parent="Root/NextWavePill/Row"]
 layout_mode = 2
 text = "Волна 1 через 30 с"
+
+[node name="NextWaveButton" type="Button" parent="Root/NextWavePill/Row"]
+custom_minimum_size = Vector2(56, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "▶▶"
+
+[node name="BossBanner" type="HBoxContainer" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -260.0
+offset_top = 90.0
+offset_right = 260.0
+offset_bottom = 170.0
+grow_horizontal = 2
+mouse_filter = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Root/BossBanner"]
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_boss")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="Root/BossBanner"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.55, 0.5, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 48
+text = "Босс!"
+
+[node name="Popups" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="CommandCard" type="PanelContainer" parent="Root"]
 layout_mode = 1
@@ -129,9 +208,9 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -404.0
+offset_left = -600.0
 offset_top = -262.0
-offset_right = -24.0
+offset_right = -176.0
 offset_bottom = -24.0
 grow_horizontal = 0
 grow_vertical = 0
@@ -159,97 +238,25 @@ text = ""
 
 [node name="Buttons" type="HBoxContainer" parent="Root/CommandCard/Content"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 
-[node name="BuildButton" type="Button" parent="Root/CommandCard/Content/Buttons"]
-custom_minimum_size = Vector2(100, 100)
-layout_mode = 2
-
-[node name="Stack" type="VBoxContainer" parent="Root/CommandCard/Content/Buttons/BuildButton"]
+[node name="AttackButton" type="Button" parent="Root"]
+custom_minimum_size = Vector2(132, 132)
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 0
-alignment = 1
-
-[node name="Icon" type="Control" parent="Root/CommandCard/Content/Buttons/BuildButton/Stack"]
-custom_minimum_size = Vector2(0, 50)
-layout_mode = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-kind = 3
-
-[node name="Cost" type="Label" parent="Root/CommandCard/Content/Buttons/BuildButton/Stack"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
-theme_override_constants/outline_size = 0
-theme_override_font_sizes/font_size = 22
-text = "50"
-horizontal_alignment = 1
-
-[node name="UpgradeButton" type="Button" parent="Root/CommandCard/Content/Buttons"]
-custom_minimum_size = Vector2(100, 100)
-layout_mode = 2
-
-[node name="Stack" type="VBoxContainer" parent="Root/CommandCard/Content/Buttons/UpgradeButton"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 0
-alignment = 1
-
-[node name="Icon" type="Control" parent="Root/CommandCard/Content/Buttons/UpgradeButton/Stack"]
-custom_minimum_size = Vector2(0, 50)
-layout_mode = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-kind = 4
-
-[node name="Cost" type="Label" parent="Root/CommandCard/Content/Buttons/UpgradeButton/Stack"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
-theme_override_constants/outline_size = 0
-theme_override_font_sizes/font_size = 22
-text = "60"
-horizontal_alignment = 1
-
-[node name="CancelButton" type="Button" parent="Root/CommandCard/Content/Buttons"]
-custom_minimum_size = Vector2(100, 100)
-layout_mode = 2
-
-[node name="Stack" type="VBoxContainer" parent="Root/CommandCard/Content/Buttons/CancelButton"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 0
-alignment = 1
-
-[node name="Icon" type="Control" parent="Root/CommandCard/Content/Buttons/CancelButton/Stack"]
-custom_minimum_size = Vector2(0, 50)
-layout_mode = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-kind = 5
-
-[node name="Cost" type="Label" parent="Root/CommandCard/Content/Buttons/CancelButton/Stack"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
-theme_override_constants/outline_size = 0
-theme_override_font_sizes/font_size = 22
-text = "Esc"
-horizontal_alignment = 1
+offset_left = -156.0
+offset_top = -156.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+icon = ExtResource("i_sword")
+icon_alignment = 1
+expand_icon = true
 
 [node name="Joystick" type="Control" parent="Root"]
 custom_minimum_size = Vector2(200, 200)
@@ -262,7 +269,7 @@ offset_top = -240.0
 offset_right = 240.0
 offset_bottom = -40.0
 grow_vertical = 0
-script = ExtResource("4_joystick")
+script = ExtResource("3_joystick")
 
 [node name="EndScreen" type="Control" parent="Root"]
 visible = false
@@ -291,16 +298,16 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -120.0
-offset_right = 220.0
-offset_bottom = 120.0
+offset_left = -230.0
+offset_top = -150.0
+offset_right = 230.0
+offset_bottom = 150.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Content" type="VBoxContainer" parent="Root/EndScreen/EndPanel"]
 layout_mode = 2
-theme_override_constants/separation = 18
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="MessageLabel" type="Label" parent="Root/EndScreen/EndPanel/Content"]
@@ -312,7 +319,15 @@ horizontal_alignment = 1
 
 [node name="RestartButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
-custom_minimum_size = Vector2(300, 76)
+custom_minimum_size = Vector2(300, 70)
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Играть заново"
+
+[node name="MapButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+process_mode = 3
+custom_minimum_size = Vector2(300, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"SecondaryButton"
+text = "К карте"
