@@ -1,27 +1,26 @@
 class_name WaveManager
 extends Node
-## Spawns enemies wave by wave onto enemy_path using a WaveConfig.
+## Spawns enemies wave by wave onto enemy_path following a WavePlan.
 ## Only one wave can be active at a time.
 
-signal wave_started(wave: int, total: int)
+signal wave_started(wave: int, total: int, boss: bool)
 signal wave_cleared(wave: int)
 signal all_waves_cleared
 signal enemy_killed(reward: int)
 signal enemy_reached_base(damage: int)
 
-@export var config: WaveConfig
 @export var enemy_scene: PackedScene
 @export var enemy_path: Path3D
 ## Start the next wave automatically after time_between_waves.
 @export var auto_continue: bool = true
 
 var current_wave: int = 0
+var plan: WavePlan = null
 
 var _wave_active: bool = false
 var _stopped: bool = false
-var _left_to_spawn: int = 0
+var _queue: Array[Dictionary] = []
 var _alive: int = 0
-var _wave_health: float = 0.0
 var _spawn_timer: Timer
 var _next_wave_timer: Timer
 
@@ -37,7 +36,7 @@ func _ready() -> void:
 
 
 func get_total_waves() -> int:
-	return config.wave_count
+	return plan.wave_count
 
 
 ## Seconds until the scheduled next wave starts, or -1 if none is scheduled.
@@ -52,7 +51,7 @@ func is_wave_active() -> bool:
 
 
 func has_next_wave() -> bool:
-	return not _stopped and current_wave < config.wave_count
+	return not _stopped and current_wave < plan.wave_count
 
 
 ## Starts the next wave after delay seconds unless one starts earlier.
@@ -68,12 +67,11 @@ func start_next_wave() -> bool:
 	_next_wave_timer.stop()
 	current_wave += 1
 	_wave_active = true
-	_left_to_spawn = config.get_enemy_count(current_wave)
-	_wave_health = config.get_enemy_health(current_wave)
-	wave_started.emit(current_wave, config.wave_count)
+	_queue = plan.spawns(current_wave)
+	wave_started.emit(current_wave, plan.wave_count, plan.is_boss_wave(current_wave))
 	_spawn_enemy()
-	if _left_to_spawn > 0:
-		_spawn_timer.start(config.spawn_interval)
+	if not _queue.is_empty():
+		_spawn_timer.start(plan.spawn_interval(current_wave))
 	return true
 
 
@@ -85,24 +83,21 @@ func stop() -> void:
 
 
 func _spawn_enemy() -> void:
+	var entry: Dictionary = _queue.pop_front()
 	var enemy := enemy_scene.instantiate() as Enemy
-	enemy.max_health = _wave_health
-	enemy.speed = config.enemy_speed
-	enemy.reward = config.enemy_reward
-	enemy.base_damage = config.enemy_base_damage
+	enemy.setup(entry["data"], entry["hp"])
 	enemy.died.connect(_on_enemy_died)
 	enemy.reached_base.connect(_on_enemy_reached_base)
 	enemy_path.add_child(enemy)
-	_left_to_spawn -= 1
 	_alive += 1
 
 
 func _on_spawn_timer_timeout() -> void:
-	if _stopped or _left_to_spawn <= 0:
+	if _stopped or _queue.is_empty():
 		_spawn_timer.stop()
 		return
 	_spawn_enemy()
-	if _left_to_spawn <= 0:
+	if _queue.is_empty():
 		_spawn_timer.stop()
 
 
@@ -119,13 +114,13 @@ func _on_enemy_reached_base(damage: int) -> void:
 
 
 func _check_wave_end() -> void:
-	if not _wave_active or _left_to_spawn > 0 or _alive > 0:
+	if not _wave_active or not _queue.is_empty() or _alive > 0:
 		return
 	_wave_active = false
 	wave_cleared.emit(current_wave)
 	if _stopped:
 		return
-	if current_wave >= config.wave_count:
+	if current_wave >= plan.wave_count:
 		all_waves_cleared.emit()
 	elif auto_continue:
-		schedule_next_wave(config.time_between_waves)
+		schedule_next_wave(plan.between)
