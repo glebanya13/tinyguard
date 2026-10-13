@@ -33,9 +33,9 @@ def island():
     for r in range(rings):
         for s in range(seg):
             s2 = (s + 1) % seg
-            faces.append((r * seg + s, r * seg + s2, (r + 1) * seg + s2, (r + 1) * seg + s))
+            faces.append(((r + 1) * seg + s, (r + 1) * seg + s2, r * seg + s2, r * seg + s))  # CCW from above
     for s in range(seg):
-        faces.append((c, (s + 1) % seg, s))
+        faces.append((c, s, (s + 1) % seg))
     land = tg.from_pydata("Land", verts, faces, "grass")
     land.data.materials.append(tg.swatch("sand"))
     for f in land.data.polygons:
