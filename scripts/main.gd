@@ -96,7 +96,7 @@ func _process(_delta: float) -> void:
 func _build_level() -> void:
 	var id: int = int(level["id"])
 	for part in ["terrain", "decor", "forest"]:
-		var scene: PackedScene = load("res://assets/models/level_%02d_%s.glb" % [id, part])
+		var scene: PackedScene = load("res://assets/models/level_%d_%s.glb" % [id, part])
 		var node: Node3D = scene.instantiate()
 		if part != "decor":
 			node.set_script(NO_SHADOW)

@@ -1,0 +1,126 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/level_select.gd" id="1_select"]
+[ext_resource type="PackedScene" path="res://assets/models/worldmap.glb" id="2_map"]
+[ext_resource type="Theme" path="res://ui/theme.tres" id="3_theme"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.36, 0.6, 0.9, 1)
+sky_horizon_color = Color(0.74, 0.86, 0.95, 1)
+ground_bottom_color = Color(0.5, 0.7, 0.88, 1)
+ground_horizon_color = Color(0.74, 0.86, 0.95, 1)
+sun_angle_max = 20.0
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env_main"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+ambient_light_color = Color(0.86, 0.9, 1, 1)
+ambient_light_sky_contribution = 0.6
+ambient_light_energy = 0.75
+reflected_light_source = 2
+tonemap_mode = 2
+tonemap_exposure = 0.95
+tonemap_white = 6.0
+adjustment_enabled = true
+adjustment_saturation = 1.12
+
+[node name="LevelSelect" type="Node3D"]
+script = ExtResource("1_select")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, 0.469846, -0.32899, 0, 0.573576, 0.819152, 0.573576, -0.67101, 0.469846, 0, 10, 0)
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 1.05
+shadow_enabled = true
+shadow_blur = 1.5
+directional_shadow_mode = 0
+directional_shadow_max_distance = 40.0
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.766044, 0.642788, 0, -0.642788, 0.766044, 0, 15, 17)
+fov = 45.0
+current = true
+
+[node name="Map" parent="." instance=ExtResource("2_map")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Root" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("3_theme")
+
+[node name="Title" type="Label" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 16.0
+offset_right = 300.0
+offset_bottom = 90.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 12
+theme_override_font_sizes/font_size = 56
+text = "Tinyguard"
+horizontal_alignment = 1
+
+[node name="Sites" type="Control" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Info" type="PanelContainer" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -170.0
+offset_right = 300.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Content" type="VBoxContainer" parent="UI/Root/Info"]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="Name" type="Label" parent="UI/Root/Info/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 30
+text = "1. Зелёная долина"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="UI/Root/Info/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = ""
+horizontal_alignment = 1
+
+[node name="PlayButton" type="Button" parent="UI/Root/Info/Content"]
+custom_minimum_size = Vector2(260, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Играть"

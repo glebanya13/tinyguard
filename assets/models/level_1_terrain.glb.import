@@ -1,0 +1,15 @@
+[remap]
+
+importer="scene"
+
+[params]
+
+_subresources={
+"materials": {
+"TG_Palette": {
+"use_external/enabled": true,
+"use_external/path": "res://assets/materials/tg_palette.tres"
+}
+}
+}
+gltf/embedded_image_handling=0
