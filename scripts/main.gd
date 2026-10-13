@@ -187,8 +187,9 @@ func _build_level() -> void:
 	for part in ["terrain", "decor", "forest"]:
 		var scene: PackedScene = load("res://assets/models/level_%d_%s.glb" % [id, part])
 		var node: Node3D = scene.instantiate()
-		if part != "decor":
-			node.set_script(NO_SHADOW)
+		# Ground, small props and the far forest cast no shadows (half the triangles
+		# of the frame otherwise go to the shadow pass); trees and towers still do.
+		node.set_script(NO_SHADOW)
 		_level_root.add_child(node)
 		if part == "decor":
 			_plant_trees(node)

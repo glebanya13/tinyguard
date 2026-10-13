@@ -40,6 +40,8 @@ const SHORTCUTS := {
 var _button_ids: Array[StringName] = []
 var _hint_tween: Tween = null
 var _joystick_visible: bool = false
+var _next_wave_key: int = -1
+var _card_hash: int = 0
 ## Touch build: no keyboard hints or hover tooltips.
 var _touch: bool = OS.has_feature("mobile")
 
@@ -123,7 +125,10 @@ func set_lives(lives: int) -> void:
 ## Countdown to the next wave; seconds < 0 hides it. A boss wave shows the king.
 func set_next_wave(wave: int, seconds: float, boss: bool = false) -> void:
 	_next_wave_pill.visible = seconds >= 0.0
-	if seconds >= 0.0:
+	# Called every frame: rebuild the text only when the shown second changes.
+	var key: int = wave * 10000 + ceili(seconds)
+	if seconds >= 0.0 and key != _next_wave_key:
+		_next_wave_key = key
 		_next_boss_icon.visible = boss
 		_next_wave_label.text = "%s %d через %d с" % ["Босс! Волна" if boss else "Волна", wave, ceili(seconds)]
 
@@ -190,6 +195,11 @@ func popup(text: String, screen_pos: Vector2, color: Color, icon: Texture2D = nu
 ## Array of {id, icon, label?, gold?, wood?, enabled, tooltip}. Buttons are
 ## rebuilt only when the set of ids changes.
 func update_card(info: Dictionary) -> void:
+	# Called on every gold/wood change: skip when nothing on the card changed.
+	var card_hash: int = info.hash()
+	if card_hash == _card_hash:
+		return
+	_card_hash = card_hash
 	_card_title.text = info.get("title", "")
 	_card_stats.text = info.get("stats", "")
 	_card_hint.text = info.get("hint", "")
@@ -249,6 +259,7 @@ func show_pause_menu() -> void:
 
 func hide_pause_menu() -> void:
 	_end_screen.hide()
+	_card_hash = 0
 	_card.visible = not _button_ids.is_empty()
 	_attack_button.show()
 	_joystick.visible = _joystick_visible

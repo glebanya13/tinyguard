@@ -56,6 +56,8 @@ func _ready() -> void:
 		_health_bar.scale.x = _bar_width
 		if data.is_boss:
 			_health_bar.scale.y = 1.8
+	# A full bar says nothing; hiding it saves a draw call per fresh enemy.
+	_health_bar.visible = is_boss()
 
 
 func _process(delta: float) -> void:
@@ -75,6 +77,7 @@ func take_damage(amount: float) -> void:
 	if _is_dead:
 		return
 	health = maxf(health - amount, 0.0)
+	_health_bar.visible = true
 	_health_bar.scale.x = _bar_width * health / max_health
 	if health <= 0.0:
 		_spawn_death_fx()

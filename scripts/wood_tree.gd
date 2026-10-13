@@ -23,6 +23,8 @@ var grove: Grove = null
 @export var wood_per_hit: int = 3
 @export var hits: int = 4
 @export var regrow_time: float = 60.0
+## Physics layers that keep a stump from growing back (the hero, layer 2).
+@export_flags_3d_physics var regrow_blockers: int = 2
 
 var _hits_left: int = 0
 var _tree: Node3D = null
@@ -108,6 +110,10 @@ func chop(from: Vector3) -> int:
 
 
 func _regrow() -> void:
+	if _is_blocked():
+		# Someone stands on the stump: try again a bit later.
+		get_tree().create_timer(3.0, false).timeout.connect(_regrow)
+		return
 	_hits_left = hits
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
 	_tree.quaternion = _yaw
@@ -120,6 +126,14 @@ func _regrow() -> void:
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_tween.tween_callback(_stump.hide)
 	_tween.tween_callback(_set_animated.bind(false))
+
+
+func _is_blocked() -> bool:
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = ($Shape as CollisionShape3D).shape
+	query.transform = ($Shape as CollisionShape3D).global_transform
+	query.collision_mask = regrow_blockers
+	return not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
 ## Own model while animating, grove instance while standing still.
