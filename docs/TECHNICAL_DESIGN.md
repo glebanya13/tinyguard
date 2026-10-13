@@ -17,25 +17,31 @@
 низкое энергопотребление; для плоских low-poly материалов возможностей Forward+/Mobile
 не нужно.
 
-## Дерево главной сцены (текущее)
+## Сцены и данные уровня
+
+`run/main_scene` — `scenes/level_select.tscn` (`level_select.gd`): 3D-остров
+`worldmap.glb`, кнопки уровней ставятся по проекции пустышек `Site1..3`.
+Выбор пишется в статическую `LevelCatalog.selected_id`, затем грузится `main.tscn`.
+
+`resources/levels.json` — единый источник для Godot (`LevelCatalog`) и Blender
+(`build_terrain.py`): границы, старт (золото/дерево/жизни), план волн, тропа
+(ломаная из осевых отрезков), замок, герой, площадки, рубимые деревья.
+`tools/validate_project.py` проверяет расстояния между ними.
 
 ```
-Main (Node3D, main.gd)               — связывает системы сигналами
-├── WorldEnvironment, Sun, Camera     — окружение, свет, изометрия
-├── Level (Node3D)                    — статическая карта из примитивов
-│   ├── Terrain (level_01_terrain.glb, no_shadow.gd) — земля, тропа, мелкий декор
-│   ├── Base (castle.glb), Spawn (spawn_portal.glb), Decor (level_01_decor.glb)
-│   ├── Hero (hero.tscn)              — герой у замка, пока только визуал
-│   ├── TowerSlot1..3 (tower_slot.tscn) — площадки, Area3D на слое 1
-│   │   └── PlaceholderTower (tower.tscn) — стартовая башня в TowerSlot2
-│   └── EnemyPath (Path3D)            — маршрут; враги спавнятся его детьми
-├── GameState (Node, game_state.gd)   — золото, жизни, поражение
-├── WaveManager (Node, wave_manager.gd) — волны по WaveConfig
-├── BuildManager (Node, build_manager.gd) — выбор площадки и постройка
-└── HUD (ui/hud.tscn)                 — показатели, кнопка волны, меню строительства
+Main (Node3D, main.gd)               — строит уровень из данных и связывает системы
+├── WorldEnvironment, Sun, Camera     — окружение, свет, изометрия (camera_follow.gd)
+├── Level (Node3D)
+│   ├── Hero (hero.tscn)              — ставится в level.hero
+│   ├── EnemyPath (Path3D)            — Curve3D из level.path
+│   └── (в _ready) level_N_terrain/decor/forest.glb, портал, замок,
+│       TowerSlot × N (tower_slot.tscn), WoodTree × N (wood_tree.tscn)
+├── GameState (Node)                  — золото, дерево, жизни
+├── WaveManager (Node)                — спавн по WavePlan
+├── BuildManager (Node)               — площадки, tower_types: archer/cannon/frost.tres
+├── Sfx                               — рог, рёв босса, удар по замку, победа/поражение
+└── HUD (ui/hud.tscn)                 — показатели, командная карта, атака, баннер босса
 ```
-
-Позже `Level` станет отдельной сценой `levels/level_01.tscn`.
 
 ## Камера
 
@@ -111,27 +117,30 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 
 ## Волны
 
-`WaveConfig` (`scripts/wave_config.gd`, данные — `resources/waves_level_01.tres`):
-число волн, задержки, интервал спавна, базовое число врагов + шаг за волну,
-базовое HP × множитель за волну, скорость, награда, урон базе.
+`WavePlan` (`scripts/wave_plan.gd`) строится из блока `waves` уровня: число волн,
+задержки, `count_base + count_step·(n−1)` врагов, HP × `hp_mult·hp_growth^(n−1)`,
+с какой волны идут быстрые (`fast_from`, каждый 3-й) и толстые (`tank_from`,
+каждый 4-й), интервал спавна ×0.97 за волну до `interval_min`. Каждая
+`boss_every`-я и последняя волна заканчивается боссом (на 20+ — двумя), его HP
+растёт медленнее (показатель 0.75). Типы врагов — `EnemyData` в `resources/enemies/`.
 
-`WaveManager`:
-- `start_next_wave() -> bool` — возвращает `false` и ничего не делает, если волна
-  уже идёт или волны кончились (защита от двойного запуска кнопкой и таймером).
-- Спавн через дочерний `Timer` с интервалом `spawn_interval`.
-- Волна закончена, когда все враги заспавнены и каждый либо умер, либо дошёл до базы.
-- Следующая волна стартует через `time_between_waves` (`auto_continue`) или по кнопке.
-- `stop()` — окончательная остановка после поражения.
-
-Сигналы: `wave_started(wave, total)`, `wave_cleared(wave)`, `all_waves_cleared`,
+`WaveManager`: очередь спавна `[{data, hp}]`, `start_next_wave() -> bool`
+(защита от двойного запуска), `schedule_next_wave`, `stop()`.
+Сигналы: `wave_started(wave, total, boss)`, `wave_cleared`, `all_waves_cleared`,
 `enemy_killed(reward)`, `enemy_reached_base(damage)`.
 
 ## Состояние игры
 
 `GameState` — **обычный узел** в `main.tscn`, а не autoload: пока уровень один,
 глобальный синглтон не нужен (CLAUDE.md: autoload только при необходимости).
-Поля `gold`, `lives`, `is_defeated`; методы `add_gold`, `spend_gold -> bool`,
-`lose_lives`; сигналы `gold_changed`, `lives_changed`, `defeated`. Стартовые значения — `@export` (100 золота, 20 жизней).
+Поля `gold`, `wood`, `lives`, `is_defeated`; методы `configure(start)`, `add_gold`,
+`add_wood`, `can_afford(Vector2i)`, `spend(Vector2i) -> bool`, `lose_lives`; сигналы
+`gold_changed`, `wood_changed`, `lives_changed`, `defeated`. Старт — из `level.start`.
+
+Герой (`hero.gd`): `try_attack()` с кулдауном 0.5 с, удар через 0.2 с по врагам
+(группа `enemies`) и деревьям (группа `wood_trees`, `WoodTree.chop() -> int`) в
+конусе перед собой; сигнал `wood_gathered(amount, at)`. Деревья — слой коллизий 3,
+маска героя 1 + 3.
 
 `main.gd` соединяет: `WaveManager → GameState` (награда, потеря жизней),
 `GameState/WaveManager → HUD` (показатели), `HUD → WaveManager` (кнопка).
