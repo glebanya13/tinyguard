@@ -44,3 +44,4 @@ __pycache__/
 
 # Blender scenes saved by build_all.py --blend (derived from the scripts)
 assets/blender/out/
+tinyguard.zip
