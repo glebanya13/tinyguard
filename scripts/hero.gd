@@ -4,7 +4,8 @@ extends CharacterBody3D
 ## the on-screen joystick, or by order (walk to a point, then run a callback).
 ## Directions are relative to the camera: "up" walks up the screen.
 ## The attack action swings the sword: it hurts enemies in front and chops
-## trees for wood.
+## trees for wood. Standing still next to an enemy or a tree swings by itself
+## (auto_action), so on a phone walking up to a tree is enough to chop it.
 
 ## Emitted when an order's destination is reached (before its callback runs).
 signal order_finished
@@ -33,6 +34,8 @@ signal wood_gathered(amount: int, at: Vector3)
 @export var auto_aim_range: float = 2.4
 ## Cosine of the half-angle of the hit cone in front of the hero.
 @export var attack_cone: float = 0.2
+## Swing on its own at enemies/trees in reach while standing still.
+@export var auto_action: bool = true
 
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
@@ -72,6 +75,8 @@ func _physics_process(delta: float) -> void:
 		direction = _screen_to_world(input)
 	elif _has_order:
 		direction = _order_direction(delta)
+	if auto_action and direction == Vector3.ZERO and _cooldown_left <= 0.0 and get_focus_target(true) != null:
+		try_attack()
 	if _attack_left > 0.0:
 		direction *= 0.3  # plant the feet while swinging
 	velocity = direction * speed
@@ -106,6 +111,30 @@ func try_attack() -> bool:
 	_swing_sound.play()
 	get_tree().create_timer(attack_hit_delay, false).timeout.connect(_strike)
 	return true
+
+
+## What a swing would hit now: the nearest living enemy in sword reach, else
+## the nearest choppable tree in chop reach (null if none). With `strict`
+## false the reach is a little longer, for showing the target ahead of time.
+func get_focus_target(strict: bool = false) -> Node3D:
+	var slack: float = 0.0 if strict else 0.5
+	var best: Node3D = null
+	var best_distance: float = attack_range + slack
+	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var d: float = _flat_distance(node as Node3D)
+		if (node as Enemy).is_alive() and d < best_distance:
+			best_distance = d
+			best = node as Node3D
+	if best != null:
+		return best
+	best_distance = chop_range + slack
+	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
+		var tree := node as WoodTree
+		var d: float = _flat_distance(tree)
+		if tree.is_choppable() and d < best_distance:
+			best_distance = d
+			best = tree
+	return best
 
 
 func is_attacking() -> bool:

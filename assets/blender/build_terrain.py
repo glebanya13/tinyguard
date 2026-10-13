@@ -325,6 +325,12 @@ def build_level(lv: dict) -> list:
     path, pts = build_path()
     details = build_details(rng, pts)
     gen_tall, gen_small, ring = generated_layout(random.Random(13 + lv["id"]))
+    # Every tree inside the play area can be chopped: Godot puts a WoodTree on each
+    # Chop_<kind>_<i> marker, so those trees are not baked into the decor mesh.
+    rng_spot = random.Random(21 + lv["id"])
+    chop = [("round", x, z, rng_spot.uniform(0, 360), rng_spot.uniform(0.95, 1.15)) for x, z in CHOP_TREES]
+    chop += [item for item in gen_tall if item[0] in TREES]
+    gen_tall = [item for item in gen_tall if item[0] not in TREES]
     terrain = tg.join([ground, path, details], "Terrain")
     for wall in build_walls():
         tg.parent(wall, terrain)
@@ -335,12 +341,17 @@ def build_level(lv: dict) -> list:
     forest = tg.empty("Forest")
     for chunk in chunked(ring, "Ring"):
         tg.parent(chunk, forest)
-    # Trunks inside the play area block the hero.
+    for i, (kind, x, z, yaw, s) in enumerate(chop):
+        marker = tg.empty(f"Chop_{kind}_{i}", b(x, z, max(height(x, z) - 0.02, 0.0)))
+        marker.rotation_euler = (0, 0, math.radians(yaw))
+        marker.scale = (s, s, s)
+        tg.parent(marker, decor)
+    # Bushes inside the play area block the hero (chop trees have their own bodies).
     cols = [tg.collider_cylinder(f"trunk{i}", 0.28 if kind in TREES else 0.32, 1.2, b(x, z, 0))
             for i, (kind, x, z, _, s) in enumerate(gen_tall)]
     if cols:
         tg.parent(tg.join(cols, "Trunks" + tg.COLLIDER_SUFFIX), decor)
-    chunks = [c for c in decor.children if not tg.is_collider(c)] + list(forest.children)
+    chunks = [c for c in decor.children if c.type == "MESH" and not tg.is_collider(c)] + list(forest.children)
 
     def tint(co):
         # Soft colour variation on the grass (AO channel).

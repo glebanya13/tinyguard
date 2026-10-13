@@ -39,7 +39,7 @@ REQUIRED_DIRS = [
 EXPECTED_SETTINGS = {
     "renderer/rendering_method": '"gl_compatibility"',
     "renderer/rendering_method.mobile": '"gl_compatibility"',
-    "window/handheld/orientation": "0",
+    "window/handheld/orientation": "4",  # sensor landscape
 }
 
 RES_RE = re.compile(r'res://[^"\s)]+')

@@ -2,7 +2,7 @@ class_name BuildManager
 extends Node
 ## Picks tower slots with a camera ray, builds and upgrades towers for gold
 ## and wood.
-## Input arrives as a left mouse press: on Android touches are converted
+## Input arrives as a left mouse click: on Android touches are converted
 ## to mouse events (input_devices/pointing/emulate_mouse_from_touch), so
 ## HUD buttons consume their taps before they reach _unhandled_input.
 ## A tap on open ground is reported as ground_tapped (the hero walks there).
@@ -16,19 +16,34 @@ signal ground_tapped(point: Vector3)
 ## Buildable tower types, in command card order.
 @export var tower_types: Array[TowerData] = []
 @export var game_state: GameState
-@export var camera: Camera3D
+@export var camera: CameraFollow
 @export_flags_3d_physics var slot_collision_mask: int = 1
 @export var ray_length: float = 100.0
+## A press that moves further than this before release is a drag, not a tap.
+@export var tap_slop: float = 24.0
 
 var selected_slot: TowerSlot = null
 
+var _press_position: Vector2 = Vector2.ZERO
+var _pressed: bool = false
+
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Act on release, so a pinch (second finger) or a drag does not count as a tap.
 	var press := event as InputEventMouseButton
-	if press == null or not press.pressed or press.button_index != MOUSE_BUTTON_LEFT:
+	if press == null or press.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if press.pressed:
+		_pressed = true
+		_press_position = press.position
+		return
+	if not _pressed:
+		return
+	_pressed = false
+	if press.position.distance_to(_press_position) > tap_slop or camera.is_pinch_gesture():
 		return
 	handle_tap(press.position)
-	get_viewport().set_input_as_handled()
 
 
 ## Selects the slot under screen_pos; elsewhere clears the selection and

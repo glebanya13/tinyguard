@@ -14,6 +14,12 @@ const BUILD_FX := preload("res://scenes/fx/build_fx.tscn")
 const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
 const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
+const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
+const RING_ENEMY_COLOR := Color(1.0, 0.38, 0.32, 0.85)
+## A tap this close to a tree sends the hero to chop it.
+const TREE_TAP_REACH := 1.0
+## Hints are shown until this many towers stand on the map.
+const HINT_TOWERS := 2
 const GOLD_COLOR := Color(1.0, 0.85, 0.35)
 const WOOD_COLOR := Color(0.85, 0.65, 0.42)
 ## The hero builds when this close to a slot centre (metres).
@@ -40,6 +46,8 @@ var _pending_command: StringName = &""
 @onready var _build_manager: BuildManager = $BuildManager
 @onready var _hud: Hud = $HUD
 @onready var _hero: Hero = $Level/Hero
+@onready var _target_ring: MeshInstance3D = $TargetRing
+@onready var _ring_material: StandardMaterial3D = _target_ring.mesh.surface_get_material(0)
 @onready var _wave_horn: AudioStreamPlayer = $Sfx/WaveHorn
 @onready var _boss_roar: AudioStreamPlayer = $Sfx/BossRoar
 @onready var _base_hit: AudioStreamPlayer = $Sfx/BaseHit
@@ -91,6 +99,24 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	_hud.set_next_wave(_wave_manager.current_wave + 1, _wave_manager.time_to_next_wave())
 	_auto_select_near_hero()
+	_update_target_ring()
+
+
+## Ring under whatever the next swing hits; the attack button shows an axe
+## for trees and a sword for enemies.
+func _update_target_ring() -> void:
+	var target: Node3D = _hero.get_focus_target()
+	_target_ring.visible = target != null
+	var is_tree: bool = target is WoodTree
+	_hud.set_attack_mode(is_tree)
+	if target == null:
+		return
+	_target_ring.global_position = Vector3(target.global_position.x, 0.06, target.global_position.z)
+	var radius: float = 0.55
+	if target is Enemy:
+		radius = 1.0 if (target as Enemy).is_boss() else 0.45
+	_target_ring.scale = Vector3.ONE * radius
+	_ring_material.albedo_color = RING_TREE_COLOR if is_tree else RING_ENEMY_COLOR
 
 
 func _build_level() -> void:
@@ -101,6 +127,8 @@ func _build_level() -> void:
 		if part != "decor":
 			node.set_script(NO_SHADOW)
 		_level_root.add_child(node)
+		if part == "decor":
+			_plant_trees(node)
 
 	var path: Array = level["path"]
 	var curve := Curve3D.new()
@@ -124,15 +152,23 @@ func _build_level() -> void:
 		var slot: Node3D = SLOT_SCENE.instantiate()
 		slot.position = _ground(point, PATH_HEIGHT)
 		_level_root.add_child(slot)
-	for point: Array in level["trees"]:
-		var tree: Node3D = TREE_SCENE.instantiate()
-		tree.position = _ground(point)
-		_level_root.add_child(tree)
 
 	_hero.position = _ground(level["hero"])
 	var b: Array = level["bounds"]
 	_camera.bounds = Rect2(b[0], b[1], b[2], b[3]).grow(-CAMERA_MARGIN)
 	_camera.snap()
+
+
+## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees.
+func _plant_trees(decor: Node3D) -> void:
+	for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
+		var spot := marker as Node3D
+		var tree := TREE_SCENE.instantiate() as WoodTree
+		tree.variant = StringName(String(spot.name).get_slice("_", 1))
+		tree.model_scale = spot.scale.x
+		tree.position = spot.global_position
+		_level_root.add_child(tree)
+		spot.queue_free()
 
 
 func _ground(point: Array, height: float = 0.0) -> Vector3:
@@ -203,10 +239,11 @@ func _refresh_card() -> void:
 	var info := {}
 	var buttons: Array[Dictionary] = []
 	if slot == null:
-		info["title"] = "Рыцарь-страж"
-		info["stats"] = "Ходить: WASD / нажать на землю · Пробел: удар, рубка"
-		info["hint"] = "Рубите деревья ради древесины, бейте слизней ради золота"
-	elif slot.is_free():
+		_hud.show_hint(_hint_text())
+		_hud.update_card({})
+		return
+	_hud.show_hint("")
+	if slot.is_free():
 		info["title"] = "Площадка для башни"
 		info["stats"] = "Выберите башню"
 		var short := true
@@ -245,6 +282,22 @@ func _refresh_card() -> void:
 		info["hint"] = "Рыцарь идёт к площадке…"
 	info["buttons"] = buttons
 	_hud.update_card(info)
+
+
+## Step-by-step hint for new players while nothing is selected.
+func _hint_text() -> String:
+	var towers: int = 0
+	for node: Node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
+		if not (node as TowerSlot).is_free():
+			towers += 1
+	if towers >= HINT_TOWERS:
+		return ""
+	var cheapest: TowerData = _tower_types()[0]
+	if _game_state.wood < cheapest.cost_wood:
+		return "Подойдите к дереву или нажмите на него — рыцарь сам нарубит дров"
+	if _game_state.gold < cheapest.cost_gold:
+		return "Бейте слизней у тропы — за них дают золото"
+	return "Нажмите на каменную площадку и постройте башню"
 
 
 func _stats_text(data: TowerData, index: int) -> String:
@@ -298,7 +351,20 @@ func _on_hero_order_ended() -> void:
 
 
 func _on_ground_tapped(point: Vector3) -> void:
-	_hero.move_to(point, 0.15)
+	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
+	var best: WoodTree = null
+	var best_distance: float = TREE_TAP_REACH
+	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
+		var tree := node as WoodTree
+		var offset: Vector3 = tree.global_position - point
+		offset.y = 0.0
+		if tree.is_choppable() and offset.length() < best_distance:
+			best_distance = offset.length()
+			best = tree
+	if best != null:
+		_hero.move_to(best.global_position, _hero.chop_range * 0.8)
+	else:
+		_hero.move_to(point, 0.15)
 
 
 func _on_next_wave_pressed() -> void:

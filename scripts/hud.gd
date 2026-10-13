@@ -18,6 +18,8 @@ const DEFEAT_COLOR := Color(1.0, 0.5, 0.45)
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COST_COLOR := Color(0.2, 0.13, 0.05)
+const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
+const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 ## Keyboard/gamepad action for each command id.
 const SHORTCUTS := {
 	&"build_0": &"build_tower",
@@ -28,6 +30,9 @@ const SHORTCUTS := {
 }
 
 var _button_ids: Array[StringName] = []
+var _hint_tween: Tween = null
+## Touch build: no keyboard hints or hover tooltips.
+var _touch: bool = OS.has_feature("mobile")
 
 @onready var _wave_label: Label = $Root/TopBar/WavePill/Row/WaveLabel
 @onready var _gold_label: Label = $Root/TopBar/GoldPill/Row/GoldLabel
@@ -36,6 +41,9 @@ var _button_ids: Array[StringName] = []
 @onready var _next_wave_pill: Control = $Root/NextWavePill
 @onready var _next_wave_label: Label = $Root/NextWavePill/Row/NextWaveLabel
 @onready var _next_wave_button: Button = $Root/NextWavePill/Row/NextWaveButton
+@onready var _root: Control = $Root
+@onready var _hint_pill: Control = $Root/HintPill
+@onready var _hint_label: Label = $Root/HintPill/Row/Label
 @onready var _boss_banner: Control = $Root/BossBanner
 @onready var _popups: Control = $Root/Popups
 @onready var _card: Control = $Root/CommandCard
@@ -55,13 +63,18 @@ func _ready() -> void:
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
 	_attack_button.pressed.connect(attack_pressed.emit)
-	_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
+	if not _touch:
+		_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
 	_next_wave_button.pressed.connect(next_wave_pressed.emit)
 	_next_wave_button.tooltip_text = "Вызвать волну сейчас"
 	_joystick.vector_changed.connect(joystick_changed.emit)
 	_end_screen.hide()
 	_next_wave_pill.hide()
 	_boss_banner.hide()
+	_hint_pill.hide()
+	_card.hide()
+	_apply_safe_area()
+	get_viewport().size_changed.connect(_apply_safe_area)
 
 
 func set_wave(wave: int, total: int) -> void:
@@ -85,6 +98,29 @@ func set_next_wave(wave: int, seconds: float) -> void:
 	_next_wave_pill.visible = seconds >= 0.0
 	if seconds >= 0.0:
 		_next_wave_label.text = "Волна %d через %d с" % [wave, ceili(seconds)]
+
+
+## Sword for enemies, axe for trees.
+func set_attack_mode(tree: bool) -> void:
+	var icon: Texture2D = AXE_ICON if tree else SWORD_ICON
+	if _attack_button.icon != icon:
+		_attack_button.icon = icon
+
+
+## One-line tip under the top bar; "" hides it.
+func show_hint(text: String) -> void:
+	if text == _hint_label.text and _hint_pill.visible == (text != ""):
+		return
+	_hint_label.text = text
+	if _hint_tween:
+		_hint_tween.kill()
+	if text == "":
+		_hint_pill.hide()
+		return
+	_hint_pill.show()
+	_hint_pill.modulate.a = 0.0
+	_hint_tween = create_tween()
+	_hint_tween.tween_property(_hint_pill, "modulate:a", 1.0, 0.3)
 
 
 func show_boss_banner() -> void:
@@ -126,6 +162,7 @@ func update_card(info: Dictionary) -> void:
 	_card_hint.text = info.get("hint", "")
 	_card_hint.visible = _card_hint.text != ""
 	var specs: Array = info.get("buttons", [])
+	_card.visible = not specs.is_empty()
 	var ids: Array[StringName] = []
 	for spec: Dictionary in specs:
 		ids.append(spec["id"])
@@ -151,6 +188,21 @@ func show_end_screen(text: String, victory: bool) -> void:
 	_joystick.hide()
 	_next_wave_pill.hide()
 	_end_screen.show()
+
+
+## Keeps the HUD out of display cutouts and rounded corners on phones.
+func _apply_safe_area() -> void:
+	if not _touch:
+		return
+	var screen: Vector2 = Vector2(DisplayServer.screen_get_size())
+	var safe := Rect2(DisplayServer.get_display_safe_area())
+	if screen.x <= 0.0 or screen.y <= 0.0:
+		return
+	var scale: Vector2 = get_viewport().get_visible_rect().size / screen
+	_root.offset_left = safe.position.x * scale.x
+	_root.offset_top = safe.position.y * scale.y
+	_root.offset_right = -(screen.x - safe.end.x) * scale.x
+	_root.offset_bottom = -(screen.y - safe.end.y) * scale.y
 
 
 func _make_button(spec: Dictionary) -> Button:
@@ -185,13 +237,16 @@ func _make_button(spec: Dictionary) -> Button:
 
 func _fill_button(button: Button, spec: Dictionary) -> void:
 	button.disabled = not spec.get("enabled", false)
-	button.tooltip_text = spec.get("tooltip", "")
+	button.tooltip_text = "" if _touch else spec.get("tooltip", "")
 	(button.find_child("Icon", true, false) as TextureRect).texture = spec.get("icon")
 	var cost: HBoxContainer = button.find_child("Cost", true, false)
 	for child in cost.get_children():
 		child.free()
 	if spec.has("label"):
-		cost.add_child(_cost_label(spec["label"]))
+		var label: String = spec["label"]
+		if _touch and label == "Esc":
+			label = "Закрыть"
+		cost.add_child(_cost_label(label))
 		return
 	cost.add_child(_mini_icon(COIN_ICON))
 	cost.add_child(_cost_label(str(spec.get("gold", 0))))

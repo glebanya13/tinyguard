@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/hourglass.png" id="i_hourglass"]
 [ext_resource type="Texture2D" path="res://ui/icons/boss.png" id="i_boss"]
 [ext_resource type="Texture2D" path="res://ui/icons/sword.png" id="i_sword"]
+[ext_resource type="Texture2D" path="res://ui/icons/star.png" id="i_star"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -162,6 +163,39 @@ custom_minimum_size = Vector2(56, 40)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "▶▶"
+
+[node name="HintPill" type="PanelContainer" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -330.0
+offset_top = 78.0
+offset_right = 330.0
+offset_bottom = 126.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_type_variation = &"HudPill"
+
+[node name="Row" type="HBoxContainer" parent="Root/HintPill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Root/HintPill/Row"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="Root/HintPill/Row"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = ""
 
 [node name="BossBanner" type="HBoxContainer" parent="Root"]
 visible = false
