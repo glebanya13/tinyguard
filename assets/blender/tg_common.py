@@ -92,6 +92,10 @@ PALETTE: dict[str, tuple[str, float, float]] = {
     "sea_light": ("8CC8E8", 0.3, 0.0),
     "sand": ("E8D3A0", 0.95, 0.0),
     "snow": ("F4F7FA", 0.8, 0.0),
+    # HUD icons
+    "star": ("FFC93C", 0.35, 0.0),
+    "go": ("5CCB5F", 0.4, 0.0),
+    "go_dark": ("379B48", 0.45, 0.0),
 }
 GRID = 8
 CELL_PX = 32
