@@ -12,6 +12,7 @@ offset_top = 16.0
 offset_right = -24.0
 offset_bottom = 64.0
 grow_horizontal = 2
+mouse_filter = 2
 theme_override_constants/separation = 48
 
 [node name="WaveLabel" type="Label" parent="TopBar"]
@@ -59,3 +60,54 @@ theme_override_constants/outline_size = 12
 theme_override_font_sizes/font_size = 64
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="BuildMenu" type="PanelContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -250.0
+offset_right = 220.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Content" type="VBoxContainer" parent="BuildMenu"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TowerNameLabel" type="Label" parent="BuildMenu/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Башня"
+horizontal_alignment = 1
+
+[node name="CostLabel" type="Label" parent="BuildMenu/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Стоимость: 0 золота"
+horizontal_alignment = 1
+
+[node name="HintLabel" type="Label" parent="BuildMenu/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.45, 0.4, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="BuildMenu/Content"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="BuildButton" type="Button" parent="BuildMenu/Content/Buttons"]
+custom_minimum_size = Vector2(190, 72)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Построить"
+
+[node name="CancelButton" type="Button" parent="BuildMenu/Content/Buttons"]
+custom_minimum_size = Vector2(190, 72)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Отмена"

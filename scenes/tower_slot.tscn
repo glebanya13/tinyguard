@@ -1,0 +1,61 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower_slot.gd" id="1_slot"]
+
+[sub_resource type="StandardMaterial3D" id="mat_free"]
+albedo_color = Color(0.45, 0.45, 0.50, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_selected"]
+albedo_color = Color(0.98, 0.82, 0.30, 1)
+roughness = 0.9
+emission_enabled = true
+emission = Color(0.98, 0.82, 0.30, 1)
+emission_energy_multiplier = 0.35
+
+[sub_resource type="StandardMaterial3D" id="mat_occupied"]
+albedo_color = Color(0.30, 0.31, 0.36, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="mesh_pad"]
+top_radius = 0.45
+bottom_radius = 0.45
+height = 0.1
+radial_segments = 8
+rings = 0
+
+[sub_resource type="StandardMaterial3D" id="mat_ring"]
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.45, 1)
+
+[sub_resource type="TorusMesh" id="mesh_ring"]
+material = SubResource("mat_ring")
+inner_radius = 0.48
+outer_radius = 0.58
+rings = 16
+ring_segments = 4
+
+[sub_resource type="CylinderShape3D" id="shape_slot"]
+height = 0.3
+radius = 0.5
+
+[node name="TowerSlot" type="Area3D"]
+collision_mask = 0
+script = ExtResource("1_slot")
+free_material = SubResource("mat_free")
+selected_material = SubResource("mat_selected")
+occupied_material = SubResource("mat_occupied")
+
+[node name="Pad" type="MeshInstance3D" parent="."]
+material_override = SubResource("mat_free")
+mesh = SubResource("mesh_pad")
+
+[node name="SelectionRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
+visible = false
+cast_shadow = 0
+mesh = SubResource("mesh_ring")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+shape = SubResource("shape_slot")

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="TowerData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower_data.gd" id="1_tower_data"]
+[ext_resource type="PackedScene" path="res://scenes/tower.tscn" id="2_tower_scene"]
+
+[resource]
+script = ExtResource("1_tower_data")
+display_name = "Лучник"
+cost = 50
+scene = ExtResource("2_tower_scene")

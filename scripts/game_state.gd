@@ -31,6 +31,15 @@ func add_gold(amount: int) -> void:
 	gold_changed.emit(gold)
 
 
+## Returns false and changes nothing if there is not enough gold.
+func spend_gold(amount: int) -> bool:
+	if amount > gold:
+		return false
+	gold -= amount
+	gold_changed.emit(gold)
+	return true
+
+
 func lose_lives(amount: int) -> void:
 	if is_defeated:
 		return
