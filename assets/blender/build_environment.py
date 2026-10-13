@@ -38,6 +38,17 @@ def tree_round(rng):
     return tg.join(parts, "Tree")
 
 
+def tree_round_lite(rng):
+    """Cheaper round tree (~400 tris) for the distant forest."""
+    trunk = tg.lathe("trunk", [(0.11, 0.0), (0.07, 0.1), (0.05, 0.62)], "wood", steps=6)
+    parts = [trunk]
+    for i, (x, y, z, s, m) in enumerate([(0, 0, 0.95, 0.66, "leaf"), (0.17, -0.06, 0.8, 0.46, "leaf_dark"),
+                                         (-0.12, 0.1, 1.15, 0.42, "leaf_light")]):
+        parts.append(blob(f"canopy{i}", (s, s, s * 0.88), (x, y, z), m, seed=rng.randint(0, 99), noise=0.035,
+                          seg=10, rings=6))
+    return tg.join(parts, "Tree")
+
+
 def tree_pine(rng):
     trunk = tg.cylinder("trunk", 0.08, 0.05, 0.35, (0, 0, 0), "wood_dark", verts=8)
     parts = [trunk]
@@ -89,24 +100,25 @@ def bush(rng):
 
 
 def flowers(rng):
+    """Flower clump (~400 tris): reads as coloured dots from the game camera."""
     parts = []
-    for i in range(6):
-        a = 2 * math.pi * i / 6 + rng.uniform(-0.3, 0.3)
-        r = rng.uniform(0.04, 0.13)
+    for i in range(5):
+        a = 2 * math.pi * i / 5 + rng.uniform(-0.3, 0.3)
+        r = rng.uniform(0.04, 0.12)
         x, y = r * math.cos(a), r * math.sin(a)
         h = rng.uniform(0.06, 0.1)
-        parts.append(tg.cylinder(f"stem{i}", 0.01, 0.008, h, (x, y, 0), "leaf_dark", verts=4, smooth=False))
+        parts.append(tg.cylinder(f"stem{i}", 0.01, 0.008, h, (x, y, 0), "leaf_dark", verts=3, smooth=False))
         petal = rng.choice(["flower_pink", "flower_white", "flower_yellow", "flower_pink"])
         for k in range(5):
             pa = 2 * math.pi * k / 5
             parts.append(tg.sphere(f"p{i}{k}", (0.055, 0.034, 0.016), (x + 0.032 * math.cos(pa), y + 0.032 * math.sin(pa), h),
-                                   petal, seg=6, rings=3, rot=(0, 0, math.degrees(pa))))
+                                   petal, seg=5, rings=2, rot=(0, 0, math.degrees(pa))))
         parts.append(tg.sphere(f"c{i}", (0.032, 0.032, 0.024), (x, y, h + 0.008), "flower_yellow" if petal != "flower_yellow"
-                               else "wood_light", seg=6, rings=3))
+                               else "wood_light", seg=5, rings=2))
     # Leafy base so the patch reads as a clump from the game camera.
-    for i, (x, y, s) in enumerate([(0, 0, 0.2), (0.09, 0.05, 0.14), (-0.08, 0.04, 0.15), (0.0, -0.09, 0.14)]):
+    for i, (x, y, s) in enumerate([(0, 0, 0.2), (0.09, 0.05, 0.14), (-0.08, 0.04, 0.15)]):
         parts.append(blob(f"leafy{i}", (s, s, s * 0.45), (x, y, 0.02), "leaf_dark" if i % 2 else "leaf",
-                          seed=60 + i, noise=0.012, seg=8, rings=5))
+                          seed=60 + i, noise=0.012, seg=7, rings=4))
     return tg.join(parts, "Flowers")
 
 

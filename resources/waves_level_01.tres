@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_wave_config")
 wave_count = 5
-first_wave_delay = 3.0
-time_between_waves = 5.0
+first_wave_delay = 30.0
+time_between_waves = 30.0
 spawn_interval = 1.6
 base_enemy_count = 5
 enemy_count_step = 1

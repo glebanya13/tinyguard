@@ -1,9 +1,20 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
-[ext_resource type="PackedScene" path="res://assets/models/hero_knight.glb" id="1_model"]
-[ext_resource type="Script" path="res://scripts/looping_model.gd" id="2_loop"]
+[ext_resource type="Script" path="res://scripts/hero.gd" id="1_hero"]
+[ext_resource type="PackedScene" path="res://assets/models/hero_knight.glb" id="2_model"]
 
-[node name="Hero" type="Node3D"]
+[sub_resource type="CapsuleShape3D" id="body_shape"]
+radius = 0.26
+height = 1.1
 
-[node name="Model" parent="." instance=ExtResource("1_model")]
-script = ExtResource("2_loop")
+[node name="Hero" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1_hero")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+shape = SubResource("body_shape")

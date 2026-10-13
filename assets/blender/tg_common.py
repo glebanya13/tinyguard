@@ -352,6 +352,31 @@ def surface_y(obj, x: float, z: float, lift: float = 0.0) -> float:
     return (obj.matrix_world @ loc).y - lift
 
 
+COLLIDER_SUFFIX = "-colonly"
+
+
+def is_collider(obj) -> bool:
+    return obj.name.endswith(COLLIDER_SUFFIX)
+
+
+def collider_box(name, size, loc=(0, 0, 0), rot=(0, 0, 0)):
+    """Godot import hint: a mesh named *-colonly becomes a StaticBody3D shape."""
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=[math.radians(a) for a in rot])
+    obj = bpy.context.active_object
+    obj.scale = size
+    apply_transform(obj)
+    obj.name = name + COLLIDER_SUFFIX
+    return obj
+
+
+def collider_cylinder(name, radius, height, loc=(0, 0, 0), verts=8):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=height,
+                                        location=(loc[0], loc[1], loc[2] + height / 2))
+    obj = bpy.context.active_object
+    obj.name = name + COLLIDER_SUFFIX
+    return obj
+
+
 def tri_count(objs) -> int:
     total = 0
     for o in objs:
@@ -525,7 +550,8 @@ def finish_asset(name: str, roots, ao_distance: float, ao_strength: float = 0.8,
     for r in roots:
         objs.append(r)
         objs.extend(r.children_recursive)
-    meshes = [o for o in objs if o.type == "MESH"]
+    # "-colonly" meshes become invisible StaticBody3D colliders in Godot: no AO, no material.
+    meshes = [o for o in objs if o.type == "MESH" and not is_collider(o)]
     extra = list(occluders)
     if ground:
         bpy.ops.mesh.primitive_plane_add(size=30, location=(0, 0, 0))

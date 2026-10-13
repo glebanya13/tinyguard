@@ -40,6 +40,13 @@ func get_total_waves() -> int:
 	return config.wave_count
 
 
+## Seconds until the scheduled next wave starts, or -1 if none is scheduled.
+func time_to_next_wave() -> float:
+	if _stopped or _next_wave_timer.is_stopped():
+		return -1.0
+	return _next_wave_timer.time_left
+
+
 func is_wave_active() -> bool:
 	return _wave_active
 

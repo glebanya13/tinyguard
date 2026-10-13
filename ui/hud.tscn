@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/hud_icon.gd" id="3_icon"]
+[ext_resource type="Script" path="res://scripts/virtual_joystick.gd" id="4_joystick"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -90,79 +91,178 @@ custom_minimum_size = Vector2(36, 0)
 layout_mode = 2
 text = "0"
 
-[node name="StartWaveButton" type="Button" parent="Root"]
+[node name="NextWavePill" type="PanelContainer" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -344.0
+offset_top = 14.0
+offset_right = -20.0
+offset_bottom = 66.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_type_variation = &"HudPill"
+
+[node name="Row" type="HBoxContainer" parent="Root/NextWavePill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="NextWaveIcon" type="Control" parent="Root/NextWavePill/Row"]
+custom_minimum_size = Vector2(30, 34)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+kind = 6
+
+[node name="NextWaveLabel" type="Label" parent="Root/NextWavePill/Row"]
+layout_mode = 2
+text = "Волна 1 через 30 с"
+
+[node name="CommandCard" type="PanelContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -284.0
-offset_top = -100.0
+offset_left = -404.0
+offset_top = -262.0
 offset_right = -24.0
 offset_bottom = -24.0
 grow_horizontal = 0
 grow_vertical = 0
-text = "Начать волну"
 
-[node name="BuildMenu" type="PanelContainer" parent="Root"]
-visible = false
+[node name="Content" type="VBoxContainer" parent="Root/CommandCard"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Root/CommandCard/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 26
+text = "Рыцарь"
+
+[node name="Stats" type="Label" parent="Root/CommandCard/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="Hint" type="Label" parent="Root/CommandCard/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.62, 0.55, 1)
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="Buttons" type="HBoxContainer" parent="Root/CommandCard/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BuildButton" type="Button" parent="Root/CommandCard/Content/Buttons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+
+[node name="Stack" type="VBoxContainer" parent="Root/CommandCard/Content/Buttons/BuildButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Icon" type="Control" parent="Root/CommandCard/Content/Buttons/BuildButton/Stack"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+kind = 3
+
+[node name="Cost" type="Label" parent="Root/CommandCard/Content/Buttons/BuildButton/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
+theme_override_constants/outline_size = 0
+theme_override_font_sizes/font_size = 22
+text = "50"
+horizontal_alignment = 1
+
+[node name="UpgradeButton" type="Button" parent="Root/CommandCard/Content/Buttons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+
+[node name="Stack" type="VBoxContainer" parent="Root/CommandCard/Content/Buttons/UpgradeButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Icon" type="Control" parent="Root/CommandCard/Content/Buttons/UpgradeButton/Stack"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+kind = 4
+
+[node name="Cost" type="Label" parent="Root/CommandCard/Content/Buttons/UpgradeButton/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
+theme_override_constants/outline_size = 0
+theme_override_font_sizes/font_size = 22
+text = "60"
+horizontal_alignment = 1
+
+[node name="CancelButton" type="Button" parent="Root/CommandCard/Content/Buttons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+
+[node name="Stack" type="VBoxContainer" parent="Root/CommandCard/Content/Buttons/CancelButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Icon" type="Control" parent="Root/CommandCard/Content/Buttons/CancelButton/Stack"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+kind = 5
+
+[node name="Cost" type="Label" parent="Root/CommandCard/Content/Buttons/CancelButton/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
+theme_override_constants/outline_size = 0
+theme_override_font_sizes/font_size = 22
+text = "Esc"
+horizontal_alignment = 1
+
+[node name="Joystick" type="Control" parent="Root"]
+custom_minimum_size = Vector2(200, 200)
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -236.0
-offset_right = 404.0
-offset_bottom = -24.0
+offset_left = 40.0
+offset_top = -240.0
+offset_right = 240.0
+offset_bottom = -40.0
 grow_vertical = 0
-
-[node name="Content" type="VBoxContainer" parent="Root/BuildMenu"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="TowerNameLabel" type="Label" parent="Root/BuildMenu/Content"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
-theme_override_font_sizes/font_size = 30
-text = "Башня"
-horizontal_alignment = 1
-
-[node name="CostRow" type="HBoxContainer" parent="Root/BuildMenu/Content"]
-layout_mode = 2
-alignment = 1
-
-[node name="CostIcon" type="Control" parent="Root/BuildMenu/Content/CostRow"]
-custom_minimum_size = Vector2(30, 30)
-layout_mode = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-
-[node name="CostLabel" type="Label" parent="Root/BuildMenu/Content/CostRow"]
-layout_mode = 2
-text = "0"
-
-[node name="HintLabel" type="Label" parent="Root/BuildMenu/Content"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.55, 0.5, 1)
-theme_override_font_sizes/font_size = 20
-horizontal_alignment = 1
-
-[node name="Buttons" type="HBoxContainer" parent="Root/BuildMenu/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="BuildButton" type="Button" parent="Root/BuildMenu/Content/Buttons"]
-custom_minimum_size = Vector2(160, 68)
-layout_mode = 2
-text = "Построить"
-
-[node name="CancelButton" type="Button" parent="Root/BuildMenu/Content/Buttons"]
-custom_minimum_size = Vector2(160, 68)
-layout_mode = 2
-theme_type_variation = &"SecondaryButton"
-text = "Отмена"
+script = ExtResource("4_joystick")
 
 [node name="EndScreen" type="Control" parent="Root"]
 visible = false

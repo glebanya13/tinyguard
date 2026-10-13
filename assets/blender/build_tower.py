@@ -129,6 +129,31 @@ def build_flag():
     return tg.join([pole, ball, cloth, trim], "Flag")
 
 
+def build_levels():
+    """Decorations shown from level 2 and level 3 (hidden at level 1 by the game)."""
+    lv2 = []
+    for z in (0.3, 0.62):
+        r = 0.345 - (z - 0.2) * 0.03
+        lv2.append(tg.torus(f"lv2_band{z}", r + 0.012, 0.018, (0, 0, z), "gold", seg=24, minor_seg=6))
+    for a in (90, 270):
+        rad = math.radians(a - 90)
+        x, y = 0.352 * math.cos(rad), 0.352 * math.sin(rad)
+        ban = tg.box(f"lv2_banner{a}", (0.16, 0.02, 0.26), (x, y, 0.56), "cape", bevel=0.006, bevel_seg=1,
+                     rot=(0, 0, a))
+        tg.deform(ban, lambda c: Vector((c.x, c.y, c.z - (0.05 - abs(c.x if a in (0, 180) else c.y) * 0.6
+                                                        if c.z < -0.12 else 0))))
+        lv2.append(ban)
+        lv2.append(tg.sphere(f"lv2_emblem{a}", (0.06, 0.06, 0.08), (x * 1.04, y * 1.04, 0.57), "gold", seg=8, rings=4,
+                             rot=(0, 0, a)))
+    lv3 = [tg.torus("lv3_crown", 0.42, 0.022, (0, 0, 0.99), "gold", seg=28, minor_seg=6)]
+    for i in range(8):
+        a = 2 * math.pi * (i + 0.5) / 8
+        lv3.append(tg.cylinder(f"lv3_spike{i}", 0.035, 0.0, 0.11, (0.37 * math.cos(a), 0.37 * math.sin(a), 0.985),
+                               "gold", verts=6))
+    lv3.append(tg.sphere("lv3_gem", (0.09, 0.09, 0.12), (0.24, 0.24, TOP + 0.92), "portal_glow", seg=10, rings=6))
+    return tg.join(lv2, "Lv2"), tg.join(lv3, "Lv3")
+
+
 def attack(bow) -> None:
     tg.make_track("attack", {
         bow: [(0, {}), (2, {"loc": (0, 0.07, 0), "scale": (1.12, 1, 1)}), (5, {"loc": (0, -0.025, 0), "scale": (0.94, 1, 1)}),
@@ -174,6 +199,10 @@ def build() -> list:
     turret, bow = build_turret()
     flag = build_flag()
     base = tg.join([base, flag], "Base")  # static parts share one mesh (one draw call)
+    lv2, lv3 = build_levels()
+    collider = tg.collider_cylinder("TowerBody", 0.43, 1.0)
+    for part in (lv2, lv3, collider):
+        tg.parent(part, root)
     tg.parent(base, root)
     tg.parent(turret, root)
     tg.parent(bow, turret)

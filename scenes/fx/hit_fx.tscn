@@ -1,0 +1,77 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/one_shot_fx.gd" id="1_fx"]
+[ext_resource type="AudioStream" path="res://assets/audio/slime_hit.wav" id="2_snd"]
+
+[sub_resource type="Curve" id="shrink"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.6, 0.8), -1.0, -1.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="StandardMaterial3D" id="mat_lit"]
+vertex_color_use_as_albedo = true
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="mat_flash"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+roughness = 0.35
+
+[sub_resource type="SphereMesh" id="drop"]
+material = SubResource("mat_lit")
+radius = 0.045
+height = 0.09
+radial_segments = 6
+rings = 3
+
+[sub_resource type="SphereMesh" id="spark"]
+material = SubResource("mat_flash")
+radius = 0.03
+height = 0.06
+radial_segments = 6
+rings = 3
+
+[node name="HitFx" type="Node3D"]
+script = ExtResource("1_fx")
+lifetime = 0.6
+
+[node name="Droplets" type="CPUParticles3D" parent="."]
+emitting = false
+amount = 10
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.3
+mesh = SubResource("drop")
+emission_shape = 1
+emission_sphere_radius = 0.12
+direction = Vector3(0, 1, 0)
+spread = 70.0
+gravity = Vector3(0, -9.8, 0)
+initial_velocity_min = 1.5
+initial_velocity_max = 3.0
+scale_amount_min = 0.6
+scale_amount_max = 1.2
+scale_amount_curve = SubResource("shrink")
+color = Color(0.92, 0.35, 0.3, 1)
+
+[node name="Sparks" type="CPUParticles3D" parent="."]
+emitting = false
+amount = 6
+lifetime = 0.22
+one_shot = true
+explosiveness = 1.0
+randomness = 0.3
+mesh = SubResource("spark")
+direction = Vector3(0, 1, 0)
+spread = 180.0
+gravity = Vector3(0, 0.0, 0)
+initial_velocity_min = 2.5
+initial_velocity_max = 4.0
+scale_amount_min = 0.6
+scale_amount_max = 1.0
+scale_amount_curve = SubResource("shrink")
+color = Color(1, 0.95, 0.8, 1)
+
+[node name="HitSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_snd")
+volume_db = -7.0

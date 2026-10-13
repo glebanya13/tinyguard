@@ -151,6 +151,7 @@ def build_castle(rng):
     parts.append(round_tower("tower_bl", -0.68, 0.84, rng, 0.82))
     parts.append(round_tower("tower_br", 0.68, 0.84, rng, 0.82))
     castle = tg.join(parts, "Castle")
+    tg.parent(tg.collider_box("CastleBody", (2.0, 2.05, 1.2), (0, 0.12, 0.6)), castle)
     return castle
 
 
@@ -186,7 +187,9 @@ def build_portal(rng):
                        "rock", seg=8, rings=5)
         tg.displace_noise(rk, 0.015, 0.06, seed=20 + i)
         parts.append(rk)
-    return tg.join(parts, "Portal")
+    portal = tg.join(parts, "Portal")
+    tg.parent(tg.collider_box("PortalBody", (1.3, 0.4, 1.0), (0, 0, 0.5)), portal)
+    return portal
 
 
 def build() -> list:

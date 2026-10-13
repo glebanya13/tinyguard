@@ -17,6 +17,8 @@ const AIM_HEIGHT := 0.25
 @export var speed: float = 1.2
 @export var reward: int = 5
 @export var base_damage: int = 1
+## Splash and coin burst spawned where the enemy dies.
+@export var death_fx: PackedScene
 
 var health: float = 0.0
 
@@ -45,6 +47,7 @@ func take_damage(amount: float) -> void:
 	health = maxf(health - amount, 0.0)
 	_health_bar.scale.x = health / max_health
 	if health <= 0.0:
+		_spawn_death_fx()
 		_remove()
 		died.emit(reward)
 
@@ -55,6 +58,14 @@ func is_alive() -> bool:
 
 func get_aim_point() -> Vector3:
 	return global_position + Vector3.UP * AIM_HEIGHT
+
+
+func _spawn_death_fx() -> void:
+	if death_fx == null:
+		return
+	var fx := death_fx.instantiate() as Node3D
+	add_sibling(fx)
+	fx.global_position = global_position + Vector3.UP * AIM_HEIGHT
 
 
 func _remove() -> void:

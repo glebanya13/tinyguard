@@ -2,9 +2,12 @@ class_name TowerSlot
 extends Area3D
 ## Build pad. Picked by a camera ray (collision layer 1) and holds at most
 ## one tower as its child. A Tower already placed under it in the editor
-## makes it occupied from the start.
+## makes it occupied from the start. Free and occupied slots can be selected
+## (to build or to upgrade).
 
 enum State { FREE, SELECTED, OCCUPIED }
+
+const GROUP := &"tower_slots"
 
 @export var free_material: Material
 @export var selected_material: Material
@@ -14,16 +17,18 @@ enum State { FREE, SELECTED, OCCUPIED }
 
 var state: State = State.FREE
 var tower: Tower = null
+var is_selected: bool = false
 
 @onready var _pad: MeshInstance3D = $Pad
 @onready var _selection_ring: MeshInstance3D = $SelectionRing
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	for child: Node in get_children():
 		if child is Tower:
 			tower = child as Tower
-	_set_state(State.FREE if tower == null else State.OCCUPIED)
+	_update_visuals()
 
 
 func is_free() -> bool:
@@ -31,9 +36,8 @@ func is_free() -> bool:
 
 
 func set_selected(selected: bool) -> void:
-	if not is_free():
-		return
-	_set_state(State.SELECTED if selected else State.FREE)
+	is_selected = selected
+	_update_visuals()
 
 
 ## Returns the new tower, or null if the slot is taken or the scene is invalid.
@@ -47,12 +51,15 @@ func place_tower(scene: PackedScene) -> Tower:
 	new_tower.position = Vector3.UP * tower_offset
 	add_child(new_tower)
 	tower = new_tower
-	_set_state(State.OCCUPIED)
+	_update_visuals()
 	return new_tower
 
 
-func _set_state(new_state: State) -> void:
-	state = new_state
+func _update_visuals() -> void:
+	if tower != null:
+		state = State.OCCUPIED
+	else:
+		state = State.SELECTED if is_selected else State.FREE
 	match state:
 		State.FREE:
 			_pad.material_override = free_material
@@ -60,4 +67,4 @@ func _set_state(new_state: State) -> void:
 			_pad.material_override = selected_material
 		State.OCCUPIED:
 			_pad.material_override = occupied_material
-	_selection_ring.visible = state == State.SELECTED
+	_selection_ring.visible = is_selected

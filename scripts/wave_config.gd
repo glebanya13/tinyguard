@@ -4,8 +4,8 @@ extends Resource
 ## and multiplies their health.
 
 @export var wave_count: int = 5
-@export var first_wave_delay: float = 3.0
-@export var time_between_waves: float = 5.0
+@export var first_wave_delay: float = 30.0
+@export var time_between_waves: float = 30.0
 ## Seconds between two enemies of the same wave.
 @export var spawn_interval: float = 1.6
 

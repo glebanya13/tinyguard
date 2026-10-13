@@ -22,20 +22,25 @@ def head_front_y(x: float, z: float, lift: float = 0.0) -> float:
 
 
 def build_legs():
-    parts = []
+    """Two legs pivoting at the hips (for the walk cycle)."""
+    legs = []
     for sx in (-1, 1):
         x = 0.085 * sx
         boot = tg.sphere(f"boot{sx}", (0.13, 0.20, 0.12), (x, -0.025, 0.06), "leather", seg=16, rings=8)
         tg.deform(boot, lambda c: Vector((c.x, c.y, max(c.z, -0.055))))  # flat sole
         cuff = tg.cylinder(f"cuff{sx}", 0.066, 0.07, 0.045, (x, 0, 0.095), "leather", verts=14)
         band = tg.torus(f"band{sx}", 0.068, 0.009, (x, 0, 0.14), "gold", seg=16, minor_seg=6)
-        leg = tg.cylinder(f"leg{sx}", 0.056, 0.06, 0.13, (x, 0, 0.12), "cream", verts=12)
-        parts += [boot, cuff, band, leg]
+        leg = tg.cylinder(f"leg{sx}", 0.056, 0.06, 0.14, (x, 0, 0.12), "cream", verts=12)
+        part = tg.join([boot, cuff, band, leg], "LegR" if sx < 0 else "LegL")
+        tg.pivot(part, (x, 0, 0.24))
+        legs.append(part)
+    return legs
+
+
+def build_skirt():
     skirt = tg.lathe("skirt", [(0.20, 0.205), (0.21, 0.23), (0.19, 0.30), (0.165, 0.38)], "cream", steps=20)
     hem = tg.torus("hem", 0.203, 0.013, (0, 0, 0.212), "gold", seg=24, minor_seg=6)
-    parts += [skirt, hem]
-    legs = tg.join(parts, "Legs")
-    return legs
+    return [skirt, hem]
 
 
 def build_body():
@@ -49,7 +54,7 @@ def build_body():
     gem = tg.sphere("crest", (0.085, 0.03, 0.10), (0, -0.152, 0.53), "gold", seg=8, rings=4)
     gem_core = tg.sphere("crest_core", (0.04, 0.02, 0.05), (0, -0.165, 0.535), "armor_dark", seg=8, rings=4)
     neck = tg.cylinder("neck", 0.055, 0.05, 0.07, (0, 0.0, 0.66), "skin", verts=12)
-    parts = [torso, belt, buckle, gem, gem_core, neck]
+    parts = [torso, belt, buckle, gem, gem_core, neck, *build_skirt()]
     for sx in (-1, 1):
         pad = tg.sphere(f"pauldron{sx}", (0.17, 0.16, 0.12), (0.19 * sx, 0.0, 0.635), "armor", seg=16, rings=8)
         tg.deform(pad, lambda c: Vector((c.x, c.y, max(c.z, -0.02))))
@@ -227,9 +232,25 @@ def idle(body, head, arm_l, arm_r, cape) -> None:
     }, 48)
 
 
+def walk(body, head, arm_l, arm_r, cape, leg_l, leg_r) -> None:
+    """One stride cycle (16 frames = 0.67 s); the game moves the hero ~3 m/s."""
+    swing = 26
+    tg.make_track("walk", {
+        leg_l: [(0, {"rot": (swing, 0, 0)}), (8, {"rot": (-swing, 0, 0)}), (16, {"rot": (swing, 0, 0)})],
+        leg_r: [(0, {"rot": (-swing, 0, 0)}), (8, {"rot": (swing, 0, 0)}), (16, {"rot": (-swing, 0, 0)})],
+        arm_l: [(0, {"rot": (-22, 0, 0)}), (8, {"rot": (22, 0, 0)}), (16, {"rot": (-22, 0, 0)})],
+        arm_r: [(0, {"rot": (12, 0, 0)}), (8, {"rot": (-12, 0, 0)}), (16, {"rot": (12, 0, 0)})],
+        body: [(0, {"rot": (5, 0, 0)}), (4, {"rot": (5, 0, 2), "loc": (0, 0, 0.028)}), (8, {"rot": (5, 0, 0)}),
+               (12, {"rot": (5, 0, -2), "loc": (0, 0, 0.028)}), (16, {"rot": (5, 0, 0)})],
+        head: [(0, {}), (4, {"rot": (-3, 0, 0)}), (8, {}), (12, {"rot": (-3, 0, 0)}), (16, {})],
+        cape: [(0, {"rot": (20, 0, 0)}), (4, {"rot": (26, 0, 3)}), (8, {"rot": (20, 0, 0)}),
+               (12, {"rot": (26, 0, -3)}), (16, {"rot": (20, 0, 0)})],
+    }, 16)
+
+
 def build() -> dict:
     root = tg.empty("Hero")
-    legs = build_legs()
+    leg_r, leg_l = build_legs()
     body = build_body()
     head = build_head()
     arm_l = build_arm(1)
@@ -239,10 +260,11 @@ def build() -> dict:
     sword.rotation_euler = (math.radians(12), math.radians(-14), 0)
     sword.location = (-0.252, -0.05, 0.355)
     cape = build_cape()
-    for part in (legs, body):
+    for part in (leg_l, leg_r, body):
         tg.parent(part, root)
     for part in (head, arm_l, arm_r, cape):
         tg.parent(part, body)
     tg.parent(sword, arm_r)
     idle(body, head, arm_l, arm_r, cape)
+    walk(body, head, arm_l, arm_r, cape, leg_l, leg_r)
     return tg.finish_asset("hero_knight", root, ao_distance=0.12, ao_strength=0.7)

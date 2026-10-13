@@ -8,3 +8,7 @@ script = ExtResource("1_tower_data")
 display_name = "Лучник"
 cost = 50
 scene = ExtResource("2_tower_scene")
+upgrade_costs = Array[int]([60, 90])
+damage_levels = Array[float]([12.0, 18.0, 26.0])
+range_levels = Array[float]([3.0, 3.4, 3.8])
+interval_levels = Array[float]([0.5, 0.45, 0.4])

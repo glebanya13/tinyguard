@@ -193,8 +193,10 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 - Все модели используют один материал `assets/materials/tg_palette.tres`
   (альбедо-палитра × цвет вершин с AO; roughness/metallic из ORM).
 - Тени: один ортогональный каскад, `shadow_blur = 1.5`; мелкие пропсы теней не отбрасывают.
-- Замер (Godot 4.3, Compatibility, 1280×720, программный OpenGL): 50–72 draw calls,
-  ~75 тыс. треугольников в кадре с идущей волной. FPS на телефоне не измерялся.
+- Замер (Godot 4.3, Compatibility, 1280×720, программный OpenGL): ~56 draw calls 3D
+  (вместе с тенями) и ~45 2D-вызовов HUD, 100–125 всего; ~160 тыс. треугольников в кадре
+  (с тенью). Дальний лес (`level_01_forest.glb`) теней не отбрасывает; декор и лес разбиты на
+  чанки 10 × 10 м для отсечения. FPS на телефоне не измерялся.
 
 ## Интерфейс
 
@@ -204,6 +206,42 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 иконки не перехватывают клики, чтобы касание проходило к карте.
 `Hud.show_end_screen(text, victory)` красит заголовок золотым или коралловым и прячет
 кнопку волны.
+
+## Герой, камера, ввод
+
+- `scenes/hero.tscn`: `Hero` (`CharacterBody3D`, слой 2, маска 1, `motion_mode = FLOATING`) + капсула
+  + модель. `hero.gd`: движение по действиям `move_up/down/left/right` **относительно камеры**
+  («вверх» — вверх по экрану) плюс `joystick_vector`; приказы `move_to(point, reach, callback)`,
+  отмена при ручном вводе или если 1.5 с нет продвижения; анимации `idle` / `walk`.
+- Действия ввода — в `project.godot` (`[input]`): WASD, стрелки, левый стик и крестовина;
+  `build_tower` (B / A), `upgrade_tower` (U / Y), `cancel_command` (Esc / B геймпада).
+- Препятствия: модели с узлами `*-colonly` из Blender импортируются как `StaticBody3D`
+  (слой 1): башня, замок, портал, стволы деревьев, стены зоны 26 × 18 м. Площадки — `Area3D`,
+  герою не мешают; луч выбора площадок их тел не видит (`collide_with_bodies = false`).
+- `camera_follow.gd`: камера сохраняет изометрический угол и плавно следует за героем;
+  точка взгляда ограничена `bounds`.
+- `virtual_joystick.gd`: виден только на мобильных (`OS.has_feature("mobile")`), работает с
+  `InputEventScreenTouch/Drag` по индексу пальца (мультитач), мышиные события от того же
+  касания поглощает.
+- Тап по земле: `BuildManager.ground_tapped(point)` → герой идёт туда.
+
+## Командная карта и приказы
+
+`main.gd` превращает кнопки карты в приказы: выбранная площадка (тапом или подходом героя
+ближе 1.1 м) + команда BUILD / UPGRADE → если герой ближе 1.25 м — сразу, иначе
+`hero.move_to(..., callback)`. `BuildManager.build_on(slot)` / `upgrade(slot)` проверяют
+золото в момент выполнения. Уровни башни — массивы в `TowerData`
+(`upgrade_costs`, `damage_levels`, `range_levels`, `interval_levels`); `Tower.apply_level()`
+берёт статы, `level_changed` включает украшения `Lv2` / `Lv3` модели.
+
+## Отклик: звук и частицы
+
+- Звуки синтезируются `tools/gen_sounds.py` в `assets/audio/*.wav` (детерминированно).
+- `one_shot_fx.gd`: сцена эффекта запускает свои `CPUParticles3D` и `AudioStreamPlayer`
+  **в конце кадра** (позицию ставят после `add_child`) и удаляет себя по `lifetime`.
+- `scenes/fx/`: `hit_fx` (снаряд при попадании), `death_fx` (враг при смерти, + монеты),
+  `build_fx`, `upgrade_fx` (main.gd по сигналам `BuildManager`). Выстрел — `ShotSound`
+  в `tower.tscn`; рог волны, удар по замку, победа/поражение — узел `Sfx` в `main.tscn`.
 
 ## Ссылки на узлы в сценах
 

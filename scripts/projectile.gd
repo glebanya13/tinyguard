@@ -5,6 +5,8 @@ extends Node3D
 
 @export var speed: float = 10.0
 @export var hit_distance: float = 0.15
+## Droplets and sound spawned at the impact point.
+@export var hit_fx: PackedScene
 
 var _target: Enemy = null
 var _damage: float = 0.0
@@ -22,6 +24,7 @@ func _process(delta: float) -> void:
 	var to_target: Vector3 = _target.get_aim_point() - global_position
 	var step: float = speed * delta
 	if to_target.length() <= maxf(step, hit_distance):
+		_spawn_hit_fx(_target.get_aim_point())
 		_target.take_damage(_damage)
 		queue_free()
 		return
@@ -30,3 +33,12 @@ func _process(delta: float) -> void:
 	# The arrow model points along -Z; avoid look_at() when flying straight up/down.
 	if absf(direction.dot(Vector3.UP)) < 0.99:
 		look_at(global_position + direction, Vector3.UP)
+
+
+func _spawn_hit_fx(point: Vector3) -> void:
+	if hit_fx == null:
+		return
+	var fx := hit_fx.instantiate() as Node3D
+	fx.top_level = true
+	add_sibling(fx)
+	fx.global_position = point

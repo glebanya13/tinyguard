@@ -4,6 +4,8 @@ extends Node3D
 
 ## Emitted on every shot; visuals (aiming, recoil) listen to it.
 signal fired(target: Enemy)
+## Emitted after apply_level(); level is 0-based.
+signal level_changed(level: int)
 
 @export var projectile_scene: PackedScene
 ## Attack radius in metres, measured on the ground plane.
@@ -15,6 +17,9 @@ signal fired(target: Enemy)
 @export var muzzle_height: float = 1.1
 ## Horizontal distance from the tower axis towards the target (crossbow tip).
 @export var muzzle_reach: float = 0.3
+
+## Current upgrade level, 0-based.
+var level: int = 0
 
 var _cooldown: float = 0.0
 
@@ -28,6 +33,15 @@ func _process(delta: float) -> void:
 		return
 	_shoot(target)
 	_cooldown = fire_interval
+
+
+## Takes damage, range and fire interval for `new_level` from the tower data.
+func apply_level(data: TowerData, new_level: int) -> void:
+	level = clampi(new_level, 0, data.max_level())
+	damage = data.damage_levels[level]
+	range_m = data.range_levels[level]
+	fire_interval = data.interval_levels[level]
+	level_changed.emit(level)
 
 
 func find_nearest_enemy() -> Enemy:
