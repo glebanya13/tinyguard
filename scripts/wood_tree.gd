@@ -3,6 +3,8 @@ extends StaticBody3D
 ## A tree the hero can chop for wood. Each hit gives wood_per_hit and throws
 ## leaves and chips; when the tree runs out it falls, leaves a stump and grows
 ## back later. `variant` picks the model before the node enters the tree.
+## With a `grove` the standing tree is drawn by the grove's MultiMesh and the
+## node's own model is shown only while it animates.
 
 const GROUP := &"wood_trees"
 const MODELS := {
@@ -10,10 +12,14 @@ const MODELS := {
 	&"pine": preload("res://assets/models/tree_pine.glb"),
 }
 const CHOP_FX: PackedScene = preload("res://scenes/fx/chop_fx.tscn")
+const HIGHLIGHT: Material = preload("res://assets/materials/highlight.tres")
 
 @export var variant: StringName = &"round"
 ## Scale of the model only (physics bodies must stay unscaled).
 @export var model_scale: float = 1.0
+
+## Set before adding the tree; null = always draw the own model.
+var grove: Grove = null
 @export var wood_per_hit: int = 3
 @export var hits: int = 4
 @export var regrow_time: float = 60.0
@@ -21,19 +27,43 @@ const CHOP_FX: PackedScene = preload("res://scenes/fx/chop_fx.tscn")
 var _hits_left: int = 0
 var _tree: Node3D = null
 var _yaw := Quaternion.IDENTITY
+var _tween: Tween = null
+var _highlighted: bool = false
 
 @onready var _stump: Node3D = $Stump
 
 
 func _ready() -> void:
 	add_to_group(GROUP)
-	_tree = (MODELS.get(variant, MODELS[&"round"]) as PackedScene).instantiate()
+	_tree = model_scene(variant).instantiate()
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
 	_tree.quaternion = _yaw
 	_tree.scale = Vector3.ONE * model_scale
 	add_child(_tree)
+	_tree.visible = grove == null
 	_hits_left = hits
 	_stump.visible = false
+
+
+static func model_scene(kind: StringName) -> PackedScene:
+	return MODELS.get(kind, MODELS[&"round"])
+
+
+## Glow on the tree the hero is about to chop.
+func set_highlighted(on: bool) -> void:
+	if on == _highlighted:
+		return
+	_highlighted = on
+	for node: Node in _tree.find_children("*", "GeometryInstance3D", true, false) + [_tree]:
+		if node is GeometryInstance3D:
+			(node as GeometryInstance3D).material_overlay = HIGHLIGHT if on else null
+	if _tween == null or not _tween.is_running():
+		_set_animated(on)
+
+
+## World transform of the standing model (for the grove's MultiMesh).
+func model_transform() -> Transform3D:
+	return global_transform * Transform3D(Basis(_yaw).scaled(Vector3.ONE * model_scale), Vector3.ZERO)
 
 
 func is_choppable() -> bool:
@@ -56,12 +86,17 @@ func chop(from: Vector3) -> int:
 	away.y = 0.0
 	away = away.normalized() if away.length() > 0.01 else Vector3.FORWARD
 	var axis: Vector3 = Vector3.UP.cross(away).normalized()
+	_set_animated(true)
+	if _tween:
+		_tween.kill()
 	var tween := create_tween()
+	_tween = tween
 	if _hits_left > 0:
 		# Shake.
 		tween.tween_property(_tree, "quaternion", Quaternion(axis, 0.12) * _yaw, 0.06)
 		tween.tween_property(_tree, "quaternion", Quaternion(axis, -0.05) * _yaw, 0.1)
 		tween.tween_property(_tree, "quaternion", _yaw, 0.12)
+		tween.tween_callback(_set_animated.bind(false))
 	else:
 		_stump.visible = true
 		tween.tween_property(_tree, "quaternion", Quaternion(axis, PI * 0.5) * _yaw, 0.7) \
@@ -78,6 +113,19 @@ func _regrow() -> void:
 	_tree.quaternion = _yaw
 	_tree.scale = Vector3.ONE * 0.05 * model_scale
 	_tree.show()
-	var tween := create_tween()
-	tween.tween_property(_tree, "scale", Vector3.ONE * model_scale, 1.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_callback(_stump.hide)
+	if _tween:
+		_tween.kill()
+	_tween = create_tween()
+	_tween.tween_property(_tree, "scale", Vector3.ONE * model_scale, 1.2) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tween.tween_callback(_stump.hide)
+	_tween.tween_callback(_set_animated.bind(false))
+
+
+## Own model while animating, grove instance while standing still.
+func _set_animated(animated: bool) -> void:
+	if grove == null:
+		return
+	animated = animated or (_highlighted and _hits_left > 0)
+	_tree.visible = animated
+	grove.set_tree_visible(self, not animated)

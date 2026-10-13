@@ -49,7 +49,7 @@ albedo_color = Color(0.62, 0.95, 0.42, 0.85)
 
 [sub_resource type="TorusMesh" id="ring_mesh"]
 material = SubResource("ring_mat")
-inner_radius = 0.82
+inner_radius = 0.74
 outer_radius = 1.0
 rings = 32
 ring_segments = 4

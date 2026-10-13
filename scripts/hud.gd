@@ -138,14 +138,19 @@ func show_boss_banner() -> void:
 
 
 ## Floating text that rises from `screen_pos` and fades out.
-func popup(text: String, screen_pos: Vector2, color: Color) -> void:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_color_override("font_color", color)
-	label.add_theme_font_size_override("font_size", 24)
+func popup(text: String, screen_pos: Vector2, color: Color, icon: Texture2D = null) -> void:
+	var label := HBoxContainer.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_constant_override("separation", 2)
+	var text_label := Label.new()
+	text_label.text = text
+	text_label.add_theme_color_override("font_color", color)
+	text_label.add_theme_font_size_override("font_size", 28)
+	label.add_child(text_label)
+	if icon:
+		label.add_child(_mini_icon(icon, 30.0))
 	_popups.add_child(label)
-	label.position = screen_pos - Vector2(20.0, 20.0)
+	label.position = screen_pos - Vector2(24.0, 20.0)
 	var tween := label.create_tween()
 	tween.tween_property(label, "position:y", label.position.y - 60.0, 0.9) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -254,10 +259,10 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 	cost.add_child(_cost_label(str(spec.get("wood", 0))))
 
 
-func _mini_icon(texture: Texture2D) -> TextureRect:
+func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:
 	var rect := TextureRect.new()
 	rect.texture = texture
-	rect.custom_minimum_size = Vector2(18, 18)
+	rect.custom_minimum_size = Vector2(side, side)
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE

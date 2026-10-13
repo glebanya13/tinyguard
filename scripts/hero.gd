@@ -39,9 +39,13 @@ signal wood_gathered(amount: int, at: Vector3)
 
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
+## Walkable grid for orders; without it the hero walks in a straight line.
+var walk_grid: WalkGrid = null
 
 var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
+## Remaining corners of the route to _order_target (the target is last).
+var _waypoints: PackedVector3Array = PackedVector3Array()
 var _order_reach: float = 0.1
 var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
@@ -89,6 +93,9 @@ func _physics_process(delta: float) -> void:
 func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable()) -> void:
 	_has_order = true
 	_order_target = Vector3(target.x, 0.0, target.z)
+	_waypoints = walk_grid.find_path(global_position, _order_target) if walk_grid else PackedVector3Array()
+	if not _waypoints.is_empty():
+		_waypoints.remove_at(_waypoints.size() - 1)  # the target itself is handled below
 	_order_reach = reach
 	_on_arrive = on_arrive
 	_stuck_time = 0.0
@@ -146,6 +153,7 @@ func cancel_order() -> void:
 		return
 	_has_order = false
 	_on_arrive = Callable()
+	_waypoints.clear()
 	order_cancelled.emit()
 
 
@@ -214,6 +222,16 @@ func _flat_distance(node: Node3D) -> float:
 
 
 func _order_direction(delta: float) -> Vector3:
+	# Follow the route corners first.
+	while not _waypoints.is_empty():
+		var corner: Vector3 = _waypoints[0] - global_position
+		corner.y = 0.0
+		if corner.length() > 0.2:
+			_track_progress(corner.length() + _route_rest(), delta)
+			if not _has_order:
+				return Vector3.ZERO
+			return corner.normalized()
+		_waypoints.remove_at(0)
 	var offset: Vector3 = _order_target - global_position
 	offset.y = 0.0
 	var distance: float = offset.length()
@@ -225,7 +243,14 @@ func _order_direction(delta: float) -> Vector3:
 		if callback.is_valid():
 			callback.call()
 		return Vector3.ZERO
-	# Give up when sliding along an obstacle does not bring us closer.
+	_track_progress(distance, delta)
+	if not _has_order:
+		return Vector3.ZERO
+	return offset / distance
+
+
+## Gives up the order when sliding along an obstacle does not bring us closer.
+func _track_progress(distance: float, delta: float) -> void:
 	if distance < _last_distance - 0.01:
 		_last_distance = distance
 		_stuck_time = 0.0
@@ -233,8 +258,16 @@ func _order_direction(delta: float) -> Vector3:
 		_stuck_time += delta
 		if _stuck_time > stuck_timeout:
 			cancel_order()
-			return Vector3.ZERO
-	return offset / distance
+
+
+## Length of the route after the next corner.
+func _route_rest() -> float:
+	var total: float = 0.0
+	var prev: Vector3 = _waypoints[0]
+	for i in range(1, _waypoints.size()):
+		total += prev.distance_to(_waypoints[i])
+		prev = _waypoints[i]
+	return total + prev.distance_to(_order_target)
 
 
 func _screen_to_world(input: Vector2) -> Vector3:

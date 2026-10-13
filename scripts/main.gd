@@ -12,6 +12,8 @@ const PORTAL_SCENE: PackedScene = preload("res://assets/models/spawn_portal.glb"
 const NO_SHADOW := preload("res://scripts/no_shadow.gd")
 const BUILD_FX := preload("res://scenes/fx/build_fx.tscn")
 const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
+const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
+const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
 const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
@@ -30,10 +32,17 @@ const AUTO_SELECT_REACH := 1.1
 const PATH_HEIGHT := 0.05
 ## Camera look-at area is the level bounds shrunk by this margin.
 const CAMERA_MARGIN := 4.0
+## Physics layers that block walking: level colliders (1) and trees (3).
+const WALK_OBSTACLE_MASK := 1 | 4
+## Radius a built tower blocks on the walk grid.
+const TOWER_BLOCK_RADIUS := 0.6
 ## Gold for each second left on the countdown when a wave is called early.
 const EARLY_CALL_GOLD_PER_SECOND := 0.3
 
 var level: Dictionary = {}
+var walk_grid := WalkGrid.new()
+
+var _focused_tree: WoodTree = null
 
 ## Command to run when the hero reaches the selected slot, or &"".
 var _pending_command: StringName = &""
@@ -94,6 +103,7 @@ func _ready() -> void:
 	_hud.set_wave(0, _wave_manager.get_total_waves())
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
+	_build_walk_grid.call_deferred()
 
 
 func _process(_delta: float) -> void:
@@ -106,16 +116,23 @@ func _process(_delta: float) -> void:
 ## for trees and a sword for enemies.
 func _update_target_ring() -> void:
 	var target: Node3D = _hero.get_focus_target()
+	if target != _focused_tree:
+		if is_instance_valid(_focused_tree):
+			_focused_tree.set_highlighted(false)
+		_focused_tree = target as WoodTree
+		if _focused_tree:
+			_focused_tree.set_highlighted(true)
 	_target_ring.visible = target != null
 	var is_tree: bool = target is WoodTree
 	_hud.set_attack_mode(is_tree)
 	if target == null:
 		return
-	_target_ring.global_position = Vector3(target.global_position.x, 0.06, target.global_position.z)
-	var radius: float = 0.55
+	_target_ring.global_position = Vector3(target.global_position.x, 0.08, target.global_position.z)
+	var radius: float = 0.8
 	if target is Enemy:
-		radius = 1.0 if (target as Enemy).is_boss() else 0.45
-	_target_ring.scale = Vector3.ONE * radius
+		radius = 1.1 if (target as Enemy).is_boss() else 0.5
+	var pulse: float = 1.0 + 0.08 * sin(Time.get_ticks_msec() * 0.008)
+	_target_ring.scale = Vector3(radius * pulse, 0.5, radius * pulse)
 	_ring_material.albedo_color = RING_TREE_COLOR if is_tree else RING_ENEMY_COLOR
 
 
@@ -160,15 +177,31 @@ func _build_level() -> void:
 
 
 ## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees.
+## Standing trees are drawn by one Grove (MultiMesh) to save draw calls.
 func _plant_trees(decor: Node3D) -> void:
+	var grove := Grove.new()
+	grove.name = "Grove"
+	_level_root.add_child(grove)
+	var trees: Array[WoodTree] = []
 	for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
 		var spot := marker as Node3D
 		var tree := TREE_SCENE.instantiate() as WoodTree
 		tree.variant = StringName(String(spot.name).get_slice("_", 1))
 		tree.model_scale = spot.scale.x
+		tree.grove = grove
 		tree.position = spot.global_position
 		_level_root.add_child(tree)
+		trees.append(tree)
 		spot.queue_free()
+	grove.build(trees)
+
+
+## Needs the level's bodies in the physics space: runs after a physics frame.
+func _build_walk_grid() -> void:
+	await get_tree().physics_frame
+	var b: Array = level["bounds"]
+	walk_grid.build(get_world_3d().direct_space_state, Rect2(b[0], b[1], b[2], b[3]), WALK_OBSTACLE_MASK)
+	_hero.walk_grid = walk_grid
 
 
 func _ground(point: Array, height: float = 0.0) -> Vector3:
@@ -316,9 +349,9 @@ func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
 	fx.global_position = at
 
 
-func _popup(text: String, at: Vector3, color: Color) -> void:
+func _popup(text: String, at: Vector3, color: Color, icon: Texture2D = null) -> void:
 	if not _camera.is_position_behind(at):
-		_hud.popup(text, _camera.unproject_position(at), color)
+		_hud.popup(text, _camera.unproject_position(at), color, icon)
 
 
 func _on_resources_changed() -> void:
@@ -329,10 +362,11 @@ func _on_resources_changed() -> void:
 
 func _on_wood_gathered(amount: int, at: Vector3) -> void:
 	_game_state.add_wood(amount)
-	_popup("+%d" % amount, at + Vector3.UP * 1.6, WOOD_COLOR)
+	_popup("+%d" % amount, at + Vector3.UP * 1.6, WOOD_COLOR, WOOD_ICON)
 
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
+	walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
 	_spawn_fx(BUILD_FX, slot.global_position)
 	# Rise out of the dust.
 	tower.scale = Vector3(1.0, 0.2, 1.0)
@@ -373,7 +407,7 @@ func _on_next_wave_pressed() -> void:
 		var bonus: int = floori(left * EARLY_CALL_GOLD_PER_SECOND)
 		if bonus > 0:
 			_game_state.add_gold(bonus)
-			_popup("+%d" % bonus, _hero.global_position + Vector3.UP * 2.0, GOLD_COLOR)
+			_popup("+%d" % bonus, _hero.global_position + Vector3.UP * 2.0, GOLD_COLOR, COIN_ICON)
 
 
 func _on_enemy_reached_base(damage: int) -> void:
