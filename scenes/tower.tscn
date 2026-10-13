@@ -1,36 +1,15 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/tower.gd" id="1_tower"]
 [ext_resource type="PackedScene" path="res://scenes/projectile.tscn" id="2_projectile"]
-
-[sub_resource type="StandardMaterial3D" id="mat_tower"]
-albedo_color = Color(0.78, 0.76, 0.70, 1)
-roughness = 0.9
-
-[sub_resource type="StandardMaterial3D" id="mat_roof"]
-albedo_color = Color(0.80, 0.40, 0.25, 1)
-roughness = 0.9
-
-[sub_resource type="CylinderMesh" id="mesh_tower_body"]
-material = SubResource("mat_tower")
-top_radius = 0.25
-bottom_radius = 0.32
-height = 0.9
-radial_segments = 6
-rings = 0
-
-[sub_resource type="BoxMesh" id="mesh_tower_head"]
-material = SubResource("mat_roof")
-size = Vector3(0.6, 0.3, 0.6)
+[ext_resource type="PackedScene" path="res://assets/models/tower_archer.glb" id="3_model"]
+[ext_resource type="Script" path="res://scripts/tower_model.gd" id="4_tower_model"]
 
 [node name="Tower" type="Node3D"]
 script = ExtResource("1_tower")
 projectile_scene = ExtResource("2_projectile")
 
-[node name="Body" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
-mesh = SubResource("mesh_tower_body")
+[node name="Model" parent="." instance=ExtResource("3_model")]
+script = ExtResource("4_tower_model")
 
-[node name="Head" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
-mesh = SubResource("mesh_tower_head")
+[connection signal="fired" from="." to="Model" method="_on_tower_fired"]

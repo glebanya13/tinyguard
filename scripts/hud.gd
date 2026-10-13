@@ -8,21 +8,25 @@ signal build_pressed
 signal build_cancelled
 signal restart_pressed
 
+const VICTORY_COLOR := Color(0.98, 0.8, 0.4)
+const DEFEAT_COLOR := Color(1.0, 0.5, 0.45)
+
 var _gold: int = 0
 var _build_cost: int = 0
 
-@onready var _wave_label: Label = $TopBar/WaveLabel
-@onready var _gold_label: Label = $TopBar/GoldLabel
-@onready var _lives_label: Label = $TopBar/LivesLabel
-@onready var _start_button: Button = $StartWaveButton
-@onready var _message_label: Label = $MessageLabel
-@onready var _restart_button: Button = $RestartButton
-@onready var _build_menu: Control = $BuildMenu
-@onready var _tower_name_label: Label = $BuildMenu/Content/TowerNameLabel
-@onready var _cost_label: Label = $BuildMenu/Content/CostLabel
-@onready var _hint_label: Label = $BuildMenu/Content/HintLabel
-@onready var _build_button: Button = $BuildMenu/Content/Buttons/BuildButton
-@onready var _cancel_button: Button = $BuildMenu/Content/Buttons/CancelButton
+@onready var _wave_label: Label = $Root/TopBar/WavePill/Row/WaveLabel
+@onready var _gold_label: Label = $Root/TopBar/GoldPill/Row/GoldLabel
+@onready var _lives_label: Label = $Root/TopBar/LivesPill/Row/LivesLabel
+@onready var _start_button: Button = $Root/StartWaveButton
+@onready var _build_menu: Control = $Root/BuildMenu
+@onready var _tower_name_label: Label = $Root/BuildMenu/Content/TowerNameLabel
+@onready var _cost_label: Label = $Root/BuildMenu/Content/CostRow/CostLabel
+@onready var _hint_label: Label = $Root/BuildMenu/Content/HintLabel
+@onready var _build_button: Button = $Root/BuildMenu/Content/Buttons/BuildButton
+@onready var _cancel_button: Button = $Root/BuildMenu/Content/Buttons/CancelButton
+@onready var _end_screen: Control = $Root/EndScreen
+@onready var _message_label: Label = $Root/EndScreen/EndPanel/Content/MessageLabel
+@onready var _restart_button: Button = $Root/EndScreen/EndPanel/Content/RestartButton
 
 
 func _ready() -> void:
@@ -30,8 +34,7 @@ func _ready() -> void:
 	_build_button.pressed.connect(build_pressed.emit)
 	_cancel_button.pressed.connect(build_cancelled.emit)
 	_restart_button.pressed.connect(_on_restart_button_pressed)
-	_message_label.hide()
-	_restart_button.hide()
+	_end_screen.hide()
 	_build_menu.hide()
 
 
@@ -41,12 +44,12 @@ func set_wave(wave: int, total: int) -> void:
 
 func set_gold(gold: int) -> void:
 	_gold = gold
-	_gold_label.text = "Золото %d" % gold
+	_gold_label.text = str(gold)
 	_refresh_build_button()
 
 
 func set_lives(lives: int) -> void:
-	_lives_label.text = "Жизни %d" % lives
+	_lives_label.text = str(lives)
 
 
 func set_start_enabled(enabled: bool) -> void:
@@ -54,17 +57,20 @@ func set_start_enabled(enabled: bool) -> void:
 
 
 ## Victory/defeat screen. The restart button works while the tree is paused.
-func show_end_screen(text: String) -> void:
+func show_end_screen(text: String, victory: bool) -> void:
 	_message_label.text = text
-	_message_label.show()
+	_message_label.add_theme_color_override(
+		"font_color", VICTORY_COLOR if victory else DEFEAT_COLOR
+	)
 	_restart_button.disabled = false
-	_restart_button.show()
+	_start_button.hide()
+	_end_screen.show()
 
 
 func show_build_menu(tower_name: String, cost: int) -> void:
 	_build_cost = cost
 	_tower_name_label.text = tower_name
-	_cost_label.text = "Стоимость: %d золота" % cost
+	_cost_label.text = str(cost)
 	_refresh_build_button()
 	_build_menu.show()
 

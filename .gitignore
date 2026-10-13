@@ -41,3 +41,6 @@ Thumbs.db
 # --- Python tooling ---
 __pycache__/
 *.pyc
+
+# Blender scenes saved by build_all.py --blend (derived from the scripts)
+assets/blender/out/

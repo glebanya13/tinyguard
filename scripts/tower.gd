@@ -2,6 +2,9 @@ class_name Tower
 extends Node3D
 ## Shoots projectiles at the nearest enemy within range.
 
+## Emitted on every shot; visuals (aiming, recoil) listen to it.
+signal fired(target: Enemy)
+
 @export var projectile_scene: PackedScene
 ## Attack radius in metres, measured on the ground plane.
 @export var range_m: float = 3.0
@@ -10,6 +13,8 @@ extends Node3D
 @export var damage: float = 12.0
 ## Height above the tower origin where projectiles appear.
 @export var muzzle_height: float = 1.1
+## Horizontal distance from the tower axis towards the target (crossbow tip).
+@export var muzzle_reach: float = 0.3
 
 var _cooldown: float = 0.0
 
@@ -49,5 +54,9 @@ func _shoot(target: Enemy) -> void:
 	# top_level keeps the projectile in world space, independent of the tower.
 	projectile.top_level = true
 	add_child(projectile)
-	projectile.global_position = global_position + Vector3.UP * muzzle_height
+	var aim: Vector3 = target.global_position - global_position
+	aim.y = 0.0
+	var reach: Vector3 = aim.normalized() * muzzle_reach if aim.length() > 0.01 else Vector3.ZERO
+	projectile.global_position = global_position + Vector3.UP * muzzle_height + reach
 	projectile.launch(target, damage)
+	fired.emit(target)

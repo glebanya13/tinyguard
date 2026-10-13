@@ -50,18 +50,18 @@ func _on_wave_cleared(_wave: int) -> void:
 func _on_all_waves_cleared() -> void:
 	if _game_state.is_defeated:
 		return
-	_end_game("Победа!")
+	_end_game("Победа!", true)
 
 
 func _on_defeated() -> void:
 	_wave_manager.stop()
 	_hud.set_start_enabled(false)
-	_end_game("Поражение")
+	_end_game("Поражение", false)
 
 
-func _end_game(message: String) -> void:
+func _end_game(message: String, victory: bool) -> void:
 	_build_manager.clear_selection()
-	_hud.show_end_screen(message)
+	_hud.show_end_screen(message, victory)
 	get_tree().paused = true
 
 

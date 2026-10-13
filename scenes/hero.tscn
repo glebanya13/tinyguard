@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/hero_knight.glb" id="1_model"]
+[ext_resource type="Script" path="res://scripts/looping_model.gd" id="2_loop"]
+
+[node name="Hero" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+script = ExtResource("2_loop")

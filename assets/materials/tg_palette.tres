@@ -1,0 +1,15 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/materials/tg_palette_albedo.png" id="1_albedo"]
+[ext_resource type="Texture2D" path="res://assets/materials/tg_palette_orm.png" id="2_orm"]
+
+[resource]
+resource_name = "TG_Palette"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("1_albedo")
+metallic = 1.0
+metallic_texture = ExtResource("2_orm")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("2_orm")
+roughness_texture_channel = 1
+texture_filter = 0

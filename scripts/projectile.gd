@@ -25,4 +25,8 @@ func _process(delta: float) -> void:
 		_target.take_damage(_damage)
 		queue_free()
 		return
-	global_position += to_target.normalized() * step
+	var direction: Vector3 = to_target.normalized()
+	global_position += direction * step
+	# The arrow model points along -Z; avoid look_at() when flying straight up/down.
+	if absf(direction.dot(Vector3.UP)) < 0.99:
+		look_at(global_position + direction, Vector3.UP)
