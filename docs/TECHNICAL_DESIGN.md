@@ -172,6 +172,14 @@ HUD: `build_pressed`, `build_cancelled`. Связывает их `main.gd`.
 - Слои коллизий: 1 — площадки (используется), 2 — башни (зарезервирован).
   Враги коллизий не имеют.
 
+## Ссылки на узлы в сценах
+
+Экспортируемое свойство типа узла (`@export var enemy_path: Path3D`) в `.tscn`
+записывается как `NodePath(...)` **и** должно быть перечислено в заголовке узла:
+`[node ... node_paths=PackedStringArray("enemy_path")]`. Без этого Godot 4 оставляет
+свойство `null` (так было с `WaveManager` и `BuildManager` до проверки в движке).
+Редактор пишет это сам; при ручной правке `validate_project.py` это проверяет.
+
 ## Известные ограничения
 
 - `emulate_touch_from_mouse=true` порождает лишние `InputEventScreenTouch` на

@@ -132,13 +132,13 @@ curve = SubResource("curve_enemy_path")
 [node name="GameState" type="Node" parent="."]
 script = ExtResource("4_game_state")
 
-[node name="WaveManager" type="Node" parent="."]
+[node name="WaveManager" type="Node" parent="." node_paths=PackedStringArray("enemy_path")]
 script = ExtResource("5_wave_manager")
 config = ExtResource("6_waves")
 enemy_scene = ExtResource("7_enemy")
 enemy_path = NodePath("../Level/EnemyPath")
 
-[node name="BuildManager" type="Node" parent="."]
+[node name="BuildManager" type="Node" parent="." node_paths=PackedStringArray("game_state", "camera")]
 script = ExtResource("9_build_manager")
 tower_data = ExtResource("10_tower_archer")
 game_state = NodePath("../GameState")

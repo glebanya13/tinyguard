@@ -115,6 +115,10 @@ def check_scene(path: Path) -> None:
     node_paths = {"."}
     instanced: set[str] = set()
     node_path_refs: list[tuple[str, str]] = []  # (owner node, NodePath value)
+    # Node-typed @export properties written as NodePath(...) must be listed in the
+    # node header's node_paths, otherwise Godot 4 leaves them null at runtime.
+    node_props: dict[str, tuple[str, set[str], str]] = {}  # node -> (script id, node_paths, header)
+    nodepath_props: list[tuple[str, str]] = []  # (node, property)
     root_script_id = ""
     resource_script_id = ""
     current = ""  # node path of the block being read, "" outside nodes
@@ -145,11 +149,20 @@ def check_scene(path: Path) -> None:
                     errors.append(f"{rel}: node {name} has unknown parent {parent}")
                 current = name if parent == "." else f"{parent}/{name}"
                 node_paths.add(current)
+            if kind == "node":
+                listed_m = re.search(r"node_paths=PackedStringArray\(([^)]*)\)", m.group(2))
+                listed = set(re.findall(r'"([^"]+)"', listed_m.group(1))) if listed_m else set()
+                node_props[current] = ("", listed, line)
                 if "instance" in attrs:
                     instanced.add(current)
         script = re.match(r'script = ExtResource\("([^"]+)"\)', line)
         if script and current == ".":
             root_script_id = script.group(1)
+        if script and current in node_props:
+            node_props[current] = (script.group(1),) + node_props[current][1:]
+        prop = re.match(r'(\w+) = NodePath\(', line)
+        if prop and current:
+            nodepath_props.append((current, prop.group(1)))
         if script and in_resource:
             resource_script_id = script.group(1)
         for value in re.findall(r'NodePath\("([^"]*)"\)', line):
@@ -162,6 +175,11 @@ def check_scene(path: Path) -> None:
         target = resolve_node_path(owner, value)
         if target not in node_paths and not inside_instance(target, instanced):
             errors.append(f"{rel}: NodePath(\"{value}\") on {owner} does not resolve")
+    for owner, name in nodepath_props:
+        script_id, listed, _ = node_props.get(owner, ("", set(), ""))
+        if name in listed or declares_nodepath(ext_paths.get(script_id, ""), name):
+            continue
+        errors.append(f"{rel}: {owner}.{name} = NodePath(...) is not in the node's node_paths")
     if root_script_id in ext_paths:
         check_script_node_refs(rel, ext_paths[root_script_id], node_paths, instanced)
     script_class = header.get("script_class", "").strip('"')
@@ -191,6 +209,14 @@ def check_script_node_refs(rel: Path, res_path: str, node_paths: set[str],
     for ref in sorted(set(re.findall(r"\$([\w/]+)", script.read_text(encoding="utf-8")))):
         if ref not in node_paths and not inside_instance(ref, instanced):
             errors.append(f"{rel}: {res_path} uses ${ref}, no such node in the scene")
+
+
+def declares_nodepath(res_path: str, prop: str) -> bool:
+    """True if the script declares `prop` with the NodePath type itself."""
+    script = ROOT / res_path[len("res://"):] if res_path else None
+    if script is None or not script.is_file():
+        return False
+    return re.search(rf"var\s+{prop}\s*:\s*NodePath\b", script.read_text(encoding="utf-8")) is not None
 
 
 def collect_class_names() -> None:
