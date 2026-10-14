@@ -27,6 +27,14 @@ const SELL_REFUND := 0.7
 ## Speed multiplier applied to hit enemies (1 = no slow).
 @export var slow_levels: Array[float] = [1.0, 1.0, 1.0]
 @export var slow_duration: float = 1.6
+## Extra enemies a lightning bolt jumps to (0 = normal projectile).
+@export var chain_levels: Array[int] = [0, 0, 0]
+## Max jump distance of a chain bolt (metres).
+@export var chain_range: float = 2.2
+## Damage type passed to enemies: &"arrow" is weak against shields.
+@export var damage_kind: StringName = &""
+## False for cannons: their shells cannot hit flying enemies.
+@export var hits_air: bool = true
 
 
 ## Gold and wood spent on a tower of `level` (build + upgrades).

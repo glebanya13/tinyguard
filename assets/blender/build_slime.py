@@ -1,4 +1,5 @@
-"""Slime enemies: regular, fast, tank and the King Slime boss. All face -Y.
+"""Slime enemies: regular, fast, tank, flying bat, shield bearer and the King Slime
+boss. All face -Y.
 
 slime*.glb: Slime (empty) -> Body (one mesh incl. face and gear). Animation: idle.
 """
@@ -14,7 +15,30 @@ VARIANTS = {
     "slime_fast": dict(col="slime_fast", dark="slime_fast_dark", r=(0.19, 0.18, 0.24), brow=30, extra="fast", hop=0.07),
     "slime_tank": dict(col="slime_tank", dark="slime_tank_dark", r=(0.33, 0.3, 0.25), brow=18, extra="helmet", hop=0.03),
     "slime_king": dict(col="king", dark="king_dark", r=(0.48, 0.44, 0.4), brow=32, extra="crown", hop=0.04),
+    "slime_bat": dict(col="portal_glow", dark="portal", r=(0.2, 0.19, 0.19), brow=28, extra="wings", hop=0.08),
+    "slime_shield": dict(col="go", dark="go_dark", r=(0.27, 0.25, 0.22), brow=20, extra="shield", hop=0.03),
 }
+
+
+def wing(name, side):
+    """Bat wing in the XZ plane, attached at the body side (origin), pointing out along X."""
+    pts = [(0.0, 0.06), (0.16, 0.2), (0.34, 0.16), (0.42, 0.02), (0.3, -0.02), (0.22, -0.08), (0.12, -0.03),
+           (0.0, -0.06)]
+    pts = [(x * side, z) for x, z in pts]
+    n = len(pts)
+    verts = [(x, -0.012, z) for x, z in pts] + [(x, 0.012, z) for x, z in pts]
+    faces = [tuple(range(n)), tuple(reversed(range(n, 2 * n)))]
+    faces += [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    obj = tg.from_pydata(name, verts, faces, "portal", smooth=False)
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    bones = [tg.cylinder(f"{name}_bone{i}", 0.012, 0.008, 0.36, (0, 0, 0.05), "portal", verts=6,
+                         rot=(0, 90 * side - a * side, 0)) for i, a in enumerate((25, 0, -25))]
+    return tg.join([obj, *bones], name)
 
 
 def build_variant(name: str, v: dict):
@@ -92,15 +116,40 @@ def build_variant(name: str, v: dict):
         cape = tg.sphere("mantle", (R.x * 2.1, R.y * 1.6, 0.16), (0, 0.18, 0.14), v["dark"], seg=20, rings=8)
         tg.deform(cape, lambda p: Vector((p.x, max(p.y, -0.02), p.z)))
         parts += [band, *spikes, *gems, cape]
+    if v["extra"] == "wings":
+        parts += [tg.sphere(f"ear{sx}", (0.07, 0.04, 0.12), (0.12 * sx, 0.02, 2 * R.z - 0.02), v["dark"], seg=10,
+                            rings=5, rot=(0, -25 * sx, 0)) for sx in (-1, 1)]
+    if v["extra"] == "shield":
+        # Round shield carried on the right side, turned half towards the front.
+        sh = []
+        sh.append(tg.cylinder("shield", 0.17, 0.17, 0.045, (0, 0, 0), "wood", verts=20, rot=(90, 0, 0)))
+        sh.append(tg.torus("shield_rim", 0.17, 0.02, (0, -0.023, 0), "iron", seg=24, minor_seg=6, rot=(90, 0, 0)))
+        sh.append(tg.sphere("shield_boss", (0.07, 0.045, 0.07), (0, -0.04, 0), "gold", seg=10, rings=5))
+        sh.append(tg.box("shield_band", (0.32, 0.02, 0.045), (0, -0.026, 0), "iron"))
+        shield = tg.join(sh, "ShieldPart")
+        shield.rotation_euler = (0, 0, math.radians(-55))
+        shield.location = (R.x * 0.95, -R.y * 0.45, C.z - 0.03)
+        tg.apply_all_transforms(shield)
+        cap = tg.sphere("cap", (R.x * 1.4, R.y * 1.4, 0.24), (0, 0.0, 2 * R.z - 0.1), "iron", seg=16, rings=8)
+        tg.deform(cap, lambda p: Vector((p.x, p.y, max(p.z, -0.005))))
+        parts += [shield, cap]
     slime_body = tg.join([body] + parts, "Body")
     tg.pivot(slime_body, (0, 0, 0))
     root = tg.empty("Slime")
     tg.parent(slime_body, root)
     hop = v["hop"]
-    tg.make_track("idle", {
+    keys = {
         slime_body: [(0, {}), (8, {"scale": (1.1, 1.1, 0.86)}), (16, {"scale": (0.93, 0.93, 1.13), "loc": (0, 0, hop)}),
                      (24, {"scale": (1.04, 1.04, 0.96)}), (32, {})],
-    }, 32)
+    }
+    if v["extra"] == "wings":
+        for side in (-1, 1):
+            w = wing(f"Wing{'L' if side < 0 else 'R'}", side)
+            w.location = (R.x * 0.85 * side, 0.03, C.z + 0.05)
+            tg.parent(w, root)
+            keys[w] = [(0, {"rot": (0, 25 * side, 0)}), (8, {"rot": (0, -35 * side, 0)}), (16, {"rot": (0, 25 * side, 0)}),
+                       (24, {"rot": (0, -35 * side, 0)}), (32, {"rot": (0, 25 * side, 0)})]
+    tg.make_track("idle", keys, 32)
     return tg.finish_asset(name, root, ao_distance=0.1 * s, ao_strength=0.65)
 
 

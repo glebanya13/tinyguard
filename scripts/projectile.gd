@@ -15,6 +15,7 @@ var _damage: float = 0.0
 var _splash: float = 0.0
 var _slow: float = 1.0
 var _slow_time: float = 0.0
+var _kind: StringName = &""
 var _from: Vector3
 var _to: Vector3
 var _time: float = 0.0
@@ -23,8 +24,14 @@ var _duration: float = 0.0
 
 ## Call after the projectile is in the tree and positioned at the muzzle.
 func launch(
-	target: Enemy, damage: float, splash: float = 0.0, slow: float = 1.0, slow_time: float = 0.0
+	target: Enemy,
+	damage: float,
+	splash: float = 0.0,
+	slow: float = 1.0,
+	slow_time: float = 0.0,
+	kind: StringName = &""
 ) -> void:
+	_kind = kind
 	_target = target
 	_damage = damage
 	_splash = splash
@@ -68,6 +75,8 @@ func _fly_arc(delta: float) -> void:
 		_spawn_fx(_to)
 		for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
 			var enemy := node as Enemy
+			if enemy.is_flying():
+				continue  # shells burst on the ground
 			var offset: Vector3 = enemy.global_position - _to
 			offset.y = 0.0
 			if offset.length() <= _splash:
@@ -78,7 +87,7 @@ func _fly_arc(delta: float) -> void:
 func _hit(enemy: Enemy) -> void:
 	if _slow < 1.0:
 		enemy.apply_slow(_slow, _slow_time)
-	enemy.take_damage(_damage)
+	enemy.take_damage(_damage, _kind)
 
 
 func _face(direction: Vector3) -> void:

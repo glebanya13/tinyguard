@@ -13,3 +13,9 @@ extends Resource
 @export var health_bar_height: float = 0.8
 @export var health_bar_width: float = 0.6
 @export var is_boss: bool = false
+## Flies above the path: cannon shells cannot hit it.
+@export var flying: bool = false
+## Height of the model above the path when flying (metres).
+@export var fly_height: float = 0.0
+## Damage multiplier for arrows (a shield bearer takes less).
+@export var arrow_damage_mult: float = 1.0

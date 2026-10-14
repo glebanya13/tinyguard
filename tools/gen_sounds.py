@@ -193,6 +193,13 @@ def boss_roar():
             for i, (a, b) in enumerate(zip(roar, rough))]
 
 
+def zap():
+    """Electric crackle: noisy buzz with a falling pitch."""
+    buzz = shaped(tone(lambda t: 520 - 300 * t, 0.3, lambda p: 1.0 if math.sin(p) > 0 else -1.0), 0.002, 0.08, 0.5)
+    crackle = [v if abs(v) > 0.6 else 0.0 for v in noise(0.3, 120)]
+    return mix(buzz, shaped(crackle, 0.001, 0.06, 0.8))
+
+
 def music_loop():
     """Calm adventure loop: I-V-vi-IV in C, bass, soft pad, plucked melody and
     light percussion. 16 bars at 100 bpm; the end joins the start seamlessly."""
@@ -275,6 +282,7 @@ def main() -> None:
     write("sword_swing", sword_swing(), 0.6)
     write("chop", chop(), 0.7)
     write("boss_roar", boss_roar(), 0.8)
+    write("zap", zap(), 0.6)
     write("music_loop", music_loop(), 0.55)
 
 

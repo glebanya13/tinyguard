@@ -254,6 +254,25 @@ def build_frost_turret():
     return turret, crystal
 
 
+def build_lightning_turret():
+    """Iron mast wound with gold coils; a glowing orb floats on top and flares on attack."""
+    mast = tg.cylinder("mast", 0.07, 0.05, 0.42, (0, 0, TOP), "iron", verts=10)
+    plate = tg.cylinder("plate", 0.22, 0.18, 0.06, (0, 0, TOP), "iron_dark", verts=14)
+    coils = [tg.torus(f"coil{i}", 0.1 - 0.012 * i, 0.022, (0, 0, TOP + 0.1 + 0.1 * i), "gold", seg=16, minor_seg=6)
+             for i in range(3)]
+    rods = [tg.cylinder(f"rod{i}", 0.018, 0.01, 0.2, (0.16 * math.cos(a), 0.16 * math.sin(a), TOP + 0.05), "steel",
+                        verts=6, rot=(math.degrees(-0.5 * math.sin(a)), math.degrees(0.5 * math.cos(a)), 0))
+            for i, a in enumerate([0.4, 2.5, 4.6])]
+    turret = tg.join([mast, plate, *coils, *rods], "Turret")
+    tg.pivot(turret, (0, 0, TOP))
+    orb = tg.sphere("orb", (0.2, 0.2, 0.2), (0, 0, TOP + 0.58), "portal_glow", seg=16, rings=8)
+    core = tg.sphere("core", (0.1, 0.1, 0.1), (0, -0.05, TOP + 0.6), "white", seg=10, rings=5)
+    ring = tg.torus("halo", 0.16, 0.012, (0, 0, TOP + 0.58), "ice_light", seg=20, minor_seg=4, rot=(70, 0, 20))
+    part = tg.join([orb, core, ring], "Orb")
+    tg.pivot(part, (0, 0, TOP + 0.58))
+    return turret, part
+
+
 def build_cannonball():
     ball = tg.sphere("ball", (0.16, 0.16, 0.16), (0, 0, 0), "iron_dark", seg=12, rings=6)
     shine = tg.sphere("shine", (0.05, 0.03, 0.04), (-0.04, -0.06, 0.04), "steel", seg=6, rings=3)
@@ -298,6 +317,8 @@ def build_tower_kind(kind: str, rng) -> dict:
         turret, part = build_turret()
     elif kind == "cannon":
         turret, part = build_cannon_turret()
+    elif kind == "lightning":
+        turret, part = build_lightning_turret()
     else:
         turret, part = build_frost_turret()
     base = tg.join([base, flag], "Base")  # static parts share one mesh (one draw call)
@@ -317,7 +338,7 @@ def _clear() -> None:
 
 def build() -> list:
     out = []
-    for kind in ("archer", "cannon", "frost"):
+    for kind in ("archer", "cannon", "frost", "lightning"):
         _clear()
         out.append(build_tower_kind(kind, random.Random(3)))
     for name, fn, ao in (("arrow", build_arrow, 0.05), ("cannonball", build_cannonball, 0.05),

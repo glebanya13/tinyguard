@@ -1,0 +1,9 @@
+[gd_resource type="BoxMesh" load_steps=2 format=3]
+
+[sub_resource type="StandardMaterial3D" id="bolt"]
+shading_mode = 0
+albedo_color = Color(0.85, 0.8, 1, 1)
+
+[resource]
+material = SubResource("bolt")
+size = Vector3(0.05, 0.05, 1)

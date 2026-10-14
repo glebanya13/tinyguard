@@ -50,8 +50,9 @@ func _ready() -> void:
 		_model = data.model.instantiate() as Node3D
 		_model.set_script(LOOPING_MODEL)
 		_model.rotation.y = PI  # models face +Z, PathFollow3D moves along -Z
+		_model.position.y = data.fly_height
 		add_child(_model)
-		_health_bar.position.y = data.health_bar_height
+		_health_bar.position.y = data.health_bar_height + data.fly_height
 		_bar_width = data.health_bar_width / 0.6
 		_health_bar.scale.x = _bar_width
 		if data.is_boss:
@@ -73,9 +74,12 @@ func _process(delta: float) -> void:
 		reached_base.emit(base_damage)
 
 
-func take_damage(amount: float) -> void:
+## `kind` is the damage type of the hit (&"arrow" for archers, &"" otherwise).
+func take_damage(amount: float, kind: StringName = &"") -> void:
 	if _is_dead:
 		return
+	if kind == &"arrow" and data:
+		amount *= data.arrow_damage_mult
 	health = maxf(health - amount, 0.0)
 	_health_bar.visible = true
 	_health_bar.scale.x = _bar_width * health / max_health
@@ -100,12 +104,16 @@ func is_alive() -> bool:
 	return not _is_dead
 
 
+func is_flying() -> bool:
+	return data != null and data.flying
+
+
 func is_boss() -> bool:
 	return data != null and data.is_boss
 
 
 func get_aim_point() -> Vector3:
-	var height: float = data.health_bar_height * AIM_FRACTION if data else 0.25
+	var height: float = data.health_bar_height * AIM_FRACTION + data.fly_height if data else 0.25
 	return global_position + Vector3.UP * height
 
 

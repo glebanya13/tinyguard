@@ -1,6 +1,7 @@
 class_name Tower
 extends Node3D
-## Shoots projectiles at the nearest enemy within range.
+## Shoots projectiles at the nearest enemy within range, or a chain bolt that
+## jumps between enemies (lightning: no projectile, damage is instant).
 
 ## Emitted on every shot; visuals (aiming, recoil) listen to it.
 signal fired(target: Enemy)
@@ -17,6 +18,8 @@ signal level_changed(level: int)
 @export var muzzle_height: float = 1.1
 ## Horizontal distance from the tower axis towards the target (crossbow tip).
 @export var muzzle_reach: float = 0.3
+## Bolt effect for chain towers.
+@export var chain_fx: PackedScene
 
 ## Current upgrade level, 0-based.
 var level: int = 0
@@ -25,6 +28,10 @@ var data: TowerData = null
 var splash_radius: float = 0.0
 var slow_factor: float = 1.0
 var slow_duration: float = 0.0
+var chain_targets: int = 0
+var chain_range: float = 0.0
+var damage_kind: StringName = &""
+var hits_air: bool = true
 
 var _cooldown: float = 0.0
 
@@ -50,6 +57,10 @@ func apply_level(tower_data: TowerData, new_level: int) -> void:
 	splash_radius = data.splash_levels[level]
 	slow_factor = data.slow_levels[level]
 	slow_duration = data.slow_duration
+	chain_targets = data.chain_levels[level]
+	chain_range = data.chain_range
+	damage_kind = data.damage_kind
+	hits_air = data.hits_air
 	level_changed.emit(level)
 
 
@@ -58,7 +69,7 @@ func find_nearest_enemy() -> Enemy:
 	var nearest_dist_sq: float = range_m * range_m
 	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
-		if enemy == null or not enemy.is_alive():
+		if enemy == null or not enemy.is_alive() or (enemy.is_flying() and not hits_air):
 			continue
 		var offset: Vector3 = enemy.global_position - global_position
 		offset.y = 0.0
@@ -70,6 +81,9 @@ func find_nearest_enemy() -> Enemy:
 
 
 func _shoot(target: Enemy) -> void:
+	if chain_targets > 0:
+		_shoot_chain(target)
+		return
 	if projectile_scene == null:
 		push_warning("Tower: projectile_scene is not set")
 		return
@@ -81,5 +95,43 @@ func _shoot(target: Enemy) -> void:
 	aim.y = 0.0
 	var reach: Vector3 = aim.normalized() * muzzle_reach if aim.length() > 0.01 else Vector3.ZERO
 	projectile.global_position = global_position + Vector3.UP * muzzle_height + reach
-	projectile.launch(target, damage, splash_radius, slow_factor, slow_duration)
+	projectile.launch(target, damage, splash_radius, slow_factor, slow_duration, damage_kind)
 	fired.emit(target)
+
+
+## Lightning: hits the target, then jumps to the nearest unhit enemy within
+## chain_range, chain_targets times; each jump deals 80% of the previous.
+func _shoot_chain(target: Enemy) -> void:
+	var points := PackedVector3Array([global_position + Vector3.UP * muzzle_height])
+	var hit: Array[Enemy] = []
+	var current: Enemy = target
+	var amount: float = damage
+	for i in chain_targets + 1:
+		if current == null:
+			break
+		points.append(current.get_aim_point())
+		hit.append(current)
+		var next: Enemy = _nearest_unhit(current.global_position, hit)
+		current.take_damage(amount, damage_kind)
+		amount *= 0.8
+		current = next
+	if chain_fx:
+		var fx: Node3D = chain_fx.instantiate()
+		fx.top_level = true
+		add_child(fx)
+		fx.call(&"setup", points)
+	fired.emit(target)
+
+
+func _nearest_unhit(from: Vector3, hit: Array[Enemy]) -> Enemy:
+	var best: Enemy = null
+	var best_sq: float = chain_range * chain_range
+	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var enemy := node as Enemy
+		if enemy == null or not enemy.is_alive() or enemy in hit:
+			continue
+		var d: float = enemy.global_position.distance_squared_to(from)
+		if d <= best_sq:
+			best_sq = d
+			best = enemy
+	return best

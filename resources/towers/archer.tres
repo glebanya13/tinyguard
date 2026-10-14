@@ -7,7 +7,7 @@
 [resource]
 script = ExtResource("1_data")
 display_name = "Лучник"
-role = "быстрые выстрелы по одной цели"
+role = "быстро, по одной цели; слаб против щитов"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 15
@@ -19,3 +19,4 @@ range_levels = Array[float]([3.2, 3.6, 4.0])
 interval_levels = Array[float]([0.6, 0.5, 0.42])
 splash_levels = Array[float]([0.0, 0.0, 0.0])
 slow_levels = Array[float]([1.0, 1.0, 1.0])
+damage_kind = &"arrow"

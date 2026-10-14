@@ -36,6 +36,7 @@ const SHORTCUTS := {
 	&"build_0": &"build_tower",
 	&"build_1": &"build_cannon",
 	&"build_2": &"build_frost",
+	&"build_3": &"build_lightning",
 	&"upgrade": &"upgrade_tower",
 	&"sword": &"upgrade_tower",
 	&"sell": &"sell_tower",

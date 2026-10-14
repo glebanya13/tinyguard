@@ -7,7 +7,7 @@
 [resource]
 script = ExtResource("1_data")
 display_name = "Пушка"
-role = "медленно, но по площади"
+role = "медленно, по площади; не бьёт летунов"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 40
@@ -19,3 +19,4 @@ range_levels = Array[float]([2.8, 3.1, 3.4])
 interval_levels = Array[float]([1.6, 1.45, 1.3])
 splash_levels = Array[float]([1.1, 1.3, 1.5])
 slow_levels = Array[float]([1.0, 1.0, 1.0])
+hits_air = false

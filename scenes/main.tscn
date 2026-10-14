@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=31 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="AudioStream" path="res://assets/audio/music_loop.wav" id="19_music"]
@@ -11,6 +11,7 @@
 [ext_resource type="Resource" path="res://resources/towers/archer.tres" id="t_archer"]
 [ext_resource type="Resource" path="res://resources/towers/cannon.tres" id="t_cannon"]
 [ext_resource type="Resource" path="res://resources/towers/frost.tres" id="t_frost"]
+[ext_resource type="Resource" path="res://resources/towers/lightning.tres" id="t_lightning"]
 [ext_resource type="PackedScene" path="res://scenes/hero.tscn" id="11_hero"]
 [ext_resource type="Script" path="res://scripts/camera_follow.gd" id="13_camera"]
 [ext_resource type="AudioStream" path="res://assets/audio/wave_horn.wav" id="14_horn"]
@@ -153,7 +154,7 @@ enemy_path = NodePath("../Level/EnemyPath")
 
 [node name="BuildManager" type="Node" parent="." node_paths=PackedStringArray("game_state", "camera")]
 script = ExtResource("9_build_manager")
-tower_types = Array[ExtResource("10_tower_data")]([ExtResource("t_archer"), ExtResource("t_cannon"), ExtResource("t_frost")])
+tower_types = Array[ExtResource("10_tower_data")]([ExtResource("t_archer"), ExtResource("t_cannon"), ExtResource("t_frost"), ExtResource("t_lightning")])
 game_state = NodePath("../GameState")
 camera = NodePath("../Camera")
 

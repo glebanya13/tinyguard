@@ -9,6 +9,10 @@ const SLIME: EnemyData = preload("res://resources/enemies/slime.tres")
 const FAST: EnemyData = preload("res://resources/enemies/slime_fast.tres")
 const TANK: EnemyData = preload("res://resources/enemies/slime_tank.tres")
 const BOSS: EnemyData = preload("res://resources/enemies/slime_king.tres")
+const BAT: EnemyData = preload("res://resources/enemies/slime_bat.tres")
+const SHIELD: EnemyData = preload("res://resources/enemies/slime_shield.tres")
+## Wave number used when a level has no "bat_from" / "shield_from" key (never).
+const NEVER := 100000
 ## Bosses grow slower than the crowd (exponent on the wave health factor).
 const BOSS_GROWTH_EXPONENT := 0.75
 ## Interval shrink per wave.
@@ -53,10 +57,16 @@ func spawns(wave: int) -> Array[Dictionary]:
 	var count: int = roundi(float(_w["count_base"]) + float(_w["count_step"]) * (wave - 1))
 	var fast_from: int = int(_w["fast_from"])
 	var tank_from: int = int(_w["tank_from"])
+	var bat_from: int = int(_w.get("bat_from", NEVER))
+	var shield_from: int = int(_w.get("shield_from", NEVER))
 	for i in count:
 		var data: EnemyData = SLIME
 		if wave >= tank_from and i % 4 == 3:
 			data = TANK
+		elif wave >= shield_from and i % 6 == 5:
+			data = SHIELD
+		elif wave >= bat_from and i % 5 == 2:
+			data = BAT
 		elif wave >= fast_from and i % 3 == 1:
 			data = FAST
 		out.append({"data": data, "hp": hp})
