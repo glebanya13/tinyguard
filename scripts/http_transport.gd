@@ -6,6 +6,9 @@ extends Node
 ## Nothing here is logged: requests carry tokens and private data.
 
 const TIMEOUT := 10.0
+## Replies are small (a Firestore document is at most 1 MiB); a bigger body is
+## treated as a failed request instead of being read into memory.
+const MAX_BODY_BYTES := 2 * 1024 * 1024
 
 
 ## Returns {"ok": bool (2xx), "code": int (0 = no HTTP reply), "json": Variant,
@@ -13,6 +16,10 @@ const TIMEOUT := 10.0
 func send(method: int, url: String, headers: PackedStringArray, body: String) -> Dictionary:
 	var http := HTTPRequest.new()
 	http.timeout = TIMEOUT
+	http.body_size_limit = MAX_BODY_BYTES
+	# The Google APIs never redirect; following one would send the Authorization
+	# header to another host.
+	http.max_redirects = 0
 	add_child(http)
 	var error: Error = http.request(url, headers, method, body)
 	if error != OK:

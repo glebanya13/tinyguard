@@ -16,6 +16,8 @@ extends RefCounted
 
 const SCHEMA_VERSION := 1
 const SECTION := "profile"
+## Upper bound for a stars / endless / perk value read from the cloud (the rules cap them too).
+const MAX_CLOUD_VALUE := 5000
 ## Tutorial version a player who already had progress before profiles existed
 ## is treated as having seen (they skip the tutorial).
 const LEGACY_TUTORIAL_VERSION := 1
@@ -206,10 +208,11 @@ static func from_cloud(fields: Dictionary) -> Dictionary:
 		var source: Variant = prog.get(key, {})
 		if source is Dictionary:
 			for id: Variant in source:
-				# A level has 0..3 stars; the cloud is not trusted to stay in range.
-				out_prog[key][str(id)] = (
-					clampi(int(source[id]), 0, 3) if key == "stars" else maxi(int(source[id]), 0)
-				)
+				var value: Variant = source[id]
+				if value is int:
+					# A level has 0..3 stars; the cloud is not trusted to stay in range.
+					var top: int = 3 if key == "stars" else MAX_CLOUD_VALUE
+					out_prog[key][str(id)] = clampi(value, 0, top)
 	var settings: Variant = fields.get("settings", {})
 	if settings is Dictionary:
 		p["settings"]["sound"] = bool((settings as Dictionary).get("sound", true))

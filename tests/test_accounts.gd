@@ -10,6 +10,7 @@ const SAVE := "user://test_accounts.cfg"
 const SESSION := "user://test_accounts_session.dat"
 const CASES := "res://tests/nickname_cases.json"
 const Fakes := preload("res://tests/fakes.gd")
+const OnlineScript := preload("res://scripts/online.gd")
 
 var fails := 0
 
@@ -45,6 +46,7 @@ func _run() -> void:
 	_test_merge()
 	await _test_onboarding_offline()
 	_test_session_store()
+	_test_hostile_input()
 	await _test_auth()
 	await _test_online_sync()
 	await _test_nickname_and_delete()
@@ -206,6 +208,81 @@ func _test_session_store() -> void:
 	f.close()
 	check(SessionStore.load_session().get("unreadable", false), "foreign file -> unreadable")
 	SessionStore.clear()
+
+
+## Security audit: hostile names and malformed server replies must not break the client.
+func _test_hostile_input() -> void:
+	check(FirestoreClient.is_safe_path("users/abc"), "plain document path is safe")
+	for bad in ["", "users//x", "users/..", "../users/x", "users/./x", "/users/x", "users/x/"]:
+		check(not FirestoreClient.is_safe_path(bad), "unsafe path refused: '%s'" % bad)
+	var client := FirestoreClient.new()
+	client.project_id = "p"
+	var url: String = client.doc_url("nicknames/a?b#c%2F d")
+	check(not "?" in url and not "#" in url and not " " in url, "path segment is percent-encoded")
+	check(url.ends_with("/nicknames/a%3Fb%23c%252F%20d"), "encoded segment " + url)
+	check("/documents/nicknames/" in url, "slash between segments stays")
+	# Malformed Firestore values (wrong types where a Dictionary/Array is expected).
+	var odd: Dictionary = (
+		FirestoreClient
+		. decode_fields(
+			{
+				"a": {"mapValue": "x"},
+				"b": {"arrayValue": 5},
+				"c": {"arrayValue": {"values": "x"}},
+				"d": {"doubleValue": {"x": 1}},
+				"e": 7,
+			}
+		)
+	)
+	check(
+		odd["a"] == {} and odd["b"] == [] and odd["c"] == [],
+		"wrong container types decode to empty"
+	)
+	check(odd["e"] == null, "non-dictionary value decodes to null")
+	var rows: Array = (
+		OnlineScript
+		. parse_leaderboard(
+			[
+				5,
+				{"document": 3},
+				{"document": {"fields": {"name": {"mapValue": {}}, "wave": {"mapValue": {}}}}},
+				{
+					"document":
+					{
+						"fields":
+						{
+							"name": {"stringValue": "a\u202eb\u200bc\u0007d"},
+							"wave": {"integerValue": "9"}
+						}
+					}
+				},
+			]
+		)
+	)
+	check(
+		rows.size() == 2, "hostile leaderboard rows are skipped or neutralised (%d)" % rows.size()
+	)
+	check(
+		rows[1]["name"] == "abcd" and rows[1]["wave"] == 9,
+		"bidi/zero-width/control characters are removed"
+	)
+	check(
+		OnlineScript.parse_save([1, 2]) == "" and OnlineScript.parse_save({"fields": 3}) == "",
+		"malformed save is empty"
+	)
+	var cloud: Dictionary = PlayerProfile.from_cloud(
+		{
+			"schemaVersion": 1,
+			"progression": {"unlocked": 2, "stars": {"1": 99999999, "2": {"x": 1}}}
+		}
+	)
+	check(
+		cloud["progression"]["stars"].get("1", 0) == PlayerProfile.MAX_CLOUD_VALUE,
+		"cloud value is capped"
+	)
+	check(not cloud["progression"]["stars"].has("2"), "non-integer cloud value is ignored")
+	var mixed: Dictionary = NicknameRules.validate("Аdmin")
+	check(mixed["error"] == "mixed_script", "Latin + Cyrillic nickname refused")
 
 
 func _make_auth(transport: Fakes.FakeTransport) -> AuthService:
