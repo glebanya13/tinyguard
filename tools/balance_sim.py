@@ -10,8 +10,8 @@ wood at a steady chopping rate. The hero guards the castle road (where the
 paths have joined) with his sword (as an extra "tower"). The player builds in
 a fixed tower order and upgrades when every slot is taken. Three ways to pick
 slots are played: "balanced" (round-robin over the paths, the sensible one),
-"greedy" (most path covered first) and "turtle" (everything next to the
-castle: must not be better than balanced, else choosing does not matter).
+"greedy" (most path covered first) and "turtle" (only the 40% of slots
+nearest to the castle, everything else into upgrades: must not beat balanced).
 It is an estimate: real players also fight with the hero and call waves early.
 
 Usage: python3 tools/balance_sim.py [level_id ...]
@@ -62,6 +62,9 @@ MIX = [("golem_from", "stone_golem", 9, 8), ("tank_from", "slime_tank", 4, 3), (
 BUILD_ORDER = ["archer", "archer", "cannon", "frost", "lightning", "archer", "cannon", "lightning", "frost",
                "archer", "cannon", "lightning"]
 NEVER = 100000
+# The balanced player keeps this many anti-air towers within this radius of the castle.
+AIR_GUARD_TOWERS = 3
+AIR_GUARD_RADIUS = 9.0
 STRATEGIES = ("balanced", "greedy", "turtle")
 
 
@@ -154,11 +157,31 @@ def routes(lv: dict) -> list:
     return out
 
 
-def play(lv: dict, verbose: bool = True) -> int:
+def order_slots(lv: dict, drawn: list, strategy: str) -> list:
+    cover = lambda s, p: p.coverage(s[0], s[1], 3.2)
+    if strategy == "turtle":
+        return sorted(lv["slots"], key=lambda s: math.dist(s, lv["castle"]))
+    if strategy == "greedy":
+        return sorted(lv["slots"], key=lambda s: -sum(cover(s, p) for p in drawn))
+    # balanced: the best slot of every path in turn (a slot counts for the path it covers most)
+    rest = list(lv["slots"])
+    out = []
+    while rest:
+        for p in drawn:
+            if rest:
+                best = max(rest, key=lambda s: cover(s, p))
+                rest.remove(best)
+                out.append(best)
+    return out
+
+
+def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
     w = lv["waves"]
     paths = [Path2D(r) for r in routes(lv)]
     drawn = [Path2D(pts) for pts in lv["paths"]]  # every metre of road once
-    slots = sorted(lv["slots"], key=lambda s: -sum(p.coverage(s[0], s[1], 3.2) for p in drawn))
+    gate = lv["paths"][0][-1]
+    air_routes = [Path2D([p[0], gate]) for p in lv["paths"]]  # flyers: straight line to the gate
+    slots = order_slots(lv, drawn, strategy)
     gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], lv["start"]["lives"]
     towers = []  # dicts: kind, level, x, z, cd
     hx, hz = paths[0].at(paths[0].length - HERO_FROM_CASTLE)
@@ -166,18 +189,55 @@ def play(lv: dict, verbose: bool = True) -> int:
     t = 0.0
     report = []
 
+    lanes_cfg = w.get("lanes", {}).get("patterns", [])
+    free_slots = list(slots)
+    leaked_on = {}  # path -> enemies that got through on it
+    # "turtle" never builds beyond the 40% of slots nearest to the castle: the rest goes into upgrades.
+    slot_cap = math.ceil(0.4 * len(slots)) if strategy == "turtle" else len(slots)
+    cover_table = {tuple(sl): [p.coverage(sl[0], sl[1], 3.2) for p in drawn] for sl in slots}
+
+    def air_guard() -> bool:
+        """Flyers cross the map in a straight line: balanced keeps archers near the castle."""
+        if strategy != "balanced" or wave + 2 < w.get("bat_from", NEVER):
+            return False
+        near = [tw for tw in towers if math.dist((tw["x"], tw["z"]), lv["castle"]) < AIR_GUARD_RADIUS
+                and TOWERS[tw["kind"]].get("hits_air", True)]
+        return len(near) < AIR_GUARD_TOWERS
+
+    def pick_slot():
+        """The player reads the banner: the next tower goes where the coming waves walk."""
+        if strategy != "balanced" or not lanes_cfg:
+            return free_slots[0]
+        if air_guard():
+            return min(free_slots, key=lambda sl: math.dist(sl, lv["castle"]))
+        reserved = sorted(free_slots, key=lambda sl: math.dist(sl, lv["castle"]))[:AIR_GUARD_TOWERS]
+        if "bat_from" in w and len(free_slots) > AIR_GUARD_TOWERS:
+            pool = [sl for sl in free_slots if sl not in reserved]  # kept for the flyers
+        else:
+            pool = free_slots
+        want = [0.0] * len(drawn)
+        for n in (wave, wave + 1):
+            pat = lanes_cfg[max(n - 1, 0) % len(lanes_cfg)]
+            want = [a + b / max(sum(pat), 1) for a, b in zip(want, pat)]
+        # ... and where enemies have already got through
+        want = [a + 0.5 * leaked_on.get(k, 0) for k, a in enumerate(want)]
+        return max(pool, key=lambda sl: sum(wl * c for wl, c in zip(want, cover_table[tuple(sl)])))
+
     def shop():
         nonlocal gold, wood
         changed = True
         while changed:
             changed = False
-            if len(towers) < len(slots):
+            if len(towers) < slot_cap:
                 kind = BUILD_ORDER[len(towers) % len(BUILD_ORDER)]
+                if air_guard():
+                    kind = "archer"
                 d = TOWERS[kind]
                 if gold >= d["cost_gold"] and wood >= d["cost_wood"]:
                     gold -= d["cost_gold"]
                     wood -= d["cost_wood"]
-                    x, z = slots[len(towers)]
+                    x, z = pick_slot()
+                    free_slots.remove([x, z] if [x, z] in free_slots else (x, z))
                     towers.append({"kind": kind, "level": 0, "x": x, "z": z, "cd": 0.0})
                     changed = True
                 continue
@@ -194,13 +254,20 @@ def play(lv: dict, verbose: bool = True) -> int:
 
     spawned = {}  # kind -> enemies of that kind so far: picks the next path
 
-    def add_enemy(enemies, kind, mult, d=0.0, route=None):
-        if route is None:
-            route = spawned.get(kind, 0) % len(paths)
-            spawned[kind] = spawned.get(kind, 0) + 1
+    def add_enemy(enemies, kind, mult, lane=None, extra=None, d=0.0, route=None):
         e = ENEMIES[kind]
+        if route is None:
+            if lane is None:
+                lane = spawned.get(kind, 0) % len(paths)
+                spawned[kind] = spawned.get(kind, 0) + 1
+            route = air_routes[lane] if e.get("flying") else paths[lane]
+            lane_id = lane
+        else:
+            lane_id = None
+        rmult = (extra or {}).get("elite", 1.0)
         enemies.append({"kind": kind, "hp": e["health"] * mult, "max": e["health"] * mult, "mult": mult, "d": d,
-                        "slow": 1.0, "slow_t": 0.0, "heal_t": 0.0, "pos": paths[route].at(d), "route": route})
+                        "slow": 1.0, "slow_t": 0.0, "heal_t": 0.0, "route": route, "rmult": rmult, "lane": lane_id,
+                        "pos": route.at(d)})
 
     # Waves on a fixed clock (scripts/wave_manager.gd): one every wave_duration s,
     # enemies spread over spawn_window s; waves overlap.
@@ -233,7 +300,7 @@ def play(lv: dict, verbose: bool = True) -> int:
             if en["slow_t"] <= 0:
                 en["slow"] = 1.0
             en["d"] += e["speed"] * en["slow"] * DT
-            en["pos"] = paths[en["route"]].at(en["d"])
+            en["pos"] = en["route"].at(en["d"])
             if e.get("heal_fraction", 0):
                 en["heal_t"] -= DT
                 if en["heal_t"] <= 0:
@@ -241,8 +308,10 @@ def play(lv: dict, verbose: bool = True) -> int:
                     for o in enemies:
                         if o is not en and math.dist(o["pos"], en["pos"]) <= e.get("heal_radius", 1.8):
                             o["hp"] = min(o["max"], o["hp"] + o["max"] * e["heal_fraction"])
-        for en in [en for en in enemies if en["d"] >= paths[en["route"]].length]:
+        for en in [en for en in enemies if en["d"] >= en["route"].length]:
             lives -= int(ENEMIES[en["kind"]]["base_damage"])
+            if en["lane"] is not None:
+                leaked_on[en["lane"]] = leaked_on.get(en["lane"], 0) + 1
             leaks[en["kind"]] = leaks.get(en["kind"], 0) + int(ENEMIES[en["kind"]]["base_damage"])
             enemies.remove(en)
         if lives <= 0:
@@ -260,7 +329,11 @@ def play(lv: dict, verbose: bool = True) -> int:
             if not in_range:
                 tw["cd"] = 0.15
                 continue
-            target = min(in_range, key=lambda en: math.dist(en["pos"], (tw["x"], tw["z"])))
+            prio = 3 if tw["kind"] == "hero" else int(d.get("default_priority", 0))
+            goal = lambda en: en["route"].length - en["d"]
+            key = {0: goal, 1: lambda en: -goal(en), 2: lambda en: -en["hp"],
+                   3: lambda en: math.dist(en["pos"], (tw["x"], tw["z"]))}[prio]
+            target = min(in_range, key=key)
             splash = d["splash_levels"][lvl]
             chain = int(d.get("chain_levels", [0, 0, 0])[lvl])
             if splash:
@@ -279,6 +352,8 @@ def play(lv: dict, verbose: bool = True) -> int:
             for k, en in enumerate(hit):
                 e = ENEMIES[en["kind"]]
                 dmg = d["damage_levels"][lvl] * (0.8 ** k if chain else 1.0) * (1.0 if tw["kind"] == "hero" else TOWER_BONUS)
+                if chain and en["slow"] < 1.0:
+                    dmg *= d.get("chilled_bonus", 1.0)
                 if d.get("damage_kind") == "arrow":
                     dmg *= e.get("arrow_damage_mult", 1.0)
                 if e.get("armor", 0):
@@ -290,11 +365,11 @@ def play(lv: dict, verbose: bool = True) -> int:
             tw["cd"] = d["interval_levels"][lvl]
         for en in [en for en in enemies if en["hp"] <= 0]:
             e = ENEMIES[en["kind"]]
-            gold += int(e["reward"])
+            gold += int(e["reward"] * en["rmult"])
             enemies.remove(en)
             if e.get("split_count"):
                 for k in range(int(e["split_count"])):
-                    add_enemy(enemies, "slime_mini", en["mult"], max(en["d"] - 0.35 * k, 0.0), en["route"])
+                    add_enemy(enemies, "slime_mini", en["mult"], None, None, max(en["d"] - 0.35 * k, 0.0), en["route"])
         if wave >= w["count"] and not spawners and not enemies:
             break
     if verbose:
@@ -309,7 +384,13 @@ def main() -> None:
     only = {int(a) for a in sys.argv[1:]}
     for lv in levels:
         if not only or lv["id"] in only:
-            play(lv)
+            results = {}
+            for strategy in STRATEGIES:
+                print(f"[{strategy}]", end=" ")
+                results[strategy] = play(lv, True, strategy)
+            start = lv["start"]["lives"]
+            if results["turtle"] > results["balanced"] + max(2, start // 5):
+                print(f"   !! уровень {lv['id']}: «черепаха» у замка лучше расстановки по дорогам")
 
 
 if __name__ == "__main__":

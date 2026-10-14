@@ -145,8 +145,10 @@ func spawns(wave: int) -> Array[Dictionary]:
 ## 1 for every path in `lanes`, 0 for the rest.
 func _flags(lanes: Array, size: int) -> Array:
 	var out: Array = []
-	for k in size:
-		out.append(1 if lanes.has(k) else 0)
+	out.resize(size)
+	out.fill(0)
+	for lane: Variant in lanes:  # JSON numbers are floats
+		out[int(lane)] = 1
 	return out
 
 

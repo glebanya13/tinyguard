@@ -36,6 +36,13 @@ func wait_until(cond: Callable, max_frames: int) -> bool:
 	return cond.call()
 
 
+func _all_paths_seen(used: Dictionary, paths: Array[Path3D]) -> bool:
+	for path in paths:
+		if not used.has(path):
+			return false
+	return true
+
+
 func tap_key(code: Key) -> void:
 	for pressed: bool in [true, false]:
 		var ev := InputEventKey.new()
@@ -65,7 +72,7 @@ func _run() -> void:
 	)
 	var routes: Array[PackedVector2Array] = LevelCatalog.routes(level)
 	var paths: Array[Path3D] = wm.get_paths()
-	check(routes.size() >= 2 and paths.size() == routes.size(), "paths built: %d" % paths.size())
+	check(routes.size() >= 3 and paths.size() == routes.size(), "paths built: %d" % paths.size())
 	for i in paths.size():
 		var curve: Curve3D = paths[i].curve
 		var end: Vector3 = curve.get_point_position(curve.point_count - 1)
@@ -204,14 +211,60 @@ func _run() -> void:
 	check(e.health < before, "whirlwind damages an enemy 1.5 m away")
 	check(not hero.try_spin() and hero.spin_cooldown_left() > 10.0, "whirlwind cooldown")
 
-	# The wave's enemies take every path in turn.
+	# Lane plan: every path is used by some wave, scouts and bosses keep to their own
+	# paths, elites appear, flyers get an air path to the castle gate.
+	var lanes: Dictionary = level["waves"]["lanes"]
+	check(wm.plan.lane_count() == paths.size(), "lane patterns fit %d paths" % paths.size())
+	check(wm.air_paths.size() == paths.size(), "an air path per path")
+	var gate: Vector3 = paths[0].curve.get_point_position(paths[0].curve.point_count - 1)
+	for air: Path3D in wm.air_paths:
+		var air_end: Vector3 = air.curve.get_point_position(1)
+		check(air.curve.point_count == 2 and air_end.is_equal_approx(gate), "air path to the gate")
+	var planned := {}
+	var scouts_ok: bool = true
+	var bosses_ok: bool = true
+	var elites: int = 0
+	for wave in range(1, mini(wm.get_total_waves(), 40) + 1):
+		for entry: Dictionary in wm.plan.spawns(wave):
+			planned[int(entry["lane"])] = true
+			var data: EnemyData = entry["data"]
+			if data.resource_path.ends_with("slime_fast.tres"):
+				scouts_ok = scouts_ok and (lanes["scout_paths"] as Array).has(float(entry["lane"]))
+			if data.is_boss:
+				bosses_ok = bosses_ok and (lanes["boss_paths"] as Array).has(float(entry["lane"]))
+			if entry["elite"]:
+				elites += 1
+	check(planned.size() == paths.size(), "waves use all %d paths" % planned.size())
+	check(scouts_ok and bosses_ok, "scouts and bosses keep to their paths")
+	check(elites > 0 or wm.get_total_waves() < int(level["waves"]["elite"]["from"]), "elites planned")
+	var lanes_w1: Array = wm.lanes_of(wm.plan.spawns(1))
+	check(lanes_w1.size() < paths.size(), "wave 1 does not use every path: %s" % [lanes_w1])
+	check(
+		LevelCatalog.direction_text(level, [0, 1, 2, 3, 4, 5].slice(0, paths.size())) != "",
+		"direction text: %s" % LevelCatalog.direction_text(level, [0])
+	)
+
+	# Spawned enemies appear on every path (waves started one after another).
 	var used := {}
+	var flyer_on_air := true
 	var all_used := func() -> bool:
 		for node: Node in get_nodes_in_group(Enemy.GROUP):
 			used[node.get_parent()] = true
-		return used.size() == paths.size()
-	await wait_until(all_used, 1800)
-	check(used.size() == paths.size(), "enemies spawn on %d/%d paths" % [used.size(), paths.size()])
+			var e2 := node as Enemy
+			if e2.is_flying() and e2.get_parent() not in wm.air_paths:
+				flyer_on_air = false
+		return used.size() == paths.size() + (1 if used.has(main.get_node("Level/EnemyPath")) else 0)
+	Engine.time_scale = 4.0
+	var guard: int = 0
+	while guard < 24 and not _all_paths_seen(used, paths):
+		wm.start_next_wave()
+		for i in 25:
+			await frames(20)
+			all_used.call()
+		guard += 1
+	Engine.time_scale = 1.0
+	check(_all_paths_seen(used, paths), "enemies spawn on all %d paths" % paths.size())
+	check(flyer_on_air, "flyers use the air paths")
 
 	print("RESULT: %s (%d failures)" % ["PASS" if _failures == 0 else "FAIL", _failures])
 	quit(_failures)
