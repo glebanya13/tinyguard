@@ -1,9 +1,14 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/level_select.gd" id="1_select"]
 [ext_resource type="AudioStream" path="res://assets/audio/music_loop.wav" id="19_music"]
 [ext_resource type="PackedScene" path="res://assets/models/worldmap.glb" id="2_map"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="3_theme"]
+[ext_resource type="Texture2D" path="res://ui/icons/sound_on.png" id="i_sound_on"]
+[ext_resource type="Texture2D" path="res://ui/icons/crown.png" id="i_crown"]
+[ext_resource type="Texture2D" path="res://ui/icons/play.png" id="i_play"]
+[ext_resource type="Texture2D" path="res://ui/icons/chest.png" id="i_chest"]
+[ext_resource type="Texture2D" path="res://ui/icons/star.png" id="i_star"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.36, 0.6, 0.9, 1)
@@ -70,36 +75,79 @@ mouse_filter = 2
 theme = ExtResource("3_theme")
 
 [node name="Title" type="Label" parent="UI/Root"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -300.0
-offset_top = 16.0
-offset_right = 300.0
-offset_bottom = 90.0
-grow_horizontal = 2
+layout_mode = 0
+offset_left = 28.0
+offset_top = 10.0
+offset_right = 500.0
+offset_bottom = 80.0
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_constants/outline_size = 12
-theme_override_font_sizes/font_size = 56
+theme_override_font_sizes/font_size = 52
 text = "Tinyguard"
-horizontal_alignment = 1
 
-[node name="SoundButton" type="Button" parent="UI/Root"]
-custom_minimum_size = Vector2(150, 56)
+[node name="TopRight" type="HBoxContainer" parent="UI/Root"]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -170.0
-offset_top = 16.0
+offset_left = -520.0
+offset_top = 14.0
 offset_right = -20.0
-offset_bottom = 72.0
+offset_bottom = 74.0
 grow_horizontal = 0
+mouse_filter = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="StarsPill" type="PanelContainer" parent="UI/Root/TopRight"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"HudPill"
+
+[node name="Row" type="HBoxContainer" parent="UI/Root/TopRight/StarsPill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Icon" type="TextureRect" parent="UI/Root/TopRight/StarsPill/Row"]
+custom_minimum_size = Vector2(38, 38)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/Root/TopRight/StarsPill/Row"]
+layout_mode = 2
+text = "0 / 24"
+
+[node name="TreasuryButton" type="Button" parent="UI/Root/TopRight"]
+custom_minimum_size = Vector2(170, 60)
+layout_mode = 2
 focus_mode = 0
-theme_type_variation = &"SecondaryButton"
-theme_override_font_sizes/font_size = 20
-text = "Звук: вкл"
+theme_override_constants/icon_max_width = 44
+text = "Казна"
+icon = ExtResource("i_chest")
+
+[node name="Badge" type="Label" parent="UI/Root/TopRight/TreasuryButton"]
+layout_mode = 0
+offset_left = 148.0
+offset_top = -12.0
+offset_right = 182.0
+offset_bottom = 22.0
+theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 30
+text = "!"
+horizontal_alignment = 1
+
+[node name="SoundButton" type="Button" parent="UI/Root/TopRight"]
+custom_minimum_size = Vector2(64, 60)
+layout_mode = 2
+focus_mode = 0
+theme_override_constants/icon_max_width = 40
+icon = ExtResource("i_sound_on")
+icon_alignment = 1
 
 [node name="Sites" type="Control" parent="UI/Root"]
 layout_mode = 1
@@ -117,10 +165,10 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -300.0
-offset_top = -170.0
-offset_right = 300.0
-offset_bottom = -20.0
+offset_left = -340.0
+offset_top = -214.0
+offset_right = 340.0
+offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 0
 
@@ -138,12 +186,153 @@ horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="UI/Root/Info/Content"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 19
 text = ""
 horizontal_alignment = 1
 
-[node name="PlayButton" type="Button" parent="UI/Root/Info/Content"]
-custom_minimum_size = Vector2(260, 64)
+[node name="Results" type="HBoxContainer" parent="UI/Root/Info/Content"]
 layout_mode = 2
-size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="Stars" type="HBoxContainer" parent="UI/Root/Info/Content/Results"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Record" type="Label" parent="UI/Root/Info/Content/Results"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="Buttons" type="HBoxContainer" parent="UI/Root/Info/Content"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="PlayButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
+custom_minimum_size = Vector2(240, 64)
+layout_mode = 2
+focus_mode = 0
 text = "Играть"
+icon = ExtResource("i_play")
+
+[node name="EndlessButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
+custom_minimum_size = Vector2(300, 64)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SecondaryButton"
+text = "Бесконечная осада"
+icon = ExtResource("i_crown")
+
+[node name="Treasury" type="Control" parent="UI/Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="UI/Root/Treasury"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.06, 0.14, 0.6)
+
+[node name="Panel" type="PanelContainer" parent="UI/Root/Treasury"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -520.0
+offset_top = -285.0
+offset_right = 520.0
+offset_bottom = 285.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Content" type="VBoxContainer" parent="UI/Root/Treasury/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="UI/Root/Treasury/Panel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Panel/Content/Header"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_chest")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="UI/Root/Treasury/Panel/Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 36
+text = "Королевская казна"
+
+[node name="FreePill" type="PanelContainer" parent="UI/Root/Treasury/Panel/Content/Header"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"HudPill"
+
+[node name="Row" type="HBoxContainer" parent="UI/Root/Treasury/Panel/Content/Header/FreePill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Panel/Content/Header/FreePill/Row"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("i_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/Root/Treasury/Panel/Content/Header/FreePill/Row"]
+layout_mode = 2
+text = "Свободно: 0"
+
+[node name="Hint" type="Label" parent="UI/Root/Treasury/Panel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
+theme_override_font_sizes/font_size = 18
+text = "Звёзды дают уровни (до 3 за уровень) и бесконечная осада (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях."
+autowrap_mode = 3
+
+[node name="Cards" type="GridContainer" parent="UI/Root/Treasury/Panel/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 3
+
+[node name="Footer" type="HBoxContainer" parent="UI/Root/Treasury/Panel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="ResetButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
+custom_minimum_size = Vector2(260, 58)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SecondaryButton"
+theme_override_font_sizes/font_size = 22
+text = "Вернуть звёзды"
+
+[node name="CloseButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
+custom_minimum_size = Vector2(220, 58)
+layout_mode = 2
+focus_mode = 0
+text = "Готово"
