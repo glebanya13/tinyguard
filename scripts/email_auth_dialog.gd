@@ -131,7 +131,7 @@ func submit() -> void:
 
 func _build() -> void:
 	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.78)
+	dim.color = Color(0.04, 0.06, 0.14, 0.9)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	_safe = MarginContainer.new()
