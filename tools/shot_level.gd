@@ -1,6 +1,6 @@
 extends SceneTree
 ## Saves a screenshot of a level.
-## LEVEL=<id> SHOT=<png path> godot --path . --resolution 1280x720 --script res://tools/shot_level.gd
+## LEVEL=<id> SHOT=<png> godot --path . --resolution 1280x720 --script res://tools/shot_level.gd
 
 
 func _initialize() -> void:
