@@ -193,7 +193,9 @@ func _decorate(img: Image) -> Image:
 	for r in [OUTLINE_PX * 0.35, OUTLINE_PX * 0.7, OUTLINE_PX]:
 		for k in 32:
 			var a: float = TAU * k / 32.0
-			outline.blit_rect_mask(dark, img, rect, Vector2i(roundi(cos(a) * r), roundi(sin(a) * r)))
+			outline.blit_rect_mask(
+				dark, img, rect, Vector2i(roundi(cos(a) * r), roundi(sin(a) * r))
+			)
 	var tint := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
 	tint.fill(SHADOW_COLOR)
 	var out := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)

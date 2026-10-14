@@ -157,7 +157,9 @@ func _ready() -> void:
 	_wave_manager.enemy_killed.connect(_count_kill)
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
 	_wave_manager.wave_started.connect(_on_wave_started)
-	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared)
+	# Deferred: the last enemy may leak in the same emission chain (it still has to
+	# take its lives), so the stars are counted after the lives are final.
+	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared, CONNECT_DEFERRED)
 
 	_build_manager.slot_selected.connect(_on_slot_selected)
 	_build_manager.selection_cleared.connect(_refresh_card)
@@ -992,7 +994,7 @@ func _seconds_text(seconds: float) -> String:
 
 
 func _on_all_waves_cleared() -> void:
-	if _game_state.is_defeated:
+	if _game_state.is_defeated or _ended:
 		return
 	var stars: int = LevelCatalog.stars_for(_game_state.lives, _game_state.starting_lives)
 	var before: int = Perks.earned_stars()
@@ -1008,6 +1010,8 @@ func _on_all_waves_cleared() -> void:
 
 
 func _on_defeated() -> void:
+	if _ended:
+		return
 	_wave_manager.stop()
 	_defeat_sound.play()
 	if _endless:
