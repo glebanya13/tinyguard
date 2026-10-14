@@ -1,0 +1,11 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/villager.gd" id="1_villager"]
+[ext_resource type="PackedScene" path="res://assets/models/villager.glb" id="2_model"]
+[ext_resource type="Script" path="res://scripts/no_shadow.gd" id="3_no_shadow"]
+
+[node name="Villager" type="Node3D"]
+script = ExtResource("1_villager")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+script = ExtResource("3_no_shadow")

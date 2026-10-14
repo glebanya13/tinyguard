@@ -39,6 +39,7 @@ const ICONS := {
 	"stone_golem": ["res://assets/models/stone_golem.glb", 25.0, -10.0, []],
 	"boss": ["res://assets/models/slime_king.glb", 25.0, -12.0, []],
 	"slime": ["res://assets/models/slime.glb", 25.0, -12.0, []],
+	"villager": ["res://assets/models/villager.glb", 25.0, -10.0, []],
 	"axe": ["res://assets/models/icon_axe.glb", 10.0, -5.0, []],
 	"whirl": ["res://assets/models/icon_whirl.glb", 10.0, -5.0, []],
 	"hammer": ["res://assets/models/icon_hammer.glb", 25.0, -15.0, []],

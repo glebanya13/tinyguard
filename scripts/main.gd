@@ -29,6 +29,7 @@ const SELL_ICON: Texture2D = preload("res://ui/icons/sell.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
+const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
 const RING_ENEMY_COLOR := Color(1.0, 0.38, 0.32, 0.85)
 ## A tap this close to a tree sends the hero to chop it.
@@ -53,9 +54,14 @@ const WALK_OBSTACLE_MASK := 1 | 4
 const TOWER_BLOCK_RADIUS := 0.6
 ## Gold for each second left on the countdown when a wave is called early.
 const EARLY_CALL_GOLD_PER_SECOND := 0.3
+## A tap this close to a villager sends the hero to trade with it.
+const VILLAGER_TAP_REACH := 1.0
+## The trade card stays open until the hero is this much further than the trade reach.
+const TRADE_KEEP_SLACK := 0.6
 
 var level: Dictionary = {}
 var walk_grid := WalkGrid.new()
+var villagers := Villagers.new()
 
 var _focused_tree: WoodTree = null
 ## What the hero's next swing hits, computed once per frame.
@@ -75,6 +81,11 @@ var _ended: bool = false
 
 ## Command to run when the hero reaches the selected slot, or &"".
 var _pending_command: StringName = &""
+## Villager whose trade card is open, one the player closed it for (until the
+## hero walks away), and whether the hero walks to it after a tap.
+var _trade_with: Villager = null
+var _trade_dismissed: Villager = null
+var _trade_walking: bool = false
 
 @onready var _level_root: Node3D = $Level
 @onready var _enemy_path: Path3D = $Level/EnemyPath
@@ -142,6 +153,10 @@ func _ready() -> void:
 	_hero.order_cancelled.connect(_on_hero_order_ended)
 	_hero.order_finished.connect(_on_hero_order_ended)
 	_hero.wood_gathered.connect(_on_wood_gathered)
+	villagers.name = "Villagers"
+	villagers.game_state = _game_state
+	villagers.wood_sold.connect(_on_wood_sold)
+	_level_root.add_child(villagers)
 
 	_hud.set_gold(_game_state.gold)
 	_hud.set_wood(_game_state.wood)
@@ -217,6 +232,7 @@ func _process(delta: float) -> void:
 		next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next)
 	)
 	_auto_select_near_hero()
+	_update_trade()
 	_focus = _hero.get_focus_target()
 	_update_target_ring()
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
@@ -319,6 +335,10 @@ func _build_walk_grid() -> void:
 		get_world_3d().direct_space_state, Rect2(b[0], b[1], b[2], b[3]), WALK_OBSTACLE_MASK
 	)
 	_hero.walk_grid = walk_grid
+	var slots := PackedVector3Array()
+	for point: Array in level["slots"]:
+		slots.append(_ground(point))
+	villagers.spawn(walk_grid, _enemy_path, _ground(level["castle"]), _ground(level["hero"]), slots)
 
 
 func _ground(point: Array, height: float = 0.0) -> Vector3:
@@ -331,7 +351,13 @@ func _tower_types() -> Array[TowerData]:
 
 ## Command card action: the hero walks to the selected slot and acts there.
 func _on_command_pressed(id: StringName) -> void:
+	if id == &"trade_lot" or id == &"trade_all":
+		villagers.sell(1 if id == &"trade_lot" else villagers.lots_affordable())
+		_refresh_card()
+		return
 	if id == &"cancel":
+		_trade_dismissed = _trade_with
+		_set_trade(null)
 		_forge_open = false
 		_hero.cancel_order()
 		_build_manager.clear_selection()
@@ -410,6 +436,10 @@ func _refresh_card() -> void:
 	if slot == null and _forge_open:
 		_hud.show_hint("")
 		_hud.update_card(_forge_card())
+		return
+	if slot == null and _trade_with != null:
+		_hud.show_hint("")
+		_hud.update_card(_trade_card())
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text())
@@ -557,6 +587,76 @@ func _forge_card() -> Dictionary:
 	return info
 
 
+## Trade card: sell wood to the villager in lots, the price drops with every lot.
+func _trade_card() -> Dictionary:
+	var lot: int = villagers.trade.wood_per_lot
+	var lots: int = villagers.lots_affordable()
+	var price: int = villagers.lot_price()
+	var info := {"title": "Житель"}
+	info["stats"] = (
+		"Курс: %d дерева → %d золота · дерева у вас: %d" % [lot, price, _game_state.wood]
+	)
+	info["hint"] = (
+		"Чем больше продаёте, тем ниже цена"
+		if lots > 0
+		else "Не хватает дерева: житель берёт по %d" % lot
+	)
+	info["buttons"] = [
+		{
+			"id": &"trade_lot",
+			"icon": VILLAGER_ICON,
+			"gold": price,
+			"gain": true,
+			"enabled": lots > 0,
+			"tooltip": "Продать %d дерева → +%d золота" % [lot, price]
+		},
+		{
+			"id": &"trade_all",
+			"icon": SELL_ICON,
+			"gold": villagers.quote(lots),
+			"gain": true,
+			"enabled": lots > 0,
+			"tooltip": "Продать всё: %d дерева → +%d золота" % [lots * lot, villagers.quote(lots)]
+		},
+		{
+			"id": &"cancel",
+			"icon": CANCEL_ICON,
+			"label": "Esc",
+			"enabled": true,
+			"tooltip": "Закрыть (Esc)"
+		}
+	]
+	return info
+
+
+## Opens the trade card when the hero comes up to a villager and closes it
+## when he walks away (unless he is still on his way after a tap).
+func _update_trade() -> void:
+	var near: Villager = villagers.nearest(_hero.global_position, villagers.trade_reach)
+	if near != _trade_dismissed:
+		_trade_dismissed = null
+	if (
+		_trade_with != null
+		and (
+			_trade_walking
+			or _hero.is_near(_trade_with.global_position, villagers.trade_reach + TRADE_KEEP_SLACK)
+		)
+	):
+		return
+	_set_trade(null if near == _trade_dismissed else near)
+
+
+func _set_trade(villager: Villager) -> void:
+	if villager == _trade_with:
+		return
+	if _trade_with != null:
+		_trade_with.talk_to(null)
+	_trade_with = villager
+	if villager != null:
+		villager.talk_to(_hero)
+	_refresh_card()
+
+
 func _toggle_forge() -> void:
 	_forge_open = not _forge_open
 	if _forge_open:
@@ -687,6 +787,13 @@ func _on_wood_gathered(amount: int, at: Vector3) -> void:
 	_popup("+%d" % amount, at + Vector3.UP * 1.6, WOOD_COLOR, WOOD_ICON)
 
 
+func _on_wood_sold(_wood: int, gold: int) -> void:
+	var at: Vector3 = _trade_with.global_position if _trade_with else _hero.global_position
+	_popup("+%d" % gold, at + Vector3.UP * 1.4, GOLD_COLOR, COIN_ICON)
+	if _trade_with != null:
+		_trade_with.cheer()
+
+
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 	_stats["towers"] += 1
 	walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
@@ -713,10 +820,19 @@ func _on_tower_upgraded(slot: TowerSlot, _tower: Tower) -> void:
 
 func _on_hero_order_ended() -> void:
 	_pending_command = &""
+	_trade_walking = false
 	_refresh_card()
 
 
 func _on_ground_tapped(point: Vector3) -> void:
+	# A tap on a villager: open the trade card, the hero walks up to it.
+	var villager: Villager = villagers.nearest(point, VILLAGER_TAP_REACH)
+	if villager != null:
+		_trade_dismissed = null
+		_hero.move_to(villager.global_position, villagers.trade_reach * 0.7)
+		_trade_walking = true
+		_set_trade(villager)
+		return
 	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
 	var best: WoodTree = null
 	var best_distance: float = TREE_TAP_REACH
