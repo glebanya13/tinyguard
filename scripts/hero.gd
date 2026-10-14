@@ -92,6 +92,10 @@ var _attack_left: float = 0.0
 
 
 func _ready() -> void:
+	# Each shadow caster is one more draw call: the body's shadow is enough.
+	for mesh: Node in _model.find_children("*", "GeometryInstance3D", true, false):
+		if mesh.name != &"Body":
+			(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for anim_name: StringName in [&"idle", &"walk"]:
 		_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
 	_anim.play(&"idle")
