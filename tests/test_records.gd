@@ -49,9 +49,7 @@ func _score_commits(fake: Fakes.FakeFirebase) -> int:
 
 
 func _wait(seconds: float) -> void:
-	var until: int = Time.get_ticks_msec() + int(seconds * 1000.0)
-	while Time.get_ticks_msec() < until:
-		await process_frame
+	await create_timer(seconds).timeout  # game time, like the retry timer
 
 
 func _run() -> void:
