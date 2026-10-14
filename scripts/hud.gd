@@ -438,6 +438,17 @@ func _drop_outlines() -> void:
 	for panel: Control in [$Root/TopBar, $Root/TopRight, _card, _hint_pill]:
 		for label: Node in panel.find_children("*", "Label", true, false):
 			label.add_theme_constant_override("outline_size", 0)
+	for panel: Control in [$Root/TopBar, $Root/TopRight]:
+		_layer_by_kind(panel)
+
+
+## Panels, then icons, then texts: 2D batching merges only consecutive draws with one
+## texture, so panel-icon-text per chip is 3 calls per chip but 3 calls in all this way.
+func _layer_by_kind(root: Control) -> void:
+	for icon: Node in root.find_children("*", "TextureRect", true, false):
+		(icon as CanvasItem).z_index = 1
+	for label: Node in root.find_children("*", "Label", true, false):
+		(label as CanvasItem).z_index = 2
 
 
 func _cost_label(text: String, color: Color = COST_COLOR) -> Label:

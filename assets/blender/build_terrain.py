@@ -18,6 +18,7 @@ import bmesh
 from mathutils import Vector, noise
 
 import build_environment as env
+import build_tower
 import tg_common as tg
 
 LEVELS_FILE = tg.ROOT / "resources" / "levels.json"
@@ -25,7 +26,10 @@ GROUND_HALF = 46.0
 STEP = 0.5
 PATH_HALF = 0.5
 CORNER_R = 0.75  # > path half width + shoulder (0.6), else the inner edge folds
-CHUNK = 10.0
+# Culling cells. Every visible cell is one draw call, so they are big: the 44 x 30 m
+# play area is 2 x 2 detail / decor cells and the camera sees one to four of them.
+CHUNK = 15.0
+FOREST_CHUNK = 15.0
 # Secondary paths sit this much lower than the path they join.
 JOIN_DROP = 0.004
 # Decoration counts inside the play area (44 x 30 m), kept low for the frame
@@ -229,6 +233,12 @@ def build_details(rng, lines):
     # Stones along both path edges (not across a junction).
     for pts in lines:
         parts += edge_stones(rng, pts, len(parts))
+    # Stone rings of the build slots (static: part of the ground, not one mesh per slot).
+    for i, (x, z) in enumerate(SLOTS):
+        ring = build_tower.build_slot_ring(random.Random(3))
+        ring.name = f"SlotRing{i}"
+        ring.location = ring.location + Vector(b(x, z, 0.0))
+        parts.append(ring)
     # Grass tufts and scattered pebbles on free ground.
     placed = 0
     while placed < GRASS_TUFTS:
@@ -249,7 +259,7 @@ def build_details(rng, lines):
         x, z = rng.uniform(-PLAY_X, PLAY_X), rng.uniform(-PLAY_Z, PLAY_Z)
         if free_spot(x, z, 0.65):
             parts.append(pebble(f"peb{i}", rng, x, z, rng.uniform(0.04, 0.07), "rock"))
-    # One mesh per CHUNK cell so Godot culls the details off screen.
+    # One mesh per CHUNK cell so Godot culls the details off screen (few, big cells).
     cells = {}
     for part in parts:
         verts = part.data.vertices
@@ -283,7 +293,6 @@ def edge_stones(rng, pts, first: int) -> list:
 MAKERS = {"pine": env.tree_pine, "round": env.tree_round, "round_lite": env.tree_round_lite, "bush": env.bush,
           "flowers": env.flowers, "rock_a": lambda r: env.rock("Rock", r, 30), "rock_b": env.rock_cluster}
 TREES = ("pine", "round", "round_lite")
-CHUNK = 10.0
 
 
 def generated_layout(rng):
@@ -338,11 +347,11 @@ def place(layout, name, ground_height=False):
     return tg.join(objs, name) if objs else None
 
 
-def chunked(layout, prefix):
-    """Join props per CHUNK x CHUNK cell so Godot can frustum-cull the forest."""
+def chunked(layout, prefix, size=CHUNK):
+    """Join props per size x size cell so Godot can frustum-cull them."""
     cells = {}
     for item in layout:
-        key = (math.floor(item[1] / CHUNK), math.floor(item[2] / CHUNK))
+        key = (math.floor(item[1] / size), math.floor(item[2] / size))
         cells.setdefault(key, []).append(item)
     return [place(items, f"{prefix}_{kx}_{kz}".replace("-", "m"), ground_height=True)
             for (kx, kz), items in sorted(cells.items())]
@@ -375,7 +384,7 @@ def build_level(lv: dict) -> list:
     for chunk in chunked(gen_tall + gen_small, "Chunk"):
         tg.parent(chunk, decor)
     forest = tg.empty("Forest")
-    for chunk in chunked(ring, "Ring"):
+    for chunk in chunked(ring, "Ring", FOREST_CHUNK):
         tg.parent(chunk, forest)
     for i, (kind, x, z, yaw, s) in enumerate(chop):
         marker = tg.empty(f"Chop_{kind}_{i}", b(x, z, max(height(x, z) - 0.02, 0.0)))

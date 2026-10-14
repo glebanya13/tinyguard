@@ -1,8 +1,6 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/tower_slot.gd" id="1_slot"]
-[ext_resource type="PackedScene" path="res://assets/models/slot_ring.glb" id="2_ring"]
-[ext_resource type="Script" path="res://scripts/no_shadow.gd" id="3_no_shadow"]
 
 [sub_resource type="StandardMaterial3D" id="mat_free"]
 albedo_color = Color(0.78, 0.74, 0.66, 1)
@@ -52,10 +50,6 @@ occupied_material = SubResource("mat_occupied")
 cast_shadow = 0
 material_override = SubResource("mat_free")
 mesh = SubResource("mesh_pad")
-
-[node name="Ring" parent="." instance=ExtResource("2_ring")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
-script = ExtResource("3_no_shadow")
 
 [node name="SelectionRing" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 0)
