@@ -111,6 +111,7 @@ func _send(force: bool) -> void:
 		var msg: Dictionary = lockstep.build_message(force)
 		if msg.is_empty():
 			return
+		msg["s"] = _send_seq  # the rules check that seq numbers have no gaps
 		transport.queue_update({_net_path(role) + "/" + CoopProtocol.seq_key(_send_seq): msg})
 		_send_seq += 1
 		force = false
@@ -128,6 +129,10 @@ func _drain() -> void:
 		if raw == null:
 			break
 		_tree.apply("put", CoopProtocol.seq_key(_next_seq), null)
+		var claimed: Variant = raw.get("s") if raw is Dictionary else null
+		if not (claimed is int or claimed is float) or int(claimed) != _next_seq:
+			_end("protocol")
+			return
 		_next_seq += 1
 		_gap = 0.0
 		if not lockstep.receive(CoopProtocol.decode_message(raw)):

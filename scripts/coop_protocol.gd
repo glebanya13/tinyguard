@@ -3,7 +3,8 @@ extends RefCounted
 ## Wire format and constants of the co-op lockstep (docs/MULTIPLAYER.md, 5.3-5.4).
 ##
 ## A match is a stream of messages per player at rooms/{code}/net/{role}/{seq}:
-##   {"f": frontier, "d": "<json>"}   seq = "%06d", written once, in order
+##   {"s": seq, "f": frontier, "d": "<json>"}   key = "%06d" of seq, written once, gap-free
+## ("s" is checked by the database rules: a message needs its predecessor)
 ## "f" (frontier): the sender promises that no command with an execution tick
 ## <= f will come in this or any later message. "d" is "" or JSON
 ##   {"c": [[tick, "type", [args...]], ...], "h": [checkpoint_tick, hash], "x": 1}
@@ -27,7 +28,8 @@ const MAX_ARGS := 8
 const MAX_ARG_STRING := 24
 ## rooms/*/net/*/* ".validate" in database.rules.json uses the same limit.
 const MAX_DATA_CHARS := 900
-const MAX_SEQ := 999999
+## Messages one player may send in a room (database.rules.json).
+const MAX_SEQ := 40000
 ## Command types (docs/MULTIPLAYER.md 5.1). The gameplay stage adds its own
 ## argument checks; here only the shape is verified.
 const COMMAND_TYPES: Array[String] = [

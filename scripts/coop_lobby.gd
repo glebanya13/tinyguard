@@ -5,7 +5,8 @@ extends RefCounted
 ## a host and joined by ONE guest with a 5-character code; there is no public
 ## room list (no searching = no reads, no connections). Data:
 ##
-##   rooms/{code}/meta            {host, level, seed, simv, delay, rev, state, created, pv}
+##   rooms/{code}/meta            {host, level, seed, simv, delay, rev, state, created,
+##                                 expiresAt, pv}
 ##   rooms/{code}/players/host    {uid, name, ready}
 ##   rooms/{code}/players/guest   {uid, name, ready}   created only if absent
 ##   rooms/{code}/net/{role}/{seq}  lockstep messages (CoopSession)
@@ -83,11 +84,9 @@ func create(
 	if level < 1 or level > LEVEL_MAX or not transport.is_ready():
 		return {"ok": false, "code": "", "reason": "invalid" if transport.is_ready() else "offline"}
 	var me: String = transport.uid()
-	var old: Dictionary = await transport.read("user_rooms/" + me)
-	if not old["ok"]:
-		return _fail(old)
-	if old["value"] is String:
-		await _remove_room(str(old["value"]), true)  # a forgotten room of ours
+	var cleaned: Dictionary = await purge_user()  # one room per user: drop a forgotten one
+	if not cleaned["ok"]:
+		return _fail(cleaned)
 	var meta := {
 		"host": me,
 		"level": level,
@@ -97,6 +96,7 @@ func create(
 		"rev": 1,
 		"state": "lobby",
 		"created": CoopTransport.SERVER_TIME,
+		"expiresAt": int(float(clock_ms.call()) + float(ROOM_TTL_MS)),
 		"pv": CoopProtocol.VERSION,
 	}
 	for attempt in MAX_CREATE_ATTEMPTS:
@@ -149,6 +149,9 @@ func join(raw_code: String, nickname: String, simv: int) -> Dictionary:
 	var me: String = transport.uid()
 	if str(meta.get("host", "")) == me:
 		return {"ok": false, "reason": "own_room"}
+	var cleaned: Dictionary = await purge_user()
+	if not cleaned["ok"]:
+		return {"ok": false, "reason": _reason(cleaned)}
 	var reply: Dictionary = await transport.write(
 		"rooms/%s/players/guest" % room, {"uid": me, "name": _clean(nickname), "ready": 0}, true
 	)
@@ -164,8 +167,8 @@ func join(raw_code: String, nickname: String, simv: int) -> Dictionary:
 ## True when the room is older than the join window (client-side hint; the
 ## database rules decide).
 func is_expired(meta: Dictionary) -> bool:
-	var created: float = float(meta.get("created", 0))
-	return created > 0.0 and float(clock_ms.call()) - created > float(ROOM_TTL_MS)
+	var expires: float = float(meta.get("expiresAt", 0))
+	return expires <= 0.0 or float(clock_ms.call()) > expires
 
 
 ## Current room as {"code", "role", "meta", "host", "guest", "level", "rev",
@@ -239,6 +242,37 @@ func process(delta: float) -> void:
 			leave()
 	else:
 		_idle = 0.0
+
+
+## Removes whatever this user still has in rooms: the room it hosts (all of it) or
+## its guest entry elsewhere, and the user_rooms index. Used before create/join
+## (one room per user) and by account deletion (no Cloud Functions: the client
+## cleans up). {"ok", "code", "network"}; ok when there was nothing too.
+func purge_user() -> Dictionary:
+	var me: String = transport.uid()
+	if me == "":
+		return {"ok": true, "code": 0, "network": false}
+	var index: Dictionary = await transport.read("user_rooms/" + me)
+	if not index["ok"]:
+		return index
+	if not index["value"] is String:
+		return {"ok": true, "code": 200, "network": false}
+	var room: String = str(index["value"])
+	var meta: Dictionary = await transport.read("rooms/%s/meta" % room)
+	if not meta["ok"]:
+		return meta
+	if meta["value"] is Dictionary and str(meta["value"].get("host", "")) == me:
+		return await _remove_room(room, true)
+	return await (
+		transport
+		. update(
+			{
+				"rooms/%s/players/guest" % room: null,
+				"rooms/%s/net/guest" % room: null,
+				"user_rooms/" + me: null,
+			}
+		)
+	)
 
 
 ## Leaves: the host removes the whole room, the guest only its own entries.
@@ -333,7 +367,7 @@ func _gone(reason: String) -> void:
 
 
 ## Deletes a room's data (host only, rules allow it); also this user's index.
-func _remove_room(room: String, include_index: bool) -> void:
+func _remove_room(room: String, include_index: bool) -> Dictionary:
 	var changes := {
 		"rooms/%s/net/host" % room: null,
 		"rooms/%s/net/guest" % room: null,
@@ -343,7 +377,7 @@ func _remove_room(room: String, include_index: bool) -> void:
 	}
 	if include_index:
 		changes["user_rooms/" + transport.uid()] = null
-	await transport.update(changes)
+	return await transport.update(changes)
 
 
 func _fail(reply: Dictionary) -> Dictionary:

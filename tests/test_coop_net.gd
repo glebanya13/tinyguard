@@ -24,6 +24,7 @@ func _initialize() -> void:
 func _run() -> void:
 	_test_sse_samples()
 	_test_sse_chunking()
+	_test_hardening()
 	_test_tree()
 	_test_protocol()
 	await _test_lobby()
@@ -120,6 +121,71 @@ func _test_sse_chunking() -> void:
 		SseParser.new().feed("event: put\ndata: {".to_utf8_buffer()).is_empty(),
 		"incomplete event waits"
 	)
+
+
+func _test_hardening() -> void:
+	print("-- hardening")
+	var ok_host: String = RtdbClient.redirect_host(
+		"https://x-default-rtdb.europe-west1.firebasedatabase.app/a.json",
+		true,
+		"bimbleguard-default-rtdb.firebaseio.com"
+	)
+	check(
+		ok_host == "x-default-rtdb.europe-west1.firebasedatabase.app",
+		"redirect inside firebasedatabase.app followed"
+	)
+	var cfg := "bimbleguard-default-rtdb.firebaseio.com"
+	check(
+		RtdbClient.redirect_host("https://evil.example.com/x", true, cfg) == "",
+		"foreign host refused"
+	)
+	check(
+		RtdbClient.redirect_host("https://evilfirebaseio.com/x", true, cfg) == "",
+		"suffix without a dot refused"
+	)
+	check(
+		RtdbClient.redirect_host("https://a.firebaseio.com@evil.com/x", true, cfg) == "",
+		"user-info trick refused"
+	)
+	check(
+		RtdbClient.redirect_host("https://a.firebaseio.com:444/x", true, cfg) == "", "port refused"
+	)
+	check(
+		RtdbClient.redirect_host("http://a.firebaseio.com/x", true, cfg) == "",
+		"downgrade to http refused"
+	)
+	check(RtdbClient.redirect_host("/relative", true, cfg) == "", "relative location refused")
+	check(
+		RtdbClient.redirect_host("https://" + cfg + "/x", true, cfg) == cfg,
+		"the configured host is fine"
+	)
+	var big := SseParser.new()
+	big.feed(("event: put\ndata: " + "x".repeat(SseParser.MAX_PENDING_BYTES + 10)).to_utf8_buffer())
+	check(big.overflowed, "an endless event is dropped")
+	var fine := SseParser.new()
+	var many: String = ""
+	for i in 3000:
+		many += 'event: put\ndata: {"path":"/","data":1}\n\n'
+	check(
+		fine.feed(many.to_utf8_buffer()).size() == 3000 and not fine.overflowed,
+		"many small events in one chunk are fine"
+	)
+	var client := RtdbClient.new()
+	var auth := AuthService.new()
+	check(client.configure("http://127.0.0.1:9000?ns=demo-x", auth), "emulator URL parsed")
+	check(
+		(
+			client.build_request_path("rooms/ABCDE/meta", {"orderBy": '"$key"'})
+			== "/rooms/ABCDE/meta.json?ns=demo-x&orderBy=%22%24key%22"
+		),
+		"request path with query encoded"
+	)
+	check(
+		not client.configure("ftp://x", auth) and not client.configure("nonsense", auth),
+		"bad URLs refused"
+	)
+	check(not client.is_ready(), "not ready without a session")
+	client.free()
 
 
 func _test_tree() -> void:
@@ -362,6 +428,49 @@ func _test_lobby() -> void:
 		closed4 == ["timeout"] and server.get_at("rooms/%s" % room4["code"]) == null,
 		"idle room closed and removed"
 	)
+
+	# Account deletion: purge_user removes a hosted room / a guest entry / the index.
+	var hp: CoopLobby = _lobby(host_net)
+	var gp: CoopLobby = _lobby(guest_net)
+	var room6: Dictionary = await hp.create(1, "A", 7)
+	await gp.join(room6["code"], "B", 7)
+	var purge_guest: Dictionary = await _lobby(guest_net).purge_user()
+	check(purge_guest["ok"], "purge as guest ok")
+	check(
+		server.get_at("rooms/%s/players/guest" % room6["code"]) == null,
+		"purge removed the guest entry"
+	)
+	check(server.get_at("user_rooms/uidGuest") == null, "purge removed the guest index")
+	check(server.get_at("rooms/%s/meta" % room6["code"]) != null, "the host's room stays")
+	var purge_host: Dictionary = await _lobby(host_net).purge_user()
+	check(
+		purge_host["ok"] and server.get_at("rooms/%s" % room6["code"]) == null,
+		"purge as host removed the room"
+	)
+	check(server.get_at("user_rooms/uidHost") == null, "purge removed the host index")
+	check((await _lobby(host_net).purge_user())["ok"], "purge with nothing to remove is ok")
+	host_net.set_online(false)
+	check(not (await _lobby(host_net).purge_user())["ok"], "purge offline reports failure")
+	host_net.set_online(true)
+	# A guest whose room was deleted by the host can join another one.
+	var h7: CoopLobby = _lobby(host_net)
+	var g7: CoopLobby = _lobby(guest_net)
+	var room7: Dictionary = await h7.create(1, "A", 7)
+	await g7.join(room7["code"], "B", 7)
+	server.apply({"rooms/%s" % room7["code"]: null})  # the host vanished without cleanup
+	var h8: CoopLobby = _lobby(third_net)
+	var room8: Dictionary = await h8.create(2, "C", 7)
+	var g8: CoopLobby = _lobby(guest_net)
+	check(
+		(await g8.join(room8["code"], "B", 7))["ok"],
+		"stale index of a dead room does not block joining"
+	)
+	check(
+		server.get_at("rooms/%s/meta/expiresAt" % room8["code"]) > server.now_ms,
+		"room has expiresAt"
+	)
+	await h8.leave()
+	await g8.leave()
 
 	# Code collision: the first candidate exists, the second attempt works.
 	var h5: CoopLobby = _lobby(host_net)
@@ -846,8 +955,10 @@ func _test_match_failures() -> void:
 	var listens_before: int = gap.net_g.listens.size()
 	var hf: String = "rooms/ABCDE/net/host/"
 	gap.net_g.hold = true
-	gap.server.apply({hf + "000001": {"f": 14, "d": ""}, hf + "000002": {"f": 22, "d": ""}})
-	gap.server.apply({hf + "000004": {"f": 40, "d": ""}})
+	gap.server.apply(
+		{hf + "000001": {"s": 1, "f": 14, "d": ""}, hf + "000002": {"s": 2, "f": 22, "d": ""}}
+	)
+	gap.server.apply({hf + "000004": {"s": 4, "f": 40, "d": ""}})
 	gap.net_g.deliver()
 	check(gap.sg.lockstep.remote_frontier == 22, "messages applied in order up to the gap")
 	for i in int(CoopSession.GAP_TIMEOUT * 30.0) + 10:

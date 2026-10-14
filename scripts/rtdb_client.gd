@@ -27,6 +27,8 @@ const BACKOFF_FIRST := 0.5
 const BACKOFF_MAX := 30.0
 const MAX_ATTEMPTS := 3
 const MAX_REDIRECTS := 3
+## A reply to a read/write larger than this is dropped (rooms are tiny).
+const MAX_REPLY_BYTES := 262144
 ## Token problems that will not heal by retrying.
 const FATAL_AUTH: Array[String] = ["session_lost", "disabled", "no_session", "not_configured"]
 
@@ -231,7 +233,7 @@ func _run_job(job: Dictionary) -> Dictionary:
 			var fatal: bool = FATAL_AUTH.has(str(token["error"]))
 			return _failure(401 if fatal else 0, not fatal)
 		var query: Dictionary = (job["query"] as Dictionary).duplicate()
-		if job["silent"]:
+		if job["silent"] and not job["if_absent"]:  # the server refuses silent + if-match
 			query["print"] = "silent"
 		var headers := PackedStringArray()
 		if job["body"] != "":
@@ -296,6 +298,9 @@ func _exchange(
 			await get_tree().process_frame
 		else:
 			bytes.append_array(chunk)
+			if bytes.size() > MAX_REPLY_BYTES:
+				_writer.close()
+				return _failure(0, true)
 	var text: String = bytes.get_string_from_utf8()
 	var reply: Dictionary = {
 		"ok": code >= 200 and code < 300,
@@ -312,22 +317,36 @@ func _failure(code: int, network: bool) -> Dictionary:
 	return {"ok": false, "code": code, "network": network, "value": null}
 
 
-## Takes the host from a redirect Location ("https://other-host/path..."). The
-## path stays ours: RTDB redirects only change the host. False if unusable.
+## Follows a redirect of the writer connection: only to an acceptable host.
 func _follow_location(location: String) -> bool:
-	var scheme_end: int = location.find("://")
-	if scheme_end < 0:
+	var host: String = redirect_host(location, _tls, _host)
+	if host == "":
 		return false
-	var rest: String = location.substr(scheme_end + 3)
-	var slash: int = rest.find("/")
-	var host: String = rest if slash < 0 else rest.substr(0, slash)
-	if (
-		host == ""
-		or not host.ends_with(".firebasedatabase.app") and not host.ends_with(".firebaseio.com")
-	):
-		return false  # never follow a redirect to a foreign host with our token
 	_host = host
 	return true
+
+
+## The host a redirect Location may lead to, or "": our token must never go to a
+## foreign host. Allowed: the configured host itself, or a plain host name under
+## *.firebasedatabase.app / *.firebaseio.com, over https when we use https.
+static func redirect_host(location: String, tls: bool, configured_host: String) -> String:
+	var scheme_end: int = location.find("://")
+	if scheme_end < 0:
+		return ""
+	if tls and location.substr(0, scheme_end) != "https":
+		return ""
+	var rest: String = location.substr(scheme_end + 3)
+	var host: String = rest.get_slice("/", 0).get_slice("?", 0).to_lower()
+	if host == "":
+		return ""
+	if host == configured_host.to_lower():
+		return host
+	for i in host.length():
+		if not "abcdefghijklmnopqrstuvwxyz0123456789-.".contains(host[i]):
+			return ""  # no user info, ports, spaces or other tricks
+	if host.ends_with(".firebasedatabase.app") or host.ends_with(".firebaseio.com"):
+		return host
+	return ""
 
 
 func _backoff(attempt: int) -> void:
@@ -432,16 +451,8 @@ func _stream_once(gen: int) -> String:
 				if str(header).to_lower().begins_with("location:"):
 					location = str(header).substr(9).strip_edges()
 			client.close()
-			var scheme_end: int = location.find("://")
-			var rest: String = location.substr(scheme_end + 3) if scheme_end >= 0 else ""
-			var new_host: String = rest.get_slice("/", 0)
-			if (
-				new_host == ""
-				or not (
-					new_host.ends_with(".firebasedatabase.app")
-					or new_host.ends_with(".firebaseio.com")
-				)
-			):
+			var new_host: String = redirect_host(location, _tls, _host)
+			if new_host == "":
 				return "fatal:redirect"
 			host = new_host
 			continue  # connect to the new host and repeat the request
@@ -471,7 +482,11 @@ func _stream_once(gen: int) -> String:
 			await get_tree().process_frame
 			continue
 		last_data = Time.get_ticks_msec()
-		for raw in parser.feed(chunk):
+		var parsed_events: Array[Dictionary] = parser.feed(chunk)
+		if parser.overflowed:
+			client.close()
+			return "retry"  # an oversized event is not ours: start again
+		for raw in parsed_events:
 			var event: Dictionary = SseParser.decode(raw)
 			if not event["ok"]:
 				continue

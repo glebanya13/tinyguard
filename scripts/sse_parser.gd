@@ -5,6 +5,13 @@ extends RefCounted
 ## UTF-8 character anywhere; only complete events are returned.
 ## Never logs: payloads can carry room data.
 
+## An event (or a line without an end) larger than this is not ours: the stream
+## is dropped. Room events are tiny (a message is under 1 KB).
+const MAX_PENDING_BYTES := 65536
+
+## Set when the buffer exceeded MAX_PENDING_BYTES (the buffer was cleared).
+var overflowed: bool = false
+
 var _buffer := PackedByteArray()
 
 
@@ -17,16 +24,24 @@ func feed(chunk: PackedByteArray) -> Array[Dictionary]:
 		var cut: int = _find_blank_line()
 		if cut < 0:
 			break
+		if cut > MAX_PENDING_BYTES:
+			_buffer = PackedByteArray()
+			overflowed = true
+			return events
 		var block: String = _buffer.slice(0, cut).get_string_from_utf8()
 		_buffer = _buffer.slice(cut + 2)
 		var event: Dictionary = _parse_block(block)
 		if not event.is_empty():
 			events.append(event)
+	if _buffer.size() > MAX_PENDING_BYTES:
+		_buffer = PackedByteArray()  # an endless event: not ours
+		overflowed = true
 	return events
 
 
 func reset() -> void:
 	_buffer = PackedByteArray()
+	overflowed = false
 
 
 ## Decodes the JSON payload of an event the way RtdbClient needs it:

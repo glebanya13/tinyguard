@@ -1,4 +1,4 @@
-# gdlint:disable=max-public-methods
+# gdlint:disable=max-public-methods,max-returns
 extends Node
 ## Optional online features over Firebase REST APIs (no SDK, no native
 ## plugins). Autoload "Online": a facade over AuthService (guest sign-in,
@@ -46,6 +46,10 @@ var api_key: String = ""
 var project_id: String = ""
 var auth := AuthService.new()
 var firestore := FirestoreClient.new()
+## Realtime Database URL for co-op (firebase.cfg "database_url"); "" = co-op off.
+var database_url: String = ""
+## Transport of the co-op layer (CoopLobby / CoopSession); null without database_url.
+var rtdb: RtdbClient = null
 ## The first start() finished (signed in and synced, or failed offline).
 var startup_done: bool = false
 
@@ -65,9 +69,12 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	var key := ""
 	var project := ""
+	var db_url := ""
 	if cfg.load(CONFIG_PATH) == OK:
 		key = str(cfg.get_value("firebase", "api_key", ""))
 		project = str(cfg.get_value("firebase", "project_id", ""))
+		db_url = str(cfg.get_value("firebase", "database_url", ""))
+	database_url = db_url
 	setup(key, project, HttpTransport.new())
 
 
@@ -88,6 +95,15 @@ func setup(key: String, project: String, transport: HttpTransport) -> void:
 	firestore.project_id = project
 	firestore.transport = transport
 	firestore.auth = auth
+	if rtdb != null:
+		rtdb.queue_free()
+		rtdb = null
+	if database_url != "" and key != "":
+		rtdb = RtdbClient.new()
+		add_child(rtdb)
+		if not rtdb.configure(database_url, auth):
+			rtdb.queue_free()
+			rtdb = null
 	_started = false
 	startup_done = false
 	_last_error = ""
@@ -197,6 +213,11 @@ func delete_account() -> Dictionary:
 	var signed: Dictionary = await auth.ensure_token(false)
 	if not signed["ok"]:
 		return {"ok": false, "reason": signed["error"], "scope": ""}
+	if rtdb != null:
+		# Co-op rooms (uid, nickname, commands) first: the rules need the signed-in user.
+		var rooms: Dictionary = await CoopLobby.new(rtdb).purge_user()
+		if not rooms["ok"]:
+			return {"ok": false, "reason": "offline", "scope": ""}
 	var plan: Dictionary = await _deletion_writes(auth.uid)
 	if not plan["ok"]:
 		return {"ok": false, "reason": plan["reason"], "scope": ""}
