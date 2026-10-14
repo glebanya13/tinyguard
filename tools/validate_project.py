@@ -47,6 +47,8 @@ HEADER_RE = re.compile(r"^\[(\w+)(.*)\]$")
 ATTR_RE = re.compile(r'(\w+)=("[^"]*"|\S+)')
 
 errors: list[str] = []
+# Non-fatal findings (release blockers that must not break day-to-day checks).
+warnings: list[str] = []
 # res:// path of every script -> its class_name (filled before scenes are checked).
 class_names: dict[str, str] = {}
 
@@ -328,8 +330,43 @@ def _min_tower_range() -> float:
     return best
 
 
+def check_export_presets() -> None:
+    path = ROOT / "export_presets.cfg"
+    if not path.is_file():
+        errors.append("export_presets.cfg is missing")
+        return
+    text = path.read_text(encoding="utf-8")
+    if 'package/unique_name="com.bimbleguard.app"' not in text:
+        errors.append("export_presets.cfg: package/unique_name must be com.bimbleguard.app")
+    if "permissions/internet=true" not in text:
+        errors.append("export_presets.cfg: INTERNET permission is required (Online module)")
+    for line in text.splitlines():
+        if line.startswith("permissions/") and line.endswith("=true"):
+            if line != "permissions/internet=true":
+                errors.append(f"export_presets.cfg: unexpected permission: {line}")
+    if "firebase.cfg" not in text:
+        errors.append("export_presets.cfg: include_filter must contain firebase.cfg")
+
+
+def check_privacy_url() -> None:
+    """Warns (does not fail) while the public privacy policy URL is not set."""
+    path = ROOT / "scripts" / "game_info.gd"
+    hint = "publish docs/PRIVACY.md (see docs/PRIVACY_PUBLISH.md) and set GameInfo.PRIVACY_URL"
+    if not path.is_file():
+        warnings.append(f"PRIVACY_URL: scripts/game_info.gd not found; {hint}")
+        return
+    m = re.search(r'^const\s+PRIVACY_URL\s*(?::[^=]+)?:?=\s*"([^"]*)"', path.read_text(encoding="utf-8"), re.M)
+    url = m.group(1).strip() if m else ""
+    if not url or "TODO" in url.upper():
+        warnings.append(f"PRIVACY_URL is empty/TODO (required before store release): {hint}")
+    elif not url.startswith("https://"):
+        warnings.append(f"PRIVACY_URL must be an https:// URL, got: {url}")
+
+
 def main() -> int:
     check_layout()
+    check_export_presets()
+    check_privacy_url()
     check_levels()
     check_project_settings()
     collect_class_names()
@@ -346,6 +383,8 @@ def main() -> int:
         for e in errors:
             print(f"  - {e}")
         return 1
+    for w in warnings:
+        print(f"WARNING: {w}")
     print("OK: structure, project settings, scenes and scripts look consistent.")
     print("Note: this is a static check; run the project in Godot to verify it.")
     return 0
