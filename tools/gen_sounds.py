@@ -123,17 +123,6 @@ def upgrade():
     return mix(*layers, sparkle)
 
 
-def wave_horn():
-    # Brassy horn: detuned saw-like tones with vibrato.
-    def saw(p):
-        return sum(math.sin(k * p) / k for k in range(1, 7))
-    a = tone(lambda t: 196 * (1 + 0.006 * math.sin(t * 30)), 1.1, saw)
-    b = tone(lambda t: 294 * (1 + 0.006 * math.sin(t * 31)), 1.1, saw)
-    horn = [(x + 0.7 * y) for x, y in zip(a, b)]
-    horn = lowpass(horn, 0.18)
-    return [s * min(1.0, i / (0.12 * RATE)) * min(1.0, (len(horn) - i) / (0.3 * RATE)) for i, s in enumerate(horn)]
-
-
 def base_hit():
     # Low thump with a crumble.
     thump = shaped(tone(lambda t: 90 - 40 * t, 0.4), 0.002, 0.12)
@@ -282,7 +271,6 @@ def main() -> None:
     write("coin", coin(), 0.5)
     write("build", build(), 0.75)
     write("upgrade", upgrade(), 0.7)
-    write("wave_horn", wave_horn(), 0.7)
     write("base_hit", base_hit(), 0.8)
     write("victory", jingle([523.25, 659.25, 783.99, 1046.5, 1318.5]), 0.7)
     write("defeat", jingle([392.0, 349.23, 311.13, 261.63], 0.2), 0.7)
