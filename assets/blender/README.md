@@ -1,6 +1,6 @@
 # Blender asset scripts
 
-Все 3D-модели Tinyguard генерируются Python-скриптами для Blender. **Источник
+Все 3D-модели Bimbleguard генерируются Python-скриптами для Blender. **Источник
 правды — скрипты**, а не `.glb`: правьте скрипт и пересобирайте.
 
 | Скрипт | Что строит (`assets/models/`) |
@@ -28,7 +28,7 @@ blender -b --factory-startup --python assets/blender/build_all.py -- hero --blen
 macOS (Blender из `/Applications`):
 
 ```bash
-cd ~/путь/к/tinyguard
+cd ~/путь/к/bimbleguard
 /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
   --python assets/blender/build_all.py
 ```

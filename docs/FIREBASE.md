@@ -29,7 +29,7 @@ Firebase из GDScript (`scripts/online.gd`, autoload `Online`), без нати
 
 Ничего из этого агент/CI не делает: проект и деплой — за вами.
 
-1. <https://console.firebase.google.com> → **Add project** → имя `tinyguard` →
+1. <https://console.firebase.google.com> → **Add project** → имя `bimbleguard` →
    Google Analytics **выключить**. Платёжный аккаунт не подключать: остаётся план **Spark**.
 2. **Build → Authentication → Get started → Sign-in method → Anonymous → Enable**.
    Остальные провайдеры не включать (email/пароль — только когда будет UI для привязки).

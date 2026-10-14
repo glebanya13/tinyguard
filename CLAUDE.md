@@ -1,4 +1,4 @@
-# CLAUDE.md — правила проекта Tinyguard
+# CLAUDE.md — правила проекта Bimbleguard
 
 Лёгкая 3D Tower Defense для Android. Godot 4.3+, GDScript, Compatibility renderer.
 

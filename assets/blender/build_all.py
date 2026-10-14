@@ -1,4 +1,4 @@
-"""Build Tinyguard GLB assets.
+"""Build Bimbleguard GLB assets.
 
     blender -b --factory-startup --python assets/blender/build_all.py [-- NAME ... [--blend]]
 
@@ -44,7 +44,7 @@ def main() -> None:
             out_dir = HERE / "out"
             out_dir.mkdir(exist_ok=True)
             bpy.ops.wm.save_as_mainfile(filepath=str(out_dir / f"{name}.blend"))
-    print("\n[tinyguard] summary")
+    print("\n[bimbleguard] summary")
     for r in results:
         print(f"  {r['path']:<40} {r['tris']:>6} tris  {r['meshes']:>2} meshes")
 

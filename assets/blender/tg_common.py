@@ -1,4 +1,4 @@
-"""Shared helpers for Tinyguard asset scripts (Blender 4.0+, run in background).
+"""Shared helpers for Bimbleguard asset scripts (Blender 4.0+, run in background).
 
 Modelling is done with named "swatch" materials (see PALETTE). finish_asset()
 then converts every mesh to the shared palette atlas material: each face gets
@@ -636,7 +636,7 @@ def finish_asset(name: str, roots, ao_distance: float, ao_strength: float = 0.8,
     bpy.ops.export_scene.gltf(**options)
     ensure_import_settings(path)
     info = {"name": name, "tris": tri_count(meshes), "meshes": len(meshes), "path": str(path.relative_to(ROOT))}
-    print(f"[tinyguard] exported {info['path']}: {info['tris']} tris, {info['meshes']} meshes")
+    print(f"[bimbleguard] exported {info['path']}: {info['tris']} tris, {info['meshes']} meshes")
     return info
 
 

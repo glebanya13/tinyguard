@@ -73,7 +73,7 @@ async function seedNickname(uid, name, hoursAgo = 48) {
 
 before(async () => {
   env = await initializeTestEnvironment({
-    projectId: "demo-tinyguard",
+    projectId: "demo-bimbleguard",
     firestore: { rules: readFileSync(join(ROOT, "firestore.rules"), "utf8") },
   });
 });
@@ -268,7 +268,7 @@ test("nickname: policy is enforced (length, characters, reserved, key, extra fie
     "ab cd", // NBSP
     "ab​cd", // zero width
     "Admin",
-    "Tinyguard",
+    "Bimbleguard",
     "Рыцарь",
     "ПОДДЕРЖКА",
     "mix日本語",

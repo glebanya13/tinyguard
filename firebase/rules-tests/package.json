@@ -1,9 +1,9 @@
 {
-  "name": "tinyguard-rules-tests",
+  "name": "bimbleguard-rules-tests",
   "private": true,
   "description": "Firestore security rules tests (Firebase emulator). Spark plan: no Cloud Functions.",
   "scripts": {
-    "test": "cd ../.. && firebase emulators:exec --only firestore --project demo-tinyguard \"node --test firebase/rules-tests/firestore.rules.test.js\""
+    "test": "cd ../.. && firebase emulators:exec --only firestore --project demo-bimbleguard \"node --test firebase/rules-tests/firestore.rules.test.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

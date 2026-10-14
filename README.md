@@ -1,4 +1,4 @@
-# Tinyguard
+# Bimbleguard
 
 Небольшая оригинальная 3D Tower Defense для Android в low-poly стиле.
 Движок — **Godot 4.x**, язык — **GDScript**, рендерер — **Compatibility** (OpenGL ES 3).
@@ -45,7 +45,7 @@
 нельзя); о начале волны и времени до следующей коротко сообщает баннер по центру.
 Кузница (меч, ремонт стен) — в меню паузы или клавишей K.
 
-![Tinyguard, уровень 1](docs/screenshots/level_01.png)
+![Bimbleguard, уровень 1](docs/screenshots/level_01.png)
 
 Обзор карт с несколькими тропами (камера отдалена для снимка): `docs/screenshots/map_01.png` … `map_06.png`.
 
@@ -67,7 +67,7 @@
 ## Структура
 
 ```
-tinyguard/
+bimbleguard/
 ├── project.godot          # настройки проекта (Compatibility, landscape)
 ├── icon.png               # иконка приложения (tools/render_app_icon.gd)
 ├── assets/
@@ -128,7 +128,7 @@ godot --path .                     # запустить игру (после и�
 2. **Editor Settings → Export → Android**: путь к Android SDK и Java SDK, debug keystore.
 3. **Project → Export**: пресет «Android» уже лежит в `export_presets.cfg`
    (arm64 + armv7, полноэкранный режим, альбомная ориентация с поворотом по датчику).
-   **Export Project** → `build/tinyguard.apk` (debug-подпись из настроек редактора).
+   **Export Project** → `build/bimbleguard.apk` (debug-подпись из настроек редактора).
 4. Или подключите устройство с отладкой по USB → кнопка **Remote Deploy**.
 
 На телефоне: джойстик слева, кнопка удара/рубки справа (иконка меняется: меч или

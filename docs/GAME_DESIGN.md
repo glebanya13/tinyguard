@@ -1,4 +1,4 @@
-# Game Design — Tinyguard
+# Game Design — Bimbleguard
 
 ## Суть
 

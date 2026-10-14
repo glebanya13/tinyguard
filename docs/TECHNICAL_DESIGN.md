@@ -1,4 +1,4 @@
-# Technical Design — Tinyguard
+# Technical Design — Bimbleguard
 
 Простая архитектура «сцена = сущность», данные — в ресурсах, связь — сигналами.
 

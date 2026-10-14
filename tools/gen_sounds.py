@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesises Tinyguard's sound effects into assets/audio/*.wav.
+"""Synthesises Bimbleguard's sound effects into assets/audio/*.wav.
 
 Pure Python (no dependencies), deterministic: same output on every run.
 Usage: python3 tools/gen_sounds.py

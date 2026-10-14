@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static sanity checks for the Tinyguard Godot project.
+"""Static sanity checks for the Bimbleguard Godot project.
 
 Runs without Godot. Verifies required files/dirs, res:// references in
 project.godot and .tscn/.tres files, basic .tscn structure, NodePath values

@@ -106,7 +106,7 @@ func _frame(size: Vector2i, target: Vector3, distance: float) -> void:
 ## Game title over the splash scene (2D on top of the 3D view).
 func _add_title() -> void:
 	var title := Label.new()
-	title.text = "Tinyguard"
+	title.text = "Bimbleguard"
 	title.add_theme_font_size_override("font_size", 120)
 	title.add_theme_color_override("font_color", TITLE_COLOR)
 	title.add_theme_color_override("font_outline_color", OUTLINE)

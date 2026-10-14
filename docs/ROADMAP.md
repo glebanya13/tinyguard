@@ -1,4 +1,4 @@
-# Roadmap — Tinyguard
+# Roadmap — Bimbleguard
 
 Каждый этап заканчивается играбельной/запускаемой версией, проверенной в Godot.
 

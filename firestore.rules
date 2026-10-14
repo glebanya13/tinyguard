@@ -1,5 +1,5 @@
 rules_version = '2';
-// Tinyguard on the Firebase Spark plan: NO Cloud Functions. Everything the server
+// Bimbleguard on the Firebase Spark plan: NO Cloud Functions. Everything the server
 // must guarantee is enforced here; the client is not a security boundary.
 //
 // Players sign in anonymously (guest) through Firebase Auth and may only touch
