@@ -122,7 +122,7 @@ layout_mode = 2
 text = "0 / 24"
 
 [node name="TreasuryButton" type="Button" parent="UI/Root/TopRight"]
-custom_minimum_size = Vector2(170, 60)
+custom_minimum_size = Vector2(170, 84)
 layout_mode = 2
 focus_mode = 0
 theme_override_constants/icon_max_width = 44
@@ -143,7 +143,7 @@ horizontal_alignment = 1
 
 [node name="RecordsButton" type="Button" parent="UI/Root/TopRight"]
 visible = false
-custom_minimum_size = Vector2(170, 60)
+custom_minimum_size = Vector2(170, 84)
 layout_mode = 2
 focus_mode = 0
 theme_override_constants/icon_max_width = 40
@@ -151,7 +151,7 @@ text = "MAP_RECORDS"
 icon = ExtResource("i_crown")
 
 [node name="SoundButton" type="Button" parent="UI/Root/TopRight"]
-custom_minimum_size = Vector2(64, 60)
+custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 focus_mode = 0
 theme_override_constants/icon_max_width = 40
@@ -221,14 +221,14 @@ theme_override_constants/separation = 14
 alignment = 1
 
 [node name="PlayButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
-custom_minimum_size = Vector2(240, 64)
+custom_minimum_size = Vector2(240, 84)
 layout_mode = 2
 focus_mode = 0
 text = "MAP_PLAY"
 icon = ExtResource("i_play")
 
 [node name="EndlessButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
-custom_minimum_size = Vector2(300, 64)
+custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
@@ -276,7 +276,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Panel/Content/Header"]
-custom_minimum_size = Vector2(64, 64)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_chest")
@@ -333,7 +333,7 @@ theme_override_constants/separation = 14
 alignment = 1
 
 [node name="ResetButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
-custom_minimum_size = Vector2(260, 58)
+custom_minimum_size = Vector2(260, 84)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
@@ -341,7 +341,7 @@ theme_override_font_sizes/font_size = 22
 text = "MAP_REFUND"
 
 [node name="CloseButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
-custom_minimum_size = Vector2(220, 58)
+custom_minimum_size = Vector2(220, 84)
 layout_mode = 2
 focus_mode = 0
 text = "MAP_DONE"

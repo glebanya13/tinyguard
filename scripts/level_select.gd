@@ -221,7 +221,7 @@ func _perk_card(perk: PerkData) -> PanelContainer:
 	box.add_child(effect)
 	var buy := Button.new()
 	buy.focus_mode = Control.FOCUS_NONE
-	buy.custom_minimum_size = Vector2(0, 50)
+	buy.custom_minimum_size = Vector2(0, 84)
 	buy.add_theme_font_size_override("font_size", 20)
 	var cost: int = Perks.next_cost(perk)
 	if cost < 0:
@@ -303,7 +303,7 @@ func _build_records_panel() -> void:
 		var button := Button.new()
 		button.text = spec[0]
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(180, 56)
+		button.custom_minimum_size = Vector2(180, 84)
 		if spec[2]:
 			button.theme_type_variation = &"SecondaryButton"
 		button.pressed.connect(spec[1])
@@ -338,7 +338,7 @@ func _on_cloud_loaded(ok: bool) -> void:
 ## Profile button, sync status line and the account panel (scripts/account_panel.gd).
 func _build_account_ui() -> void:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(64, 60)
+	button.custom_minimum_size = Vector2(84, 84)
 	button.focus_mode = Control.FOCUS_NONE
 	button.icon = PROFILE_ICON
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
