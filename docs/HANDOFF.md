@@ -27,20 +27,31 @@ tests/run_all.sh <godot>        # 16 PASS + проходимость на 6 ур
 python3 tools/balance_sim.py
 ```
 
-## В работе (не в ветке — не закоммичено, начинать заново)
+## Не доделано — наработки сохранены патчами в `wip/`
 
-1. **Большие карты и несколько дорожек.** Карты ~44×30, 2–3 пути врагов на уровень
-   (`"paths"` в `resources/levels.json`), несколько порталов, спавн делится по путям,
-   пересборка `build_terrain.py`, правки `wave_manager.gd`, `main.gd`, валидатора, тестов,
-   `balance_sim.py`, перебаланс.
-2. **Аккаунты, профиль, онбординг, туториал.** Гостевой вход, версионированный профиль,
-   уникальные ники через Cloud Function (`reserveNickname`, `deleteAccount`), строгие
-   правила Firestore, экран ника, интерактивный туториал на уровне 1, удаление аккаунта,
-   `docs/ACCOUNTS.md`, `docs/PRIVACY.md`. Начаты только `scripts/nickname_rules.gd`,
-   `scripts/game_info.gd`.
+Обе задачи остановлены на середине, код **не проверен** (тесты не гонялись). Патчи сняты
+с коммита `64415a4`, на текущую ветку ставятся через
+`git apply --3way wip/<имя>.patch` (в `main.gd` возможны конфликты с новым HUD).
+
+1. **`wip/maps.patch` — большие карты и несколько дорожек.** Карты ~44×30, 2–3 пути
+   (`"paths"` в `levels.json`), порталы по краям, спавн по путям (`wave_manager.gd`,
+   `main.gd`), правки валидатора, тестов, `balance_sim.py`, `build_terrain.py`.
+   Модели `.glb` в патч не включены — пересобрать:
+   `blender -b -P assets/blender/build_terrain.py` (см. `assets/blender/README`).
+   Осталось: пересборка, импорт, тесты на 6 уровнях, перебаланс, скриншоты.
+2. **`wip/accounts.patch` — аккаунты, профиль, онбординг, туториал.** Есть:
+   `auth_service.gd`, `session_store.gd`, `firestore_client.gd`, `player_profile.gd`,
+   `nickname_rules.gd` + экран ника, `boot.tscn`/`onboarding.gd`, `tutorial.gd`,
+   `account_panel.gd`, Cloud Functions (`firebase/functions`: `reserveNickname`,
+   `deleteAccount`) с тестами, `firestore.rules`, тесты `test_accounts.gd`,
+   `test_tutorial.gd`. Осталось: прогнать все проверки, тесты функций
+   (`npm test` в `firebase/functions`, эмулятор), `docs/ACCOUNTS.md`, `docs/PRIVACY.md`,
+   проверка на живом Firebase-проекте.
    Ограничения: никаких секретов/сервисных ключей в клиенте, не логировать токены и
    личные данные, без рекламы и аналитики, не утверждать, что вход работает, без теста
    на настроенном проекте.
+3. **Firebase-проект** не создан: создать, положить `firebase.cfg` (не коммитится),
+   задеплоить правила и функции, проверить вход/рекорды/облако.
 
 ## Дальше
 
