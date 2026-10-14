@@ -15,7 +15,7 @@
 - **Сеть — только модуль `Online`** (`scripts/online.gd`, Firebase REST: анонимный вход,
   рекорды осады, облачное сохранение; см. `docs/FIREBASE.md`). Игра обязана полностью
   работать офлайн и без `firebase.cfg`. План Firebase — Spark: **без Cloud Functions**, вся
-  серверная гарантия — в `firestore.rules` (тесты: `firebase/rules-tests`). Без мультиплеера, аналитики и рекламных SDK.
+  серверная гарантия — в `firestore.rules` (тесты: `firebase/rules-tests`). Кооператив (2 игрока, lockstep через Realtime Database, только REST; владелец разрешил 2026-10-14, план — `docs/MULTIPLAYER.md`) — через модуль сети; игра обязана работать и без него. Без аналитики и рекламных SDK, без своих серверов и P2P/GDExtension.
 - **Без внешних ассетов** из магазинов и сети без явного разрешения владельца;
   всё — примитивы Godot или собственные модели из `assets/blender/`.
 - **Модели генерируются скриптами** `assets/blender/build_*.py` (см. README там).

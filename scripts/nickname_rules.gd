@@ -10,6 +10,8 @@ extends RefCounted
 ##   Cyrillic one (U+0401..U+045F without U+040D), digits 0-9; a single space or
 ##   underscore only between two letters/digits. Nothing else: no control or
 ##   invisible characters, emoji, symbols or combining marks.
+## - One alphabet per name: Latin and Cyrillic letters may not be mixed ("Аdmin" with
+##   a Cyrillic "А" would imitate a reserved name). Digits, space and _ are neutral.
 ## - Key for uniqueness (normalize): lower case, "ё" -> "е", space -> "_".
 ##   "Сэр Ёжик" and "сэр_ежик" are the same name.
 ## - A few reserved names (RESERVED, compared normalized).
@@ -35,6 +37,7 @@ const MESSAGES := {
 	"too_short": "Минимум %d символа" % MIN_LENGTH,
 	"too_long": "Не больше %d символов" % MAX_LENGTH,
 	"bad_char": "Только буквы, цифры, пробел и _",
+	"mixed_script": "Не смешивай латиницу и кириллицу",
 	"bad_separator": "Пробел и _ — только между буквами",
 	"reserved": "Это имя занято королевством",
 	"taken": "Это имя уже занято — попробуй другое",
@@ -101,15 +104,23 @@ static func _error_code(name: String) -> String:
 	if name.length() > MAX_LENGTH:
 		return "too_long"
 	var bad_separator := false
+	var has_latin := false
+	var has_cyrillic := false
 	var previous_separator := true  # nothing before the first character
 	for ch in name:
 		var code: int = ch.unicode_at(0)
 		var separator: bool = code == 32 or code == 0x5F
 		if not separator and not is_letter_or_digit(code):
 			return "bad_char"
+		if code >= 0x401:
+			has_cyrillic = true
+		elif code >= 0x41 and not separator:
+			has_latin = true
 		if separator and previous_separator:
 			bad_separator = true
 		previous_separator = separator
 	if bad_separator or previous_separator:
 		return "bad_separator"
+	if has_latin and has_cyrillic:
+		return "mixed_script"
 	return ""

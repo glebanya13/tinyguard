@@ -344,6 +344,25 @@ def _check_lanes(tag: str, lv: dict) -> None:
             errors.append(f"{tag}: waves.elite.kind {elite['kind']} has no enemy resource")
 
 
+def check_rules_lists() -> None:
+    """firestore.rules whitelist the keys of users/{uid}.progression (storage abuse);
+    a perk or level missing there would make its owner's cloud sync fail."""
+    rules = ROOT / "firestore.rules"
+    if not rules.is_file():
+        return
+    text = rules.read_text(encoding="utf-8")
+    for perk in sorted((ROOT / "resources" / "perks").glob("*.tres")):
+        m = re.search(r'^id = &"([a-z_0-9]+)"', perk.read_text(encoding="utf-8"), re.M)
+        if m and f"'{m.group(1)}'" not in text:
+            errors.append(f"firestore.rules: perk id '{m.group(1)}' ({perk.name}) is missing in perkKeys()/perksOk()")
+    levels = ROOT / "resources" / "levels.json"
+    if levels.is_file():
+        import json
+        for lv in json.loads(levels.read_text(encoding="utf-8"))["levels"]:
+            if f"'{lv['id']}'" not in text:
+                errors.append(f"firestore.rules: level {lv['id']} is missing in levelKeys()/starsOk()")
+
+
 def check_levels() -> None:
     """Layout sanity for resources/levels.json (shared by Godot and Blender)."""
     path = ROOT / "resources" / "levels.json"
@@ -461,11 +480,32 @@ def check_privacy_url() -> None:
         warnings.append(f"PRIVACY_URL must be an https:// URL, got: {url}")
 
 
+def check_release_constants() -> None:
+    """Warns while the other store-release constants of GameInfo are unset."""
+    path = ROOT / "scripts" / "game_info.gd"
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    for name, hint in (
+        ("DELETION_URL", "web account-deletion page (Play policy), see docs/RELEASE_READINESS.md"),
+        ("SUPPORT_EMAIL", "support e-mail for the policy and store listing"),
+    ):
+        m = re.search(rf'^const\s+{name}\s*(?::[^=]+)?:?=\s*"([^"]*)"', text, re.M)
+        if m is None:
+            errors.append(f"scripts/game_info.gd: const {name} is missing")
+        elif not m.group(1).strip():
+            warnings.append(f"{name} is empty (required before store release): {hint}")
+        elif name == "DELETION_URL" and not m.group(1).startswith("https://"):
+            warnings.append(f"{name} must be an https:// URL, got: {m.group(1)}")
+
+
 def main() -> int:
     check_layout()
     check_export_presets()
     check_privacy_url()
+    check_release_constants()
     check_levels()
+    check_rules_lists()
     check_project_settings()
     collect_class_names()
     for pattern in ("*.tscn", "*.tres"):
