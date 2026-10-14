@@ -12,6 +12,7 @@ var main: Node = null
 var gs: GameState = null
 var bm: BuildManager = null
 var hero: Hero = null
+var sim: Sim = null
 
 
 func check(c: bool, w: String) -> void:
@@ -33,12 +34,19 @@ func frames(n: int) -> void:
 		await process_frame
 
 
+## Runs `n` fixed simulation steps (the test drives the clock itself).
+func steps(n: int) -> void:
+	for i in n:
+		sim.step()
+	await process_frame
+
+
 func enemy_at(path: String, progress: float, speed: float = 0.0, hp_mult: float = 100.0) -> Enemy:
 	var e := (load("res://scenes/enemy.tscn") as PackedScene).instantiate() as Enemy
 	e.setup(load(path), hp_mult)
 	e.speed = speed
 	main.get_node("Level/EnemyPath").add_child(e)
-	e.progress = progress
+	e.place(progress)
 	return e
 
 
@@ -56,6 +64,9 @@ func _run() -> void:
 	gs = main.get_node("GameState")
 	bm = main.get_node("BuildManager")
 	hero = main.get_node("Level/Hero")
+	sim = main.get_node("Sim")
+	sim.manual = true
+	sim.running = true
 	await _test_slow()
 	await _test_projectiles()
 	await _test_hero()
@@ -74,25 +85,26 @@ func _test_slow() -> void:
 	slowed.speed = 3.0
 	slowed.apply_slow(0.5, 5.0)
 	slowed.apply_slow(0.9, 5.0)  # a weaker slow never loosens a stronger one
-	var f0: float = fast.progress
-	var s0: float = slowed.progress
-	await frames(30)
-	var ratio: float = (slowed.progress - s0) / (fast.progress - f0)
+	var f0: float = fast.sim_progress
+	var s0: float = slowed.sim_progress
+	await steps(30)
+	var ratio: float = (slowed.sim_progress - s0) / (fast.sim_progress - f0)
 	check(absf(ratio - 0.5) < 0.1, "slow halves the speed (ratio %.2f)" % ratio)
 	clear_enemies()
 	var brief := enemy_at(SLIME, 2.0)
 	brief.speed = 3.0
 	brief.apply_slow(0.5, 0.2)
-	await frames(30)  # the slow has expired
-	var b0: float = brief.progress
-	await frames(30)
-	var moved: float = brief.progress - b0
+	await steps(30)  # the slow has expired
+	var b0: float = brief.sim_progress
+	await steps(15)
+	var moved: float = brief.sim_progress - b0
 	check(absf(moved - 3.0 * 0.5) < 0.2, "slow wears off (moved %.2f m in 0.5 s)" % moved)
 	clear_enemies()
 
 
 func _shot(scene: String, from: Vector3) -> Projectile:
 	var p := (load(scene) as PackedScene).instantiate() as Projectile
+	p.sim = sim
 	main.get_node("Level").add_child(p)
 	p.global_position = from
 	return p
@@ -102,25 +114,25 @@ func _test_projectiles() -> void:
 	# Arrow: homes in and hits for its damage.
 	var target := enemy_at(SLIME, 4.0)
 	var other := enemy_at(SLIME, 6.5)
-	await frames(2)
+	await steps(2)
 	var arrow := _shot("res://scenes/projectiles/projectile_arrow.tscn", target.get_aim_point())
 	arrow.global_position += Vector3(0.0, 1.0, 0.0)
 	var hp: float = target.health
 	var other_hp: float = other.health
 	arrow.launch(target, 7.0)
-	await frames(40)
+	await steps(40)
 	check(is_equal_approx(hp - target.health, 7.0), "arrow hits for its damage")
 	check(not is_instance_valid(arrow), "arrow is gone after the hit")
 	check(other.health == other_hp, "arrow hurts only its target")
 	# Miss: the target vanishes in flight, the shot disappears harmlessly.
 	var doomed := enemy_at(SLIME, 4.0)
-	await frames(2)
+	await steps(2)
 	var stray := _shot("res://scenes/projectiles/projectile_arrow.tscn", doomed.get_aim_point())
 	stray.global_position += Vector3(0.0, 3.0, 0.0)
 	stray.launch(doomed, 7.0)
 	doomed.free()
 	other_hp = other.health
-	await frames(10)
+	await steps(10)
 	check(not is_instance_valid(stray), "shot at a vanished target is removed")
 	check(other.health == other_hp, "a miss hurts nobody else")
 	clear_enemies()
@@ -129,12 +141,12 @@ func _test_projectiles() -> void:
 	var near := enemy_at(SLIME, 3.6)
 	var far := enemy_at(SLIME, 6.5)
 	var bat := enemy_at("res://resources/enemies/slime_bat.tres", 3.3)
-	await frames(2)
+	await steps(2)
 	var shell := _shot("res://scenes/projectiles/projectile_cannon.tscn", centre.global_position)
 	shell.global_position += Vector3(0.0, 1.0, 0.0)
 	var hps: Array[float] = [centre.health, near.health, far.health, bat.health]
 	shell.launch(centre, 9.0, 1.2)
-	await frames(90)
+	await steps(90)
 	check(is_equal_approx(hps[0] - centre.health, 9.0), "shell hits the target")
 	check(is_equal_approx(hps[1] - near.health, 9.0), "splash hits a neighbour 0.6 m away")
 	check(far.health == hps[2], "splash leaves an enemy 3.5 m away alone")
@@ -143,17 +155,17 @@ func _test_projectiles() -> void:
 	# Frost: damage and slow.
 	var cold := enemy_at(SLIME, 4.0)
 	var warm := enemy_at(SLIME, 4.0)
-	await frames(2)
+	await steps(2)
 	var shard := _shot("res://scenes/projectiles/projectile_frost.tscn", cold.get_aim_point())
 	shard.global_position += Vector3(0.0, 1.0, 0.0)
 	shard.launch(cold, 2.0, 0.0, 0.5, 5.0)
-	await frames(40)
+	await steps(40)
 	cold.speed = 3.0
 	warm.speed = 3.0
-	var c0: float = cold.progress
-	var w0: float = warm.progress
-	await frames(20)
-	var ratio: float = (cold.progress - c0) / (warm.progress - w0)
+	var c0: float = cold.sim_progress
+	var w0: float = warm.sim_progress
+	await steps(20)
+	var ratio: float = (cold.sim_progress - c0) / (warm.sim_progress - w0)
 	check(absf(ratio - 0.5) < 0.1, "frost shard slows its target (ratio %.2f)" % ratio)
 	clear_enemies()
 
@@ -162,23 +174,23 @@ func _test_hero() -> void:
 	var a := enemy_at(SLIME, 4.0)
 	var b := enemy_at(SLIME, 5.0)
 	var c := enemy_at(SLIME, 6.0)
-	await frames(2)
+	await steps(2)
 	var dir: Vector3 = (b.global_position - a.global_position).normalized()
 	hero.global_position = a.global_position - dir
 	hero.global_position.y = 0.0
 	var damage: float = hero.attack_damage * hero.damage_multiplier
 	var hp: Array[float] = [a.health, b.health, c.health]
 	check(hero.try_attack(), "sword swings")
-	await frames(30)
+	await steps(30)
 	check(is_equal_approx(hp[0] - a.health, damage), "sword hits the enemy in reach")
 	check(b.health == hp[1] and c.health == hp[2], "sword does not reach enemies 2 m away")
 	clear_enemies()
-	await frames(40)  # swing cooldown
+	await steps(40)  # swing cooldown
 	var left := enemy_at(SLIME, 4.0)
 	var mid := enemy_at(SLIME, 5.0)
 	var right := enemy_at(SLIME, 6.0)
 	var distant := enemy_at(SLIME, 8.0)
-	await frames(2)
+	await steps(2)
 	hero.global_position = mid.global_position
 	hero.global_position.y = 0.0
 	var all: Array[Enemy] = [left, mid, right, distant]
@@ -290,6 +302,7 @@ func tap_key(code: Key) -> void:
 
 func _test_end_screen_back() -> void:
 	var screen: Control = main.get_node("HUD/Root/EndScreen")
+	sim.manual = false
 	gs.lose_lives(9999)
 	await frames(3)
 	check(screen.visible and paused, "defeat: end screen shown, game paused")
