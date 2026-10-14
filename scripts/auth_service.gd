@@ -1,0 +1,340 @@
+class_name AuthService
+extends RefCounted
+## Firebase Authentication over its REST APIs (Identity Toolkit + Secure Token),
+## no SDK and no native plugin. Providers:
+## - anonymous (guest): accounts:signUp, the default on first launch;
+## - email/password linking of a guest: accounts:update with the guest idToken
+##   (keeps the uid, so the profile and progress stay). Service level only, the
+##   UI does not offer it yet;
+## - IdP linking (Google, Play Games...): accounts:signInWithIdp needs an id
+##   token from a native sign-in, which CLAUDE.md forbids, so link_with_idp()
+##   answers "not_available". Design in docs/ACCOUNTS.md.
+##
+## Rules this class keeps:
+## - one token refresh / sign-up in flight; concurrent callers share its result;
+## - transient failures (no reply, 429, 5xx) are retried a few times with
+##   backoff, except sign-up (not idempotent: a retry could make two accounts);
+## - a known uid whose refresh token is merely unreachable (offline, server
+##   error, unreadable session file) is never replaced by a new guest account;
+##   only a refresh token the server rejects for good on a guest account leads
+##   to a new guest (and only when the caller allows creating one);
+## - tokens, emails and raw replies are never printed.
+
+## Emitted when the uid or the account type changes.
+signal changed
+## A token request finished (concurrent ensure_token() callers wait for this).
+signal token_request_finished(result: Dictionary)
+
+const SIGN_UP_URL := "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=%s"
+const UPDATE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:update?key=%s"
+const DELETE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=%s"
+const REFRESH_URL := "https://securetoken.googleapis.com/v1/token?key=%s"
+const TYPE_GUEST := "guest"
+const TYPE_EMAIL := "email"
+## Refresh this long before the id token expires (seconds).
+const EXPIRY_MARGIN := 60.0
+const MAX_ATTEMPTS := 3
+const BACKOFF_SECONDS := 0.8
+## Secure Token errors that mean the refresh token will never work again.
+const DEAD_SESSION_ERRORS: Array[String] = [
+	"TOKEN_EXPIRED",
+	"INVALID_REFRESH_TOKEN",
+	"USER_NOT_FOUND",
+	"INVALID_GRANT_TYPE",
+	"MISSING_REFRESH_TOKEN",
+]
+const LINK_ERRORS := {
+	"EMAIL_EXISTS": "credential_in_use",
+	"CREDENTIAL_ALREADY_IN_USE": "credential_in_use",
+	"FEDERATED_USER_ID_ALREADY_LINKED": "credential_in_use",
+	"INVALID_EMAIL": "invalid_email",
+	"WEAK_PASSWORD": "weak_password",
+	"CREDENTIAL_TOO_OLD_LOGIN_AGAIN": "reauth_required",
+	"OPERATION_NOT_ALLOWED": "not_available",
+}
+
+var api_key: String = ""
+var transport: HttpTransport = null
+## Unix time source; tests replace it.
+var clock: Callable = Time.get_unix_time_from_system
+## 0 makes retries immediate (tests).
+var backoff_scale: float = 1.0
+var uid: String = ""
+## TYPE_GUEST, TYPE_EMAIL or "" (no account yet).
+var account_type: String = ""
+## uid of a guest account that had to be replaced (its refresh token was dead).
+var previous_uid: String = ""
+
+var _id_token: String = ""
+var _refresh_token: String = ""
+var _expires_at: float = 0.0
+var _in_flight: bool = false
+
+
+## Loads the stored session. `known_uid` is the uid the progress file remembers:
+## if the session file is gone or unreadable, that identity is "lost" and is
+## not silently replaced (see ensure_token).
+func restore(known_uid: String = "") -> void:
+	var session: Dictionary = SessionStore.load_session()
+	uid = str(session.get("uid", known_uid))
+	_refresh_token = str(session.get("refresh_token", ""))
+	account_type = str(session.get("account_type", TYPE_GUEST if uid != "" else ""))
+	previous_uid = str(session.get("previous_uid", ""))
+	_id_token = ""
+	_expires_at = 0.0
+
+
+## Moves a session saved by older versions (plain text in progress.cfg) into
+## the encrypted store.
+func adopt_legacy(legacy_uid: String, refresh_token: String) -> void:
+	if legacy_uid == "" or refresh_token == "" or _refresh_token != "":
+		return
+	uid = legacy_uid
+	_refresh_token = refresh_token
+	account_type = TYPE_GUEST
+	_persist()
+
+
+func is_configured() -> bool:
+	return api_key != "" and transport != null
+
+
+func has_session() -> bool:
+	return uid != "" and _refresh_token != ""
+
+
+## A uid is known but its refresh token is not (session file lost/unreadable).
+func is_session_lost() -> bool:
+	return uid != "" and _refresh_token == ""
+
+
+func id_token() -> String:
+	return _id_token
+
+
+func is_token_fresh() -> bool:
+	return _id_token != "" and clock.call() < _expires_at - EXPIRY_MARGIN
+
+
+## Forces a refresh on the next ensure_token (e.g. after a 401).
+func invalidate_token() -> void:
+	_id_token = ""
+	_expires_at = 0.0
+
+
+## Makes sure a fresh id token is available. {"ok", "error", "created"}.
+## Errors: not_configured, offline, server, session_lost, disabled, no_session.
+func ensure_token(allow_create: bool = true) -> Dictionary:
+	if is_token_fresh():
+		return {"ok": true, "error": "", "created": false}
+	if _in_flight:
+		return await token_request_finished
+	_in_flight = true
+	var result: Dictionary = await _acquire(allow_create)
+	_in_flight = false
+	token_request_finished.emit(result)
+	return result
+
+
+## Explicit user choice (account panel): drop a lost identity, start a new guest.
+func start_new_guest() -> Dictionary:
+	if _in_flight:
+		return {"ok": false, "error": "busy", "created": false}
+	forget()
+	return await ensure_token(true)
+
+
+## Forgets the session on this device (after account deletion).
+func forget() -> void:
+	uid = ""
+	account_type = ""
+	previous_uid = ""
+	_refresh_token = ""
+	invalidate_token()
+	SessionStore.clear()
+	changed.emit()
+
+
+## Links an email/password credential to the current (guest) account; the uid
+## and everything stored under it stay. {"ok", "error"}: credential_in_use
+## (the email belongs to another account: sign in there instead, nothing is
+## merged automatically), invalid_email, weak_password, reauth_required,
+## not_available (provider disabled in the console), offline, server.
+func link_email(email: String, password: String) -> Dictionary:
+	var auth: Dictionary = await ensure_token(false)
+	if not auth["ok"]:
+		return {"ok": false, "error": auth["error"]}
+	var body := {
+		"idToken": _id_token, "email": email, "password": password, "returnSecureToken": true
+	}
+	var reply: Dictionary = await _post_json(UPDATE_URL % api_key, body, false)
+	if not reply["ok"]:
+		return {"ok": false, "error": _link_error(reply)}
+	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
+	account_type = TYPE_EMAIL
+	_persist()
+	changed.emit()
+	return {"ok": true, "error": ""}
+
+
+## Deletes the Firebase Auth user of this device (accounts:delete with the
+## idToken; no Cloud Function needed) and forgets the session. The caller
+## deletes the Firestore documents first. {"ok", "error"}: reauth_required (an
+## old email sign-in must be repeated), offline, server. An already deleted
+## user counts as success.
+func delete_account() -> Dictionary:
+	var auth: Dictionary = await ensure_token(false)
+	if not auth["ok"]:
+		return {"ok": false, "error": auth["error"]}
+	var reply: Dictionary = await _post_json(DELETE_URL % api_key, {"idToken": _id_token}, true)
+	if not reply["ok"]:
+		var message: String = error_message(reply["json"])
+		if message == "USER_NOT_FOUND":
+			forget()
+			return {"ok": true, "error": ""}
+		if HttpTransport.is_transient(reply):
+			return {"ok": false, "error": "offline" if reply["network"] else "server"}
+		if message.begins_with("CREDENTIAL_TOO_OLD"):
+			return {"ok": false, "error": "reauth_required"}
+		return {"ok": false, "error": "server"}
+	forget()
+	return {"ok": true, "error": ""}
+
+
+## Linking through an identity provider (accounts:signInWithIdp with the guest
+## idToken) needs a provider id token from a native SDK; not available without
+## native plugins. Never pretends to succeed.
+func link_with_idp(_provider_id: String, _provider_token: String) -> Dictionary:
+	return {"ok": false, "error": "not_available"}
+
+
+## First word of a Firebase REST error message ("WEAK_PASSWORD : ..." -> WEAK_PASSWORD).
+static func error_message(json: Variant) -> String:
+	if not json is Dictionary:
+		return ""
+	var error: Variant = (json as Dictionary).get("error", {})
+	if error is Dictionary:
+		return str((error as Dictionary).get("message", "")).get_slice(" ", 0)
+	return str(error).get_slice(" ", 0)  # Secure Token may answer {"error": "invalid_grant"}
+
+
+func _acquire(allow_create: bool) -> Dictionary:
+	if not is_configured():
+		return {"ok": false, "error": "not_configured", "created": false}
+	if _refresh_token != "":
+		var refreshed: Dictionary = await _refresh()
+		if refreshed["ok"] or refreshed["error"] != "dead":
+			return refreshed
+		# The server rejected the refresh token for good.
+		if account_type != TYPE_GUEST or not allow_create:
+			_refresh_token = ""
+			_persist()
+			return {"ok": false, "error": "session_lost", "created": false}
+		previous_uid = uid
+		uid = ""
+		_refresh_token = ""
+	elif uid != "":
+		return {"ok": false, "error": "session_lost", "created": false}
+	if not allow_create:
+		return {"ok": false, "error": "no_session", "created": false}
+	return await _sign_up()
+
+
+func _refresh() -> Dictionary:
+	var form := "grant_type=refresh_token&refresh_token=" + _refresh_token.uri_encode()
+	var reply: Dictionary = await _send_with_retry(
+		HTTPClient.METHOD_POST,
+		REFRESH_URL % api_key,
+		PackedStringArray(["Content-Type: application/x-www-form-urlencoded"]),
+		form,
+		true
+	)
+	if reply["ok"]:
+		var before: String = uid
+		_take_tokens(reply["json"], "id_token", "refresh_token", "user_id", "expires_in")
+		_persist()
+		if uid != before:
+			changed.emit()
+		return {
+			"ok": _id_token != "", "error": "" if _id_token != "" else "server", "created": false
+		}
+	if HttpTransport.is_transient(reply):
+		return {"ok": false, "error": "offline" if reply["network"] else "server", "created": false}
+	var message: String = error_message(reply["json"])
+	if message == "USER_DISABLED":
+		return {"ok": false, "error": "disabled", "created": false}
+	if DEAD_SESSION_ERRORS.has(message) or message == "invalid_grant":
+		return {"ok": false, "error": "dead", "created": false}
+	return {"ok": false, "error": "server", "created": false}
+
+
+func _sign_up() -> Dictionary:
+	var reply: Dictionary = await _post_json(
+		SIGN_UP_URL % api_key, {"returnSecureToken": true}, false
+	)
+	if not reply["ok"]:
+		var network: bool = reply["network"]
+		return {"ok": false, "error": "offline" if network else "server", "created": false}
+	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
+	account_type = TYPE_GUEST
+	_persist()
+	changed.emit()
+	return {"ok": uid != "", "error": "" if uid != "" else "server", "created": true}
+
+
+func _take_tokens(
+	json: Variant, id_key: String, refresh_key: String, uid_key: String, ttl_key: String
+) -> void:
+	var data: Dictionary = json if json is Dictionary else {}
+	_id_token = str(data.get(id_key, ""))
+	_refresh_token = str(data.get(refresh_key, _refresh_token))
+	uid = str(data.get(uid_key, uid))
+	_expires_at = float(clock.call()) + float(str(data.get(ttl_key, "3600")))
+
+
+func _persist() -> void:
+	if uid == "" and _refresh_token == "":
+		SessionStore.clear()
+		return
+	(
+		SessionStore
+		. save_session(
+			{
+				"uid": uid,
+				"refresh_token": _refresh_token,
+				"account_type": account_type,
+				"previous_uid": previous_uid,
+			}
+		)
+	)
+
+
+func _link_error(reply: Dictionary) -> String:
+	if HttpTransport.is_transient(reply):
+		return "offline" if reply["network"] else "server"
+	return str(LINK_ERRORS.get(error_message(reply["json"]), "server"))
+
+
+func _post_json(url: String, body: Dictionary, retry: bool) -> Dictionary:
+	return await _send_with_retry(
+		HTTPClient.METHOD_POST,
+		url,
+		PackedStringArray(["Content-Type: application/json"]),
+		JSON.stringify(body),
+		retry
+	)
+
+
+func _send_with_retry(
+	method: int, url: String, headers: PackedStringArray, body: String, retry: bool
+) -> Dictionary:
+	var reply: Dictionary = {}
+	var attempts: int = MAX_ATTEMPTS if retry else 1
+	for attempt in attempts:
+		if attempt > 0 and backoff_scale > 0.0:
+			var delay: float = BACKOFF_SECONDS * pow(2.0, attempt - 1) * randf_range(0.8, 1.2)
+			await transport.get_tree().create_timer(delay * backoff_scale).timeout
+		reply = await transport.send(method, url, headers, body)
+		if not HttpTransport.is_transient(reply):
+			break
+	return reply

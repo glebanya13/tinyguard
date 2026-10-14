@@ -1,0 +1,72 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/boot.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://ui/app/icon_foreground.png" id="3_art"]
+
+[sub_resource type="Gradient" id="bg_gradient"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.36, 0.6, 0.93, 1, 0.2, 0.33, 0.76, 1)
+
+[sub_resource type="GradientTexture2D" id="bg_texture"]
+gradient = SubResource("bg_gradient")
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+
+[node name="Boot" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("bg_texture")
+expand_mode = 1
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Box" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Picture" type="TextureRect" parent="Center/Box"]
+custom_minimum_size = Vector2(420, 420)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("3_art")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Center/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 72
+text = "Tinyguard"
+horizontal_alignment = 1
+
+[node name="Status" type="Label" parent="Center/Box"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Загрузка…"
+horizontal_alignment = 1

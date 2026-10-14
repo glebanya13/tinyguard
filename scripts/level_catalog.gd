@@ -13,6 +13,8 @@ static var save_path: String = "user://progress.cfg"
 static var selected_id: int = 1
 ## True when the selected level is played as an endless siege.
 static var endless: bool = false
+## True when the selected level is played as the onboarding tutorial.
+static var tutorial: bool = false
 static var _levels: Array = []
 static var _save: ConfigFile = null
 static var _save_loaded_from: String = ""
@@ -174,3 +176,14 @@ static func _route_after(routes: Array[PackedVector2Array], join: Vector2) -> Pa
 				return route.slice(i + 1)
 	push_error("LevelCatalog: path ending at %s does not join another path" % join)
 	return PackedVector2Array()
+
+
+## Deletes the save (and its backup) and drops the cache: a fresh install.
+## Used when the player deletes the account or the local data.
+static func erase_all() -> void:
+	for suffix in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(save_path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path + suffix))
+	_save = null
+	_save_loaded_from = ""
+	_save_broken = false

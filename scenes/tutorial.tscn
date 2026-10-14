@@ -1,0 +1,154 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/tutorial.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://ui/icons/flag.png" id="3_flag"]
+
+[node name="Tutorial" type="CanvasLayer"]
+process_mode = 3
+layer = 2
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+
+[node name="Coach" type="PanelContainer" parent="Root"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 0
+offset_left = 20.0
+offset_top = 86.0
+offset_right = 520.0
+offset_bottom = 226.0
+mouse_filter = 2
+
+[node name="Box" type="VBoxContainer" parent="Root/Coach"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Header" type="HBoxContainer" parent="Root/Coach/Box"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Step" type="Label" parent="Root/Coach/Box/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 1
+theme_override_colors/font_color = Color(0.62, 0.86, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Шаг 1 из 8"
+vertical_alignment = 1
+
+[node name="SkipButton" type="Button" parent="Root/Coach/Box/Header"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SecondaryButton"
+theme_override_font_sizes/font_size = 18
+text = "Пропустить"
+
+[node name="Title" type="Label" parent="Root/Coach/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 32
+text = "Наруби дров"
+
+[node name="Body" type="Label" parent="Root/Coach/Box"]
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = ""
+autowrap_mode = 3
+
+[node name="Modal" type="Control" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="Root/Modal"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.06, 0.14, 0.55)
+
+[node name="Center" type="CenterContainer" parent="Root/Modal"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Root/Modal/Center"]
+custom_minimum_size = Vector2(700, 0)
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Root/Modal/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Icon" type="TextureRect" parent="Root/Modal/Center/Panel/Box"]
+custom_minimum_size = Vector2(0, 84)
+layout_mode = 2
+texture = ExtResource("3_flag")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Root/Modal/Center/Panel/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 42
+text = "Добро пожаловать!"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Body" type="Label" parent="Root/Modal/Center/Panel/Box"]
+custom_minimum_size = Vector2(640, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Root/Modal/Center/Panel/Box"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Secondary" type="Button" parent="Root/Modal/Center/Panel/Box/Buttons"]
+custom_minimum_size = Vector2(260, 72)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SecondaryButton"
+text = "Пропустить"
+
+[node name="Primary" type="Button" parent="Root/Modal/Center/Panel/Box/Buttons"]
+custom_minimum_size = Vector2(260, 72)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 30
+text = "Начнём!"
+
+[node name="Pointer" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
