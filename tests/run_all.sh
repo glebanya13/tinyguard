@@ -58,6 +58,7 @@ run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
 
 echo "== summary: $ran run, $failed not passed"
 if [ "$ran" -eq 0 ]; then
