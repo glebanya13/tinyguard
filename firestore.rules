@@ -7,7 +7,10 @@ rules_version = '2';
 //   users/{uid}            private profile: progression, settings, onboarding flags
 //   publicProfiles/{uid}   public nickname (readable by signed-in players)
 //   nicknames/{normalized} uniqueness index {uid, nickname, createdAt}; create-only
-//   leaderboards/level_N/scores/{uid}   endless-siege records, only upwards
+//   nicknameTrace/{uid}    when the nickname last changed; survives profile deletion
+//   runs/{uid}             start of the current endless run (server time)
+//   leaderboards/level_N/scores/{uid}   endless-siege records, only upwards and
+//                          not faster than the wave clock allows (see below)
 //   saves/{uid}            legacy cloud save of older app versions
 //
 // Nickname reservation and change are ONE atomic commit from the client
@@ -68,6 +71,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/publicProfiles/$(uid);
     }
 
+    function traceDoc(uid) {
+      return /databases/$(database)/documents/nicknameTrace/$(uid);
+    }
+
     // ---- users/{uid}: private profile ------------------------------------
 
     function validProgression(p) {
@@ -116,6 +123,10 @@ service cloud.firestore {
         && keyMatches(d.nickname, d.nicknameNormalized)
         && !reservedNick(d.nicknameNormalized)
         && d.nicknameChangedAt == request.time
+        // The same commit stamps the trace document (see nicknameTrace below), so a
+        // profile cannot be (re)created without moving the 24 hour clock.
+        && existsAfter(traceDoc(uid))
+        && getAfter(traceDoc(uid)).data.changedAt == request.time
         // The same commit creates the matching index document for this player.
         && existsAfter(nameDocAfter(d.nicknameNormalized))
         && getAfter(nameDocAfter(d.nicknameNormalized)).data.uid == uid;
@@ -138,6 +149,45 @@ service cloud.firestore {
       // Only together with deleting the index document.
       allow delete: if isOwner(uid)
         && !existsAfter(nameDocAfter(resource.data.nicknameNormalized));
+    }
+
+    // ---- nicknameTrace/{uid}: the 24 hour clock that outlives the profile ---
+    // Deleting publicProfiles/{uid} (allowed, it is part of account deletion) used
+    // to reset the limit: the next reservation looked like the free first one. The
+    // trace keeps the time of the last change. It is written in every reservation
+    // commit and may only be rewritten or deleted once 24 hours have passed, so
+    // delete-and-recreate gains nothing. Creating the first one is free.
+    // Deleting an account within 24 hours of a nickname change leaves the trace
+    // (uid + time, no name) behind; the Auth user is gone, so it is inert.
+
+    match /nicknameTrace/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create: if isOwner(uid) && validTrace(request.resource.data);
+      allow update: if isOwner(uid) && validTrace(request.resource.data)
+        && request.time >= resource.data.changedAt + duration.value(24, 'h');
+      allow delete: if isOwner(uid)
+        && request.time >= resource.data.changedAt + duration.value(24, 'h');
+    }
+
+    function validTrace(d) {
+      return d.keys().hasOnly(['changedAt']) && d.changedAt == request.time;
+    }
+
+    // ---- runs/{uid}: when the current endless run started ------------------
+    // The client writes it (server time) when an endless run begins; a record is
+    // accepted only if enough real time has passed since (leaderboards below).
+    // startedAt can only be "now", never backdated.
+
+    match /runs/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['level', 'startedAt'])
+        && request.resource.data.level is string
+        && request.resource.data.level.matches('^level_[0-9]{1,3}$')
+        && request.resource.data.startedAt == request.time;
+      allow delete: if isOwner(uid); // account deletion
     }
 
     // ---- nicknames/{normalized}: uniqueness index, create-only -----------
@@ -167,9 +217,26 @@ service cloud.firestore {
 
     // ---- leaderboards -----------------------------------------------------
 
-    match /leaderboards/{level}/scores/{uid} {
-      allow read: if true;
-      allow create, update: if isOwner(uid)
+    // Waves run on a fixed clock: wave N starts first_delay + (N-1)*wave_duration
+    // = N*30 game seconds after the run begins (resources/levels.json; checked by
+    // tools/validate_project.py) and a wave is "cleared" after it started. The
+    // game can run at x2, so at least N*15 real seconds pass. A record of wave N
+    // must therefore arrive >= (N-1)*15 s (15 s grace for the run-start request
+    // and network delay) after runs/{uid}.startedAt. This is a LOWER bound only: it
+    // makes a faked record cost real time, it does not prove the game was played.
+    function minRunSeconds(wave) {
+      return (wave - 1) * 15;
+    }
+
+    function runAllows(level, uid, wave) {
+      let run = /databases/$(database)/documents/runs/$(uid);
+      return exists(run)
+        && get(run).data.level == level
+        && request.time >= get(run).data.startedAt + duration.value(minRunSeconds(wave), 's');
+    }
+
+    function validScoreBase(level, uid) {
+      return isOwner(uid)
         && level.matches('^level_[0-9]{1,3}$')
         && request.resource.data.keys().hasOnly(['name', 'wave', 'updated'])
         && request.resource.data.name is string
@@ -181,9 +248,24 @@ service cloud.firestore {
         && request.resource.data.wave is int
         && request.resource.data.wave > 0
         && request.resource.data.wave < 5000
-        && request.resource.data.updated is timestamp
-        // A record can only go up (the same wave allows renaming the entry).
-        && (resource == null || request.resource.data.wave >= resource.data.wave);
+        && request.resource.data.updated is timestamp;
+    }
+
+    match /leaderboards/{level}/scores/{uid} {
+      allow read: if true;
+      // A new record: strictly higher, stamped with the server time, and not
+      // faster than the wave clock.
+      allow create: if validScoreBase(level, uid)
+        && request.resource.data.updated == request.time
+        && runAllows(level, uid, request.resource.data.wave);
+      allow update: if validScoreBase(level, uid)
+        && (
+          (request.resource.data.wave > resource.data.wave
+           && request.resource.data.updated == request.time
+           && runAllows(level, uid, request.resource.data.wave))
+          // Renaming the entry after a nickname change: wave and time untouched.
+          || (request.resource.data.wave == resource.data.wave
+              && request.resource.data.updated == resource.data.updated));
       allow delete: if isOwner(uid); // account deletion
     }
 
