@@ -206,7 +206,10 @@ static func from_cloud(fields: Dictionary) -> Dictionary:
 		var source: Variant = prog.get(key, {})
 		if source is Dictionary:
 			for id: Variant in source:
-				out_prog[key][str(id)] = maxi(int(source[id]), 0)
+				# A level has 0..3 stars; the cloud is not trusted to stay in range.
+				out_prog[key][str(id)] = (
+					clampi(int(source[id]), 0, 3) if key == "stars" else maxi(int(source[id]), 0)
+				)
 	var settings: Variant = fields.get("settings", {})
 	if settings is Dictionary:
 		p["settings"]["sound"] = bool((settings as Dictionary).get("sound", true))

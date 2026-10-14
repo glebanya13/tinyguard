@@ -109,6 +109,13 @@ func _test_migration() -> void:
 		"legacy cloud save text migrates (name not trusted)"
 	)
 	check(PlayerProfile.from_legacy_text("[[[").is_empty(), "broken legacy text ignored")
+	var wild: Dictionary = PlayerProfile.from_cloud(
+		{"schemaVersion": 1, "progression": {"unlocked": 2, "stars": {"1": 99, "2": -4}}}
+	)
+	check(
+		wild["progression"]["stars"]["1"] == 3 and wild["progression"]["stars"]["2"] == 0,
+		"cloud stars are clamped to 0..3"
+	)
 
 
 func _test_merge() -> void:
