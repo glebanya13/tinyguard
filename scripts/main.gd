@@ -17,6 +17,7 @@ const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
+const SELL_ICON: Texture2D = preload("res://ui/icons/sell.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
@@ -48,6 +49,10 @@ var walk_grid := WalkGrid.new()
 
 var _focused_tree: WoodTree = null
 var _paused: bool = false
+var _endless: bool = false
+var _waves_cleared: int = 0
+## Battle summary for the end screen.
+var _stats := {"kills": 0, "gold": 0, "wood": 0, "towers": 0, "time": 0.0}
 var _forge_open: bool = false
 var _castle: Node3D = null
 var _ended: bool = false
@@ -77,9 +82,14 @@ var _pending_command: StringName = &""
 func _ready() -> void:
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
 	_build_level()
-	_game_state.configure(level["start"])
+	_endless = LevelCatalog.endless
+	_game_state.configure(_start_with_perks(level["start"]))
 	_game_state.reset()
-	_wave_manager.plan = WavePlan.new(level["waves"])
+	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
+	_hero.damage_multiplier = 1.0 + Perks.value(&"sword")
+	_hero.wood_bonus = int(Perks.value(&"axe"))
+	_build_manager.damage_multiplier = 1.0 + Perks.value(&"towers")
+	_wave_manager.wave_cleared.connect(func(wave: int) -> void: _waves_cleared = wave)
 
 	_game_state.gold_changed.connect(_on_resources_changed.unbind(1))
 	_game_state.wood_changed.connect(_on_resources_changed.unbind(1))
@@ -87,6 +97,7 @@ func _ready() -> void:
 	_game_state.defeated.connect(_on_defeated)
 
 	_wave_manager.enemy_killed.connect(_game_state.add_gold)
+	_wave_manager.enemy_killed.connect(_count_kill)
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
 	_wave_manager.wave_started.connect(_on_wave_started)
 	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared)
@@ -117,7 +128,7 @@ func _ready() -> void:
 	_hud.set_gold(_game_state.gold)
 	_hud.set_wood(_game_state.wood)
 	_hud.set_lives(_game_state.lives)
-	_hud.set_wave(0, _wave_manager.get_total_waves())
+	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_build_walk_grid.call_deferred()
@@ -155,7 +166,32 @@ func _toggle_speed() -> void:
 	_hud.set_speed(roundi(Engine.time_scale))
 
 
-func _process(_delta: float) -> void:
+## Level start values plus the permanent perks bought with stars.
+func _start_with_perks(start: Dictionary) -> Dictionary:
+	var out: Dictionary = start.duplicate()
+	out["gold"] = int(out["gold"]) + int(Perks.value(&"gold_start"))
+	out["wood"] = int(out["wood"]) + int(Perks.value(&"wood_start"))
+	out["lives"] = int(out["lives"]) + int(Perks.value(&"walls"))
+	return out
+
+
+func _count_kill(reward: int) -> void:
+	_stats["kills"] += 1
+	_stats["gold"] += reward
+
+
+func _stats_summary() -> String:
+	var t: int = int(_stats["time"])
+	var line_1 := "Врагов побеждено: %d · золота добыто: %d" % [_stats["kills"], _stats["gold"]]
+	var line_2 := (
+		"Дерева нарублено: %d · башен: %d · время %d:%02d"
+		% [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
+	)
+	return line_1 + "\n" + line_2
+
+
+func _process(delta: float) -> void:
+	_stats["time"] += delta
 	var next: int = _wave_manager.current_wave + 1
 	_hud.set_next_wave(
 		next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next)
@@ -592,10 +628,12 @@ func _on_resources_changed() -> void:
 
 func _on_wood_gathered(amount: int, at: Vector3) -> void:
 	_game_state.add_wood(amount)
+	_stats["wood"] += amount
 	_popup("+%d" % amount, at + Vector3.UP * 1.6, WOOD_COLOR, WOOD_ICON)
 
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
+	_stats["towers"] += 1
 	walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
 	_spawn_fx(BUILD_FX, slot.global_position)
 	# Rise out of the dust.
@@ -653,7 +691,7 @@ func _on_enemy_reached_base(damage: int) -> void:
 
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
-	_hud.set_wave(wave, total)
+	_hud.set_wave(wave, 0 if _endless else total)
 	_wave_horn.play()
 	if boss:
 		_boss_roar.play()
@@ -672,15 +710,31 @@ func _on_all_waves_cleared() -> void:
 func _on_defeated() -> void:
 	_wave_manager.stop()
 	_defeat_sound.play()
+	if _endless:
+		var id: int = int(level["id"])
+		var old_record: int = LevelCatalog.endless_record(id)
+		var record: bool = LevelCatalog.save_endless(id, _waves_cleared)
+		var title := "Новый рекорд: %d волн!" % _waves_cleared if record else "Осада окончена"
+		var line := (
+			"Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d"
+			% [
+				_waves_cleared,
+				maxi(old_record, _waves_cleared),
+				Perks.endless_stars(id),
+				Perks.ENDLESS_MAX_STARS
+			]
+		)
+		_end_game(title, record, 0, line + "\n")
+		return
 	_end_game("Поражение", false)
 
 
-func _end_game(message: String, victory: bool, stars: int = 0) -> void:
+func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:
 	_ended = true
 	Engine.time_scale = 1.0
 	_hero.cancel_order()
 	_build_manager.clear_selection()
-	_hud.show_end_screen(message, victory, stars)
+	_hud.show_end_screen(message, victory, stars, prefix + _stats_summary())
 	get_tree().paused = true
 
 

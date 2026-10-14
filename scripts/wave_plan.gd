@@ -14,22 +14,28 @@ const BOSS_GROWTH_EXPONENT := 0.75
 ## Interval shrink per wave.
 const INTERVAL_DECAY := 0.97
 
+## Endless siege: waves never run out, no "last wave" boss.
+const ENDLESS_WAVES := 9999
+
 var wave_count: int = 1
+var endless: bool = false
 var first_delay: float = 30.0
 var between: float = 30.0
 
 var _w: Dictionary = {}
 
 
-func _init(waves: Dictionary) -> void:
+func _init(waves: Dictionary, endless_siege: bool = false) -> void:
 	_w = waves
-	wave_count = int(waves["count"])
+	endless = endless_siege
+	wave_count = ENDLESS_WAVES if endless else int(waves["count"])
 	first_delay = float(waves["first_delay"])
 	between = float(waves["between"])
 
 
 func is_boss_wave(wave: int) -> bool:
-	return wave % int(_w["boss_every"]) == 0 or (bool(_w["boss_last"]) and wave == wave_count)
+	var last: bool = not endless and bool(_w["boss_last"]) and wave == wave_count
+	return wave % int(_w["boss_every"]) == 0 or last
 
 
 func health_factor(wave: int) -> float:

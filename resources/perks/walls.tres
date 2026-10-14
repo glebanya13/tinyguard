@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PerkData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/perk_data.gd" id="1_perk"]
+[ext_resource type="Texture2D" path="res://ui/icons/heart.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_perk")
+id = &"walls"
+display_name = "Крепкие стены"
+description = "Жизни замка: %s"
+icon = ExtResource("2_icon")
+costs = Array[int]([1, 2])
+values = Array[float]([3.0, 6.0])
+value_format = "+%d"
+display_scale = 1.0

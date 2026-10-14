@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
@@ -12,6 +12,13 @@
 [ext_resource type="Texture2D" path="res://ui/icons/sword.png" id="i_sword"]
 [ext_resource type="Texture2D" path="res://ui/icons/star.png" id="i_star"]
 [ext_resource type="Texture2D" path="res://ui/icons/whirl.png" id="i_whirl"]
+[ext_resource type="Texture2D" path="res://ui/icons/sound_on.png" id="i_sound_on"]
+[ext_resource type="Texture2D" path="res://ui/icons/map.png" id="i_map"]
+[ext_resource type="Texture2D" path="res://ui/icons/restart.png" id="i_restart"]
+[ext_resource type="Texture2D" path="res://ui/icons/play.png" id="i_play"]
+[ext_resource type="Texture2D" path="res://ui/icons/sell.png" id="i_sell"]
+[ext_resource type="Texture2D" path="res://ui/icons/speed.png" id="i_speed"]
+[ext_resource type="Texture2D" path="res://ui/icons/pause.png" id="i_pause"]
 [ext_resource type="Texture2D" path="res://ui/icons/hammer.png" id="i_hammer"]
 
 [sub_resource type="StyleBoxFlat" id="atk_normal"]
@@ -226,8 +233,10 @@ text = "Волна 1 через 30 с"
 [node name="NextWaveButton" type="Button" parent="Root/NextWavePill/Row"]
 custom_minimum_size = Vector2(56, 40)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "▶▶"
+focus_mode = 0
+theme_override_constants/icon_max_width = 30
+icon = ExtResource("i_speed")
+icon_alignment = 1
 
 [node name="TopRight" type="HBoxContainer" parent="Root"]
 layout_mode = 1
@@ -269,14 +278,61 @@ custom_minimum_size = Vector2(64, 56)
 layout_mode = 2
 focus_mode = 0
 theme_override_font_sizes/font_size = 22
+
+[node name="Icon" type="TextureRect" parent="Root/TopRight/SpeedButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("i_speed")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Multiplier" type="Label" parent="Root/TopRight/SpeedButton"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -34.0
+offset_top = -26.0
+offset_right = -2.0
+offset_bottom = 2.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 18
 text = "×1"
+horizontal_alignment = 2
 
 [node name="PauseButton" type="Button" parent="Root/TopRight"]
 custom_minimum_size = Vector2(64, 56)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 22
-text = "II"
+
+[node name="Icon" type="TextureRect" parent="Root/TopRight/PauseButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("i_pause")
+expand_mode = 1
+stretch_mode = 5
+
 
 [node name="HintPill" type="PanelContainer" parent="Root"]
 visible = false
@@ -390,6 +446,7 @@ theme_override_constants/separation = 10
 
 [node name="AttackButton" type="Button" parent="Root"]
 custom_minimum_size = Vector2(132, 132)
+theme_override_constants/icon_max_width = 0
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -525,12 +582,19 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 alignment = 1
 
+[node name="Stats" type="Label" parent="Root/EndScreen/EndPanel/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = ""
+horizontal_alignment = 1
+
 [node name="ContinueButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
 custom_minimum_size = Vector2(300, 70)
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Продолжить"
+icon = ExtResource("i_play")
 
 [node name="SoundButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
@@ -539,6 +603,7 @@ layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"SecondaryButton"
 text = "Звук: вкл"
+icon = ExtResource("i_sound_on")
 
 [node name="RestartButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
@@ -546,6 +611,7 @@ custom_minimum_size = Vector2(300, 70)
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Играть заново"
+icon = ExtResource("i_restart")
 
 [node name="MapButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
@@ -554,3 +620,4 @@ layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"SecondaryButton"
 text = "К карте"
+icon = ExtResource("i_map")

@@ -25,6 +25,8 @@ const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COST_COLOR := Color(0.2, 0.13, 0.05)
 const PAUSE_COLOR := Color(1.0, 0.96, 0.87)
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
+const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
+const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 ## Keyboard/gamepad action for each command id.
@@ -70,11 +72,13 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _joystick: Control = $Root/Joystick
 @onready var _end_screen: Control = $Root/EndScreen
 @onready var _message_label: Label = $Root/EndScreen/EndPanel/Content/MessageLabel
+@onready var _stats: Label = $Root/EndScreen/EndPanel/Content/Stats
 @onready var _stars: HBoxContainer = $Root/EndScreen/EndPanel/Content/Stars
 @onready var _sound_button: Button = $Root/EndScreen/EndPanel/Content/SoundButton
 @onready var _continue_button: Button = $Root/EndScreen/EndPanel/Content/ContinueButton
 @onready var _speed_button: Button = $Root/TopRight/SpeedButton
 @onready var _forge_button: Button = $Root/TopRight/ForgeButton
+@onready var _speed_multiplier: Label = $Root/TopRight/SpeedButton/Multiplier
 @onready var _next_boss_icon: Control = $Root/NextWavePill/Row/BossIcon
 @onready var _pause_button: Button = $Root/TopRight/PauseButton
 @onready var _restart_button: Button = $Root/EndScreen/EndPanel/Content/RestartButton
@@ -115,8 +119,9 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_apply_safe_area)
 
 
+## `total` 0 = endless siege.
 func set_wave(wave: int, total: int) -> void:
-	_wave_label.text = "Волна %d/%d" % [wave, total]
+	_wave_label.text = "Осада: волна %d" % wave if total <= 0 else "Волна %d/%d" % [wave, total]
 
 
 func set_gold(gold: int) -> void:
@@ -251,12 +256,16 @@ func update_card(info: Dictionary) -> void:
 
 
 func set_speed(multiplier: int) -> void:
-	_speed_button.text = "×%d" % multiplier
+	_speed_multiplier.text = "×%d" % multiplier
+	_speed_button.modulate = Color(1.15, 1.05, 0.8) if multiplier > 1 else Color.WHITE
 
 
-## Victory/defeat screen with 0..3 stars. Its buttons work while the tree is paused.
-func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
+## Victory/defeat screen with 0..3 stars and a stats summary. Its buttons work
+## while the tree is paused.
+func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String = "") -> void:
 	_show_menu(text, VICTORY_COLOR if victory else DEFEAT_COLOR)
+	_stats.text = stats
+	_stats.show()
 	_continue_button.hide()
 	_sound_button.hide()
 	for i in 3:
@@ -278,7 +287,7 @@ func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
 				. set_trans(Tween.TRANS_BACK)
 				. set_ease(Tween.EASE_OUT)
 			)
-	_stars.visible = victory
+	_stars.visible = victory and stars > 0
 	_pause_button.hide()
 	_speed_button.hide()
 	_forge_button.hide()
@@ -288,6 +297,7 @@ func show_end_screen(text: String, victory: bool, stars: int = 0) -> void:
 func show_pause_menu() -> void:
 	_show_menu("Пауза", PAUSE_COLOR)
 	_stars.hide()
+	_stats.hide()
 	_continue_button.show()
 	_sound_button.show()
 	_update_sound_label()
@@ -425,6 +435,7 @@ func _on_sound_pressed() -> void:
 
 func _update_sound_label() -> void:
 	_sound_button.text = "Звук: вкл" if LevelCatalog.sound_on() else "Звук: выкл"
+	_sound_button.icon = SOUND_ON_ICON if LevelCatalog.sound_on() else SOUND_OFF_ICON
 
 
 func _on_end_button_pressed(next: Signal) -> void:

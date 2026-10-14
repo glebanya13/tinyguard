@@ -24,6 +24,8 @@ signal ground_tapped(point: Vector3)
 @export var tap_slop: float = 24.0
 
 var selected_slot: TowerSlot = null
+## Permanent tower damage bonus (perk), applied after every level change.
+var damage_multiplier: float = 1.0
 
 var _press_position: Vector2 = Vector2.ZERO
 var _pressed: bool = false
@@ -111,6 +113,7 @@ func build_on(slot: TowerSlot, data: TowerData) -> bool:
 		game_state.add_wood(cost.y)
 		return false
 	tower.apply_level(data, 0)
+	tower.damage *= damage_multiplier
 	if slot == selected_slot:
 		# Refresh listeners: the selected slot changed from free to occupied.
 		slot_selected.emit(slot)
@@ -122,6 +125,7 @@ func upgrade(slot: TowerSlot) -> bool:
 	if not game_state.spend(upgrade_cost(slot)):
 		return false
 	slot.tower.apply_level(slot.tower.data, slot.tower.level + 1)
+	slot.tower.damage *= damage_multiplier
 	tower_upgraded.emit(slot, slot.tower)
 	return true
 

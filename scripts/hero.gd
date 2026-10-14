@@ -56,6 +56,9 @@ var walk_grid: WalkGrid = null
 
 ## Forge level of the sword, 0-based.
 var sword_level: int = 0
+## Permanent bonuses from perks: sword damage multiplier, extra wood per chop.
+var damage_multiplier: float = 1.0
+var wood_bonus: int = 0
 
 var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
@@ -178,7 +181,7 @@ func try_spin() -> bool:
 	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
 		if enemy.is_alive() and _flat_distance(enemy) <= spin_radius:
-			enemy.take_damage(attack_damage * spin_damage_mult)
+			enemy.take_damage(attack_damage * damage_multiplier * spin_damage_mult)
 	return true
 
 
@@ -239,7 +242,7 @@ func _strike() -> void:
 	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
 		if enemy.is_alive() and _in_cone(enemy.global_position, forward, attack_range):
-			enemy.take_damage(attack_damage)
+			enemy.take_damage(attack_damage * damage_multiplier)
 	var chopped := false
 	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
 		var tree := node as WoodTree
@@ -247,7 +250,7 @@ func _strike() -> void:
 			var wood: int = tree.chop(global_position)
 			if wood > 0:
 				chopped = true
-				wood_gathered.emit(wood, tree.global_position)
+				wood_gathered.emit(wood + wood_bonus, tree.global_position)
 	if chopped:
 		_chop_sound.play()
 

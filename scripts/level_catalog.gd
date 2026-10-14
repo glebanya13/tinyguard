@@ -9,6 +9,8 @@ const LEVELS_PATH := "res://resources/levels.json"
 static var save_path: String = "user://progress.cfg"
 
 static var selected_id: int = 1
+## True when the selected level is played as an endless siege.
+static var endless: bool = false
 static var _levels: Array = []
 
 
@@ -83,3 +85,21 @@ static func set_sound_on(on: bool) -> void:
 
 static func apply_sound() -> void:
 	AudioServer.set_bus_mute(0, not sound_on())
+
+
+## Best wave survived in the endless siege of a level (0 = never played).
+static func endless_record(id: int) -> int:
+	var cfg := ConfigFile.new()
+	cfg.load(save_path)
+	return int(cfg.get_value("progress", "endless_%d" % id, 0))
+
+
+## Saves `wave` if it beats the record; returns true for a new record.
+static func save_endless(id: int, wave: int) -> bool:
+	if wave <= endless_record(id):
+		return false
+	var cfg := ConfigFile.new()
+	cfg.load(save_path)
+	cfg.set_value("progress", "endless_%d" % id, wave)
+	cfg.save(save_path)
+	return true
