@@ -1,26 +1,122 @@
 rules_version = '2';
-// Tinyguard: endless-siege leaderboards and cloud saves.
-// Players sign in anonymously; each one may only write their own documents.
+// Tinyguard: player profiles, nicknames, endless-siege leaderboards, cloud saves.
+// Players sign in anonymously (guest) through Firebase Auth; each one may only
+// touch their own private documents. Nicknames and public profiles are written
+// only by Cloud Functions (Admin SDK, bypasses these rules): reserveNickname,
+// deleteAccount (firebase/functions). Client checks are not a security
+// boundary; these rules are. See docs/ACCOUNTS.md.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Fields the client owns in users/{uid}; the rest is server-only.
+    function clientKeys() {
+      return ['schemaVersion', 'onboardingCompleted', 'tutorialVersionCompleted',
+              'progression', 'settings', 'updatedAt'];
+    }
+
+    function validProgression(p) {
+      return p is map
+        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks'])
+        && p.unlocked is int && p.unlocked >= 1 && p.unlocked <= 100
+        && p.stars is map && p.stars.size() <= 100
+        && p.endless is map && p.endless.size() <= 100
+        && p.perks is map && p.perks.size() <= 32;
+    }
+
+    function validUser(d) {
+      return d.keys().hasOnly(['schemaVersion', 'createdAt', 'updatedAt',
+                               'onboardingCompleted', 'tutorialVersionCompleted',
+                               'progression', 'settings',
+                               'nickname', 'nicknameNormalized', 'lastNicknameChangeAt'])
+        && d.schemaVersion is int && d.schemaVersion >= 1 && d.schemaVersion <= 1000
+        && d.updatedAt == request.time
+        && d.onboardingCompleted is bool
+        && d.tutorialVersionCompleted is int
+        && d.tutorialVersionCompleted >= 0 && d.tutorialVersionCompleted <= 1000
+        && validProgression(d.progression)
+        && d.settings is map && d.settings.keys().hasOnly(['sound'])
+        && d.settings.get('sound', true) is bool;
+    }
+
+    // Private profile: progression, settings, onboarding flags.
+    match /users/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create: if isOwner(uid)
+        && validUser(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && !request.resource.data.keys().hasAny(['nickname', 'nicknameNormalized',
+                                                 'lastNicknameChangeAt']);
+      allow update: if isOwner(uid)
+        && validUser(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(clientKeys())
+        // A newer app's document is never rewritten by an older schema.
+        && request.resource.data.schemaVersion >= resource.data.get('schemaVersion', 0);
+      allow delete: if false; // deleteAccount (Admin SDK)
+    }
+
+    // Public profile: the nickname only (+ createdAt, moderation flags).
+    // Written by reserveNickname / deleteAccount only. Hidden profiles are not readable.
+    match /publicProfiles/{uid} {
+      allow get: if signedIn()
+        && (resource == null
+            || resource.data.get('moderation', {}).get('hidden', false) == false);
+      allow list, write: if false;
+    }
+
+    // nicknames/{normalized} -> {uid}: uniqueness index, server-only.
+    match /nicknames/{name} {
+      allow read, write: if false;
+    }
+
+    // Reports for moderation: create-only by signed-in players, read by nobody
+    // (reviewed in the console / by a future admin tool).
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['reporter', 'target', 'reason', 'createdAt'])
+        && request.resource.data.reporter == request.auth.uid
+        && request.resource.data.target is string
+        && request.resource.data.target.size() > 0 && request.resource.data.target.size() <= 128
+        && request.resource.data.target != request.auth.uid
+        && request.resource.data.reason in ['name', 'cheating', 'other']
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+
     match /leaderboards/{level}/scores/{uid} {
       allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.uid == uid
+      allow create, update: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['name', 'wave', 'updated'])
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 16
+        // Only the reserved nickname, or the anonymous name.
+        && (request.resource.data.name == 'Рыцарь'
+            || request.resource.data.name
+               == get(/databases/$(database)/documents/publicProfiles/$(uid)).data.nickname)
         && request.resource.data.wave is int
         && request.resource.data.wave > 0
         && request.resource.data.wave < 5000
         // A record can only go up.
         && (resource == null || request.resource.data.wave > resource.data.wave);
+      allow delete: if false; // deleteAccount (Admin SDK)
     }
+
+    // Cloud saves of older app versions (whole progress file as text). Kept
+    // readable for migration into users/{uid}; the new client deletes it after
+    // migrating (it may contain a plain-text session token from old versions).
     match /saves/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null
-        && request.auth.uid == uid
+      allow read, delete: if isOwner(uid);
+      allow write: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['progress'])
+        && request.resource.data.progress is string
         && request.resource.data.progress.size() < 20000;
     }
   }

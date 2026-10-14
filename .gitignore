@@ -52,3 +52,6 @@ firebase.cfg
 
 # Claude Code agent worktrees (local only)
 .claude/
+
+# Firebase emulator logs
+*-debug.log

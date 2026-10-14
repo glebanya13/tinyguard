@@ -15,6 +15,7 @@ const DEFEAT_TIPS: Array[String] = [
 ]
 
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
+const TUTORIAL_SCENE := preload("res://scenes/tutorial.tscn")
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
 const CASTLE_SCENE: PackedScene = preload("res://assets/models/castle.glb")
@@ -76,6 +77,8 @@ var _stats := {"kills": 0, "gold": 0, "wood": 0, "towers": 0, "time": 0.0}
 var _forge_open: bool = false
 var _castle: Node3D = null
 var _ended: bool = false
+## Onboarding tutorial overlay (only on its level in tutorial mode).
+var _tutorial: Tutorial = null
 
 ## Command to run when the hero reaches the selected slot, or &"".
 var _pending_command: StringName = &""
@@ -163,6 +166,7 @@ func _ready() -> void:
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_hud.show_banner("Первая волна через " + _seconds_text(_wave_manager.plan.first_delay))
 	_build_walk_grid.call_deferred()
+	_start_tutorial()
 
 
 func _exit_tree() -> void:
@@ -658,8 +662,22 @@ func _toggle_forge() -> void:
 	_refresh_card()
 
 
+## Tutorial mode: the Tutorial node (its own overlay) replaces the built-in
+## hints and guide arrow; it only observes the systems passed to it.
+func _start_tutorial() -> void:
+	if not LevelCatalog.tutorial or _endless or int(level["id"]) != Onboarding.TUTORIAL_LEVEL:
+		return
+	_tutorial = TUTORIAL_SCENE.instantiate()
+	add_child(_tutorial)
+	_tutorial.setup(_game_state, _wave_manager, _build_manager, _hero, _camera, _hud)
+	_guide_done = true
+	_refresh_card()
+
+
 ## Step-by-step hint for new players while nothing is selected.
 func _hint_text() -> String:
+	if _tutorial != null:
+		return ""
 	match _guide_step():
 		GuideStep.CHOP:
 			return "Нажмите на дерево — рыцарь нарубит дров"

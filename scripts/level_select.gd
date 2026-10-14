@@ -10,6 +10,7 @@ const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const CASTLE_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
+const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const GOLD := Color(0.98, 0.8, 0.4)
 const DIM_STAR := Color(0.22, 0.24, 0.34, 0.9)
 
@@ -22,6 +23,8 @@ var _records: Control = null
 var _records_list: VBoxContainer = null
 var _records_title: Label = null
 var _records_status: Label = null
+var _account: AccountPanel = null
+var _sync_label: Label = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
@@ -46,7 +49,9 @@ var _records_status: Label = null
 func _ready() -> void:
 	LevelCatalog.apply_sound()
 	LevelCatalog.endless = false
+	LevelCatalog.tutorial = false
 	_build_sites()
+	_build_account_ui()
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
 	_sound_button.pressed.connect(_on_sound_pressed)
@@ -76,6 +81,8 @@ func _notification(what: int) -> void:
 			_treasury.hide()
 		elif _records and _records.visible:
 			_records.hide()
+		elif _account.visible:
+			_account.close()
 		else:
 			get_tree().quit()  # Android back on the map leaves the game
 
@@ -269,19 +276,9 @@ func _build_records_panel() -> void:
 	_records_title.add_theme_color_override("font_color", GOLD)
 	_records_title.add_theme_font_size_override("font_size", 30)
 	box.add_child(_records_title)
-	var name_row := HBoxContainer.new()
-	box.add_child(name_row)
 	var name_label := Label.new()
-	name_label.text = "Ваше имя:"
-	name_row.add_child(name_label)
-	var name_edit := LineEdit.new()
-	name_edit.text = Online.player_name()
-	name_edit.max_length = Online.NAME_MAX
-	name_edit.placeholder_text = "Рыцарь"
-	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_edit.text_submitted.connect(Online.set_player_name)
-	name_edit.focus_exited.connect(func() -> void: Online.set_player_name(name_edit.text))
-	name_row.add_child(name_edit)
+	name_label.text = "Ваше имя: %s (сменить — в Профиле)" % Online.player_name()
+	box.add_child(name_label)
 	_records_list = VBoxContainer.new()
 	_records_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_records_list)
@@ -332,6 +329,59 @@ func _on_online_status(text: String) -> void:
 func _on_cloud_loaded(ok: bool) -> void:
 	if ok:
 		get_tree().reload_current_scene()  # show the restored stars and levels
+
+
+## Profile button, sync status line and the account panel (scripts/account_panel.gd).
+func _build_account_ui() -> void:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(64, 60)
+	button.focus_mode = Control.FOCUS_NONE
+	button.icon = PROFILE_ICON
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.add_theme_constant_override("icon_max_width", 40)
+	button.tooltip_text = "Профиль"
+	button.pressed.connect(func() -> void: _account.open())
+	_sound_button.add_sibling(button)
+	_sync_label = Label.new()
+	_sync_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_sync_label.offset_left = -520.0
+	_sync_label.offset_right = -24.0
+	_sync_label.offset_top = 78.0
+	_sync_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_sync_label.add_theme_font_size_override("font_size", 18)
+	_sync_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui_root.add_child(_sync_label)
+	_account = AccountPanel.new()
+	_ui_root.add_child(_account)
+	_account.rename_requested.connect(_on_rename_requested)
+	_account.replay_tutorial_requested.connect(
+		func() -> void: Onboarding.start_tutorial(get_tree())
+	)
+	_account.account_deleted.connect(
+		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
+	)
+	Online.sync_state_changed.connect(_on_sync_state)
+	Online.start()  # no-op after boot
+	_on_sync_state(Online.sync_state())
+	if Online.is_configured():
+		Online.sync_now()  # pushes progress made in the level
+
+
+## Shown only when something is not saved to the cloud (or the name is taken).
+func _on_sync_state(state: String) -> void:
+	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
+	_sync_label.visible = conflict or state in ["pending", "offline", "session_lost", "newer"]
+	_sync_label.text = (
+		"Имя занято — выбери другое в Профиле" if conflict else Online.state_text(state)
+	)
+	_sync_label.add_theme_color_override(
+		"font_color", Color(1.0, 0.62, 0.55) if conflict else Color(0.82, 0.86, 0.95)
+	)
+
+
+func _on_rename_requested() -> void:
+	Onboarding.rename_mode = true
+	get_tree().change_scene_to_file(Onboarding.NICKNAME_SCENE)
 
 
 func _on_sound_pressed() -> void:

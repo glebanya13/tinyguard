@@ -1,0 +1,190 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/nickname_screen.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://ui/app/icon_foreground.png" id="3_art"]
+[ext_resource type="Texture2D" path="res://ui/icons/play.png" id="4_play"]
+
+[sub_resource type="Gradient" id="bg_gradient"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.36, 0.6, 0.93, 1, 0.2, 0.33, 0.76, 1)
+
+[sub_resource type="GradientTexture2D" id="bg_texture"]
+gradient = SubResource("bg_gradient")
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+
+[sub_resource type="StyleBoxFlat" id="edit_normal"]
+content_margin_left = 22.0
+content_margin_top = 8.0
+content_margin_right = 22.0
+content_margin_bottom = 8.0
+bg_color = Color(0.99, 0.96, 0.88, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 5
+border_color = Color(0.66, 0.45, 0.12, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="edit_focus"]
+draw_center = false
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(1, 0.84, 0.4, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+expand_margin_left = 3.0
+expand_margin_top = 3.0
+expand_margin_right = 3.0
+expand_margin_bottom = 3.0
+
+[node name="Nickname" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("bg_texture")
+expand_mode = 1
+
+[node name="Safe" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="Safe"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Row" type="HBoxContainer" parent="Safe/Center"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Art" type="VBoxContainer" parent="Safe/Center/Row"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="GameTitle" type="Label" parent="Safe/Center/Row/Art"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 14
+theme_override_font_sizes/font_size = 56
+text = "Tinyguard"
+horizontal_alignment = 1
+
+[node name="Picture" type="TextureRect" parent="Safe/Center/Row/Art"]
+custom_minimum_size = Vector2(440, 440)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("3_art")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Panel" type="PanelContainer" parent="Safe/Center/Row"]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Content" type="VBoxContainer" parent="Safe/Center/Row/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 46
+text = "Выбери имя героя!"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Как тебя называть в приключениях?"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="NameEdit" type="LineEdit" parent="Safe/Center/Row/Panel/Content"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.13, 0.05, 1)
+theme_override_colors/font_placeholder_color = Color(0.55, 0.47, 0.36, 1)
+theme_override_colors/caret_color = Color(0.2, 0.13, 0.05, 1)
+theme_override_colors/font_selected_color = Color(0.2, 0.13, 0.05, 1)
+theme_override_colors/selection_color = Color(0.95, 0.73, 0.29, 0.6)
+theme_override_font_sizes/font_size = 36
+theme_override_styles/normal = SubResource("edit_normal")
+theme_override_styles/focus = SubResource("edit_focus")
+placeholder_text = "Твоё имя"
+alignment = 1
+max_length = 24
+context_menu_enabled = false
+clear_button_enabled = true
+select_all_on_focus = true
+caret_blink = true
+
+[node name="Feedback" type="HBoxContainer" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Message" type="Label" parent="Safe/Center/Row/Panel/Content/Feedback"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "3–16 букв или цифр"
+autowrap_mode = 3
+
+[node name="Counter" type="Label" parent="Safe/Center/Row/Panel/Content/Feedback"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
+theme_override_font_sizes/font_size = 20
+text = "0/16"
+
+[node name="GoButton" type="Button" parent="Safe/Center/Row/Panel/Content"]
+custom_minimum_size = Vector2(320, 80)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_override_font_sizes/font_size = 34
+theme_override_constants/icon_max_width = 40
+text = "Вперёд!"
+icon = ExtResource("4_play")
+icon_alignment = 2
+
+[node name="Hint" type="Label" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
+theme_override_font_sizes/font_size = 17
+text = "Имя видят другие игроки в рекордах. Не используй настоящее имя и фамилию."
+horizontal_alignment = 1
+autowrap_mode = 3

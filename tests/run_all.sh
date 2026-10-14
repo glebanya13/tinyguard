@@ -21,5 +21,8 @@ echo "== pause / speed / stars / perks / endless"
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_meta.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_combat.gd
 run "$GODOT" --headless --path . --script res://tests/test_online.gd
+echo "== accounts / onboarding / tutorial"
+run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
 exit $status
