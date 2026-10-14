@@ -5,6 +5,9 @@
 ## Стек и ограничения
 
 - **Только Godot 4.x + GDScript.** Никакого C#, GDExtension, нативных плагинов.
+- **Версия Godot: 4.7.2** (`config/features` в `project.godot`). `*.import` записаны в формате 4.7 и
+  коммитятся; редактор 4.7 их больше не переписывает. Версию меняем только осознанным коммитом
+  «обновление Godot» вместе с переимпортом (`godot --headless --import`) всех `*.import` и `*.uid`.
 - **Рендерер:** `gl_compatibility` на всех платформах (`project.godot`). Не использовать
   возможности, недоступные в Compatibility: SDFGI, VoxelGI, объёмный туман, SSR, SSAO,
   compute-шейдеры.

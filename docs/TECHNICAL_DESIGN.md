@@ -6,7 +6,7 @@
 
 | Параметр | Значение |
 |---|---|
-| Движок | Godot 4.3+ (стандартная сборка) |
+| Движок | Godot 4.7.2 (стандартная сборка; см. `config/features`) |
 | Язык | GDScript со статической типизацией |
 | Рендерер | Compatibility (`gl_compatibility`, OpenGL ES 3.0 / WebGL2-уровень) |
 | Viewport | 1280×720, stretch `canvas_items`, aspect `expand` |
