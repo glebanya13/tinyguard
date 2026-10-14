@@ -43,7 +43,7 @@ size_flags_horizontal = 3
 size_flags_vertical = 1
 theme_override_colors/font_color = Color(0.62, 0.86, 1, 1)
 theme_override_font_sizes/font_size = 18
-text = "Шаг 1 из 8"
+text = "TUT_STEP_PLACEHOLDER"
 vertical_alignment = 1
 
 [node name="SkipButton" type="Button" parent="Root/Coach/Box/Header"]
@@ -52,13 +52,13 @@ layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
 theme_override_font_sizes/font_size = 18
-text = "Пропустить"
+text = "TUT_SKIP"
 
 [node name="Title" type="Label" parent="Root/Coach/Box"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_font_sizes/font_size = 32
-text = "Наруби дров"
+text = "TUT_CHOP_TITLE"
 
 [node name="Body" type="Label" parent="Root/Coach/Box"]
 custom_minimum_size = Vector2(460, 0)
@@ -113,7 +113,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 42
-text = "Добро пожаловать!"
+text = "TUT_WELCOME"
 horizontal_alignment = 1
 autowrap_mode = 3
 
@@ -135,14 +135,14 @@ custom_minimum_size = Vector2(260, 72)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
-text = "Пропустить"
+text = "TUT_SKIP"
 
 [node name="Primary" type="Button" parent="Root/Modal/Center/Panel/Box/Buttons"]
 custom_minimum_size = Vector2(260, 72)
 layout_mode = 2
 focus_mode = 0
 theme_override_font_sizes/font_size = 30
-text = "Начнём!"
+text = "TUT_START"
 
 [node name="Pointer" type="Control" parent="Root"]
 layout_mode = 1

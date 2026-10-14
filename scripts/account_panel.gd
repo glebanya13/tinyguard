@@ -22,11 +22,6 @@ const ERROR_COLOR := Color(1.0, 0.62, 0.55)
 const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const DANGER_COLOR := Color(1.0, 0.45, 0.4)
 const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
-const PRIVACY_SUMMARY := (
-	"Мы храним только: случайный ID гостя, выбранное имя, прогресс и настройки,"
-	+ " а если привяжешь, то и почту (пароль хранит Firebase, не мы)."
-	+ " Без рекламы, аналитики и геолокации. Удаление — кнопкой ниже."
-)
 
 var _name_label: Label
 var _name_badge: Label
@@ -87,34 +82,31 @@ func close() -> void:
 func refresh() -> void:
 	var p: Dictionary = PlayerProfile.local()
 	var nick: String = str(p["nickname"])
-	_name_label.text = "Имя: " + (nick if nick != "" else "—")
+	_name_label.text = tr("ACC_NAME") % (nick if nick != "" else "—")
 	if bool(p["nicknameConflict"]):
-		_set_label(_name_badge, "занято, выбери другое", ERROR_COLOR)
+		_set_label(_name_badge, tr("ACC_NAME_TAKEN"), ERROR_COLOR)
 	elif not Online.is_configured():
-		_set_label(_name_badge, "на этом устройстве", SOFT_COLOR)
+		_set_label(_name_badge, tr("ACC_NAME_LOCAL"), SOFT_COLOR)
 	elif bool(p["nicknameVerified"]):
-		_set_label(_name_badge, "✓ подтверждено", OK_COLOR)
+		_set_label(_name_badge, tr("ACC_NAME_VERIFIED"), OK_COLOR)
 	else:
-		_set_label(_name_badge, "ждёт проверки", INFO_COLOR)
+		_set_label(_name_badge, tr("ACC_NAME_PENDING"), INFO_COLOR)
 	match Online.account_type():
 		"local":
-			_account_label.text = "Онлайн выключен: всё хранится только на этом устройстве"
+			_account_label.text = tr("ACC_TYPE_LOCAL")
 		"guest":
-			_account_label.text = (
-				"Гостевой аккаунт: прогресс в облаке, но войти можно только с этого телефона."
-				+ " Привяжи почту, чтобы играть и на других устройствах."
-			)
+			_account_label.text = tr("ACC_TYPE_GUEST")
 		"email":
-			_account_label.text = "Аккаунт с почтой: войди с ней на другом устройстве"
+			_account_label.text = tr("ACC_TYPE_EMAIL")
 		_:
-			_account_label.text = "Гостевой аккаунт создастся, когда появится связь"
+			_account_label.text = tr("ACC_TYPE_NONE")
 	_on_sync_state()
 	var configured: bool = Online.is_configured()
 	_sync_row.visible = configured
 	_update_email_buttons()
-	_delete_button.text = "Удалить аккаунт" if configured else "Удалить данные"
+	_delete_button.text = tr("ACC_DELETE_ACCOUNT") if configured else tr("ACC_DELETE_DATA")
 	var uid: String = Online.auth.uid if configured else ""
-	_id_label.text = "ID игрока (для поддержки): " + uid if uid != "" else ""
+	_id_label.text = tr("ACC_PLAYER_ID") % uid if uid != "" else ""
 	_web_label.text = GameInfo.web_deletion_line()
 	_web_label.visible = _web_label.text != ""
 
@@ -170,10 +162,10 @@ func _build() -> void:
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	header.add_child(icon)
-	var title := _label("Профиль", 36, GOLD)
+	var title := _label(tr("ACC_TITLE"), 36, GOLD)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	header.add_child(_button("Готово", close, false, 180))
+	header.add_child(_button(tr("ACC_DONE"), close, false, 180))
 
 	var name_row := HBoxContainer.new()
 	name_row.add_theme_constant_override("separation", 12)
@@ -183,7 +175,7 @@ func _build() -> void:
 	_name_badge = _label("", 18)
 	_name_badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(_name_badge)
-	name_row.add_child(_button("Сменить имя", rename_requested.emit, true, 220))
+	name_row.add_child(_button(tr("ACC_RENAME"), rename_requested.emit, true, 220))
 
 	_account_label = _label("", 20, SOFT_COLOR)
 	_account_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -196,9 +188,9 @@ func _build() -> void:
 	_sync_label = _label("", 20)
 	_sync_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sync_row.add_child(_sync_label)
-	_new_guest_button = _button("Новый гость", _on_new_guest, true, 200)
+	_new_guest_button = _button(tr("ACC_NEW_GUEST"), _on_new_guest, true, 200)
 	sync_row.add_child(_new_guest_button)
-	_sync_button = _button("Синхронизировать", _on_sync_pressed, true, 260)
+	_sync_button = _button(tr("ACC_SYNC"), _on_sync_pressed, true, 260)
 	sync_row.add_child(_sync_button)
 
 	var link_row := HBoxContainer.new()
@@ -207,27 +199,27 @@ func _build() -> void:
 	box.add_child(link_row)
 	link_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_link_button = _button(
-		"Привязать почту", _open_dialog.bind(EmailAuthDialog.Mode.LINK), true, 250
+		tr("ACC_LINK_EMAIL"), _open_dialog.bind(EmailAuthDialog.Mode.LINK), true, 250
 	)
 	link_row.add_child(_link_button)
 	_signin_button = _button(
-		"Войти по почте", _open_dialog.bind(EmailAuthDialog.Mode.SIGN_IN), true, 250
+		tr("ACC_SIGNIN_EMAIL"), _open_dialog.bind(EmailAuthDialog.Mode.SIGN_IN), true, 250
 	)
 	link_row.add_child(_signin_button)
 	_reauth_button = _button(
-		"Войти заново", _open_dialog.bind(EmailAuthDialog.Mode.SIGN_IN), true, 250
+		tr("ACC_SIGNIN_AGAIN"), _open_dialog.bind(EmailAuthDialog.Mode.SIGN_IN), true, 250
 	)
 	link_row.add_child(_reauth_button)
-	_signout_button = _button("Выйти из аккаунта", _ask_sign_out, true, 280)
+	_signout_button = _button(tr("ACC_SIGNOUT"), _ask_sign_out, true, 280)
 	link_row.add_child(_signout_button)
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_child(actions)
-	actions.add_child(_button("Пройти обучение заново", replay_tutorial_requested.emit, true, 300))
-	actions.add_child(_button("Конфиденциальность", _on_privacy_pressed, true, 260))
-	var delete := _button("Удалить аккаунт", _ask_delete, true, 200)
+	actions.add_child(_button(tr("ACC_REPLAY_TUTORIAL"), replay_tutorial_requested.emit, true, 300))
+	actions.add_child(_button(tr("ACC_PRIVACY"), _on_privacy_pressed, true, 260))
+	var delete := _button(tr("ACC_DELETE_ACCOUNT"), _ask_delete, true, 200)
 	_delete_button = delete
 	delete.add_theme_color_override("font_color", DANGER_COLOR)
 	delete.add_theme_color_override("font_hover_color", DANGER_COLOR)
@@ -267,7 +259,7 @@ func _build_confirm() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
 	panel.add_child(box)
-	_confirm_title = _label("Удалить аккаунт?", 34, DANGER_COLOR)
+	_confirm_title = _label(tr("ACC_DELETE_ACCOUNT_Q"), 34, DANGER_COLOR)
 	box.add_child(_confirm_title)
 	_confirm_body = _label("", 20)
 	_confirm_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -281,9 +273,9 @@ func _build_confirm() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 16)
 	box.add_child(buttons)
-	_confirm_no = _button("Отмена", close, false, 220)
+	_confirm_no = _button(tr("COMMON_CANCEL"), close, false, 220)
 	buttons.add_child(_confirm_no)
-	_confirm_yes = _button("Удалить навсегда", _on_confirmed, true, 280)
+	_confirm_yes = _button(tr("ACC_DELETE_FOREVER"), _on_confirmed, true, 280)
 	_confirm_yes.add_theme_color_override("font_color", DANGER_COLOR)
 	_confirm_yes.add_theme_color_override("font_hover_color", DANGER_COLOR)
 	buttons.add_child(_confirm_yes)
@@ -299,30 +291,27 @@ func _on_email_done(kind: String, result: Dictionary) -> void:
 	match kind:
 		"link":
 			refresh()
-			_set_label(_info_label, "Почта привязана. Войди с ней на другом устройстве.", OK_COLOR)
+			_set_label(_info_label, tr("ACC_LINKED"), OK_COLOR)
 		"signin":
 			refresh()
 			if bool(result.get("switched", false)):
 				account_switched.emit()
 			else:
-				_set_label(_info_label, "Вход подтверждён.", OK_COLOR)
+				_set_label(_info_label, tr("ACC_SIGNIN_OK"), OK_COLOR)
 		"reset":
 			_set_label(
 				_info_label,
-				"Если такая почта зарегистрирована, мы отправили письмо. Загляни и в «Спам».",
+				tr("ACC_RESET_SENT"),
 				OK_COLOR
 			)
 
 
 func _ask_sign_out() -> void:
 	_confirm_mode = "signout"
-	_confirm_title.text = "Выйти из аккаунта?"
+	_confirm_title.text = tr("ACC_SIGNOUT_Q")
 	_confirm_title.add_theme_color_override("font_color", GOLD)
-	_confirm_body.text = (
-		"Прогресс сохранён в облаке под твоей почтой. С этого устройства он будет стёрт;"
-		+ " чтобы вернуться, войди по почте."
-	)
-	_confirm_yes.text = "Выйти"
+	_confirm_body.text = tr("ACC_SIGNOUT_BODY")
+	_confirm_yes.text = tr("ACC_SIGNOUT_YES")
 	_confirm_status.text = ""
 	_confirm_yes.disabled = false
 	_confirm_no.disabled = false
@@ -342,7 +331,7 @@ func _on_sign_out_confirmed() -> void:
 	_busy = true
 	_confirm_yes.disabled = true
 	_confirm_no.disabled = true
-	_set_label(_confirm_status, "Сохраняем прогресс…", INFO_COLOR)
+	_set_label(_confirm_status, tr("ACC_SAVING"), INFO_COLOR)
 	var result: Dictionary = await Online.sign_out()
 	_busy = false
 	if result["ok"]:
@@ -355,18 +344,11 @@ func _on_sign_out_confirmed() -> void:
 
 func _ask_delete() -> void:
 	_confirm_mode = "delete"
-	_confirm_yes.text = "Удалить навсегда"
+	_confirm_yes.text = tr("ACC_DELETE_FOREVER")
 	_confirm_title.add_theme_color_override("font_color", DANGER_COLOR)
 	var online: bool = Online.is_configured() and Online.auth.uid != ""
-	_confirm_title.text = "Удалить аккаунт?" if online else "Удалить данные?"
-	_confirm_body.text = (
-		(
-			"Удалим имя, прогресс, настройки и рекорды — на сервере и на этом устройстве."
-			+ " Вернуть их будет нельзя."
-		)
-		if online
-		else "Удалим имя, прогресс и настройки с этого устройства. Вернуть их будет нельзя."
-	)
+	_confirm_title.text = tr("ACC_DELETE_ACCOUNT_Q") if online else tr("ACC_DELETE_DATA_Q")
+	_confirm_body.text = tr("ACC_DELETE_BODY_ONLINE") if online else tr("ACC_DELETE_BODY_LOCAL")
 	_confirm_status.text = ""
 	_confirm_yes.disabled = false
 	_confirm_no.disabled = false
@@ -379,7 +361,7 @@ func _on_delete_confirmed() -> void:
 	_busy = true
 	_confirm_yes.disabled = true
 	_confirm_no.disabled = true
-	_set_label(_confirm_status, "Удаляем…", INFO_COLOR)
+	_set_label(_confirm_status, tr("ACC_DELETING"), INFO_COLOR)
 	var result: Dictionary = await Online.delete_account()
 	_busy = false
 	if result["ok"]:
@@ -387,20 +369,14 @@ func _on_delete_confirmed() -> void:
 		return
 	_confirm_no.disabled = false
 	_confirm_yes.disabled = false
-	var text := "Не получилось удалить аккаунт. Попробуйте позже."
+	var text := tr("ACC_DELETE_FAILED")
 	match str(result["reason"]):
 		"offline", "unavailable":
-			text = "Нужен интернет: данные на сервере можно удалить только онлайн. Попробуйте позже."
+			text = tr("ACC_DELETE_OFFLINE")
 		"reauth_required":
-			text = (
-				"Данные в облаке удалены, но для удаления входа нужно войти заново."
-				+ " Нажми «Войти заново» в Профиле и повтори удаление."
-			)
+			text = tr("ACC_DELETE_REAUTH")
 		"session_lost", "no_session":
-			text = (
-				"Вход на этом устройстве потерян, поэтому удалить данные на сервере отсюда нельзя."
-				+ " Напишите в поддержку и укажите ID игрока из Профиля."
-			)
+			text = tr("ACC_DELETE_SESSION_LOST")
 	_set_label(_confirm_status, text, ERROR_COLOR)
 
 
@@ -409,21 +385,20 @@ func _on_sync_pressed() -> void:
 	var result: Dictionary = await Online.sync_now()
 	refresh()
 	if not result["ok"] and str(result["error"]) == "offline":
-		_set_label(_info_label, "Нет связи — синхронизируем, когда появится интернет", INFO_COLOR)
+		_set_label(_info_label, tr("ACC_SYNC_OFFLINE"), INFO_COLOR)
 
 
 func _on_new_guest() -> void:
 	var result: Dictionary = await Online.start_new_guest()
 	refresh()
 	if not result["ok"]:
-		_set_label(_info_label, "Нет связи с сервером — попробуйте позже", ERROR_COLOR)
+		_set_label(_info_label, tr("ACC_SERVER_OFFLINE"), ERROR_COLOR)
 
 
 func _on_privacy_pressed() -> void:
-	if GameInfo.PRIVACY_URL != "":
-		OS.shell_open(GameInfo.PRIVACY_URL)
-	else:
-		_set_label(_info_label, PRIVACY_SUMMARY, SOFT_COLOR)
+	if GameInfo.PRIVACY_URL != "" and GameSettings.open_url(GameInfo.PRIVACY_URL):
+		return
+	_set_label(_info_label, tr("ACC_PRIVACY_SUMMARY"), SOFT_COLOR)
 
 
 func _label(text: String, size: int, color: Color = Color(1, 0.96, 0.87)) -> Label:

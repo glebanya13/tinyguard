@@ -34,6 +34,11 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
 
+[internationalization]
+
+locale/fallback="en"
+locale/translations=PackedStringArray("res://translations/strings.ru.translation", "res://translations/strings.en.translation")
+
 [input]
 
 move_up={

@@ -181,13 +181,10 @@ func _enter(step: Step) -> void:
 			var nick: String = str(PlayerProfile.local()["nickname"])
 			_show_modal(
 				&"welcome",
-				"Добро пожаловать, %s!" % nick if nick != "" else "Добро пожаловать!",
-				(
-					"Слизни идут волнами по тропе к твоему замку. Не пусти их внутрь!"
-					+ "\nСейчас покажу, как защищаться."
-				),
-				"Начнём!",
-				"Пропустить"
+				tr("TUT_WELCOME_NAMED") % nick if nick != "" else tr("TUT_WELCOME"),
+				tr("TUT_WELCOME_BODY"),
+				tr("TUT_START"),
+				tr("TUT_SKIP")
 			)
 		Step.SLIMES:
 			if _waves.current_wave == 0:
@@ -205,13 +202,10 @@ func _enter(step: Step) -> void:
 			var nick: String = str(PlayerProfile.local()["nickname"])
 			_show_modal(
 				&"done",
-				"Ты готов, %s!" % nick if nick != "" else "Ты готов!",
-				(
-					"Волны приходят каждые 30 секунд. Руби деревья, бей слизней,"
-					+ " строй и улучшай башни — в любой момент боя. Удачи!"
-				),
-				"На карту",
-				"Играть дальше"
+				tr("TUT_READY_NAMED") % nick if nick != "" else tr("TUT_READY"),
+				tr("TUT_READY_BODY"),
+				tr("TUT_TO_MAP"),
+				tr("TUT_KEEP_PLAYING")
 			)
 	_refresh_text()
 	step_changed.emit(step)
@@ -238,48 +232,42 @@ func _check() -> void:
 
 func _refresh_text() -> void:
 	var index: int = COUNTED_STEPS.find(_step)
-	_step_label.text = "Шаг %d из %d" % [index + 1, COUNTED_STEPS.size()] if index >= 0 else ""
+	_step_label.text = tr("TUT_STEP_OF") % [index + 1, COUNTED_STEPS.size()] if index >= 0 else ""
 	var title := ""
 	var body := ""
 	match _step:
 		Step.CHOP:
-			title = "Наруби дров"
-			body = (
-				"Подойди к дереву или нажми на него — рыцарь сам начнёт рубить."
-				+ "\nДерево: %d из %d" % [mini(_game_state.wood, _need_wood), _need_wood]
-			)
+			title = tr("TUT_CHOP_TITLE")
+			body = tr("TUT_CHOP_BODY") % [mini(_game_state.wood, _need_wood), _need_wood]
 		Step.SLIMES:
-			title = "Слизни идут!"
-			body = (
-				"Подведи рыцаря к слизням — он бьёт мечом сам. За каждого дают золото."
-				+ "\nЗолото: %d из %d" % [mini(_game_state.gold, _need_gold), _need_gold]
-			)
+			title = tr("TUT_SLIMES_TITLE")
+			body = tr("TUT_SLIMES_BODY") % [mini(_game_state.gold, _need_gold), _need_gold]
 			if _gift_note != "":
 				body = _gift_note
 		Step.SELECT:
-			title = "Выбери площадку"
-			body = "Нажми на каменную площадку у тропы — там встанет башня."
+			title = tr("TUT_SELECT_TITLE")
+			body = tr("TUT_SELECT_BODY")
 		Step.BUILD:
-			title = "Построй башню"
-			body = "Выбери башню на панели внизу. Рыцарь подойдёт и построит её."
+			title = tr("TUT_BUILD_TITLE")
+			body = tr("TUT_BUILD_BODY")
 		Step.MOVE:
-			title = "Управляй рыцарем"
-			body = "Веди джойстик слева внизу или нажми на землю — рыцарь пойдёт туда."
+			title = tr("TUT_MOVE_TITLE")
+			body = tr("TUT_MOVE_BODY")
 		Step.SPIN:
-			title = "Вихрь!"
-			body = "Нажми кнопку вихря: рыцарь крутанётся и ударит всех врагов вокруг."
+			title = tr("TUT_SPIN_TITLE")
+			body = tr("TUT_SPIN_BODY")
 			if _hero.spin_cooldown_left() > 0.0:
-				body += "\nКнопка ещё перезаряжается — подожди пару секунд."
+				body += tr("TUT_SPIN_COOLDOWN")
 		Step.WAVE:
-			title = "Настоящая волна"
-			body = "Волна идёт по тропе! Башня и рыцарь защищают замок. Победи всех слизней."
+			title = tr("TUT_WAVE_TITLE")
+			body = tr("TUT_WAVE_BODY")
 		Step.UPGRADE:
 			var cost: Vector2i = _build.upgrade_cost(_tower_slot)
-			title = "Улучши башню"
-			body = "Нажми на свою башню и выбери «Улучшить». Улучшать можно в любой момент."
+			title = tr("TUT_UPGRADE_TITLE")
+			body = tr("TUT_UPGRADE_BODY")
 			if cost.x >= 0:
 				body += (
-					"\nНужно: золото %d/%d, дерево %d/%d"
+					tr("TUT_UPGRADE_NEED")
 					% [
 						mini(_game_state.gold, cost.x),
 						cost.x,
@@ -310,10 +298,10 @@ func _ask_skip() -> void:
 	_before_skip = _step
 	_show_modal(
 		&"skip",
-		"Пропустить обучение?",
-		"Его можно пройти заново на карте: Профиль → «Пройти обучение заново».",
-		"Пропустить",
-		"Назад"
+		tr("TUT_SKIP_Q"),
+		tr("TUT_SKIP_BODY"),
+		tr("TUT_SKIP"),
+		tr("TUT_BACK")
 	)
 
 
@@ -344,7 +332,7 @@ func _on_wave_cleared(wave: int) -> void:
 		_enter(Step.UPGRADE)
 	elif _step == Step.SLIMES and wave == 1 and _game_state.gold < _need_gold:
 		# All first slimes gone and still short: the king pays for the first tower.
-		_gift_note = "Король прислал золото на первую башню!"
+		_gift_note = tr("TUT_GIFT")
 		_game_state.add_gold(_need_gold - _game_state.gold)
 
 

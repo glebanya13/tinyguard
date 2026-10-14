@@ -6,8 +6,8 @@
 
 [resource]
 script = ExtResource("1_data")
-display_name = "Лучник"
-role = "быстро, по одной цели; слаб против щитов"
+display_name = "TOWER_ARCHER_NAME"
+role = "TOWER_ARCHER_ROLE"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 15

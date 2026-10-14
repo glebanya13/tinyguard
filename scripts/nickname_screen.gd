@@ -9,7 +9,6 @@ const OK_COLOR := Color(0.62, 0.95, 0.42)
 const ERROR_COLOR := Color(1.0, 0.62, 0.55)
 const INFO_COLOR := Color(0.62, 0.86, 1.0)
 const NEUTRAL_COLOR := Color(0.82, 0.86, 0.95)
-const DEFAULT_HINT := "3–16 букв или цифр, можно пробел и _"
 ## Pause on the "nice to meet you" message before moving on (seconds).
 const SUCCESS_PAUSE := 0.9
 
@@ -41,7 +40,7 @@ func _ready() -> void:
 	_edit.text = str(profile["nickname"])
 	_on_text_changed(_edit.text)
 	if bool(profile["nicknameConflict"]):
-		_show("Имя «%s» уже занято — выбери другое" % profile["nickname"], ERROR_COLOR)
+		_show(tr("NICK_TAKEN_NAMED") % profile["nickname"], ERROR_COLOR)
 	_apply_safe_area()
 	_build_account_entry()
 	if not OS.has_feature("mobile"):
@@ -90,7 +89,7 @@ func _build_account_entry() -> void:
 	if not Online.is_configured() or Onboarding.rename_mode:
 		return
 	_have_account = Button.new()
-	_have_account.text = "У меня уже есть аккаунт"
+	_have_account.text = tr("NICK_HAVE_ACCOUNT")
 	_have_account.focus_mode = Control.FOCUS_NONE
 	_have_account.theme_type_variation = &"SecondaryButton"
 	_have_account.custom_minimum_size = Vector2(320, 58)
@@ -117,7 +116,7 @@ func _apply_safe_area() -> void:
 func _on_text_changed(text: String) -> void:
 	if _saved_offline:
 		_saved_offline = false
-		_go.text = "Вперёд!"
+		_go.text = tr("NICK_GO")
 	var check: Dictionary = NicknameRules.validate(text)
 	_counter.text = "%d/%d" % [NicknameRules.clean(text).length(), NicknameRules.MAX_LENGTH]
 	_counter.add_theme_color_override(
@@ -129,9 +128,9 @@ func _on_text_changed(text: String) -> void:
 		)
 	)
 	if text.strip_edges() == "":
-		_show(DEFAULT_HINT, NEUTRAL_COLOR)
+		_show(tr("NICK_HINT"), NEUTRAL_COLOR)
 	elif check["ok"]:
-		_show("Отличное имя!", OK_COLOR)
+		_show(tr("NICK_GREAT"), OK_COLOR)
 	elif check["error"] == "too_short" and not _tried:
 		_show(str(check["message"]), NEUTRAL_COLOR)  # still typing
 	else:
@@ -155,30 +154,27 @@ func _on_go_pressed() -> void:
 		_on_text_changed(_edit.text)
 		return
 	_set_busy(true)
-	_show("Проверяем имя…", INFO_COLOR)
+	_show(tr("NICK_CHECKING_NAME"), INFO_COLOR)
 	var result: Dictionary = await Online.reserve_nickname(_edit.text)
 	_set_busy(false)
 	match str(result["reason"]):
 		"reserved", "local":
 			_edit.text = str(PlayerProfile.local()["nickname"])
-			_show("Приятно познакомиться, %s!" % _edit.text, OK_COLOR)
+			_show(tr("NICK_WELCOME") % _edit.text, OK_COLOR)
 			_set_busy(true)  # no second submit while we move on
 			await get_tree().create_timer(SUCCESS_PAUSE).timeout
 			_finish()
 		"offline":
 			_saved_offline = true
-			_go.text = "Продолжить"
+			_go.text = tr("NICK_CONTINUE")
 			_go.disabled = false
-			_show(
-				"Нет связи. Имя сохранено на устройстве — проверим его, когда появится интернет",
-				INFO_COLOR
-			)
+			_show(tr("NICK_OFFLINE_SAVED"), INFO_COLOR)
 		"taken", "invalid", "rate_limited":
 			var error: String = str(result["error"])
 			if error == "" or error == "invalid":
 				error = "taken" if result["reason"] == "taken" else str(result["reason"])
 			var text: String = NicknameRules.message(error)
-			_show(text if text != "" else "Не подходит — попробуй другое имя", ERROR_COLOR)
+			_show(text if text != "" else tr("NICK_NOT_SUITABLE"), ERROR_COLOR)
 			_go.disabled = true
 			_edit.select_all()
 			if not OS.has_feature("mobile"):
@@ -192,9 +188,9 @@ func _set_busy(on: bool) -> void:
 	_edit.editable = not on
 	_go.disabled = on
 	if on:
-		_go.text = "Проверяем…"
+		_go.text = tr("NICK_CHECKING")
 	elif not _saved_offline:
-		_go.text = "Вперёд!"
+		_go.text = tr("NICK_GO")
 
 
 func _show(text: String, color: Color) -> void:

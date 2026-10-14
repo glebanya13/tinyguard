@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1_perk")
 id = &"towers"
-display_name = "Меткие стрелки"
-description = "Урон башен: %s"
+display_name = "PERK_TOWERS_NAME"
+description = "PERK_TOWERS_DESC"
 icon = ExtResource("2_icon")
 costs = Array[int]([2, 2, 3])
 values = Array[float]([0.08, 0.16, 0.25])

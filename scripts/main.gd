@@ -6,13 +6,7 @@ extends Node3D
 
 enum GuideStep { NONE, CHOP, GOLD, BUILD }
 
-const DEFEAT_TIPS: Array[String] = [
-	"Мороз перед Пушкой: замедленные враги дольше под обстрелом",
-	"улучшайте меч в кузнице и встречайте босса «Вихрем»",
-	"звёзды покупают постоянные улучшения в Казне на карте",
-	"рубите деревья между волнами — дерево нужно для улучшений",
-	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
-]
+const DEFEAT_TIPS: Array[String] = ["TIP_FROST", "TIP_SWORD", "TIP_STARS", "TIP_WOOD", "TIP_LOOP"]
 
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 const TUTORIAL_SCENE := preload("res://scenes/tutorial.tscn")
@@ -168,7 +162,7 @@ func _ready() -> void:
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	if _endless:
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
-	_hud.show_banner("Первая волна через " + _seconds_text(_wave_manager.plan.first_delay))
+	_hud.show_banner(tr("WAVE_FIRST_IN") % _seconds_text(_wave_manager.plan.first_delay))
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
 
@@ -223,9 +217,9 @@ func _count_kill(reward: int) -> void:
 
 func _stats_summary() -> String:
 	var t: int = int(_stats["time"])
-	var line_1 := "Врагов побеждено: %d · золота добыто: %d" % [_stats["kills"], _stats["gold"]]
+	var line_1 := tr("END_STATS_1") % [_stats["kills"], _stats["gold"]]
 	var line_2 := (
-		"Дерева нарублено: %d · башен: %d · время %d:%02d"
+		tr("END_STATS_2")
 		% [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
 	)
 	return line_1 + "\n" + line_2
@@ -466,10 +460,10 @@ func _refresh_card() -> void:
 	_forge_open = false
 	_hud.show_hint("")
 	if slot.is_free():
-		info["title"] = "Площадка"
+		info["title"] = tr("CARD_PLOT")
 		var names: PackedStringArray = []
 		for data: TowerData in _tower_types():
-			names.append(data.display_name)
+			names.append(tr(data.display_name))
 		info["stats"] = " · ".join(names)
 		var short := true
 		for i in _tower_types().size():
@@ -487,35 +481,35 @@ func _refresh_card() -> void:
 						"enabled": ok,
 						"tooltip":
 						(
-							"%s (%d) — %s\n%s"
-							% [data.display_name, i + 1, data.role, _stats_text(data, 0)]
+							tr("CARD_TOWER_TIP")
+							% [tr(data.display_name), i + 1, tr(data.role), _stats_text(data, 0)]
 						),
 					}
 				)
 			)
-		info["hint"] = "Не хватает золота или дерева" if short else ""
+		info["hint"] = tr("CARD_NEED_BOTH") if short else ""
 	else:
 		var data: TowerData = slot.tower.data
 		var level_index: int = slot.tower.level
 		var cost: Vector2i = data.upgrade_cost(level_index)
 		info["title"] = (
-			"%s · ур. %d/%d" % [data.display_name, level_index + 1, data.max_level() + 1]
+			tr("CARD_TOWER_TITLE") % [tr(data.display_name), level_index + 1, data.max_level() + 1]
 		)
 		info["stats"] = _stats_text(data, level_index)
 		var upgrade := {
 			"id": &"upgrade",
 			"icon": UPGRADE_ICON,
 			"enabled": _build_manager.can_upgrade(slot),
-			"tooltip": "Улучшить (U)"
+			"tooltip": tr("CARD_UPGRADE_TIP")
 		}
 		if cost.x < 0:
-			upgrade["label"] = "макс."
+			upgrade["label"] = tr("CARD_MAX")
 		else:
 			upgrade["gold"] = cost.x
 			upgrade["wood"] = cost.y
-			upgrade["tooltip"] = "Улучшить (U) → " + _stats_text(data, level_index + 1)
+			upgrade["tooltip"] = tr("CARD_UPGRADE_TIP_NEXT") % _stats_text(data, level_index + 1)
 			if not upgrade["enabled"]:
-				info["hint"] = "Не хватает золота или дерева"
+				info["hint"] = tr("CARD_NEED_BOTH")
 		buttons.append(upgrade)
 		var refund: Vector2i = data.sell_value(level_index)
 		buttons.append(
@@ -526,7 +520,7 @@ func _refresh_card() -> void:
 				"wood": refund.y,
 				"gain": true,
 				"enabled": true,
-				"tooltip": "Продать за %d%% вложенного (X)" % roundi(TowerData.SELL_REFUND * 100.0)
+				"tooltip": tr("CARD_SELL_TIP") % roundi(TowerData.SELL_REFUND * 100.0)
 			}
 		)
 	if slot != null:
@@ -536,11 +530,11 @@ func _refresh_card() -> void:
 				"icon": CANCEL_ICON,
 				"label": "Esc",
 				"enabled": true,
-				"tooltip": "Снять выбор (Esc)"
+				"tooltip": tr("CARD_DESELECT_TIP")
 			}
 		)
 	if _pending_command != &"":
-		info["hint"] = "Рыцарь идёт к площадке…"
+		info["hint"] = tr("CARD_KNIGHT_WALKS")
 	_show_range(slot)
 	info["buttons"] = buttons
 	_hud.update_card(info)
@@ -558,14 +552,14 @@ func _show_range(slot: TowerSlot) -> void:
 
 ## Forge card: sword upgrade and castle repair.
 func _forge_card() -> Dictionary:
-	var info := {"title": "Кузница"}
+	var info := {"title": tr("CARD_FORGE_TITLE")}
 	var sword: Vector2i = _hero.sword_upgrade_cost()
 	var next_damage: String = ""
 	if sword.x >= 0:
 		var next_index: int = mini(_hero.sword_level + 1, _hero.sword_damage_levels.size() - 1)
 		next_damage = (" → %d" % (_hero.sword_damage_levels[next_index] * _hero.damage_multiplier))
 	info["stats"] = (
-		"Меч %d%s · стены %d/%d"
+		tr("CARD_FORGE_STATS")
 		% [
 			_hero.attack_damage * _hero.damage_multiplier,
 			next_damage,
@@ -577,10 +571,10 @@ func _forge_card() -> Dictionary:
 		"id": &"sword",
 		"icon": SWORD_ICON,
 		"enabled": _game_state.can_afford(sword),
-		"tooltip": "Закалить меч (U)"
+		"tooltip": tr("CARD_SWORD_TIP")
 	}
 	if sword.x < 0:
-		upgrade["label"] = "макс."
+		upgrade["label"] = tr("CARD_MAX")
 	else:
 		upgrade["gold"] = sword.x
 		upgrade["wood"] = sword.y
@@ -589,7 +583,7 @@ func _forge_card() -> Dictionary:
 		"icon": HEART_ICON,
 		"wood": _game_state.repair_wood,
 		"enabled": _game_state.can_repair(),
-		"tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives
+		"tooltip": tr("CARD_REPAIR_TIP") % _game_state.repair_lives
 	}
 	info["buttons"] = [
 		upgrade,
@@ -599,7 +593,7 @@ func _forge_card() -> Dictionary:
 			"icon": CANCEL_ICON,
 			"label": "Esc",
 			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
+			"tooltip": tr("CARD_CLOSE_TIP")
 		}
 	]
 	return info
@@ -610,14 +604,12 @@ func _trade_card() -> Dictionary:
 	var lot: int = villagers.trade.wood_per_lot
 	var lots: int = villagers.lots_affordable()
 	var price: int = villagers.lot_price()
-	var info := {"title": "Житель"}
-	info["stats"] = (
-		"Курс: %d дерева → %d золота · дерева у вас: %d" % [lot, price, _game_state.wood]
-	)
+	var info := {"title": tr("CARD_VILLAGER")}
+	info["stats"] = tr("CARD_TRADE_STATS") % [lot, price, _game_state.wood]
 	info["hint"] = (
-		"Чем больше продаёте, тем ниже цена"
+		tr("CARD_TRADE_HINT")
 		if lots > 0
-		else "Не хватает дерева: житель берёт по %d" % lot
+		else tr("CARD_NEED_WOOD_VILLAGER") % lot
 	)
 	info["buttons"] = [
 		{
@@ -626,7 +618,7 @@ func _trade_card() -> Dictionary:
 			"gold": price,
 			"gain": true,
 			"enabled": lots > 0,
-			"tooltip": "Продать %d дерева → +%d золота" % [lot, price]
+			"tooltip": tr("CARD_TRADE_LOT_TIP") % [lot, price]
 		},
 		{
 			"id": &"trade_all",
@@ -634,14 +626,14 @@ func _trade_card() -> Dictionary:
 			"gold": villagers.quote(lots),
 			"gain": true,
 			"enabled": lots > 0,
-			"tooltip": "Продать всё: %d дерева → +%d золота" % [lots * lot, villagers.quote(lots)]
+			"tooltip": tr("CARD_TRADE_ALL_TIP") % [lots * lot, villagers.quote(lots)]
 		},
 		{
 			"id": &"cancel",
 			"icon": CANCEL_ICON,
 			"label": "Esc",
 			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
+			"tooltip": tr("CARD_CLOSE_TIP")
 		}
 	]
 	return info
@@ -700,11 +692,11 @@ func _hint_text() -> String:
 		return ""
 	match _guide_step():
 		GuideStep.CHOP:
-			return "Нажмите на дерево — рыцарь нарубит дров"
+			return tr("GUIDE_CHOP")
 		GuideStep.GOLD:
-			return "Бейте слизней у тропы — за них золото"
+			return tr("GUIDE_GOLD")
 		GuideStep.BUILD:
-			return "Нажмите на площадку и постройте башню"
+			return tr("GUIDE_BUILD")
 	return ""
 
 
@@ -779,13 +771,13 @@ func _nearest_in_group(group: StringName, accept: Callable) -> Node3D:
 
 func _stats_text(data: TowerData, index: int) -> String:
 	var text := (
-		"Урон %d · радиус %.1f · %.2f с"
+		tr("TOWER_STATS")
 		% [data.damage_levels[index], data.range_levels[index], data.interval_levels[index]]
 	)
 	if data.splash_levels[index] > 0.0:
-		text += " · взрыв %.1f м" % data.splash_levels[index]
+		text += tr("TOWER_STATS_SPLASH") % data.splash_levels[index]
 	if data.slow_levels[index] < 1.0:
-		text += " · замедл. %d%%" % roundi((1.0 - data.slow_levels[index]) * 100.0)
+		text += tr("TOWER_STATS_SLOW") % roundi((1.0 - data.slow_levels[index]) * 100.0)
 	return text
 
 
@@ -893,22 +885,25 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 		_boss_roar.play()
 	# One banner per wave (a boss wave gets the king icon, not a second banner).
 	var last: bool = not _endless and wave >= total
-	var title: String = "Последняя волна!" if last else "Волна %d!" % wave
+	var title: String = tr("WAVE_LAST") if last else tr("WAVE_N") % wave
 	var next: String = ""
 	if not last:
-		next = "Следующая через " + _seconds_text(_wave_manager.plan.wave_duration)
+		next = tr("WAVE_NEXT_IN") % _seconds_text(_wave_manager.plan.wave_duration)
 	_hud.show_banner(title, next, boss)
 
 
-## "30 секунд", "21 секунду", "2 секунды".
+## "30 seconds" / "30 секунд"; Russian has three plural forms, English two.
 func _seconds_text(seconds: float) -> String:
 	var n: int = roundi(seconds)
-	var word: String = "секунд"
-	if n % 10 == 1 and n % 100 != 11:
-		word = "секунду"
-	elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
-		word = "секунды"
-	return "%d %s" % [n, word]
+	var key: String = "TIME_SECONDS_MANY"
+	if TranslationServer.get_locale().begins_with("ru"):
+		if n % 10 == 1 and n % 100 != 11:
+			key = "TIME_SECONDS_ONE"
+		elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
+			key = "TIME_SECONDS_FEW"
+	elif n == 1:
+		key = "TIME_SECONDS_ONE"
+	return tr(key) % n
 
 
 func _on_all_waves_cleared() -> void:
@@ -919,12 +914,12 @@ func _on_all_waves_cleared() -> void:
 	LevelCatalog.complete(int(level["id"]), stars)
 	var gained: int = Perks.earned_stars() - before
 	_victory_sound.play()
-	var line: String = "Звёзд всего: %d из %d" % [Perks.earned_stars(), Perks.max_stars()]
+	var line: String = tr("END_STARS_TOTAL") % [Perks.earned_stars(), Perks.max_stars()]
 	if gained > 0:
-		line = "Новые звёзды: +%d! %s\nПотратьте их в Казне на карте" % [gained, line]
+		line = tr("END_STARS_NEW") % [gained, line]
 	elif stars < 3:
-		line += "\n3 звезды — пройти, не потеряв ни одной жизни"
-	_end_game("Победа!", true, stars, line + "\n")
+		line += tr("END_STARS_HINT")
+	_end_game(tr("HUD_VICTORY"), true, stars, line + "\n")
 
 
 func _on_defeated() -> void:
@@ -938,9 +933,9 @@ func _on_defeated() -> void:
 		var record: bool = LevelCatalog.save_endless(id, _waves_cleared)
 		if record:
 			Online.submit_record(id, _waves_cleared)
-		var title := "Новый рекорд: %d волн!" % _waves_cleared if record else "Осада окончена"
+		var title := tr("END_NEW_RECORD") % _waves_cleared if record else tr("END_SIEGE_OVER")
 		var line := (
-			"Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d"
+			tr("END_SIEGE_STATS")
 			% [
 				_waves_cleared,
 				maxi(old_record, _waves_cleared),
@@ -953,11 +948,10 @@ func _on_defeated() -> void:
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
 	tips.append(
 		(
-			"ремонт стен в кузнице: +%d жизни за %d дерева"
-			% [_game_state.repair_lives, _game_state.repair_wood]
+			tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood]
 		)
 	)
-	_end_game("Поражение", false, 0, "Совет: " + tips.pick_random() + "\n")
+	_end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
 
 
 func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:

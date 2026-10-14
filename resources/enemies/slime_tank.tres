@@ -5,7 +5,7 @@
 
 [resource]
 script = ExtResource("1_data")
-display_name = "Бронеслайм"
+display_name = "ENEMY_SLIME_TANK_NAME"
 model = ExtResource("2_model")
 health = 75.0
 speed = 0.8

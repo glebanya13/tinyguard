@@ -122,13 +122,13 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 46
-text = "Выбери имя героя!"
+text = "NICK_TITLE"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="Safe/Center/Row/Panel/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Как тебя называть в приключениях?"
+text = "NICK_SUBTITLE"
 horizontal_alignment = 1
 autowrap_mode = 3
 
@@ -143,7 +143,7 @@ theme_override_colors/selection_color = Color(0.95, 0.73, 0.29, 0.6)
 theme_override_font_sizes/font_size = 36
 theme_override_styles/normal = SubResource("edit_normal")
 theme_override_styles/focus = SubResource("edit_focus")
-placeholder_text = "Твоё имя"
+placeholder_text = "NICK_PLACEHOLDER"
 alignment = 1
 max_length = 24
 context_menu_enabled = false
@@ -160,7 +160,7 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
-text = "3–16 букв или цифр"
+text = "NICK_HINT_SHORT"
 autowrap_mode = 3
 
 [node name="Counter" type="Label" parent="Safe/Center/Row/Panel/Content/Feedback"]
@@ -177,7 +177,7 @@ size_flags_horizontal = 4
 focus_mode = 0
 theme_override_font_sizes/font_size = 34
 theme_override_constants/icon_max_width = 40
-text = "Вперёд!"
+text = "NICK_GO"
 icon = ExtResource("4_play")
 icon_alignment = 2
 
@@ -185,6 +185,6 @@ icon_alignment = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
 theme_override_font_sizes/font_size = 17
-text = "Имя видят другие игроки в рекордах. Не используй настоящее имя и фамилию."
+text = "NICK_PRIVACY_NOTE"
 horizontal_alignment = 1
 autowrap_mode = 3

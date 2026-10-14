@@ -25,21 +25,21 @@ const CONFIG_PATH := "res://firebase.cfg"
 const LEADERBOARD_SIZE := 10
 const NAME_MAX := 16
 ## Leaderboard name of players without a reserved nickname (firestore.rules).
-const ANONYMOUS_NAME := "Рыцарь"
+const ANONYMOUS_NAME := "Рыцарь"  # i18n:keep (server-side name)
 ## Rounds of read-merge-write when another device writes in between.
 const MAX_SYNC_ROUNDS := 3
 ## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
 const NICKNAME_CHANGE_SECONDS := 86400
 const _PROFILE_TIMES: Array[String] = ["createdAt", "nicknameChangedAt"]
 const STATE_TEXT := {
-	"off": "Только на этом устройстве",
-	"syncing": "Синхронизация…",
-	"synced": "Сохранено в облаке",
-	"pending": "Не синхронизировано",
-	"offline": "Не синхронизировано · нет связи",
-	"session_lost": "Не синхронизировано · вход потерян",
-	"newer": "Не синхронизировано · обновите игру",
-	"disabled": "Аккаунт заблокирован",
+	"off": "SYNC_OFF",
+	"syncing": "SYNC_SYNCING",
+	"synced": "SYNC_SYNCED",
+	"pending": "SYNC_PENDING",
+	"offline": "SYNC_OFFLINE",
+	"session_lost": "SYNC_SESSION_LOST",
+	"newer": "SYNC_NEWER",
+	"disabled": "SYNC_DISABLED",
 }
 
 var api_key: String = ""
@@ -134,7 +134,7 @@ func sync_state() -> String:
 
 
 static func state_text(state: String) -> String:
-	return str(STATE_TEXT.get(state, ""))
+	return TranslationServer.translate(str(STATE_TEXT.get(state, "")))
 
 
 ## "local" (no Firebase), "guest", "email" or "none" (not signed in yet).
@@ -405,7 +405,7 @@ func submit_record(level_id: int, wave: int) -> void:
 	var path: String = "leaderboards/level_%d/scores/%s" % [level_id, auth.uid]
 	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
 	var reply: Dictionary = await firestore.commit([write])
-	status_changed.emit("Рекорд отправлен" if reply["ok"] else "Не удалось отправить рекорд")
+	status_changed.emit(tr("ONLINE_RECORD_SENT") if reply["ok"] else tr("ONLINE_RECORD_FAILED"))
 
 
 func fetch_leaderboard(level_id: int) -> void:
@@ -426,7 +426,7 @@ func fetch_leaderboard(level_id: int) -> void:
 ## Syncs the profile now (the button "В облако").
 func cloud_save() -> void:
 	var result: Dictionary = await sync_now()
-	status_changed.emit("Прогресс сохранён в облаке" if result["ok"] else _error_text(result))
+	status_changed.emit(tr("ONLINE_SAVED") if result["ok"] else _error_text(result))
 
 
 ## Merges the cloud profile into the local one (the button "Из облака");
@@ -435,7 +435,7 @@ func cloud_load() -> void:
 	var result: Dictionary = await sync_now()
 	var changed: bool = result["ok"] and result["changed"]
 	if result["ok"]:
-		status_changed.emit("Прогресс обновлён из облака" if changed else "Прогресс уже совпадает")
+		status_changed.emit(tr("ONLINE_UPDATED") if changed else tr("ONLINE_SAME"))
 	else:
 		status_changed.emit(_error_text(result))
 	cloud_loaded.emit(changed)
@@ -504,7 +504,7 @@ func _sync() -> Dictionary:
 			var reserved: Dictionary = await _reserve(str(local["nickname"]))
 			if reserved["reason"] in ["taken", "invalid"]:
 				Onboarding.flag_nickname_conflict()
-				status_changed.emit("Имя «%s» занято — выбери другое" % local["nickname"])
+				status_changed.emit(tr("ONLINE_NAME_TAKEN") % local["nickname"])
 	var start_hash: String = PlayerProfile.content_hash(PlayerProfile.local())
 	var result: Dictionary = {"ok": false, "error": "server", "changed": false}
 	for round_index in MAX_SYNC_ROUNDS:
@@ -764,11 +764,11 @@ static func _reply_error(reply: Dictionary) -> String:
 func _error_text(result: Dictionary) -> String:
 	match str(result.get("error", "")):
 		"offline":
-			return "Нет связи с сервером"
+			return tr("ONLINE_ERR_OFFLINE")
 		"newer":
-			return "Облачный прогресс из новой версии — обновите игру"
+			return tr("ONLINE_ERR_NEWER")
 		"session_lost":
-			return "Вход потерян — откройте Профиль"
+			return tr("ONLINE_ERR_SESSION_LOST")
 		"not_configured":
-			return "Облако недоступно"
-	return "Не удалось синхронизировать"
+			return tr("ONLINE_ERR_NOT_CONFIGURED")
+	return tr("ONLINE_ERR_GENERIC")
