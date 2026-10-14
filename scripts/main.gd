@@ -62,6 +62,11 @@ var level: Dictionary = {}
 var walk_grid := WalkGrid.new()
 var villagers := Villagers.new()
 
+## Battle simulation (fixed-step clock, entity registry) and the single entry
+## for player actions (journal of the battle).
+var _sim: Sim = null
+var _commands: GameCommands = null
+
 var _focused_tree: WoodTree = null
 ## What the hero's next swing hits, computed once per frame.
 var _focus: Node3D = null
@@ -108,12 +113,34 @@ var _trade_walking: bool = false
 
 
 func _ready() -> void:
+	_sim = Sim.new()
+	_sim.name = "Sim"
+	add_child(_sim)
+	_sim.set_seed(randi())  # a replay overrides it (Sim.begin_replay)
+	_commands = GameCommands.new()
+	_commands.name = "GameCommands"
+	_commands.sim = _sim
+	add_child(_commands)
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
 	_build_level()
 	_endless = LevelCatalog.endless
 	_game_state.configure(_start_with_perks(level["start"]))
 	_game_state.reset()
 	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
+	_wave_manager.sim = _sim
+	_build_manager.sim = _sim
+	_hero.sim = _sim
+	_hero.commands = _commands
+	_commands.game_state = _game_state
+	_commands.build_manager = _build_manager
+	_commands.hero = _hero
+	_commands.villagers = villagers
+	_sim.commands = _commands
+	_sim.game_state = _game_state
+	_sim.wave_manager = _wave_manager
+	_sim.hero = _hero
+	_sim.villagers = villagers
+	_commands.journal.header = _journal_header()
 	_hero.damage_multiplier = 1.0 + Perks.value(&"sword")
 	_hero.wood_bonus = int(Perks.value(&"axe"))
 	_build_manager.damage_multiplier = 1.0 + Perks.value(&"towers")
@@ -137,6 +164,9 @@ func _ready() -> void:
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
 	_build_manager.ground_tapped.connect(_on_ground_tapped)
+	_commands.applied.connect(_on_command_applied)
+	_sim.pause_changed.connect(_on_pause_changed)
+	_sim.speed_changed.connect(_on_speed_changed)
 
 	_hud.command_pressed.connect(_on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
@@ -155,6 +185,7 @@ func _ready() -> void:
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
+	villagers.seed_value = _sim.seed_value
 	villagers.wood_sold.connect(_on_wood_sold)
 	_level_root.add_child(villagers)
 
@@ -189,7 +220,14 @@ func _notification(what: int) -> void:
 func _toggle_pause() -> void:
 	if _ended:
 		return
-	_paused = not _paused
+	_commands.submit(GameCommand.set_pause(not _paused))
+
+
+## The pause command was applied: stop / resume the whole tree.
+func _on_pause_changed(on: bool) -> void:
+	if _ended:
+		return
+	_paused = on
 	get_tree().paused = _paused
 	_hero.joystick_vector = Vector2.ZERO
 	_camera.reset_touches()
@@ -201,8 +239,47 @@ func _toggle_pause() -> void:
 
 
 func _toggle_speed() -> void:
-	Engine.time_scale = 1.0 if Engine.time_scale > 1.0 else 2.0
-	_hud.set_speed(roundi(Engine.time_scale))
+	_commands.submit(GameCommand.set_speed(1 if Engine.time_scale > 1.0 else 2))
+
+
+## The speed command was applied: x2 only means twice as many frames of real
+## time per second, so the simulation still sees the same steps.
+func _on_speed_changed(speed: int) -> void:
+	Engine.time_scale = float(speed)
+	_hud.set_speed(speed)
+
+
+## What a replay needs to know about the battle it reproduces.
+func _journal_header() -> Dictionary:
+	return {
+		"sim_version": Sim.VERSION,
+		"tick_rate": Sim.TICK_RATE,
+		"level": int(level["id"]),
+		"endless": _endless,
+		"seed": _sim.seed_value,
+		"perks":
+		[
+			Perks.value(&"sword"),
+			Perks.value(&"axe"),
+			Perks.value(&"towers"),
+			Perks.value(&"gold_start"),
+			Perks.value(&"wood_start"),
+			Perks.value(&"walls"),
+		],
+	}
+
+
+## UI reaction to an executed command: effects of the forge, a fresh card.
+func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
+	if not ok:
+		return
+	match cmd.type:
+		GameCommand.Type.SWORD:
+			_spawn_fx(UPGRADE_FX, _hero.global_position)
+			_refresh_card()
+		GameCommand.Type.REPAIR:
+			_spawn_fx(BUILD_FX, _castle.global_position)
+			_refresh_card()
 
 
 ## Level start values plus the permanent perks bought with stars.
@@ -305,7 +382,9 @@ func _build_level() -> void:
 	_level_root.add_child(castle)
 
 	for point: Array in level["slots"]:
-		var slot: Node3D = SLOT_SCENE.instantiate()
+		var slot := SLOT_SCENE.instantiate() as TowerSlot
+		slot.slot_id = _commands.slots.size()
+		_commands.slots.append(slot)
 		slot.position = _ground(point, PATH_HEIGHT)
 		_level_root.add_child(slot)
 
@@ -330,6 +409,7 @@ func _plant_trees(decor: Node3D) -> void:
 		tree.variant = StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
 		tree.model_scale = spot.scale.x
 		tree.grove = grove
+		tree.sim = _sim
 		tree.position = spot.global_position
 		_level_root.add_child(tree)
 		trees.append(tree)
@@ -355,6 +435,7 @@ func _build_walk_grid() -> void:
 		_ground(level["hero"]),
 		slots
 	)
+	_sim.start()  # the level is complete: the battle clock may run
 
 
 func _ground(point: Array, height: float = 0.0) -> Vector3:
@@ -368,7 +449,9 @@ func _tower_types() -> Array[TowerData]:
 ## Command card action: the hero walks to the selected slot and acts there.
 func _on_command_pressed(id: StringName) -> void:
 	if id == &"trade_lot" or id == &"trade_all":
-		villagers.sell(1 if id == &"trade_lot" else villagers.lots_affordable())
+		var lots: int = 1 if id == &"trade_lot" else villagers.lots_affordable()
+		if lots > 0:
+			_commands.submit(GameCommand.trade(lots))
 		_refresh_card()
 		return
 	if id == &"cancel":
@@ -380,18 +463,14 @@ func _on_command_pressed(id: StringName) -> void:
 		_refresh_card()
 		return
 	if id == &"sword":
-		if _game_state.spend(_hero.sword_upgrade_cost()):
-			_hero.upgrade_sword()
-			_spawn_fx(UPGRADE_FX, _hero.global_position)
-		_refresh_card()
+		_commands.submit(GameCommand.sword())
 		return
 	if id == &"repair":
-		if _game_state.repair():
-			_spawn_fx(BUILD_FX, _castle.global_position)
-		_refresh_card()
+		_commands.submit(GameCommand.repair())
 		return
 	if id == &"sell":
-		_build_manager.sell(_build_manager.selected_slot)
+		if _build_manager.selected_slot != null:
+			_commands.submit(GameCommand.sell(_build_manager.selected_slot.slot_id))
 		_refresh_card()
 		return
 	var slot: TowerSlot = _build_manager.selected_slot
@@ -408,15 +487,18 @@ func _on_command_pressed(id: StringName) -> void:
 
 func _execute(id: StringName, slot: TowerSlot) -> void:
 	if id == &"upgrade":
-		_build_manager.upgrade(slot)
+		_commands.submit(GameCommand.upgrade(slot.slot_id))
 	else:
-		_build_manager.build_on(slot, _tower_for(id))
+		_commands.submit(GameCommand.build(slot.slot_id, _tower_index(id)))
 	_refresh_card()
 
 
+func _tower_index(id: StringName) -> int:
+	return int(String(id).trim_prefix("build_"))
+
+
 func _tower_for(id: StringName) -> TowerData:
-	var index: int = int(String(id).trim_prefix("build_"))
-	return _tower_types()[index]
+	return _tower_types()[_tower_index(id)]
 
 
 func _command_available(id: StringName, slot: TowerSlot) -> bool:

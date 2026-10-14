@@ -4,6 +4,8 @@ extends PathFollow3D
 ## setup() before entering the tree. Reports death and reaching the base
 ## through signals and frees itself in both cases. Drawn by an EnemyCrowd when
 ## one is set (MultiMesh, no own model); otherwise it instantiates its model.
+## The walk is simulated in fixed steps by Sim (sim_step); the node's own
+## `progress` / transform only show the position between two steps.
 
 signal died(reward: int)
 signal reached_base(damage: int)
@@ -27,6 +29,13 @@ const AIM_FRACTION := 0.45
 
 var health: float = 0.0
 var data: EnemyData = null
+## Stable id (set by Sim.add_enemy in spawn order): the order of everything.
+var id: int = 0
+var sim: Sim = null
+## The route walked (set before entering the tree; else the parent Path3D).
+var path: Path3D = null
+## Metres walked along the path in the simulation (the node shows an interpolation).
+var sim_progress: float = 0.0
 ## Wave this enemy belongs to (set by WaveManager).
 var wave: int = 0
 ## Shared renderer; set before adding the enemy to the tree (null = own model).
@@ -37,6 +46,9 @@ var anim_phase: float = randf()
 var visual_scale: Vector3 = Vector3.ONE
 
 var _is_dead: bool = false
+var _prev_progress: float = 0.0
+var _path_length: float = 1.0
+var _sim_pos: Vector3 = Vector3.ZERO
 var _slow_factor: float = 1.0
 var _slow_left: float = 0.0
 var _bar_width: float = 1.0
@@ -60,6 +72,14 @@ func setup(enemy_data: EnemyData, health_multiplier: float) -> void:
 func _ready() -> void:
 	health = max_health
 	add_to_group(GROUP)
+	loop = false
+	if path == null:
+		path = get_parent() as Path3D
+	if sim == null:
+		sim = Sim.current
+	_path_length = maxf(path.curve.get_baked_length(), 0.001) if path else 1.0
+	sim.add_enemy(self)
+	_update_sim_pos()
 	_bar_width = data.health_bar_width / 0.6 if data else 1.0
 	if crowd and data:
 		crowd.add(self)
@@ -83,20 +103,30 @@ func _ready() -> void:
 	_health_bar.visible = is_boss()
 
 
-func _process(delta: float) -> void:
+## Drawing only: shows the position between the last two simulation steps.
+func _process(_delta: float) -> void:
 	if _is_dead:
 		return
+	progress = minf(lerpf(_prev_progress, sim_progress, sim.alpha()), _path_length)
+
+
+## One fixed simulation step (called by Sim in id order).
+func sim_step() -> void:
+	if _is_dead:
+		return
+	_prev_progress = sim_progress
 	if _slow_left > 0.0:
-		_slow_left -= delta
+		_slow_left -= Sim.TICK_DT
 		if _slow_left <= 0.0:
 			_slow_factor = 1.0
-	progress += speed * _slow_factor * delta
+	sim_progress += speed * _slow_factor * Sim.TICK_DT
+	_update_sim_pos()
 	if data and data.heal_fraction > 0.0:
-		_heal_left -= delta
+		_heal_left -= Sim.TICK_DT
 		if _heal_left <= 0.0:
 			_heal_left = data.heal_interval
 			_heal_neighbours()
-	if progress_ratio >= ARRIVAL_RATIO:
+	if sim_progress / _path_length >= ARRIVAL_RATIO:
 		_remove()
 		reached_base.emit(base_damage)
 
@@ -117,7 +147,7 @@ func take_damage(amount: float, kind: StringName = &"") -> void:
 		if data and data.split_into:
 			# Halves first (they join the wave before this one leaves it), a bit apart.
 			for i in data.split_count:
-				split.emit(data.split_into, _health_mult, maxf(progress - 0.35 * i, 0.0), wave)
+				split.emit(data.split_into, _health_mult, maxf(sim_progress - 0.35 * i, 0.0), wave)
 		died.emit(reward)
 	else:
 		_pulse(Vector3(1.18, 0.82, 1.18), 0.0, 0.18)  # squash on hit
@@ -131,6 +161,33 @@ func apply_slow(factor: float, duration: float) -> void:
 
 func is_alive() -> bool:
 	return not _is_dead
+
+
+## Puts the enemy `metres` along the path at once (spawning halves, tests).
+func place(metres: float) -> void:
+	sim_progress = metres
+	_prev_progress = metres
+	_update_sim_pos()
+	progress = minf(metres, _path_length)
+
+
+## Where the simulation has the enemy (ground position; targeting uses it).
+func sim_position() -> Vector3:
+	return _sim_pos
+
+
+## Integers describing the simulated state (for Sim.state_hash).
+func state_ints() -> Array[int]:
+	return [
+		id,
+		wave,
+		roundi(sim_progress * 1000.0),
+		roundi(health * 1000.0),
+		roundi(_slow_left * 1000.0),
+		roundi(_heal_left * 1000.0),
+		roundi(_sim_pos.x * 1000.0),
+		roundi(_sim_pos.z * 1000.0),
+	]
 
 
 ## Restores health (capped at max) and refreshes the bar.
@@ -176,14 +233,18 @@ func model_offset() -> Transform3D:
 
 func get_aim_point() -> Vector3:
 	var height: float = data.health_bar_height * AIM_FRACTION + data.fly_height if data else 0.25
-	return global_position + Vector3.UP * height
+	return _sim_pos + Vector3.UP * height
+
+
+func _update_sim_pos() -> void:
+	if path != null and path.curve != null and path.curve.point_count >= 2:
+		_sim_pos = path.global_transform * path.curve.sample_baked(sim_progress, true)
 
 
 func _heal_neighbours() -> void:
 	var r2: float = data.heal_radius * data.heal_radius
-	for node: Node in get_tree().get_nodes_in_group(GROUP):
-		var other := node as Enemy
-		if other != self and other.global_position.distance_squared_to(global_position) <= r2:
+	for other in sim.enemies.duplicate():
+		if other != self and other.sim_position().distance_squared_to(_sim_pos) <= r2:
 			other.heal(other.max_health * data.heal_fraction)
 	_pulse(Vector3.ONE * 1.12, 0.12, 0.2)
 
@@ -221,8 +282,16 @@ func _spawn_death_fx() -> void:
 		fx.scale = Vector3.ONE * 2.5
 
 
+func _exit_tree() -> void:
+	if sim != null:
+		sim.remove_enemy(self)
+	if is_instance_valid(crowd):
+		crowd.remove(self)
+
+
 func _remove() -> void:
 	_is_dead = true
+	sim.remove_enemy(self)
 	if crowd:
 		crowd.remove(self)
 	remove_from_group(GROUP)

@@ -23,6 +23,8 @@ signal ground_tapped(point: Vector3)
 ## A press that moves further than this before release is a drag, not a tap.
 @export var tap_slop: float = 24.0
 
+## Towers built here join this simulation (set by the level).
+var sim: Sim = null
 var selected_slot: TowerSlot = null
 ## Permanent tower damage bonus (perk), applied after every level change.
 var damage_multiplier: float = 1.0
@@ -112,6 +114,8 @@ func build_on(slot: TowerSlot, data: TowerData) -> bool:
 		game_state.add_gold(cost.x)
 		game_state.add_wood(cost.y)
 		return false
+	if sim != null:
+		tower.attach(sim)
 	tower.apply_level(data, 0)
 	tower.damage *= damage_multiplier
 	if slot == selected_slot:

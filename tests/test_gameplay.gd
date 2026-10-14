@@ -101,6 +101,13 @@ func _run() -> void:
 			tree = node as WoodTree
 			break
 	check(tree != null, "an isolated tree exists")
+	# A swing starts where the knight stands (the hit lands 0.2 s later at that
+	# spot): let one begun at his spawn point finish before teleporting him.
+	hero.auto_action = false
+	await frames(40)
+	hero.auto_action = true
+	gs.wood = 0
+	gs.wood_changed.emit(0)
 	hero.global_position = tree.global_position + Vector3(1.0, 0, 0)
 	await wait_until(func() -> bool: return gs.wood > 0, 120)
 	check(gs.wood == 3, "auto chop gives wood: %d" % gs.wood)

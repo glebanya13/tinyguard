@@ -6,6 +6,8 @@ extends Node
 ## whether or not the previous one is cleared. Waves may overlap.
 ## With several paths every enemy kind takes them in turn (the 1st slime the
 ## first path, the 2nd slime the second, ...; bosses alternate the same way).
+## Runs on the simulation clock: sim_step() is called by Sim once per step and
+## all times here are step numbers, not frames.
 
 signal wave_started(wave: int, total: int, boss: bool)
 ## All enemies of `wave` are gone (killed or reached the castle).
@@ -19,48 +21,64 @@ signal enemy_reached_base(damage: int)
 @export var enemy_path: Path3D
 ## Shared MultiMesh renderer for all enemies (optional).
 @export var crowd: EnemyCrowd
+## The simulation clock (set by the level before the first wave is scheduled).
+var sim: Sim = null
 
 var current_wave: int = 0
 var plan: WavePlan = null
 ## Every route from a portal to the castle (set by the level).
 var enemy_paths: Array[Path3D] = []
 
+## Enemies killed / that reached the castle so far.
+var killed: int = 0
+var leaked: int = 0
+
 var _stopped: bool = false
 var _alive: int = 0
-## Per running wave: {"wave": int, "queue": Array[Dictionary], "interval": float, "left": float}
+## Per running wave: {"wave", "queue": Array[Dictionary], "start": step the wave began,
+## "span": steps over which its enemies come out, "index": next one to spawn}.
 var _spawners: Array[Dictionary] = []
 ## Enemies still alive (or still to spawn) per wave number.
 var _remaining: Dictionary = {}
-var _next_wave_timer: Timer
+## Step at which the next wave starts, or -1.
+var _next_wave_tick: int = -1
 ## Enemies spawned so far per EnemyData: picks the next path for that kind.
 var _spawned_by_kind: Dictionary = {}
 
-
-func _ready() -> void:
-	_next_wave_timer = Timer.new()
-	_next_wave_timer.one_shot = true
-	_next_wave_timer.timeout.connect(start_next_wave)
-	add_child(_next_wave_timer)
-
-
-func _process(delta: float) -> void:
+## One fixed simulation step (called by Sim): the wave clock and spawning.
+@warning_ignore("integer_division")
+func sim_step(tick: int) -> void:
 	if _stopped:
 		return
+	if _next_wave_tick >= 0 and tick >= _next_wave_tick:
+		start_next_wave()
 	var i: int = 0
 	while i < _spawners.size():
 		var spawner: Dictionary = _spawners[i]
-		spawner["left"] -= delta
 		var queue: Array = spawner["queue"]
-		if queue.is_empty():
+		var total: int = queue.size()
+		var index: int = spawner["index"]
+		# Enemy k comes out at step start + k * span / total (whole steps; several
+		# can come in one step if the span is shorter than the queue).
+		while (
+			index < total and tick - int(spawner["start"]) >= index * int(spawner["span"]) / total
+		):
+			_spawn_enemy(queue[index], spawner["wave"])
+			index += 1
+		spawner["index"] = index
+		if index >= total:
 			_spawners.remove_at(i)
 			continue
-		if spawner["left"] <= 0.0:
-			_spawn_enemy(queue.pop_front(), spawner["wave"])
-			spawner["left"] += spawner["interval"]
-			if queue.is_empty():
-				_spawners.remove_at(i)
-				continue
 		i += 1
+
+
+## Integers describing the wave state (for Sim.state_hash).
+func state_ints() -> Array[int]:
+	var out: Array[int] = [current_wave, _alive, _next_wave_tick, killed, leaked, _spawners.size()]
+	for spawner in _spawners:
+		out.append(int(spawner["index"]))
+		out.append(int(spawner["start"]))
+	return out
 
 
 func get_total_waves() -> int:
@@ -69,9 +87,9 @@ func get_total_waves() -> int:
 
 ## Seconds until the next wave starts, or -1 if none is coming.
 func time_to_next_wave() -> float:
-	if _stopped or _next_wave_timer.is_stopped():
+	if _stopped or _next_wave_tick < 0:
 		return -1.0
-	return _next_wave_timer.time_left
+	return maxi(_next_wave_tick - sim.tick, 0) * Sim.TICK_DT
 
 
 ## True while enemies of any wave are on the map or still to spawn.
@@ -90,7 +108,7 @@ func alive_count() -> int:
 ## Starts the next wave after `delay` seconds unless one starts earlier.
 func schedule_next_wave(delay: float) -> void:
 	if has_next_wave():
-		_next_wave_timer.start(delay)
+		_next_wave_tick = sim.tick + Sim.ticks(delay)
 
 
 ## Starts the next wave now (the clock for the one after restarts).
@@ -99,13 +117,24 @@ func start_next_wave() -> bool:
 	if not has_next_wave():
 		return false
 	current_wave += 1
+	_next_wave_tick = -1
 	var queue: Array[Dictionary] = plan.spawns(current_wave)
 	_remaining[current_wave] = queue.size()
-	var interval: float = plan.spawn_window / maxf(queue.size(), 1.0)
-	_spawners.append({"wave": current_wave, "queue": queue, "interval": interval, "left": 0.0})
+	(
+		_spawners
+		. append(
+			{
+				"wave": current_wave,
+				"queue": queue,
+				"start": sim.tick,
+				"span": Sim.ticks(plan.spawn_window),
+				"index": 0,
+			}
+		)
+	)
 	wave_started.emit(current_wave, plan.wave_count, plan.is_boss_wave(current_wave))
 	if has_next_wave():
-		_next_wave_timer.start(plan.wave_duration)
+		_next_wave_tick = sim.tick + Sim.ticks(plan.wave_duration)
 	return true
 
 
@@ -113,7 +142,7 @@ func start_next_wave() -> bool:
 func stop() -> void:
 	_stopped = true
 	_spawners.clear()
-	_next_wave_timer.stop()
+	_next_wave_tick = -1
 
 
 ## Paths enemies walk: enemy_paths, or just enemy_path.
@@ -132,7 +161,7 @@ func spawn_extra(
 		return
 	_remaining[wave] = int(_remaining.get(wave, 0)) + 1
 	var enemy := _spawn_enemy({"data": data, "hp": health_mult}, wave, path)
-	enemy.progress = progress
+	enemy.place(progress)
 
 
 ## `path` null: the next path in turn for this enemy kind.
@@ -146,6 +175,8 @@ func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
 	enemy.setup(entry["data"], entry["hp"])
 	enemy.wave = wave
 	enemy.crowd = crowd
+	enemy.sim = sim
+	enemy.path = path
 	enemy.died.connect(_on_enemy_gone.bind(wave, true), CONNECT_ONE_SHOT)
 	enemy.died.connect(enemy_killed.emit)
 	enemy.reached_base.connect(_on_enemy_gone.bind(wave, false), CONNECT_ONE_SHOT)
@@ -162,8 +193,12 @@ func _on_enemy_split(
 	spawn_extra(data, health_mult, progress, wave, path)
 
 
-func _on_enemy_gone(_value: int, wave: int, _killed: bool) -> void:
+func _on_enemy_gone(_value: int, wave: int, was_killed: bool) -> void:
 	_alive -= 1
+	if was_killed:
+		killed += 1
+	else:
+		leaked += 1
 	_remaining[wave] = int(_remaining.get(wave, 1)) - 1
 	if _remaining[wave] <= 0:
 		_remaining.erase(wave)

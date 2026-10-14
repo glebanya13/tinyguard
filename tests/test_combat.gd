@@ -26,7 +26,7 @@ func spawn(path: String, progress: float) -> Enemy:
 	e.setup(load(path), 10.0)
 	e.speed = 0.0
 	current_scene.get_node("Level/EnemyPath").add_child(e)
-	e.progress = progress
+	e.place(progress)
 	return e
 
 

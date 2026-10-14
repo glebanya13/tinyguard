@@ -24,6 +24,9 @@ const GROUP := &"villagers"
 var home: Vector3 = Vector3.ZERO
 ## ground_check.call(point: Vector3) -> bool: may the villager stand there?
 var ground_check: Callable = Callable()
+## Own random stream for the strolls: decoration only, never the simulation's
+## (Villagers seeds it from the battle seed so clients start alike).
+var rng := RandomNumberGenerator.new()
 
 var _target: Vector3 = Vector3.ZERO
 var _walking: bool = false
@@ -39,9 +42,9 @@ func _ready() -> void:
 	for anim_name: StringName in [&"idle", &"walk"]:
 		_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
 	_anim.play(&"idle")
-	_anim.seek(randf() * _anim.current_animation_length, true)
-	_model.rotation.y = randf() * TAU
-	_rest_left = randf_range(0.0, rest_max)
+	_anim.seek(rng.randf() * _anim.current_animation_length, true)
+	_model.rotation.y = rng.randf() * TAU
+	_rest_left = rng.randf_range(0.0, rest_max)
 
 
 func _process(delta: float) -> void:
@@ -88,16 +91,16 @@ func is_walking() -> bool:
 
 func _rest() -> void:
 	_walking = false
-	_rest_left = randf_range(rest_min, rest_max)
+	_rest_left = rng.randf_range(rest_min, rest_max)
 	if _anim.current_animation == &"walk":
 		_anim.play(&"idle", 0.25)
 
 
 func _start_stroll() -> void:
 	for i in target_tries:
-		var angle: float = randf() * TAU
+		var angle: float = rng.randf() * TAU
 		var target: Vector3 = (
-			home + Vector3(cos(angle), 0.0, sin(angle)) * wander_radius * sqrt(randf())
+			home + Vector3(cos(angle), 0.0, sin(angle)) * wander_radius * sqrt(rng.randf())
 		)
 		if _way_free(global_position, target):
 			_target = target

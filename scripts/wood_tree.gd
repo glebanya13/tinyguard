@@ -5,6 +5,8 @@ extends StaticBody3D
 ## back later. `variant` picks the model before the node enters the tree.
 ## With a `grove` the standing tree is drawn by the grove's MultiMesh and the
 ## node's own model is shown only while it animates.
+## What chopping does (hits left, regrowing after regrow_time) is simulation state
+## counted in Sim steps; the tweens only show it.
 
 const GROUP := &"wood_trees"
 ## Model per variant: res://assets/models/tree_<variant>.glb, e.g. "pine" or
@@ -20,23 +22,29 @@ const HIGHLIGHT: Material = preload("res://assets/materials/highlight.tres")
 @export var wood_per_hit: int = 3
 @export var hits: int = 4
 @export var regrow_time: float = 60.0
-## Physics layers that keep a stump from growing back (the hero, layer 2).
-@export_flags_3d_physics var regrow_blockers: int = 2
 
 ## Set before adding the tree; null = always draw the own model.
 var grove: Grove = null
+## Stable id (set by Sim.add_tree: the order the level plants the trees in).
+var id: int = 0
+## Set before adding the tree.
+var sim: Sim = null
 
 var _hits_left: int = 0
 var _tree: Node3D = null
 var _yaw := Quaternion.IDENTITY
 var _tween: Tween = null
 var _highlighted: bool = false
+## Step at which the felled tree grows back, or -1.
+var _regrow_at: int = -1
 
 @onready var _stump: Node3D = $Stump
 
 
 func _ready() -> void:
 	add_to_group(GROUP)
+	if sim != null:
+		sim.add_tree(self)
 	_tree = model_scene(variant).instantiate()
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
 	_tree.quaternion = _yaw
@@ -114,15 +122,19 @@ func chop(from: Vector3) -> int:
 		)
 		tween.tween_property(_tree, "scale", Vector3.ONE * 0.01 * model_scale, 0.35)
 		tween.tween_callback(_tree.hide)
-		get_tree().create_timer(regrow_time, false).timeout.connect(_regrow)
+		_regrow_at = sim.tick + Sim.ticks(regrow_time)
+		sim.schedule_in(Sim.ticks(regrow_time), _regrow)
 	return wood_per_hit
 
 
+## Integers describing the simulated state (for Sim.state_hash).
+func state_ints() -> Array[int]:
+	return [id, _hits_left, _regrow_at]
+
+
 func _regrow() -> void:
-	if _is_blocked():
-		# Someone stands on the stump: try again a bit later.
-		get_tree().create_timer(3.0, false).timeout.connect(_regrow)
-		return
+	_hits_left = hits
+	_regrow_at = -1
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
 	_tree.quaternion = _yaw
 	_tree.scale = Vector3.ONE * 0.05 * model_scale
@@ -137,16 +149,7 @@ func _regrow() -> void:
 		. set_ease(Tween.EASE_OUT)
 	)
 	_tween.tween_callback(_stump.hide)
-	_tween.tween_callback(func() -> void: _hits_left = hits)  # choppable once grown
 	_tween.tween_callback(_set_animated.bind(false))
-
-
-func _is_blocked() -> bool:
-	var query := PhysicsShapeQueryParameters3D.new()
-	query.shape = ($Shape as CollisionShape3D).shape
-	query.transform = ($Shape as CollisionShape3D).global_transform
-	query.collision_mask = regrow_blockers
-	return not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
 ## Own model while animating, grove instance while standing still.
