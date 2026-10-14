@@ -1,9 +1,10 @@
 extends Node3D
 ## Visuals of a tower model: turns the turret towards the current target,
 ## plays the recoil animation and shot sound, shows level decorations.
-## Only the body (Base) and the turret cast shadows: every shadow caster is one
-## more draw call per tower, and the small parts (Lv2/Lv3 decorations, the bow,
-## gun, crystal or orb on the turret) add nothing visible to the shadow.
+## The model has one body mesh per upgrade level (Base, Base2 = Base + level 2
+## decorations, Base3 = with level 3 decorations): only one of them is drawn, by
+## swapping the mesh of "Base". Only the body casts a shadow: every shadow caster is
+## one more draw call per tower, the turret and its parts add nothing visible to it.
 ## Gameplay stays in tower.gd.
 
 ## Radians per second the crossbow turns at.
@@ -11,17 +12,21 @@ extends Node3D
 @export var shot_sound: AudioStreamPlayer
 
 var _target_yaw: float = 0.0
+var _body_meshes: Array[Mesh] = []
 
 @onready var _turret: Node3D = find_child("Turret") as Node3D
 @onready var _anim: AnimationPlayer = find_child("AnimationPlayer", false) as AnimationPlayer
-@onready var _lv2: Node3D = find_child("Lv2") as Node3D
-@onready var _lv3: Node3D = find_child("Lv3") as Node3D
+@onready var _body: MeshInstance3D = find_child("Base") as MeshInstance3D
 
 
 func _ready() -> void:
 	_target_yaw = _turret.rotation.y
-	for part: Node in [_lv2, _lv3] + _turret.get_children():
-		_drop_shadow(part)
+	for node_name: String in ["Base", "Base2", "Base3"]:
+		var body := find_child(node_name) as MeshInstance3D
+		_body_meshes.append(body.mesh)
+		if body != _body:
+			body.queue_free()
+	_drop_shadow(_turret)
 	_on_tower_level_changed(0)
 
 
@@ -42,8 +47,7 @@ func _on_tower_fired(target: Enemy) -> void:
 
 
 func _on_tower_level_changed(level: int) -> void:
-	_lv2.visible = level >= 1
-	_lv3.visible = level >= 2
+	_body.mesh = _body_meshes[clampi(level, 0, _body_meshes.size() - 1)]
 
 
 func _drop_shadow(part: Node) -> void:

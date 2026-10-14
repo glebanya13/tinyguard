@@ -356,6 +356,17 @@ def join(objs, name: str):
     return obj
 
 
+def duplicate(obj, name: str):
+    """Independent copy of a mesh object (own mesh data), linked next to the original."""
+    copy = obj.copy()
+    copy.data = obj.data.copy()
+    copy.name = name
+    copy.data.name = name
+    for coll in obj.users_collection:
+        coll.objects.link(copy)
+    return copy
+
+
 def pivot(obj, point) -> None:
     """Move the origin of an unparented, unrotated, unscaled object to `point`
     (world space) without moving its geometry."""
