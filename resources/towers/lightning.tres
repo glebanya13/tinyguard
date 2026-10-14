@@ -7,7 +7,7 @@
 [resource]
 script = ExtResource("1_data")
 display_name = "Молния"
-role = "бьёт цепью по 3–5 врагам"
+role = "цепь по 3–5 врагам; замедленных Морозом бьёт на 40% сильнее"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 50
@@ -21,3 +21,4 @@ splash_levels = Array[float]([0.0, 0.0, 0.0])
 slow_levels = Array[float]([1.0, 1.0, 1.0])
 chain_levels = Array[int]([2, 3, 4])
 chain_range = 2.2
+chilled_bonus = 1.4

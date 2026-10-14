@@ -35,6 +35,9 @@ var crowd: EnemyCrowd = null
 var anim_phase: float = randf()
 ## Squash on hits / heal pulses (the crowd renderer reads it).
 var visual_scale: Vector3 = Vector3.ONE
+## Rare tougher enemy of the wave plan: drawn bigger, always shows its bar.
+var elite: bool = false
+var elite_scale: float = 1.0
 
 var _is_dead: bool = false
 var _slow_factor: float = 1.0
@@ -133,6 +136,20 @@ func is_alive() -> bool:
 	return not _is_dead
 
 
+## True while a frost hit still slows this enemy (lightning shocks it harder).
+func is_slowed() -> bool:
+	return _slow_factor < 1.0
+
+
+## Metres of walking left to the castle along its own path (smaller = closer
+## to the castle). Comparable between paths, unlike `progress`.
+func distance_to_goal() -> float:
+	var path := get_parent() as Path3D
+	if path == null or path.curve == null:
+		return 0.0
+	return maxf(path.curve.get_baked_length() - progress, 0.0)
+
+
 ## Restores health (capped at max) and refreshes the bar.
 func heal(amount: float) -> void:
 	if _is_dead or health >= max_health:
@@ -155,7 +172,7 @@ func health_ratio() -> float:
 
 ## A full bar says nothing: only hurt enemies and bosses show one.
 func shows_health_bar() -> bool:
-	return is_boss() or health < max_health
+	return is_boss() or elite or health < max_health
 
 
 ## Bar scale relative to the 0.6 m bar mesh, and its height above the path.
@@ -171,7 +188,8 @@ func bar_height() -> float:
 ## direction, lifted when flying, squashed by hits).
 func model_offset() -> Transform3D:
 	var lift: float = data.fly_height if data else 0.0
-	return Transform3D(Basis(Vector3.UP, PI).scaled(visual_scale), Vector3(0.0, lift, 0.0))
+	var scale_now: Vector3 = visual_scale * elite_scale
+	return Transform3D(Basis(Vector3.UP, PI).scaled(scale_now), Vector3(0.0, lift, 0.0))
 
 
 func get_aim_point() -> Vector3:

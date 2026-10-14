@@ -12,6 +12,9 @@ const DEFEAT_TIPS: Array[String] = [
 	"звёзды покупают постоянные улучшения в Казне на карте",
 	"рубите деревья между волнами — дерево нужно для улучшений",
 	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
+	"Молния бьёт замедленных Морозом на 40% сильнее — ставьте их рядом",
+	"волны идут по разным дорогам: следите за баннером и стрелками у краёв экрана",
+	"у башни можно сменить цель (Первый / Сильный / Последний / Ближний)",
 ]
 
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
@@ -30,6 +33,7 @@ const SELL_ICON: Texture2D = preload("res://ui/icons/sell.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
+const TARGET_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
 const RING_ENEMY_COLOR := Color(1.0, 0.38, 0.32, 0.85)
@@ -87,6 +91,11 @@ var _pending_command: StringName = &""
 var _trade_with: Villager = null
 var _trade_dismissed: Villager = null
 var _trade_walking: bool = false
+## Portals in path order (pulse when a wave comes out of them).
+var _portals: Array[Node3D] = []
+var _lane_hint: LaneHint = null
+## "С севера!" for the wave that is starting.
+var _wave_direction: String = ""
 
 @onready var _level_root: Node3D = $Level
 @onready var _enemy_path: Path3D = $Level/EnemyPath
@@ -129,6 +138,7 @@ func _ready() -> void:
 	_wave_manager.enemy_killed.connect(_game_state.add_gold)
 	_wave_manager.enemy_killed.connect(_count_kill)
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
+	_wave_manager.wave_lanes.connect(_on_wave_lanes)
 	_wave_manager.wave_started.connect(_on_wave_started)
 	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared)
 
@@ -162,6 +172,9 @@ func _ready() -> void:
 	_hud.set_wood(_game_state.wood)
 	_hud.set_lives(_game_state.lives)
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
+	_lane_hint = LaneHint.new()
+	_lane_hint.camera = _camera
+	_hud.add_child(_lane_hint)
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	if _endless:
@@ -294,7 +307,21 @@ func _build_level() -> void:
 		portal.position = Vector3(route[0].x, 0.0, route[0].y)
 		portal.rotation.y = atan2(first_dir.x, first_dir.z)
 		_level_root.add_child(portal)
+		_portals.append(portal)
 	_wave_manager.enemy_paths = paths
+
+	# Flyers cross the map on a straight line from their portal to the castle.
+	var air_paths: Array[Path3D] = []
+	for route: PackedVector2Array in LevelCatalog.air_routes(level):
+		var air := Path3D.new()
+		air.name = "AirPath%d" % (air_paths.size() + 1)
+		var air_curve := Curve3D.new()
+		for point: Vector2 in route:
+			air_curve.add_point(Vector3(point.x, PATH_HEIGHT, point.y))
+		air.curve = air_curve
+		_level_root.add_child(air)
+		air_paths.append(air)
+	_wave_manager.air_paths = air_paths
 
 	var path: Array = level["paths"][0]
 	var last_dir: Vector3 = (_ground(path[-1]) - _ground(path[-2])).normalized()
@@ -388,6 +415,12 @@ func _on_command_pressed(id: StringName) -> void:
 	if id == &"repair":
 		if _game_state.repair():
 			_spawn_fx(BUILD_FX, _castle.global_position)
+		_refresh_card()
+		return
+	if id == &"priority":
+		var chosen: TowerSlot = _build_manager.selected_slot
+		if chosen != null and chosen.tower != null:
+			chosen.tower.cycle_priority()
 		_refresh_card()
 		return
 	if id == &"sell":
@@ -515,6 +548,22 @@ func _refresh_card() -> void:
 			if not upgrade["enabled"]:
 				info["hint"] = "Не хватает золота или дерева"
 		buttons.append(upgrade)
+		buttons.append(
+			{
+				"id": &"priority",
+				"icon": TARGET_ICON,
+				"label": TowerData.PRIORITY_NAMES[slot.tower.priority],
+				"enabled": true,
+				"tooltip":
+				(
+					"Цель: %s — %s. Нажмите, чтобы сменить"
+					% [
+						TowerData.PRIORITY_NAMES[slot.tower.priority],
+						TowerData.PRIORITY_HINTS[slot.tower.priority]
+					]
+				),
+			}
+		)
 		var refund: Vector2i = data.sell_value(level_index)
 		buttons.append(
 			{
@@ -884,6 +933,22 @@ func _on_enemy_reached_base(damage: int) -> void:
 	_game_state.lose_lives(damage)
 
 
+## The paths of the starting wave: remember the "С севера!" text for the banner,
+## mark the portals on screen (rings / edge arrows) and make them pulse.
+func _on_wave_lanes(_wave: int, lanes: Array) -> void:
+	_wave_direction = LevelCatalog.direction_text(level, lanes)
+	var points: Array[Vector3] = []
+	for lane: int in lanes:
+		var portal: Node3D = _portals[lane]
+		points.append(portal.global_position + Vector3.UP * 0.6)
+		var tween: Tween = portal.create_tween()
+		for i in 3:
+			tween.tween_property(portal, "scale", Vector3.ONE * 1.3, 0.25)
+			tween.tween_property(portal, "scale", Vector3.ONE, 0.25)
+	if lanes.size() < _portals.size():
+		_lane_hint.show_points(points)
+
+
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.set_wave(wave, 0 if _endless else total)
 	_wave_boom.play()
@@ -895,6 +960,8 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	var next: String = ""
 	if not last:
 		next = "Следующая через " + _seconds_text(_wave_manager.plan.wave_duration)
+	if _wave_direction != "":
+		next = (_wave_direction + "\n" + next).strip_edges()
 	_hud.show_banner(title, next, boss)
 
 

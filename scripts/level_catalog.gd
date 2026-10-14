@@ -7,6 +7,21 @@ extends RefCounted
 const LEVELS_PATH := "res://resources/levels.json"
 ## A path's last point counts as lying on another path this close to it (metres).
 const JOIN_TOLERANCE := 0.01
+## Compass names (genitive, after "С"/"Со") of the 8 screen directions, clockwise from the top.
+const DIRECTION_NAMES: Array[String] = [
+	"севера",
+	"северо-востока",
+	"востока",
+	"юго-востока",
+	"юга",
+	"юго-запада",
+	"запада",
+	"северо-запада",
+]
+## Screen "up" and "right" on the ground plane (X, Z): the camera of main.tscn
+## looks along (-1, -1, -1), so the top of the screen is the world's (-X, -Z) corner.
+const SCREEN_UP := Vector2(-0.7071068, -0.7071068)
+const SCREEN_RIGHT := Vector2(0.7071068, -0.7071068)
 ## Tests point this at a scratch file.
 static var save_path: String = "user://progress.cfg"
 
@@ -49,6 +64,50 @@ static func routes(level: Dictionary) -> Array[PackedVector2Array]:
 			route.append_array(_route_after(out, route[route.size() - 1]))
 		out.append(route)
 	return out
+
+
+## Straight flight lines of the flying enemies, one per entry of level["paths"]:
+## from the portal over the ground to the castle gate.
+static func air_routes(level: Dictionary) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	var gate: Array = level["paths"][0][-1]
+	for points: Array in level["paths"]:
+		out.append(
+			PackedVector2Array(
+				[
+					Vector2(float(points[0][0]), float(points[0][1])),
+					Vector2(float(gate[0]), float(gate[1]))
+				]
+			)
+		)
+	return out
+
+
+## Where on the screen a portal is seen from the map centre: 0..7 clockwise from
+## the top (index into DIRECTION_NAMES).
+static func screen_direction(point: Vector2) -> int:
+	var angle: float = atan2(point.dot(SCREEN_RIGHT), point.dot(SCREEN_UP))
+	return posmod(roundi(angle / (PI / 4.0)), 8)
+
+
+## "С севера и запада!" for the paths a wave uses; "Со всех сторон!" when it uses all.
+static func direction_text(level: Dictionary, lanes: Array) -> String:
+	var paths: Array = level["paths"]
+	if lanes.size() >= paths.size() and paths.size() > 1:
+		return "Со всех сторон!"
+	var names: Array[String] = []
+	for lane: int in lanes:
+		var start: Array = paths[lane][0]
+		var from := Vector2(float(start[0]), float(start[1]))
+		var side: String = DIRECTION_NAMES[screen_direction(from)]
+		if not names.has(side):
+			names.append(side)
+	if names.is_empty():
+		return ""
+	var last: String = names.pop_back()
+	if names.is_empty():
+		return "С %s!" % last
+	return "С %s и %s!" % [", ".join(names), last]
 
 
 ## Highest level id the player may start (1 = only the first).

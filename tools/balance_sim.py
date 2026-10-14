@@ -2,13 +2,16 @@
 """Rough balance check: plays every level of resources/levels.json with a
 greedy player and prints lives left after each boss wave and at the end.
 
-Model: enemies walk the level paths (wave plan as in scripts/wave_plan.gd;
-every enemy kind takes the paths in turn as in scripts/wave_manager.gd),
-towers hit instantly (nearest enemy in range, splash and slow as in
-tower/projectile code), gold from kills, wood at a steady chopping rate. The
-hero guards the castle road (where the paths have joined) with his sword (as
-an extra "tower"). The player builds on the slots that cover most of the
-paths, mixing archer / cannon / frost, and upgrades when every slot is taken.
+Model: enemies walk the level paths (wave plan as in scripts/wave_plan.gd: lane
+patterns, scouts, bosses, elites; flyers cross on a straight line to the castle),
+towers hit instantly (target by priority as in scripts/tower.gd, splash, slow
+and the frost + lightning bonus as in tower/projectile code), gold from kills,
+wood at a steady chopping rate. The hero guards the castle road (where the
+paths have joined) with his sword (as an extra "tower"). The player builds in
+a fixed tower order and upgrades when every slot is taken. Three ways to pick
+slots are played: "balanced" (round-robin over the paths, the sensible one),
+"greedy" (most path covered first) and "turtle" (everything next to the
+castle: must not be better than balanced, else choosing does not matter).
 It is an estimate: real players also fight with the hero and call waves early.
 
 Usage: python3 tools/balance_sim.py [level_id ...]
@@ -59,11 +62,30 @@ MIX = [("golem_from", "stone_golem", 9, 8), ("tank_from", "slime_tank", 4, 3), (
 BUILD_ORDER = ["archer", "archer", "cannon", "frost", "lightning", "archer", "cannon", "lightning", "frost",
                "archer", "cannon", "lightning"]
 NEVER = 100000
+STRATEGIES = ("balanced", "greedy", "turtle")
+
+
+def deal(dealt: dict, kind: str, weights: list, wave: int) -> int:
+    """scripts/wave_plan.gd _deal(): largest weight / (dealt + 1), search starts at `wave`."""
+    counts = dealt.setdefault(kind, [0] * len(weights))
+    best, best_score = -1, -1.0
+    for step in range(len(weights)):
+        k = (wave + step) % len(weights)
+        score = weights[k] / (counts[k] + 1.0)
+        if score > best_score:
+            best, best_score = k, score
+    counts[best] += 1
+    return best
 
 
 def wave_spawns(w: dict, n: int) -> list:
+    """[(kind, hp, lane, extra)] in spawn order; extra = {"elite": (reward x, scale)} or {}."""
     hp = w["hp_mult"] * w["hp_growth"] ** (n - 1)
     count = round(w["count_base"] + w["count_step"] * (n - 1))
+    lanes = w.get("lanes", {})
+    patterns = lanes.get("patterns", [])
+    weights = patterns[(n - 1) % len(patterns)] if patterns else []
+    dealt: dict = {}
     out = []
     for i in range(count):
         kind = "slime"
@@ -71,9 +93,24 @@ def wave_spawns(w: dict, n: int) -> list:
             if n >= w.get(key, NEVER) and i % every == offset:
                 kind = enemy
                 break
-        out.append((kind, hp))
+        lane = None
+        if weights:
+            use = weights
+            if kind == "slime_fast":
+                use = [1 if k in lanes["scout_paths"] else 0 for k in range(len(weights))]
+            lane = deal(dealt, kind, use, n)
+        out.append((kind, hp, lane, {}))
+    elite = w.get("elite")
+    if elite and n >= elite["from"] and (n - elite["from"]) % elite["every"] == 0:
+        elites = 1 + int((n - elite["from"]) // elite["step"])
+        for e in range(elites):
+            lane = deal(dealt, elite["kind"], weights, n + e) if weights else None
+            idx = round(len(out) * (e + 1.0) / (elites + 1.0))
+            out.insert(idx, (elite["kind"], hp * elite["hp"], lane, {"elite": elite["reward"]}))
     if n % w["boss_every"] == 0 or (w["boss_last"] and n == w["count"]):
-        out += [("slime_king", hp ** BOSS_GROWTH_EXPONENT)] * (1 + n // 30)
+        for i in range(1 + n // 30):
+            lane = lanes["boss_paths"][(n + i) % len(lanes["boss_paths"])] if weights else None
+            out.append(("slime_king", hp ** BOSS_GROWTH_EXPONENT, lane, {}))
     return out
 
 

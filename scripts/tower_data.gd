@@ -3,6 +3,18 @@ extends Resource
 ## Buildable tower type: name, icon, prices (gold + wood) and stats per level
 ## (index 0 = level 1).
 
+## Which enemy in range a tower shoots at; the player switches it per tower.
+enum Priority { FIRST, LAST, STRONGEST, NEAREST }
+
+## Command card labels of the Priority values.
+const PRIORITY_NAMES: Array[String] = ["Первый", "Последний", "Сильный", "Ближний"]
+## One-line meaning of every Priority value (for the tooltip).
+const PRIORITY_HINTS: Array[String] = [
+	"ближайший к замку",
+	"самый далёкий от замка",
+	"с наибольшим здоровьем",
+	"ближайший к башне",
+]
 ## Share of everything spent on a tower that selling it returns.
 const SELL_REFUND := 0.7
 
@@ -33,6 +45,11 @@ const SELL_REFUND := 0.7
 @export var chain_range: float = 2.2
 ## Damage type passed to enemies: &"arrow" is weak against shields.
 @export var damage_kind: StringName = &""
+## Who the tower shoots first unless the player changes it.
+@export var default_priority: Priority = Priority.FIRST
+## Damage multiplier against enemies slowed by frost (the shock of a chilled
+## enemy hurts more); 1 = no bonus.
+@export var chilled_bonus: float = 1.0
 ## False for cannons: their shells cannot hit flying enemies.
 @export var hits_air: bool = true
 

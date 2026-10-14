@@ -307,6 +307,43 @@ def _check_paths(tag: str, lv: dict) -> list:
     return segs
 
 
+def _check_lanes(tag: str, lv: dict) -> None:
+    """waves.lanes (which paths a wave uses) and waves.elite must fit the paths."""
+    waves = lv["waves"]
+    n = len(lv["paths"])
+    lanes = waves.get("lanes")
+    if lanes is None:
+        errors.append(f'{tag}: waves.lanes is missing (patterns, scout_paths, boss_paths)')
+    else:
+        patterns = lanes.get("patterns", [])
+        if not patterns:
+            errors.append(f"{tag}: waves.lanes.patterns is empty")
+        used = [0.0] * n
+        for i, pat in enumerate(patterns):
+            if len(pat) != n:
+                errors.append(f"{tag}: lane pattern {i} has {len(pat)} weights for {n} paths")
+                continue
+            if min(pat) < 0 or sum(pat) <= 0:
+                errors.append(f"{tag}: lane pattern {i} needs non-negative weights with a positive sum")
+            used = [u + p for u, p in zip(used, pat)]
+        for k, total in enumerate(used):
+            if patterns and total <= 0:
+                errors.append(f"{tag}: path {k} is never used by any lane pattern")
+        for key in ("scout_paths", "boss_paths"):
+            ids = lanes.get(key, [])
+            if not ids or any(not isinstance(k, int) or not 0 <= k < n for k in ids):
+                errors.append(f"{tag}: waves.lanes.{key} must list path indices 0..{n - 1}")
+        if n < 3:
+            errors.append(f"{tag}: needs at least 3 paths")
+    elite = waves.get("elite")
+    if elite is not None:
+        for key in ("from", "every", "step", "kind", "hp", "reward", "scale"):
+            if key not in elite:
+                errors.append(f"{tag}: waves.elite.{key} is missing")
+        if "kind" in elite and not (ROOT / "resources" / "enemies" / f"{elite['kind']}.tres").is_file():
+            errors.append(f"{tag}: waves.elite.kind {elite['kind']} has no enemy resource")
+
+
 def check_levels() -> None:
     """Layout sanity for resources/levels.json (shared by Godot and Blender)."""
     path = ROOT / "resources" / "levels.json"
@@ -325,6 +362,7 @@ def check_levels() -> None:
         if "path" in lv or not lv.get("paths"):
             errors.append(f'{tag}: expected "paths": [[...], ...] instead of "path"')
             continue
+        _check_lanes(tag, lv)
         x0, z0, w, h = lv["bounds"]
         if abs(x0 + w / 2) > 0.01 or abs(z0 + h / 2) > 0.01:
             errors.append(f"{tag}: bounds must be centred on the origin (build_terrain.py)")

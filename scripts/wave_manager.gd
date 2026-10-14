@@ -4,10 +4,14 @@ extends Node
 ## clock: every wave lasts plan.wave_duration seconds (its enemies are spread
 ## over the first plan.spawn_window of it) and then the next one starts,
 ## whether or not the previous one is cleared. Waves may overlap.
-## With several paths every enemy kind takes them in turn (the 1st slime the
-## first path, the 2nd slime the second, ...; bosses alternate the same way).
+## Which path an enemy takes is decided by the plan ("lane" of every spawn, see
+## WavePlan): waves use different paths, scouts and bosses have their own, flyers
+## cross the map on a straight line (air_paths). Without a lane plan every enemy
+## kind takes the paths in turn.
 
 signal wave_started(wave: int, total: int, boss: bool)
+## Just before wave_started: indices of the paths this wave comes along (sorted).
+signal wave_lanes(wave: int, lanes: Array)
 ## All enemies of `wave` are gone (killed or reached the castle).
 signal wave_cleared(wave: int)
 signal all_waves_cleared
@@ -24,6 +28,8 @@ var current_wave: int = 0
 var plan: WavePlan = null
 ## Every route from a portal to the castle (set by the level).
 var enemy_paths: Array[Path3D] = []
+## Straight flight lines, one per entry of enemy_paths (flyers use them; may be empty).
+var air_paths: Array[Path3D] = []
 
 var _stopped: bool = false
 var _alive: int = 0
@@ -103,6 +109,7 @@ func start_next_wave() -> bool:
 	_remaining[current_wave] = queue.size()
 	var interval: float = plan.spawn_window / maxf(queue.size(), 1.0)
 	_spawners.append({"wave": current_wave, "queue": queue, "interval": interval, "left": 0.0})
+	wave_lanes.emit(current_wave, lanes_of(queue))
 	wave_started.emit(current_wave, plan.wave_count, plan.is_boss_wave(current_wave))
 	if has_next_wave():
 		_next_wave_timer.start(plan.wave_duration)
@@ -123,6 +130,17 @@ func get_paths() -> Array[Path3D]:
 	return enemy_paths
 
 
+## Sorted indices of the paths a spawn list uses (empty without a lane plan).
+func lanes_of(queue: Array[Dictionary]) -> Array:
+	var lanes: Array = []
+	for entry: Dictionary in queue:
+		var lane: int = int(entry.get("lane", -1))
+		if lane >= 0 and not lanes.has(lane):
+			lanes.append(lane)
+	lanes.sort()
+	return lanes
+
+
 ## Adds an extra enemy of `data` at `progress` along `path` (default: the first)
 ## (e.g. the halves of a splitting slime); it counts towards `wave`.
 func spawn_extra(
@@ -139,11 +157,20 @@ func spawn_extra(
 func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
 	if path == null:
 		var paths: Array[Path3D] = get_paths()
-		var spawned: int = _spawned_by_kind.get(entry["data"], 0)
-		_spawned_by_kind[entry["data"]] = spawned + 1
-		path = paths[spawned % paths.size()]
+		if entry.has("lane"):
+			var lane: int = int(entry["lane"]) % paths.size()
+			var flies: bool = (entry["data"] as EnemyData).flying
+			path = air_paths[lane] if flies and air_paths.size() == paths.size() else paths[lane]
+		else:
+			var spawned: int = _spawned_by_kind.get(entry["data"], 0)
+			_spawned_by_kind[entry["data"]] = spawned + 1
+			path = paths[spawned % paths.size()]
 	var enemy := enemy_scene.instantiate() as Enemy
 	enemy.setup(entry["data"], entry["hp"])
+	if entry.get("elite", false):
+		enemy.elite = true
+		enemy.elite_scale = float(entry["scale"])
+		enemy.reward = roundi(enemy.reward * float(entry["reward_mult"]))
 	enemy.wave = wave
 	enemy.crowd = crowd
 	enemy.died.connect(_on_enemy_gone.bind(wave, true), CONNECT_ONE_SHOT)

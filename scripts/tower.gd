@@ -1,6 +1,7 @@
 class_name Tower
 extends Node3D
-## Shoots projectiles at the nearest enemy within range, or a chain bolt that
+## Shoots projectiles at the enemy within range that its priority picks (by
+## default the one closest to the castle), or a chain bolt that
 ## jumps between enemies (lightning: no projectile, damage is instant).
 
 ## Emitted on every shot; visuals (aiming, recoil) listen to it.
@@ -34,6 +35,9 @@ var chain_targets: int = 0
 var chain_range: float = 0.0
 var damage_kind: StringName = &""
 var hits_air: bool = true
+var chilled_bonus: float = 1.0
+## Which enemy in range is shot (a TowerData.Priority); -1 until apply_level.
+var priority: int = -1
 
 var _cooldown: float = 0.0
 
@@ -42,7 +46,7 @@ func _process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	if _cooldown > 0.0:
 		return
-	var target: Enemy = find_nearest_enemy()
+	var target: Enemy = find_target()
 	if target == null:
 		_cooldown = retarget_interval
 		return
@@ -64,12 +68,22 @@ func apply_level(tower_data: TowerData, new_level: int) -> void:
 	chain_range = data.chain_range
 	damage_kind = data.damage_kind
 	hits_air = data.hits_air
+	chilled_bonus = data.chilled_bonus
+	if priority < 0:
+		priority = data.default_priority
 	level_changed.emit(level)
 
 
-func find_nearest_enemy() -> Enemy:
-	var nearest: Enemy = null
-	var nearest_dist_sq: float = range_m * range_m
+## Next priority of the player's switch (wraps around).
+func cycle_priority() -> void:
+	priority = (priority + 1) % TowerData.Priority.size()
+
+
+## The enemy in range that the current priority picks, or null.
+func find_target() -> Enemy:
+	var best: Enemy = null
+	var best_key: float = INF
+	var range_sq: float = range_m * range_m
 	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
 		if enemy == null or not enemy.is_alive() or (enemy.is_flying() and not hits_air):
@@ -77,10 +91,27 @@ func find_nearest_enemy() -> Enemy:
 		var offset: Vector3 = enemy.global_position - global_position
 		offset.y = 0.0
 		var dist_sq: float = offset.length_squared()
-		if dist_sq <= nearest_dist_sq:
-			nearest_dist_sq = dist_sq
-			nearest = enemy
-	return nearest
+		if dist_sq > range_sq:
+			continue
+		var key: float = _priority_key(enemy, dist_sq)
+		if key < best_key:
+			best_key = key
+			best = enemy
+	return best
+
+
+## Smaller is shot first. Ties (e.g. enemies at the same spot) go to the nearer one.
+func _priority_key(enemy: Enemy, dist_sq: float) -> float:
+	var tie: float = dist_sq * 0.0001
+	match priority:
+		TowerData.Priority.LAST:
+			return -enemy.distance_to_goal() + tie
+		TowerData.Priority.STRONGEST:
+			return -enemy.health + tie
+		TowerData.Priority.NEAREST:
+			return dist_sq
+		_:
+			return enemy.distance_to_goal() + tie
 
 
 func _shoot(target: Enemy) -> void:
@@ -115,7 +146,8 @@ func _shoot_chain(target: Enemy) -> void:
 		points.append(current.get_aim_point())
 		hit.append(current)
 		var next: Enemy = _nearest_unhit(current.global_position, hit)
-		current.take_damage(amount, damage_kind)
+		var shock: float = chilled_bonus if current.is_slowed() else 1.0
+		current.take_damage(amount * shock, damage_kind)
 		amount *= 0.8
 		current = next
 	if chain_fx:
