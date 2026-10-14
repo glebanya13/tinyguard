@@ -1,3 +1,4 @@
+# gdlint:disable=max-public-methods
 extends Node
 ## Optional online features over Firebase REST APIs (no SDK, no native
 ## plugins). Autoload "Online": a facade over AuthService (guest sign-in,

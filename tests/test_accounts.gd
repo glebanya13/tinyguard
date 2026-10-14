@@ -531,7 +531,7 @@ func _test_nickname_and_delete() -> void:
 ## account deletion still works, and records go through runs/{uid} + server time.
 func _test_trace_and_records() -> void:
 	_clean()
-	var fake := FakeFirebase.new()
+	var fake := Fakes.FakeFirebase.new()
 	var online: Node = _configured_online(fake)
 	await online.start()
 	var r: Dictionary = await online.reserve_nickname("Лев")
@@ -572,7 +572,7 @@ func _test_trace_and_records() -> void:
 	)
 	# Records: the run start and the record are separate server-timed writes.
 	_clean()
-	fake = FakeFirebase.new()
+	fake = Fakes.FakeFirebase.new()
 	online = _configured_online(fake)
 	await online.start()
 	check(await online.start_run(3), "run start stored")
