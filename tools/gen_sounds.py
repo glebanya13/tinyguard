@@ -200,6 +200,15 @@ def zap():
     return mix(buzz, shaped(crackle, 0.001, 0.06, 0.8))
 
 
+def wave_boom():
+    """Wave start: a deep explosion - thump, noisy blast and a rumbling tail."""
+    thump = shaped(tone(lambda t: 70 * math.exp(-t * 3.0) + 28, 1.4), 0.004, 0.35)
+    blast = shaped(lowpass(noise(1.4, 150), 0.25), 0.002, 0.12, 1.0)
+    rumble = shaped(lowpass(noise(1.6, 151), 0.03), 0.05, 0.6, 1.4)
+    crackle = shaped([v if abs(v) > 0.7 else 0.0 for v in noise(0.6, 152)], 0.01, 0.15, 0.3)
+    return mix(thump, blast, rumble, crackle)
+
+
 def music_loop():
     """Calm adventure loop: I-V-vi-IV in C, bass, soft pad, plucked melody and
     light percussion. 16 bars at 100 bpm; the end joins the start seamlessly."""
@@ -283,6 +292,7 @@ def main() -> None:
     write("chop", chop(), 0.7)
     write("boss_roar", boss_roar(), 0.8)
     write("zap", zap(), 0.6)
+    write("wave_boom", wave_boom(), 0.9)
     write("music_loop", music_loop(), 0.55)
 
 
