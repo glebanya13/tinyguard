@@ -23,6 +23,7 @@
 python3 tools/validate_project.py
 gdlint scripts/*.gd tests/*.gd && gdformat --line-length 100 --check scripts/*.gd tests/*.gd
 godot --headless --path . --import
+(cd firebase/rules-tests && npm test)   # правила на эмуляторе, Java 21
 tests/run_all.sh <godot>        # 16 PASS + проходимость на 6 уровнях
 python3 tools/balance_sim.py
 ```
@@ -39,19 +40,15 @@ python3 tools/balance_sim.py
    Модели `.glb` в патч не включены — пересобрать:
    `blender -b -P assets/blender/build_terrain.py` (см. `assets/blender/README`).
    Осталось: пересборка, импорт, тесты на 6 уровнях, перебаланс, скриншоты.
-2. **`wip/accounts.patch` — аккаунты, профиль, онбординг, туториал.** Есть:
-   `auth_service.gd`, `session_store.gd`, `firestore_client.gd`, `player_profile.gd`,
-   `nickname_rules.gd` + экран ника, `boot.tscn`/`onboarding.gd`, `tutorial.gd`,
-   `account_panel.gd`, Cloud Functions (`firebase/functions`: `reserveNickname`,
-   `deleteAccount`) с тестами, `firestore.rules`, тесты `test_accounts.gd`,
-   `test_tutorial.gd`. Осталось: прогнать все проверки, тесты функций
-   (`npm test` в `firebase/functions`, эмулятор), `docs/ACCOUNTS.md`, `docs/PRIVACY.md`,
-   проверка на живом Firebase-проекте.
-   Ограничения: никаких секретов/сервисных ключей в клиенте, не логировать токены и
-   личные данные, без рекламы и аналитики, не утверждать, что вход работает, без теста
-   на настроенном проекте.
-3. **Firebase-проект** не создан: создать, положить `firebase.cfg` (не коммитится),
-   задеплоить правила и функции, проверить вход/рекорды/облако.
+2. **Аккаунты, профиль, ник, онбординг, туториал — применено** (`wip/accounts.patch` удалён),
+   переработано под план **Spark без Cloud Functions**: `firebase/functions` удалён; уникальность
+   ника — create-only `nicknames/{ключ}` + атомарный commit с проверкой `firestore.rules`;
+   удаление аккаунта — клиентом (документы + `accounts:delete`). Тесты правил на эмуляторе:
+   `firebase/rules-tests` (`npm test`, Java 21). Документы: `docs/ACCOUNTS.md`,
+   `docs/PRIVACY.md`, `docs/FIREBASE.md`. Не проверено на живом проекте.
+3. **Firebase-проект** не создан: создать по `docs/FIREBASE.md`, положить `firebase.cfg`
+   (не коммитится), `firebase deploy --only firestore:rules,firestore:indexes`, пройти
+   чек-лист проверки на живом проекте.
 
 ## Дальше
 
