@@ -1,0 +1,254 @@
+class_name EmailAuthDialog
+extends Control
+## Compact modal for the three email flows of the account panel: link an email
+## and password to the guest account, sign in on another device, ask for a
+## password reset mail. Built in code like the panel; talks to the Online
+## autoload and reports up by signals. The password lives only in its field: it
+## is cleared on success and on close, never saved and never printed.
+
+## `kind` is "link", "signin" or "reset"; `result` is the Online answer.
+signal succeeded(kind: String, result: Dictionary)
+signal closed
+
+enum Mode { LINK, SIGN_IN, RESET }
+
+const GOLD := Color(0.98, 0.8, 0.4)
+const OK_COLOR := Color(0.62, 0.95, 0.42)
+const INFO_COLOR := Color(0.62, 0.86, 1.0)
+const ERROR_COLOR := Color(1.0, 0.62, 0.55)
+const SOFT_COLOR := Color(0.82, 0.86, 0.95)
+const FIELD_HEIGHT := 58.0
+const KINDS := ["link", "signin", "reset"]
+const TITLES := ["Привязать почту", "Войти по почте", "Сброс пароля"]
+const NOTES := [
+	"Прогресс останется на месте, а войти с этой почтой можно будет на любом устройстве.",
+	"Прогресс этого устройства добавится к аккаунту: останутся лучшие звёзды и рекорды.",
+	"Пришлём письмо со ссылкой для нового пароля.",
+]
+const ACTIONS := ["Привязать", "Войти", "Отправить письмо"]
+
+var _mode: Mode = Mode.LINK
+var _busy: bool = false
+var _safe: MarginContainer
+var _title: Label
+var _note: Label
+var _email: LineEdit
+var _password_row: Control
+var _password: LineEdit
+var _reveal: Button
+var _status: Label
+var _forgot: Button
+var _cancel: Button
+var _action: Button
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build()
+	hide()
+
+
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+	# Landscape keyboards cover half the screen: lift the dialog above it.
+	var keyboard: float = ScreenUtil.keyboard_height(get_viewport())
+	var margins: Vector4 = ScreenUtil.safe_margins(get_viewport())
+	_safe.add_theme_constant_override("margin_bottom", int(maxf(margins.w, keyboard)))
+	_note.visible = keyboard <= 0.0
+
+
+## Opens the dialog in `mode`; `email` pre-fills the address (e.g. for the reset).
+func open(mode: Mode, email: String = "") -> void:
+	_mode = mode
+	_busy = false
+	_email.text = email
+	_password.text = ""
+	_password.secret = true
+	_reveal.text = "Показать"
+	_title.text = TITLES[mode]
+	_note.text = NOTES[mode]
+	_password_row.visible = mode != Mode.RESET
+	_forgot.visible = mode == Mode.SIGN_IN
+	_action.text = ACTIONS[mode]
+	_set_busy(false)
+	_set_status("", SOFT_COLOR)
+	show()
+	if not OS.has_feature("mobile"):
+		_email.grab_focus.call_deferred()
+
+
+## Closes the dialog (also the Android back button) and wipes the fields.
+func close() -> void:
+	if _busy:
+		return
+	_email.text = ""
+	_password.text = ""
+	hide()
+	closed.emit()
+
+
+func mode() -> Mode:
+	return _mode
+
+
+func status_text() -> String:
+	return _status.text
+
+
+## Fills the fields (tests, screenshots).
+func set_fields(email: String, password: String) -> void:
+	_email.text = email
+	_password.text = password
+
+
+## Sends the form. Input is checked by Online before any request goes out.
+func submit() -> void:
+	if _busy:
+		return
+	_set_busy(true)
+	_set_status("Проверяем…", INFO_COLOR)
+	var password: String = _password.text
+	var result: Dictionary = {}
+	match _mode:
+		Mode.LINK:
+			result = await Online.link_email(_email.text, password)
+		Mode.SIGN_IN:
+			result = await Online.sign_in_email(_email.text, password)
+		Mode.RESET:
+			result = await Online.send_password_reset(_email.text)
+	password = ""
+	_set_busy(false)
+	if not result["ok"]:
+		_set_status(EmailRules.message(str(result["error"])), ERROR_COLOR)
+		return
+	_email.text = ""
+	_password.text = ""
+	hide()
+	succeeded.emit(KINDS[_mode], result)
+	closed.emit()
+
+
+func _build() -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0.04, 0.06, 0.14, 0.9)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+	_safe = MarginContainer.new()
+	_safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_safe)
+	var center := CenterContainer.new()
+	_safe.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(700, 0)
+	center.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	panel.add_child(box)
+
+	_title = _label("", 32, GOLD)
+	box.add_child(_title)
+	_note = _label("", 18, SOFT_COLOR)
+	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_note.custom_minimum_size = Vector2(640, 0)
+	box.add_child(_note)
+
+	_email = _field("Почта", false)
+	_email.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_EMAIL_ADDRESS
+	_email.text_submitted.connect(_on_email_submitted)
+	box.add_child(_email)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_password_row = row
+	box.add_child(row)
+	_password = _field("Пароль", true)
+	_password.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_PASSWORD
+	_password.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_password.text_submitted.connect(func(_t: String) -> void: submit())
+	row.add_child(_password)
+	_reveal = _button("Показать", _on_reveal_pressed, true, 170)
+	row.add_child(_reveal)
+
+	_status = _label("", 18, SOFT_COLOR)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.custom_minimum_size = Vector2(640, 48)
+	box.add_child(_status)
+
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	buttons.alignment = BoxContainer.ALIGNMENT_END
+	box.add_child(buttons)
+	_forgot = _button("Забыли пароль?", _on_forgot_pressed, true, 230)
+	_forgot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buttons.add_child(_forgot)
+	_cancel = _button("Отмена", close, true, 170)
+	buttons.add_child(_cancel)
+	_action = _button("", submit, false, 250)
+	buttons.add_child(_action)
+
+
+func _on_email_submitted(_text: String) -> void:
+	if _mode == Mode.RESET:
+		submit()
+	elif not OS.has_feature("mobile"):
+		_password.grab_focus()
+
+
+func _on_reveal_pressed() -> void:
+	_password.secret = not _password.secret
+	_reveal.text = "Показать" if _password.secret else "Скрыть"
+
+
+func _on_forgot_pressed() -> void:
+	if _busy:
+		return
+	open(Mode.RESET, _email.text)
+
+
+func _set_busy(on: bool) -> void:
+	_busy = on
+	_email.editable = not on
+	_password.editable = not on
+	for button: Button in [_reveal, _forgot, _cancel, _action]:
+		button.disabled = on
+
+
+func _set_status(text: String, color: Color) -> void:
+	_status.text = text
+	_status.add_theme_color_override("font_color", color)
+
+
+func _field(placeholder: String, secret: bool) -> LineEdit:
+	var edit := LineEdit.new()
+	edit.placeholder_text = placeholder
+	edit.secret = secret
+	edit.custom_minimum_size = Vector2(0, FIELD_HEIGHT)
+	edit.max_length = EmailRules.PASSWORD_MAX if secret else EmailRules.EMAIL_MAX
+	edit.add_theme_font_size_override("font_size", 24)
+	edit.caret_blink = true
+	if secret:
+		edit.context_menu_enabled = false  # no copy of the password out of the field
+		edit.selecting_enabled = false
+		edit.shortcut_keys_enabled = false
+	return edit
+
+
+func _label(text: String, size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+func _button(text: String, action: Callable, secondary: bool, width: float) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(width, 58)
+	button.add_theme_font_size_override("font_size", 21)
+	if secondary:
+		button.theme_type_variation = &"SecondaryButton"
+	button.pressed.connect(action)
+	return button

@@ -4,8 +4,10 @@ extends RefCounted
 ## no SDK and no native plugin. Providers:
 ## - anonymous (guest): accounts:signUp, the default on first launch;
 ## - email/password linking of a guest: accounts:update with the guest idToken
-##   (keeps the uid, so the profile and progress stay). Service level only, the
-##   UI does not offer it yet;
+##   (keeps the uid, so the profile and progress stay);
+## - email/password sign-in on another device: accounts:signInWithPassword
+##   (switches to the uid of that account; merging the profiles is Online's job);
+## - password reset mail: accounts:sendOobCode (PASSWORD_RESET), no session needed;
 ## - IdP linking (Google, Play Games...): accounts:signInWithIdp needs an id
 ##   token from a native sign-in, which CLAUDE.md forbids, so link_with_idp()
 ##   answers "not_available". Design in docs/ACCOUNTS.md.
@@ -18,7 +20,9 @@ extends RefCounted
 ##   error, unreadable session file) is never replaced by a new guest account;
 ##   only a refresh token the server rejects for good on a guest account leads
 ##   to a new guest (and only when the caller allows creating one);
-## - tokens, emails and raw replies are never printed.
+## - tokens, emails, passwords and raw replies are never printed; a password is
+##   only a function argument here and is never stored (the session file holds
+##   the uid and the refresh token).
 
 ## Emitted when the uid or the account type changes.
 signal changed
@@ -27,6 +31,8 @@ signal token_request_finished(result: Dictionary)
 
 const SIGN_UP_URL := "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=%s"
 const UPDATE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:update?key=%s"
+const SIGN_IN_URL := "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=%s"
+const OOB_URL := "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=%s"
 const DELETE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=%s"
 const REFRESH_URL := "https://securetoken.googleapis.com/v1/token?key=%s"
 const TYPE_GUEST := "guest"
@@ -50,6 +56,29 @@ const LINK_ERRORS := {
 	"INVALID_EMAIL": "invalid_email",
 	"WEAK_PASSWORD": "weak_password",
 	"CREDENTIAL_TOO_OLD_LOGIN_AGAIN": "reauth_required",
+	"TOKEN_EXPIRED": "reauth_required",
+	"INVALID_ID_TOKEN": "reauth_required",
+	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
+	"OPERATION_NOT_ALLOWED": "not_available",
+	"USER_DISABLED": "disabled",
+}
+## Newer projects answer INVALID_LOGIN_CREDENTIALS for both an unknown email and a
+## wrong password; the older codes are kept so the text never reveals which one.
+const SIGN_IN_ERRORS := {
+	"INVALID_LOGIN_CREDENTIALS": "invalid_credentials",
+	"INVALID_PASSWORD": "invalid_credentials",
+	"EMAIL_NOT_FOUND": "invalid_credentials",
+	"MISSING_PASSWORD": "invalid_credentials",
+	"INVALID_EMAIL": "invalid_email",
+	"MISSING_EMAIL": "invalid_email",
+	"USER_DISABLED": "disabled",
+	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
+	"OPERATION_NOT_ALLOWED": "not_available",
+}
+const RESET_ERRORS := {
+	"INVALID_EMAIL": "invalid_email",
+	"MISSING_EMAIL": "invalid_email",
+	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
 	"OPERATION_NOT_ALLOWED": "not_available",
 }
 
@@ -159,8 +188,11 @@ func forget() -> void:
 ## and everything stored under it stay. {"ok", "error"}: credential_in_use
 ## (the email belongs to another account: sign in there instead, nothing is
 ## merged automatically), invalid_email, weak_password, reauth_required,
-## not_available (provider disabled in the console), offline, server.
+## not_available (provider disabled in the console), too_many_attempts,
+## already_linked, offline, server. The password is never stored or logged.
 func link_email(email: String, password: String) -> Dictionary:
+	if account_type == TYPE_EMAIL:
+		return {"ok": false, "error": "already_linked"}
 	var auth: Dictionary = await ensure_token(false)
 	if not auth["ok"]:
 		return {"ok": false, "error": auth["error"]}
@@ -175,6 +207,55 @@ func link_email(email: String, password: String) -> Dictionary:
 	_persist()
 	changed.emit()
 	return {"ok": true, "error": ""}
+
+
+## Signs in with email and password (accounts:signInWithPassword), e.g. on a new
+## device. Never retried (a wrong password must not be tried three times). A
+## device already signed in to an email account may only sign in to that same
+## account again (fresh login for sensitive actions): another one is refused
+## with other_account before any token is taken. On success the session is the
+## account's; a guest uid that is left behind is remembered in previous_uid.
+## {"ok", "error", "switched" (the uid changed)}: invalid_credentials,
+## invalid_email, too_many_attempts, disabled, not_available, other_account,
+## not_configured, offline, server.
+func sign_in_email(email: String, password: String) -> Dictionary:
+	if not is_configured():
+		return {"ok": false, "error": "not_configured", "switched": false}
+	var body := {"email": email, "password": password, "returnSecureToken": true}
+	var reply: Dictionary = await _post_json(SIGN_IN_URL % api_key, body, false)
+	if not reply["ok"]:
+		return {"ok": false, "error": _error_key(reply, SIGN_IN_ERRORS), "switched": false}
+	var json: Dictionary = reply["json"] if reply["json"] is Dictionary else {}
+	var new_uid: String = str(json.get("localId", ""))
+	if new_uid == "" or str(json.get("idToken", "")) == "":
+		return {"ok": false, "error": "server", "switched": false}
+	if account_type == TYPE_EMAIL and uid != "" and new_uid != uid:
+		return {"ok": false, "error": "other_account", "switched": false}
+	var switched: bool = new_uid != uid
+	if switched and uid != "" and account_type == TYPE_GUEST:
+		previous_uid = uid
+	_take_tokens(json, "idToken", "refreshToken", "localId", "expiresIn")
+	account_type = TYPE_EMAIL
+	_persist()
+	changed.emit()
+	return {"ok": true, "error": "", "switched": switched}
+
+
+## Sends the password reset mail (accounts:sendOobCode, PASSWORD_RESET). Needs no
+## session. An unknown address is reported as success on purpose: the answer must
+## not tell whether an email is registered (projects with enumeration protection
+## answer the same way). {"ok", "error"}: invalid_email, too_many_attempts,
+## not_available, not_configured, offline, server.
+func send_password_reset(email: String) -> Dictionary:
+	if not is_configured():
+		return {"ok": false, "error": "not_configured"}
+	var body := {"requestType": "PASSWORD_RESET", "email": email}
+	var reply: Dictionary = await _post_json(OOB_URL % api_key, body, false)
+	if reply["ok"]:
+		return {"ok": true, "error": ""}
+	if not HttpTransport.is_transient(reply) and error_message(reply["json"]) == "EMAIL_NOT_FOUND":
+		return {"ok": true, "error": ""}
+	return {"ok": false, "error": _error_key(reply, RESET_ERRORS)}
 
 
 ## Deletes the Firebase Auth user of this device (accounts:delete with the
@@ -310,9 +391,16 @@ func _persist() -> void:
 
 
 func _link_error(reply: Dictionary) -> String:
+	return _error_key(reply, LINK_ERRORS)
+
+
+## Reply of a failed request -> short error key ("offline", "server" or from `table`).
+static func _error_key(reply: Dictionary, table: Dictionary) -> String:
+	if int(reply.get("code", 0)) == 429:
+		return "too_many_attempts"
 	if HttpTransport.is_transient(reply):
 		return "offline" if reply["network"] else "server"
-	return str(LINK_ERRORS.get(error_message(reply["json"]), "server"))
+	return str(table.get(error_message(reply["json"]), "server"))
 
 
 func _post_json(url: String, body: Dictionary, retry: bool) -> Dictionary:

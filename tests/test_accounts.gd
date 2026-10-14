@@ -2,39 +2,14 @@ extends SceneTree
 ## Accounts without network: nickname policy table, profile migration and
 ## merge, onboarding routing (fresh / resumed / done), offline start without
 ## firebase.cfg, the encrypted session file, AuthService token logic and the
-## Online sync / nickname / deletion flows against a fake HTTP layer.
+## Online sync / nickname / deletion flows against a fake HTTP layer. The email
+## flows are in tests/test_email_accounts.gd.
 ## godot --headless --path . --script res://tests/test_accounts.gd
 
 const SAVE := "user://test_accounts.cfg"
 const SESSION := "user://test_accounts_session.dat"
 const CASES := "res://tests/nickname_cases.json"
-
-
-## Answers requests from `handler` (method, url, body) -> [code, json]; code 0 = no reply.
-class FakeTransport:
-	extends HttpTransport
-	var handler: Callable
-	var calls: Array[Dictionary] = []
-
-	func send(method: int, url: String, headers: PackedStringArray, body: String) -> Dictionary:
-		calls.append({"method": method, "url": url, "headers": headers, "body": body})
-		await get_tree().process_frame  # replies arrive later, like real ones
-		var answer: Array = handler.call(method, url, body)
-		var code: int = answer[0]
-		return {
-			"ok": code >= 200 and code < 300,
-			"code": code,
-			"json": answer[1],
-			"network": code == 0,
-		}
-
-	func count(fragment: String) -> int:
-		var n: int = 0
-		for call in calls:
-			if fragment in str(call["url"]):
-				n += 1
-		return n
-
+const Fakes := preload("res://tests/fakes.gd")
 
 var fails := 0
 
@@ -226,7 +201,7 @@ func _test_session_store() -> void:
 	SessionStore.clear()
 
 
-func _make_auth(transport: FakeTransport) -> AuthService:
+func _make_auth(transport: Fakes.FakeTransport) -> AuthService:
 	var auth := AuthService.new()
 	auth.api_key = "test-key"
 	auth.transport = transport
@@ -235,7 +210,7 @@ func _make_auth(transport: FakeTransport) -> AuthService:
 
 
 func _test_auth() -> void:
-	var t := FakeTransport.new()
+	var t := Fakes.FakeTransport.new()
 	root.add_child(t)
 	# Lambdas capture locals by value: the reply lives in an array changed in place.
 	var refresh_reply: Array = [
@@ -347,164 +322,9 @@ func _test_auth() -> void:
 	SessionStore.clear()
 
 
-## Fake Firebase project: auth, users/{uid}, saves/{uid} and a generic document
-## store for publicProfiles / nicknames / leaderboards. It mimics the rules that
-## matter: creating an existing nickname document is refused (403), a taken name
-## belongs to another uid.
-class FakeFirebase:
-	extends RefCounted
-	var users_doc: Variant = null  # Dictionary of decoded fields or null
-	var update_time: String = "2026-10-14T10:00:00.000001Z"
-	var legacy_text: String = ""
-	var fail_commits: int = 0
-	var offline: bool = false
-	var taken: Array[String] = []
-	## users/{uid} commits only.
-	var commits: Array[Dictionary] = []
-	## Every commit body, in order.
-	var all_commits: Array[Array] = []
-	## Other documents by path ("publicProfiles/uid1" -> decoded fields).
-	var docs: Dictionary = {}
-	var auth_deleted: bool = false
-	var auth_delete_error: String = ""
-	var refuse_commits: int = 0
-
-	func handle(method: int, url: String, body: String) -> Array:
-		if offline:
-			return [0, null]
-		if "signUp" in url or "securetoken" in url or "accounts:delete" in url:
-			return auth_reply(url)
-		if url.ends_with(":commit"):
-			return commit(body)
-		return document(method, url)
-
-	func auth_reply(url: String) -> Array:
-		if "signUp" in url:
-			return [
-				200, {"idToken": "ID", "refreshToken": "RT", "localId": "uid1", "expiresIn": "3600"}
-			]
-		if "securetoken" in url:
-			return [
-				200,
-				{"id_token": "ID", "refresh_token": "RT", "user_id": "uid1", "expires_in": "3600"}
-			]
-		if auth_delete_error != "":
-			return [400, {"error": {"message": auth_delete_error}}]
-		auth_deleted = true
-		return [200, {}]
-
-	func path_of(name: String) -> String:
-		return name.get_slice("/documents/", 1)
-
-	func exists(path: String) -> bool:
-		if path.begins_with("nicknames/") and path.trim_prefix("nicknames/") in taken:
-			return true
-		return docs.has(path)
-
-	func fields_of(path: String) -> Dictionary:
-		if path.begins_with("nicknames/") and path.trim_prefix("nicknames/") in taken:
-			return {"uid": "someone-else"}
-		return docs.get(path, {})
-
-	func commit(body: String) -> Array:
-		var writes: Array = JSON.parse_string(body)["writes"]
-		all_commits.append(writes)
-		if refuse_commits > 0:
-			refuse_commits -= 1
-			return [403, {"error": {"status": "PERMISSION_DENIED"}}]
-		var touches_users := false
-		for write: Dictionary in writes:
-			var name: String = str(
-				write["update"]["name"] if write.has("update") else write["delete"]
-			)
-			if path_of(name).begins_with("users/"):
-				touches_users = true
-		if touches_users and writes.size() == 1 and writes[0].has("update"):
-			return commit_users(writes[0])
-		# Generic documents: validate every write first (all or nothing).
-		var refusal: Array = validate_writes(writes)
-		if not refusal.is_empty():
-			return refusal
-		for write: Dictionary in writes:
-			if write.has("delete"):
-				var gone: String = path_of(write["delete"])
-				docs.erase(gone)
-				if gone.begins_with("users/"):
-					users_doc = null
-			else:
-				var path: String = path_of(write["update"]["name"])
-				var fields: Dictionary = FirestoreClient.decode_fields(write["update"]["fields"])
-				for transform: Dictionary in write.get("updateTransforms", []):
-					fields[str(transform["fieldPath"])] = int(Time.get_unix_time_from_system())
-				var merged: Dictionary = docs.get(path, {})
-				merged.merge(fields, true)
-				docs[path] = merged
-		return [200, {"writeResults": [{}]}]
-
-	## [] if every write passes the preconditions and the trace rules, else the error reply.
-	func validate_writes(writes: Array) -> Array:
-		var denied := [403, {"error": {"status": "PERMISSION_DENIED"}}]
-		for write: Dictionary in writes:
-			if write.has("update"):
-				var path: String = path_of(write["update"]["name"])
-				var precondition: Dictionary = write.get("currentDocument", {})
-				if precondition.get("exists", true) == false and exists(path):
-					return denied
-				if precondition.get("exists", false) == true and not exists(path):
-					return [404, {"error": {"status": "NOT_FOUND"}}]
-				if path.begins_with("nicknameTrace/") and exists(path) and trace_recent(path):
-					return denied  # rules: rewritten at most every 24 hours
-			if write.has("delete"):
-				var gone_path: String = path_of(write["delete"])
-				var is_trace: bool = gone_path.begins_with("nicknameTrace/")
-				if is_trace and exists(gone_path) and trace_recent(gone_path):
-					return denied
-		return []
-
-	## firestore.rules: nicknameTrace/{uid} may only be rewritten or deleted after 24 hours.
-	func trace_recent(path: String) -> bool:
-		return Time.get_unix_time_from_system() < int(docs[path]["changedAt"]) + 86400
-
-	func commit_users(write: Dictionary) -> Array:
-		if fail_commits > 0:
-			# Another device wrote first: the precondition fails.
-			fail_commits -= 1
-			users_doc = {"schemaVersion": 1, "progression": {"unlocked": 5, "stars": {"4": 3}}}
-			update_time = "2026-10-14T11:00:00.000001Z"
-			return [400, {"error": {"status": "FAILED_PRECONDITION"}}]
-		commits.append(write)
-		var fields: Dictionary = FirestoreClient.decode_fields(write["update"]["fields"])
-		fields["updatedAt"] = 2000000000
-		users_doc = fields
-		return [200, {"writeResults": [{}]}]
-
-	func document(method: int, url: String) -> Array:
-		var missing := [404, {"error": {"status": "NOT_FOUND"}}]
-		if "/users/" in url and method == HTTPClient.METHOD_GET:
-			if users_doc == null:
-				return missing
-			return [
-				200, {"fields": FirestoreClient.encode_fields(users_doc), "updateTime": update_time}
-			]
-		if "/saves/" in url:
-			return saves(method)
-		var path: String = url.get_slice("/documents/", 1)
-		if method == HTTPClient.METHOD_GET and exists(path):
-			return [200, {"fields": FirestoreClient.encode_fields(fields_of(path))}]
-		return missing
-
-	func saves(method: int) -> Array:
-		if method == HTTPClient.METHOD_DELETE:
-			legacy_text = ""
-			return [200, {}]
-		if legacy_text == "":
-			return [404, {"error": {"status": "NOT_FOUND"}}]
-		return [200, {"fields": {"progress": {"stringValue": legacy_text}}}]
-
-
-func _configured_online(fake: FakeFirebase) -> Node:
+func _configured_online(fake: Fakes.FakeFirebase) -> Node:
 	var online: Node = root.get_node("Online")
-	var t := FakeTransport.new()
+	var t := Fakes.FakeTransport.new()
 	t.handler = fake.handle
 	online.setup("test-key", "test-project", t)
 	online.auth.backoff_scale = 0.0
@@ -520,7 +340,7 @@ func _test_online_sync() -> void:
 	cfg.set_value("online", "refresh_token", "OLD-PLAIN-RT")
 	cfg.set_value("progress", "stars_1", 2)
 	LevelCatalog.commit()
-	var fake := FakeFirebase.new()
+	var fake := Fakes.FakeFirebase.new()
 	var legacy := ConfigFile.new()
 	legacy.set_value("progress", "stars_2", 3)
 	legacy.set_value("progress", "unlocked", 3)
@@ -586,7 +406,7 @@ func _test_online_sync() -> void:
 
 func _test_nickname_and_delete() -> void:
 	_clean()
-	var fake := FakeFirebase.new()
+	var fake := Fakes.FakeFirebase.new()
 	fake.taken = ["бобр"]
 	var online: Node = _configured_online(fake)
 	await online.start()
