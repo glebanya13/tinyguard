@@ -6,14 +6,15 @@ extends Resource
 ## Which enemy in range a tower shoots at; the player switches it per tower.
 enum Priority { FIRST, LAST, STRONGEST, NEAREST }
 
-## Command card labels of the Priority values.
-const PRIORITY_NAMES: Array[String] = ["Первый", "Последний", "Сильный", "Ближний"]
-## One-line meaning of every Priority value (for the tooltip).
-const PRIORITY_HINTS: Array[String] = [
-	"ближайший к замку",
-	"самый далёкий от замка",
-	"с наибольшим здоровьем",
-	"ближайший к башне",
+## Translation keys of the Priority values (label and one-line meaning).
+const PRIORITY_KEYS: Array[String] = [
+	"PRIORITY_FIRST", "PRIORITY_LAST", "PRIORITY_STRONGEST", "PRIORITY_NEAREST"
+]
+const PRIORITY_HINT_KEYS: Array[String] = [
+	"PRIORITY_FIRST_HINT",
+	"PRIORITY_LAST_HINT",
+	"PRIORITY_STRONGEST_HINT",
+	"PRIORITY_NEAREST_HINT",
 ]
 ## Share of everything spent on a tower that selling it returns.
 const SELL_REFUND := 0.7
@@ -79,22 +80,26 @@ func upgrade_cost(level: int) -> Vector2i:
 	return Vector2i(upgrade_gold[level], upgrade_wood[level])
 
 
+## Label of the target-priority button.
+static func priority_name(priority: int) -> String:
+	return TranslationServer.translate(PRIORITY_KEYS[priority])
+
+
 ## Tooltip of the target-priority button.
 static func priority_tooltip(priority: int) -> String:
-	return (
-		"Цель: %s — %s. Нажмите, чтобы сменить"
-		% [PRIORITY_NAMES[priority], PRIORITY_HINTS[priority]]
-	)
+	var hint: String = TranslationServer.translate(PRIORITY_HINT_KEYS[priority])
+	return TranslationServer.translate("PRIORITY_TIP") % [priority_name(priority), hint]
 
 
 ## One-line stats of `level_index` for the command card.
 func stats_text(level_index: int) -> String:
-	var text := (
-		"Урон %d · радиус %.1f · %.2f с"
+	var text: String = (
+		TranslationServer.translate("TOWER_STATS")
 		% [damage_levels[level_index], range_levels[level_index], interval_levels[level_index]]
 	)
 	if splash_levels[level_index] > 0.0:
-		text += " · взрыв %.1f м" % splash_levels[level_index]
+		text += TranslationServer.translate("TOWER_STATS_SPLASH") % splash_levels[level_index]
 	if slow_levels[level_index] < 1.0:
-		text += " · замедл. %d%%" % roundi((1.0 - slow_levels[level_index]) * 100.0)
+		var percent: int = roundi((1.0 - slow_levels[level_index]) * 100.0)
+		text += TranslationServer.translate("TOWER_STATS_SLOW") % percent
 	return text

@@ -1,0 +1,10 @@
+# Intentional engine errors of the tests: one extended regex per line, matched against
+# a whole ERROR:/WARNING:/SCRIPT ERROR line of a test's output (tests/run_all.sh).
+# Anything else with ERROR:, WARNING:, SCRIPT ERROR or Parse Error fails the test.
+# Add a line only for an error the test provokes on purpose, and say which test.
+
+# test_meta, test_online, test_accounts: a deliberately broken save / cloud text.
+ConfigFile parse error at (<string>|user://test_[a-z_]+\.cfg):[0-9]+: Unexpected EOF
+Save user://test_[a-z_]+\.cfg is damaged \(Parse error\), trying the backup
+# test_accounts: a session file that is not a valid encrypted store.
+Condition "magic != 0x43454447" is true\. Returning: ERR_FILE_UNRECOGNIZED

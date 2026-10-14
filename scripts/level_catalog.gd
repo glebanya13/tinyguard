@@ -7,16 +7,9 @@ extends RefCounted
 const LEVELS_PATH := "res://resources/levels.json"
 ## A path's last point counts as lying on another path this close to it (metres).
 const JOIN_TOLERANCE := 0.01
-## Compass names (genitive, after "С"/"Со") of the 8 screen directions, clockwise from the top.
-const DIRECTION_NAMES: Array[String] = [
-	"севера",
-	"северо-востока",
-	"востока",
-	"юго-востока",
-	"юга",
-	"юго-запада",
-	"запада",
-	"северо-запада",
+## Translation keys of the 8 screen directions, clockwise from the top.
+const DIRECTION_KEYS: Array[String] = [
+	"DIR_N", "DIR_NE", "DIR_E", "DIR_SE", "DIR_S", "DIR_SW", "DIR_W", "DIR_NW"
 ]
 ## Screen "up" and "right" on the ground plane (X, Z): the camera of main.tscn
 ## looks along (-1, -1, -1), so the top of the screen is the world's (-X, -Z) corner.
@@ -90,35 +83,38 @@ static func screen_direction(point: Vector2) -> int:
 	return posmod(roundi(angle / (PI / 4.0)), 8)
 
 
-## "С севера и запада!" for the paths a wave uses; "Со всех сторон!" when it uses all.
+## "From the north and west!" for the paths a wave uses; "From every side!" for all.
 static func direction_text(level: Dictionary, lanes: Array) -> String:
 	var paths: Array = level["paths"]
 	if lanes.size() >= paths.size() and paths.size() > 1:
-		return "Со всех сторон!"
+		return TranslationServer.translate("LANES_ALL")
 	var names: Array[String] = []
 	for lane: int in lanes:
 		var start: Array = paths[lane][0]
 		var from := Vector2(float(start[0]), float(start[1]))
-		var side: String = DIRECTION_NAMES[screen_direction(from)]
+		var side: String = TranslationServer.translate(DIRECTION_KEYS[screen_direction(from)])
 		if not names.has(side):
 			names.append(side)
 	if names.is_empty():
 		return ""
 	var last: String = names.pop_back()
 	if names.is_empty():
-		return "С %s!" % last
-	return "С %s и %s!" % [", ".join(names), last]
+		return TranslationServer.translate("LANES_FROM") % last
+	return TranslationServer.translate("LANES_FROM_TWO") % [", ".join(names), last]
 
 
-## "30 секунд", "21 секунду", "2 секунды".
+## "30 seconds" / "30 секунд"; Russian has three plural forms, English two.
 static func seconds_text(seconds: float) -> String:
 	var n: int = roundi(seconds)
-	var word: String = "секунд"
-	if n % 10 == 1 and n % 100 != 11:
-		word = "секунду"
-	elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
-		word = "секунды"
-	return "%d %s" % [n, word]
+	var key: String = "TIME_SECONDS_MANY"
+	if TranslationServer.get_locale().begins_with("ru"):
+		if n % 10 == 1 and n % 100 != 11:
+			key = "TIME_SECONDS_ONE"
+		elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
+			key = "TIME_SECONDS_FEW"
+	elif n == 1:
+		key = "TIME_SECONDS_ONE"
+	return TranslationServer.translate(key) % n
 
 
 ## Highest level id the player may start (1 = only the first).

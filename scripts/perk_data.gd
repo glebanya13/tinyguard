@@ -5,7 +5,7 @@ extends Resource
 
 @export var id: StringName = &""
 @export var display_name: String = ""
-## Shown with the current and next value, e.g. "Стартовое золото: +%d".
+## Translation key of a text with one %s for the value, e.g. PERK_GOLD_START_DESC.
 @export var description: String = ""
 @export var icon: Texture2D
 ## Star price of each level.

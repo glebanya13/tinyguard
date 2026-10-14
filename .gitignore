@@ -55,3 +55,6 @@ firebase.cfg
 
 # Firebase emulator logs
 *-debug.log
+
+# npm packages of the rules tests
+node_modules

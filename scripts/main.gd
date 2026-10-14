@@ -7,14 +7,13 @@ extends Node3D
 enum GuideStep { NONE, CHOP, GOLD, BUILD }
 
 const DEFEAT_TIPS: Array[String] = [
-	"Мороз перед Пушкой: замедленные враги дольше под обстрелом",
-	"улучшайте меч в кузнице и встречайте босса «Вихрем»",
-	"звёзды покупают постоянные улучшения в Казне на карте",
-	"рубите деревья между волнами — дерево нужно для улучшений",
-	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
-	"Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам",
+	"TIP_FROST", "TIP_SWORD", "TIP_STARS", "TIP_WOOD", "TIP_LOOP", "TIP_LANES"
 ]
 
+## Perks recorded in the journal header and applied by a replay.
+const PERK_KEYS: Array[StringName] = [
+	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls"
+]
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 const TUTORIAL_SCENE := preload("res://scenes/tutorial.tscn")
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
@@ -63,6 +62,11 @@ const TRADE_KEEP_SLACK := 0.6
 var level: Dictionary = {}
 var walk_grid := WalkGrid.new()
 var villagers := Villagers.new()
+
+## Battle simulation (fixed-step clock, entity registry) and the single entry
+## for player actions (journal of the battle).
+var _sim: Sim = null
+var _commands: GameCommands = null
 
 var _focused_tree: WoodTree = null
 ## What the hero's next swing hits, computed once per frame.
@@ -115,15 +119,34 @@ var _wave_direction: String = ""
 
 
 func _ready() -> void:
+	_sim = Sim.new()
+	_sim.name = "Sim"
+	add_child(_sim)
+	_sim.set_seed(randi())  # a replay overrides it (Sim.begin_replay)
+	_commands = GameCommands.new()
+	_commands.name = "GameCommands"
+	_commands.sim = _sim
+	add_child(_commands)
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
 	_build_level()
 	_endless = LevelCatalog.endless
-	_game_state.configure(_start_with_perks(level["start"]))
-	_game_state.reset()
+	_apply_perks(_current_perks())
 	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
-	_hero.damage_multiplier = 1.0 + Perks.value(&"sword")
-	_hero.wood_bonus = int(Perks.value(&"axe"))
-	_build_manager.damage_multiplier = 1.0 + Perks.value(&"towers")
+	_wave_manager.sim = _sim
+	_build_manager.sim = _sim
+	_hero.sim = _sim
+	_hero.commands = _commands
+	_commands.game_state = _game_state
+	_commands.build_manager = _build_manager
+	_commands.hero = _hero
+	_commands.villagers = villagers
+	_sim.commands = _commands
+	_sim.game_state = _game_state
+	_sim.wave_manager = _wave_manager
+	_sim.hero = _hero
+	_sim.villagers = villagers
+	_commands.journal.header = _journal_header()
+	_commands.set_hero_limits(_hero.global_position, _map_rect())
 	_wave_manager.wave_cleared.connect(
 		func(wave: int) -> void: _waves_cleared = maxi(_waves_cleared, wave)
 	)
@@ -147,6 +170,10 @@ func _ready() -> void:
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
 	_build_manager.ground_tapped.connect(_on_ground_tapped)
+	_commands.applied.connect(_on_command_applied)
+	_sim.pause_changed.connect(_on_pause_changed)
+	_sim.speed_changed.connect(_on_speed_changed)
+	_sim.replay_begun.connect(_on_replay_begun)
 
 	_hud.command_pressed.connect(_on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
@@ -165,6 +192,7 @@ func _ready() -> void:
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
+	villagers.seed_value = _sim.seed_value
 	villagers.wood_sold.connect(_on_wood_sold)
 	_level_root.add_child(villagers)
 
@@ -180,7 +208,7 @@ func _ready() -> void:
 	if _endless:
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
 	_hud.show_banner(
-		"Первая волна через " + LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
+		tr("WAVE_FIRST_IN") % LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
 	)
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
@@ -193,8 +221,12 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			# Android back button: pause menu (and back out of it).
-			_toggle_pause()
+			# Android back button: pause menu (and back out of it); on the end screen
+			# it works like "To the map".
+			if _ended:
+				_on_map_pressed()
+			else:
+				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Phone call, home button: never let waves run unattended.
 			if OS.has_feature("mobile") and not _paused and not _ended:
@@ -204,7 +236,14 @@ func _notification(what: int) -> void:
 func _toggle_pause() -> void:
 	if _ended:
 		return
-	_paused = not _paused
+	_commands.submit(GameCommand.set_pause(not _paused))
+
+
+## The pause command was applied: stop / resume the whole tree.
+func _on_pause_changed(on: bool) -> void:
+	if _ended:
+		return
+	_paused = on
 	get_tree().paused = _paused
 	_hero.joystick_vector = Vector2.ZERO
 	_camera.reset_touches()
@@ -216,17 +255,72 @@ func _toggle_pause() -> void:
 
 
 func _toggle_speed() -> void:
-	Engine.time_scale = 1.0 if Engine.time_scale > 1.0 else 2.0
-	_hud.set_speed(roundi(Engine.time_scale))
+	_commands.submit(GameCommand.set_speed(1 if Engine.time_scale > 1.0 else 2))
 
 
-## Level start values plus the permanent perks bought with stars.
-func _start_with_perks(start: Dictionary) -> Dictionary:
-	var out: Dictionary = start.duplicate()
-	out["gold"] = int(out["gold"]) + int(Perks.value(&"gold_start"))
-	out["wood"] = int(out["wood"]) + int(Perks.value(&"wood_start"))
-	out["lives"] = int(out["lives"]) + int(Perks.value(&"walls"))
+## The speed command was applied: x2 only means twice as many frames of real
+## time per second, so the simulation still sees the same steps.
+func _on_speed_changed(speed: int) -> void:
+	Engine.time_scale = float(speed)
+	_hud.set_speed(speed)
+
+
+## What a replay needs to know about the battle it reproduces.
+func _journal_header() -> Dictionary:
+	return {
+		"sim_version": Sim.VERSION,
+		"tick_rate": Sim.TICK_RATE,
+		"level": int(level["id"]),
+		"endless": _endless,
+		"seed": _sim.seed_value,
+		"perks": _current_perks(),
+	}
+
+
+## The player's permanent perks by name.
+func _current_perks() -> Dictionary:
+	var out := {}
+	for key: StringName in PERK_KEYS:
+		out[String(key)] = Perks.value(key)
 	return out
+
+
+## Starting resources, lives and damage bonuses from `perks`. A replay applies
+## the perks of its journal header (not the local save), so every client plays
+## the same battle; call it before the battle clock starts.
+func _apply_perks(perks: Dictionary) -> void:
+	var start: Dictionary = level["start"].duplicate()
+	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
+	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
+	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
+	_game_state.configure(start)
+	_game_state.reset()
+	_hero.damage_multiplier = 1.0 + float(perks.get("sword", 0.0))
+	_hero.wood_bonus = int(perks.get("axe", 0))
+	_build_manager.damage_multiplier = 1.0 + float(perks.get("towers", 0.0))
+
+
+func _on_replay_begun(header: Dictionary) -> void:
+	_apply_perks(header.get("perks", {}))
+
+
+## Playable area of the map (metres), for validating hero commands.
+func _map_rect() -> Rect2:
+	var b: Array = level["bounds"]
+	return Rect2(b[0], b[1], b[2], b[3])
+
+
+## UI reaction to an executed command: effects of the forge, a fresh card.
+func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
+	if not ok:
+		return
+	match cmd.type:
+		GameCommand.Type.SWORD:
+			_spawn_fx(UPGRADE_FX, _hero.global_position)
+			_refresh_card()
+		GameCommand.Type.REPAIR:
+			_spawn_fx(BUILD_FX, _castle.global_position)
+			_refresh_card()
 
 
 func _count_kill(reward: int) -> void:
@@ -236,11 +330,8 @@ func _count_kill(reward: int) -> void:
 
 func _stats_summary() -> String:
 	var t: int = int(_stats["time"])
-	var line_1 := "Врагов побеждено: %d · золота добыто: %d" % [_stats["kills"], _stats["gold"]]
-	var line_2 := (
-		"Дерева нарублено: %d · башен: %d · время %d:%02d"
-		% [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
-	)
+	var line_1 := tr("END_STATS_1") % [_stats["kills"], _stats["gold"]]
+	var line_2 := tr("END_STATS_2") % [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
 	return line_1 + "\n" + line_2
 
 
@@ -323,7 +414,9 @@ func _build_level() -> void:
 	_level_root.add_child(castle)
 
 	for point: Array in level["slots"]:
-		var slot: Node3D = SLOT_SCENE.instantiate()
+		var slot := SLOT_SCENE.instantiate() as TowerSlot
+		slot.slot_id = _commands.slots.size()
+		_commands.slots.append(slot)
 		slot.position = _ground(point, PATH_HEIGHT)
 		_level_root.add_child(slot)
 
@@ -348,6 +441,7 @@ func _plant_trees(decor: Node3D) -> void:
 		tree.variant = StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
 		tree.model_scale = spot.scale.x
 		tree.grove = grove
+		tree.sim = _sim
 		tree.position = spot.global_position
 		_level_root.add_child(tree)
 		trees.append(tree)
@@ -373,6 +467,7 @@ func _build_walk_grid() -> void:
 		_ground(level["hero"]),
 		slots
 	)
+	_sim.start()  # the level is complete: the battle clock may run
 
 
 func _ground(point: Array, height: float = 0.0) -> Vector3:
@@ -386,7 +481,9 @@ func _tower_types() -> Array[TowerData]:
 ## Command card action: the hero walks to the selected slot and acts there.
 func _on_command_pressed(id: StringName) -> void:
 	if id == &"trade_lot" or id == &"trade_all":
-		villagers.sell(1 if id == &"trade_lot" else villagers.lots_affordable())
+		var lots: int = 1 if id == &"trade_lot" else villagers.lots_affordable()
+		if lots > 0:
+			_commands.submit(GameCommand.trade(lots))
 		_refresh_card()
 		return
 	if id == &"cancel":
@@ -398,22 +495,18 @@ func _on_command_pressed(id: StringName) -> void:
 		_refresh_card()
 		return
 	if id == &"sword":
-		if _game_state.spend(_hero.sword_upgrade_cost()):
-			_hero.upgrade_sword()
-			_spawn_fx(UPGRADE_FX, _hero.global_position)
-		_refresh_card()
+		_commands.submit(GameCommand.sword())
 		return
 	if id == &"repair":
-		if _game_state.repair():
-			_spawn_fx(BUILD_FX, _castle.global_position)
-		_refresh_card()
+		_commands.submit(GameCommand.repair())
 		return
 	if id == &"sell" or id == &"priority":
 		var chosen: TowerSlot = _build_manager.selected_slot
-		if id == &"sell":
-			_build_manager.sell(chosen)
+		if chosen != null and id == &"sell":
+			_commands.submit(GameCommand.sell(chosen.slot_id))
 		elif chosen != null and chosen.tower != null:
-			chosen.tower.cycle_priority()
+			var next: int = (chosen.tower.priority + 1) % TowerData.Priority.size()
+			_commands.submit(GameCommand.set_priority(chosen.slot_id, next))
 		_refresh_card()
 		return
 	var slot: TowerSlot = _build_manager.selected_slot
@@ -430,15 +523,18 @@ func _on_command_pressed(id: StringName) -> void:
 
 func _execute(id: StringName, slot: TowerSlot) -> void:
 	if id == &"upgrade":
-		_build_manager.upgrade(slot)
+		_commands.submit(GameCommand.upgrade(slot.slot_id))
 	else:
-		_build_manager.build_on(slot, _tower_for(id))
+		_commands.submit(GameCommand.build(slot.slot_id, _tower_index(id)))
 	_refresh_card()
 
 
+func _tower_index(id: StringName) -> int:
+	return int(String(id).trim_prefix("build_"))
+
+
 func _tower_for(id: StringName) -> TowerData:
-	var index: int = int(String(id).trim_prefix("build_"))
-	return _tower_types()[index]
+	return _tower_types()[_tower_index(id)]
 
 
 func _command_available(id: StringName, slot: TowerSlot) -> bool:
@@ -454,8 +550,7 @@ func _auto_select_near_hero() -> void:
 		return
 	var nearest: TowerSlot = null
 	var best: float = AUTO_SELECT_REACH
-	for node: Node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
-		var slot := node as TowerSlot
+	for slot in _commands.slots:
 		var offset: Vector3 = slot.global_position - _hero.global_position
 		offset.y = 0.0
 		if offset.length() < best:
@@ -473,11 +568,11 @@ func _refresh_card() -> void:
 		_range_ring.hide()
 	if slot == null and _forge_open:
 		_hud.show_hint("")
-		_hud.update_card(_forge_card())
+		_hud.update_card(CommandCards.forge(_hero, _game_state))
 		return
 	if slot == null and _trade_with != null:
 		_hud.show_hint("")
-		_hud.update_card(_trade_card())
+		_hud.update_card(CommandCards.trade(villagers, _game_state))
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text())
@@ -486,10 +581,10 @@ func _refresh_card() -> void:
 	_forge_open = false
 	_hud.show_hint("")
 	if slot.is_free():
-		info["title"] = "Площадка"
+		info["title"] = tr("CARD_PLOT")
 		var names: PackedStringArray = []
 		for data: TowerData in _tower_types():
-			names.append(data.display_name)
+			names.append(tr(data.display_name))
 		info["stats"] = " · ".join(names)
 		var short := true
 		for i in _tower_types().size():
@@ -507,38 +602,38 @@ func _refresh_card() -> void:
 						"enabled": ok,
 						"tooltip":
 						(
-							"%s (%d) — %s\n%s"
-							% [data.display_name, i + 1, data.role, data.stats_text(0)]
+							tr("CARD_TOWER_TIP")
+							% [tr(data.display_name), i + 1, tr(data.role), data.stats_text(0)]
 						),
 					}
 				)
 			)
-		info["hint"] = "Не хватает золота или дерева" if short else ""
+		info["hint"] = tr("CARD_NEED_BOTH") if short else ""
 	else:
 		var data: TowerData = slot.tower.data
 		var level_index: int = slot.tower.level
 		var cost: Vector2i = data.upgrade_cost(level_index)
 		info["title"] = (
-			"%s · ур. %d/%d" % [data.display_name, level_index + 1, data.max_level() + 1]
+			tr("CARD_TOWER_TITLE") % [tr(data.display_name), level_index + 1, data.max_level() + 1]
 		)
 		info["stats"] = data.stats_text(level_index)
 		var upgrade := {
 			"id": &"upgrade",
 			"icon": UPGRADE_ICON,
 			"enabled": _build_manager.can_upgrade(slot),
-			"tooltip": "Улучшить (U)"
+			"tooltip": tr("CARD_UPGRADE_TIP")
 		}
 		if cost.x < 0:
-			upgrade["label"] = "макс."
+			upgrade["label"] = tr("CARD_MAX")
 		else:
 			upgrade["gold"] = cost.x
 			upgrade["wood"] = cost.y
-			upgrade["tooltip"] = "Улучшить (U) → " + data.stats_text(level_index + 1)
+			upgrade["tooltip"] = tr("CARD_UPGRADE_TIP_NEXT") % data.stats_text(level_index + 1)
 			if not upgrade["enabled"]:
-				info["hint"] = "Не хватает золота или дерева"
+				info["hint"] = tr("CARD_NEED_BOTH")
 		buttons.append(upgrade)
 		var tip: String = TowerData.priority_tooltip(slot.tower.priority)
-		var label: String = TowerData.PRIORITY_NAMES[slot.tower.priority]
+		var label: String = TowerData.priority_name(slot.tower.priority)
 		var spec := {"id": &"priority", "icon": TARGET_ICON, "label": label, "tooltip": tip}
 		spec["enabled"] = true
 		buttons.append(spec)
@@ -551,7 +646,7 @@ func _refresh_card() -> void:
 				"wood": refund.y,
 				"gain": true,
 				"enabled": true,
-				"tooltip": "Продать за %d%% вложенного (X)" % roundi(TowerData.SELL_REFUND * 100.0)
+				"tooltip": tr("CARD_SELL_TIP") % roundi(TowerData.SELL_REFUND * 100.0)
 			}
 		)
 	if slot != null:
@@ -561,11 +656,11 @@ func _refresh_card() -> void:
 				"icon": CANCEL_ICON,
 				"label": "Esc",
 				"enabled": true,
-				"tooltip": "Снять выбор (Esc)"
+				"tooltip": tr("CARD_DESELECT_TIP")
 			}
 		)
 	if _pending_command != &"":
-		info["hint"] = "Рыцарь идёт к площадке…"
+		info["hint"] = tr("CARD_KNIGHT_WALKS")
 	_show_range(slot)
 	info["buttons"] = buttons
 	_hud.update_card(info)
@@ -579,97 +674,6 @@ func _show_range(slot: TowerSlot) -> void:
 		var r: float = slot.tower.range_m if slot.tower else _tower_types()[0].range_levels[0]
 		_range_ring.global_position = Vector3(slot.global_position.x, 0.07, slot.global_position.z)
 		_range_ring.scale = Vector3(r, 1.0, r)
-
-
-## Forge card: sword upgrade and castle repair.
-func _forge_card() -> Dictionary:
-	var info := {"title": "Кузница"}
-	var sword: Vector2i = _hero.sword_upgrade_cost()
-	var next_damage: String = ""
-	if sword.x >= 0:
-		var next_index: int = mini(_hero.sword_level + 1, _hero.sword_damage_levels.size() - 1)
-		next_damage = (" → %d" % (_hero.sword_damage_levels[next_index] * _hero.damage_multiplier))
-	info["stats"] = (
-		"Меч %d%s · стены %d/%d"
-		% [
-			_hero.attack_damage * _hero.damage_multiplier,
-			next_damage,
-			_game_state.lives,
-			_game_state.starting_lives
-		]
-	)
-	var upgrade := {
-		"id": &"sword",
-		"icon": SWORD_ICON,
-		"enabled": _game_state.can_afford(sword),
-		"tooltip": "Закалить меч (U)"
-	}
-	if sword.x < 0:
-		upgrade["label"] = "макс."
-	else:
-		upgrade["gold"] = sword.x
-		upgrade["wood"] = sword.y
-	var repair := {
-		"id": &"repair",
-		"icon": HEART_ICON,
-		"wood": _game_state.repair_wood,
-		"enabled": _game_state.can_repair(),
-		"tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives
-	}
-	info["buttons"] = [
-		upgrade,
-		repair,
-		{
-			"id": &"cancel",
-			"icon": CANCEL_ICON,
-			"label": "Esc",
-			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
-		}
-	]
-	return info
-
-
-## Trade card: sell wood to the villager in lots, the price drops with every lot.
-func _trade_card() -> Dictionary:
-	var lot: int = villagers.trade.wood_per_lot
-	var lots: int = villagers.lots_affordable()
-	var price: int = villagers.lot_price()
-	var info := {"title": "Житель"}
-	info["stats"] = (
-		"Курс: %d дерева → %d золота · дерева у вас: %d" % [lot, price, _game_state.wood]
-	)
-	info["hint"] = (
-		"Чем больше продаёте, тем ниже цена"
-		if lots > 0
-		else "Не хватает дерева: житель берёт по %d" % lot
-	)
-	info["buttons"] = [
-		{
-			"id": &"trade_lot",
-			"icon": VILLAGER_ICON,
-			"gold": price,
-			"gain": true,
-			"enabled": lots > 0,
-			"tooltip": "Продать %d дерева → +%d золота" % [lot, price]
-		},
-		{
-			"id": &"trade_all",
-			"icon": SELL_ICON,
-			"gold": villagers.quote(lots),
-			"gain": true,
-			"enabled": lots > 0,
-			"tooltip": "Продать всё: %d дерева → +%d золота" % [lots * lot, villagers.quote(lots)]
-		},
-		{
-			"id": &"cancel",
-			"icon": CANCEL_ICON,
-			"label": "Esc",
-			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
-		}
-	]
-	return info
 
 
 ## Opens the trade card when the hero comes up to a villager and closes it
@@ -725,11 +729,11 @@ func _hint_text() -> String:
 		return ""
 	match _guide_step():
 		GuideStep.CHOP:
-			return "Нажмите на дерево — рыцарь нарубит дров"
+			return tr("GUIDE_CHOP")
 		GuideStep.GOLD:
-			return "Бейте слизней у тропы — за них золото"
+			return tr("GUIDE_GOLD")
 		GuideStep.BUILD:
-			return "Нажмите на площадку и постройте башню"
+			return tr("GUIDE_BUILD")
 	return ""
 
 
@@ -881,8 +885,7 @@ func _on_ground_tapped(point: Vector3) -> void:
 	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
 	var best: WoodTree = null
 	var best_distance: float = TREE_TAP_REACH
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
+	for tree in _sim.trees:
 		var offset: Vector3 = tree.global_position - point
 		offset.y = 0.0
 		if tree.is_choppable() and offset.length() < best_distance:
@@ -913,12 +916,10 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 		_boss_roar.play()
 	# One banner per wave (a boss wave gets the king icon, not a second banner).
 	var last: bool = not _endless and wave >= total
-	var title: String = "Последняя волна!" if last else "Волна %d!" % wave
+	var title: String = tr("WAVE_LAST") if last else tr("WAVE_N") % wave
 	var next: String = ""
 	if not last:
-		next = "Следующая через " + LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
-	if _wave_direction != "":
-		next = (_wave_direction + "\n" + next).strip_edges()
+		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
 	_hud.show_banner(title, next, boss)
 
 
@@ -930,12 +931,12 @@ func _on_all_waves_cleared() -> void:
 	LevelCatalog.complete(int(level["id"]), stars)
 	var gained: int = Perks.earned_stars() - before
 	_victory_sound.play()
-	var line: String = "Звёзд всего: %d из %d" % [Perks.earned_stars(), Perks.max_stars()]
+	var line: String = tr("END_STARS_TOTAL") % [Perks.earned_stars(), Perks.max_stars()]
 	if gained > 0:
-		line = "Новые звёзды: +%d! %s\nПотратьте их в Казне на карте" % [gained, line]
+		line = tr("END_STARS_NEW") % [gained, line]
 	elif stars < 3:
-		line += "\n3 звезды — пройти, не потеряв ни одной жизни"
-	_end_game("Победа!", true, stars, line + "\n")
+		line += tr("END_STARS_HINT")
+	_end_game(tr("HUD_VICTORY"), true, stars, line + "\n")
 
 
 func _on_defeated() -> void:
@@ -949,9 +950,9 @@ func _on_defeated() -> void:
 		var record: bool = LevelCatalog.save_endless(id, _waves_cleared)
 		if record:
 			Online.submit_record(id, _waves_cleared)
-		var title := "Новый рекорд: %d волн!" % _waves_cleared if record else "Осада окончена"
+		var title := tr("END_NEW_RECORD") % _waves_cleared if record else tr("END_SIEGE_OVER")
 		var line := (
-			"Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d"
+			tr("END_SIEGE_STATS")
 			% [
 				_waves_cleared,
 				maxi(old_record, _waves_cleared),
@@ -962,13 +963,8 @@ func _on_defeated() -> void:
 		_end_game(title, record, 0, line + "\n")
 		return
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
-	tips.append(
-		(
-			"ремонт стен в кузнице: +%d жизни за %d дерева"
-			% [_game_state.repair_lives, _game_state.repair_wood]
-		)
-	)
-	_end_game("Поражение", false, 0, "Совет: " + tips.pick_random() + "\n")
+	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
+	_end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
 
 
 func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:

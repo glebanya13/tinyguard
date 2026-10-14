@@ -35,6 +35,7 @@ const CARD_ICON_HEIGHT := 46.0
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
+const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 ## Keyboard/gamepad action for each command id.
@@ -60,6 +61,8 @@ var _hint_text: String = ""
 var _banner_tween: Tween = null
 var _joystick_visible: bool = false
 var _card_hash: int = 0
+var _settings_button: Button = null
+var _settings_panel: SettingsPanel = null
 var _spin_shown: int = -1
 ## Touch build: no keyboard hints or hover tooltips.
 var _touch: bool = OS.has_feature("mobile")
@@ -106,6 +109,7 @@ func _ready() -> void:
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
 	_continue_button.pressed.connect(continue_pressed.emit)
 	_sound_button.pressed.connect(_on_sound_pressed)
+	_build_settings()
 	_continue_button.shortcut = _shortcut(&"pause")
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_speed_button.pressed.connect(speed_pressed.emit)
@@ -113,15 +117,15 @@ func _ready() -> void:
 	_pause_button.shortcut = _shortcut(&"pause")
 	_speed_button.shortcut = _shortcut(&"speed")
 	if not _touch:
-		_pause_button.tooltip_text = "Пауза и меню: кузница, звук (P)"
-		_speed_button.tooltip_text = "Скорость игры (F)"
-		_forge_button.tooltip_text = "Меч и ремонт стен замка (K)"
+		_pause_button.tooltip_text = tr("HUD_PAUSE_TIP")
+		_speed_button.tooltip_text = tr("HUD_SPEED_TIP")
+		_forge_button.tooltip_text = tr("HUD_FORGE_TIP")
 	_attack_button.pressed.connect(attack_pressed.emit)
 	_spin_button.pressed.connect(spin_pressed.emit)
 	_spin_icon.pivot_offset = _spin_icon.size / 2.0
 	if not _touch:
-		_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
-		_spin_button.tooltip_text = "Вихрь: удар по всем врагам вокруг (Q)"
+		_attack_button.tooltip_text = tr("HUD_ATTACK_TIP")
+		_spin_button.tooltip_text = tr("HUD_SPIN_TIP")
 	_joystick.vector_changed.connect(joystick_changed.emit)
 	_end_screen.hide()
 	_banner.hide()
@@ -140,7 +144,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 ## `total` 0 = endless siege.
 func set_wave(wave: int, total: int) -> void:
-	_wave_label.text = "Осада %d" % wave if total <= 0 else "%d/%d" % [wave, total]
+	_wave_label.text = tr("HUD_SIEGE_WAVE") % wave if total <= 0 else "%d/%d" % [wave, total]
 
 
 func set_gold(gold: int) -> void:
@@ -263,7 +267,7 @@ func update_card(info: Dictionary) -> void:
 	_card_hint.text = info.get("hint", "")
 	_card_hint.visible = _card_hint.text != ""
 	# Red only for problems ("not enough..."), calm blue for information.
-	var warn: bool = _card_hint.text.begins_with("Не хватает")
+	var warn: bool = _card_hint.text.begins_with(tr("CARD_NEED_PREFIX"))
 	_card_hint.add_theme_color_override("font_color", WARN_COLOR if warn else INFO_COLOR)
 	var specs: Array = info.get("buttons", [])
 	_card.visible = not specs.is_empty()
@@ -295,6 +299,7 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 	_stats.show()
 	_continue_button.hide()
 	_sound_button.hide()
+	_settings_button.hide()
 	for i in 3:
 		var star := TextureRect.new()
 		star.texture = STAR_ICON
@@ -322,16 +327,18 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 
 ## Pause menu: continue, restart, back to the map.
 func show_pause_menu() -> void:
-	_show_menu("Пауза", PAUSE_COLOR)
+	_show_menu(tr("HUD_PAUSE"), PAUSE_COLOR)
 	_stars.hide()
 	_stats.hide()
 	_continue_button.show()
 	_forge_button.show()
 	_sound_button.show()
+	_settings_button.show()
 	_update_sound_label()
 
 
 func hide_pause_menu() -> void:
+	_settings_panel.close()
 	_end_screen.hide()
 	_card_hash = 0
 	_card.visible = not _button_ids.is_empty()
@@ -409,7 +416,7 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 	if spec.has("label"):
 		var label: String = spec["label"]
 		if _touch and label == "Esc":
-			label = "Закрыть"
+			label = tr("HUD_CLOSE")
 		cost.add_child(_cost_label(label))
 		return
 	# Income (selling) in green instead of a "+" sign: both numbers fit the button.
@@ -438,6 +445,17 @@ func _drop_outlines() -> void:
 	for panel: Control in [$Root/TopBar, $Root/TopRight, _card, _hint_pill]:
 		for label: Node in panel.find_children("*", "Label", true, false):
 			label.add_theme_constant_override("outline_size", 0)
+	for panel: Control in [$Root/TopBar, $Root/TopRight]:
+		_layer_by_kind(panel)
+
+
+## Panels, then icons, then texts: 2D batching merges only consecutive draws with one
+## texture, so panel-icon-text per chip is 3 calls per chip but 3 calls in all this way.
+func _layer_by_kind(root: Control) -> void:
+	for icon: Node in root.find_children("*", "TextureRect", true, false):
+		(icon as CanvasItem).z_index = 1
+	for label: Node in root.find_children("*", "Label", true, false):
+		(label as CanvasItem).z_index = 2
 
 
 func _cost_label(text: String, color: Color = COST_COLOR) -> Label:
@@ -465,13 +483,40 @@ func _shortcut(action: StringName) -> Shortcut:
 	return shortcut
 
 
+## "Settings" button of the pause menu and its dialog.
+func _build_settings() -> void:
+	_settings_button = Button.new()
+	_settings_button.name = "SettingsButton"
+	_settings_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_settings_button.custom_minimum_size = _sound_button.custom_minimum_size
+	_settings_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_settings_button.theme_type_variation = &"SecondaryButton"
+	_settings_button.text = tr("HUD_SETTINGS")
+	_settings_button.icon = GEAR_ICON
+	_settings_button.hide()
+	_sound_button.add_sibling(_settings_button)
+	_settings_panel = SettingsPanel.new()
+	_root.add_child(_settings_panel)
+	_settings_button.pressed.connect(_settings_panel.open)
+	_settings_panel.closed.connect(_update_sound_label)
+	_settings_panel.language_changed.connect(_on_language_changed)
+
+
+func _on_language_changed() -> void:
+	_settings_button.text = tr("HUD_SETTINGS")
+	_update_sound_label()
+	if _end_screen.visible:
+		_message_label.text = tr("HUD_PAUSE")
+	_card_hash = 0
+
+
 func _on_sound_pressed() -> void:
 	LevelCatalog.set_sound_on(not LevelCatalog.sound_on())
 	_update_sound_label()
 
 
 func _update_sound_label() -> void:
-	_sound_button.text = "Звук: вкл" if LevelCatalog.sound_on() else "Звук: выкл"
+	_sound_button.text = tr("HUD_SOUND_ON") if LevelCatalog.sound_on() else tr("HUD_SOUND_OFF")
 	_sound_button.icon = SOUND_ON_ICON if LevelCatalog.sound_on() else SOUND_OFF_ICON
 
 

@@ -26,7 +26,7 @@ func spawn(path: String, progress: float) -> Enemy:
 	e.setup(load(path), 10.0)
 	e.speed = 0.0
 	current_scene.get_node("Level/EnemyPath").add_child(e)
-	e.progress = progress
+	e.place(progress)
 	return e
 
 
@@ -109,7 +109,7 @@ func _run() -> void:
 	await process_frame
 	var minis: int = 0
 	for node: Node in get_nodes_in_group(Enemy.GROUP):
-		if (node as Enemy).data.display_name == "Слизнёнок":
+		if (node as Enemy).data.display_name == "ENEMY_SLIME_MINI_NAME":
 			minis += 1
 	check(minis == 2, "splitter leaves two minis (%d)" % minis)
 
@@ -142,14 +142,14 @@ func _run() -> void:
 	shooter.range_m = 100.0
 	check(shooter.priority == TowerData.Priority.FIRST, "archers start on First")
 	check(shooter.find_target() == ahead, "First picks the enemy closest to the castle")
-	shooter.cycle_priority()
+	shooter.set_priority(shooter.priority + 1)
 	check(shooter.priority == TowerData.Priority.LAST, "switch -> Last")
 	check(shooter.find_target() == behind, "Last picks the one furthest from the castle")
-	shooter.cycle_priority()
+	shooter.set_priority(shooter.priority + 1)
 	check(shooter.priority == TowerData.Priority.STRONGEST, "switch -> Strongest")
 	check(shooter.find_target() == behind, "Strongest picks the tank")
-	shooter.cycle_priority()
-	shooter.cycle_priority()
+	shooter.set_priority(shooter.priority + 1)
+	shooter.set_priority(shooter.priority + 1)
 	check(shooter.priority == TowerData.Priority.FIRST, "the switch wraps around")
 	check(
 		ahead.distance_to_goal() < behind.distance_to_goal(),

@@ -11,6 +11,7 @@ const CASTLE_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
+const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const GOLD := Color(0.98, 0.8, 0.4)
 const DIM_STAR := Color(0.22, 0.24, 0.34, 0.9)
 
@@ -24,6 +25,7 @@ var _records_list: VBoxContainer = null
 var _records_title: Label = null
 var _records_status: Label = null
 var _account: AccountPanel = null
+var _settings: SettingsPanel = null
 var _sync_label: Label = null
 
 @onready var _map: Node3D = $Map
@@ -47,6 +49,7 @@ var _sync_label: Label = null
 
 
 func _ready() -> void:
+	GameSettings.apply_language()
 	LevelCatalog.apply_sound()
 	LevelCatalog.endless = false
 	LevelCatalog.tutorial = false
@@ -81,6 +84,8 @@ func _notification(what: int) -> void:
 			_treasury.hide()
 		elif _records and _records.visible:
 			_records.hide()
+		elif _settings.visible:
+			_settings.close()
 		elif _account.visible:
 			_account.close()
 		else:
@@ -141,8 +146,8 @@ func _star_row(earned: int, size: float) -> HBoxContainer:
 func _select(id: int) -> void:
 	_selected = id
 	var level: Dictionary = LevelCatalog.get_level(id)
-	_name_label.text = "%d. %s" % [id, level["name"]]
-	_subtitle_label.text = level["subtitle"]
+	_name_label.text = "%d. %s" % [id, tr(level["name"])]
+	_subtitle_label.text = tr(level["subtitle"])
 	for child in _level_stars.get_children():
 		child.queue_free()
 	_level_stars.add_child(_star_row(LevelCatalog.stars(id), 34))
@@ -150,11 +155,10 @@ func _select(id: int) -> void:
 	_endless_button.visible = won
 	var record: int = LevelCatalog.endless_record(id)
 	if not won:
-		_record_label.text = "  Пройдите уровень — откроется бесконечная осада"
+		_record_label.text = tr("MAP_NO_ENDLESS")
 	else:
 		_record_label.text = (
-			"  Осада: рекорд %d волн · звёзд %d/%d"
-			% [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
+			tr("MAP_ENDLESS_RECORD") % [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
 		)
 	for i in _site_buttons.size():
 		_site_buttons[i].modulate = Color(1.15, 1.1, 0.9) if _site_ids[i] == id else Color.WHITE
@@ -174,7 +178,7 @@ func _fill_cards() -> void:
 	for child in _cards.get_children():
 		_cards.remove_child(child)
 		child.queue_free()
-	_free_label.text = "Свободно: %d" % Perks.free_stars()
+	_free_label.text = tr("MAP_FREE_STARS") % Perks.free_stars()
 	for perk: PerkData in Perks.all():
 		_cards.add_child(_perk_card(perk))
 	_refresh_stars()
@@ -200,31 +204,31 @@ func _perk_card(perk: PerkData) -> PanelContainer:
 	texts.add_theme_constant_override("separation", 0)
 	head.add_child(texts)
 	var title := Label.new()
-	title.text = perk.display_name
+	title.text = tr(perk.display_name)
 	title.add_theme_color_override("font_color", GOLD)
 	title.add_theme_font_size_override("font_size", 23)
 	texts.add_child(title)
 	var level_label := Label.new()
-	level_label.text = "Уровень %d / %d" % [level, perk.max_level()]
+	level_label.text = tr("MAP_PERK_LEVEL") % [level, perk.max_level()]
 	level_label.add_theme_font_size_override("font_size", 16)
 	texts.add_child(level_label)
 	var effect := Label.new()
-	var now: String = perk.format_value(level) if level > 0 else "нет"
-	effect.text = perk.description % now
+	var now: String = perk.format_value(level) if level > 0 else tr("MAP_PERK_NONE")
+	effect.text = tr(perk.description) % now
 	if level < perk.max_level():
 		effect.text += " → " + perk.format_value(level + 1)
 	effect.add_theme_font_size_override("font_size", 17)
 	box.add_child(effect)
 	var buy := Button.new()
 	buy.focus_mode = Control.FOCUS_NONE
-	buy.custom_minimum_size = Vector2(0, 50)
+	buy.custom_minimum_size = Vector2(0, 84)
 	buy.add_theme_font_size_override("font_size", 20)
 	var cost: int = Perks.next_cost(perk)
 	if cost < 0:
-		buy.text = "Максимум"
+		buy.text = tr("MAP_PERK_MAX")
 		buy.disabled = true
 	else:
-		buy.text = "Купить за %d" % cost
+		buy.text = tr("MAP_PERK_BUY") % cost
 		buy.icon = STAR_ICON
 		buy.add_theme_constant_override("icon_max_width", 30)
 		buy.disabled = not Perks.can_buy(perk)
@@ -246,8 +250,10 @@ func _on_reset_pressed() -> void:
 func _open_records() -> void:
 	if _records == null:
 		_build_records_panel()
-	_records_title.text = "Рекорды осады: " + str(LevelCatalog.get_level(_selected)["name"])
-	_records_status.text = "Загрузка…"
+	_records_title.text = (
+		tr("MAP_RECORDS_TITLE") % tr(str(LevelCatalog.get_level(_selected)["name"]))
+	)
+	_records_status.text = tr("MAP_LOADING")
 	for child in _records_list.get_children():
 		child.queue_free()
 	_records.show()
@@ -277,7 +283,7 @@ func _build_records_panel() -> void:
 	_records_title.add_theme_font_size_override("font_size", 30)
 	box.add_child(_records_title)
 	var name_label := Label.new()
-	name_label.text = "Ваше имя: %s (сменить — в Профиле)" % Online.player_name()
+	name_label.text = tr("MAP_YOUR_NAME") % Online.player_name()
 	box.add_child(name_label)
 	_records_list = VBoxContainer.new()
 	_records_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -290,14 +296,14 @@ func _build_records_panel() -> void:
 	buttons.add_theme_constant_override("separation", 10)
 	box.add_child(buttons)
 	for spec: Array in [
-		["В облако", Online.cloud_save, true],
-		["Из облака", Online.cloud_load, true],
-		["Закрыть", _records.hide, false]
+		[tr("MAP_TO_CLOUD"), Online.cloud_save, true],
+		[tr("MAP_FROM_CLOUD"), Online.cloud_load, true],
+		[tr("MAP_CLOSE"), _records.hide, false]
 	]:
 		var button := Button.new()
 		button.text = spec[0]
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(180, 56)
+		button.custom_minimum_size = Vector2(180, 84)
 		if spec[2]:
 			button.theme_type_variation = &"SecondaryButton"
 		button.pressed.connect(spec[1])
@@ -309,12 +315,10 @@ func _on_leaderboard_loaded(level_id: int, entries: Array) -> void:
 		return
 	for child in _records_list.get_children():
 		child.queue_free()
-	_records_status.text = (
-		"" if not entries.is_empty() else "Пока никто не играл в осаду на этом уровне"
-	)
+	_records_status.text = ("" if not entries.is_empty() else tr("MAP_NO_RECORDS"))
 	for i in entries.size():
 		var row := Label.new()
-		row.text = "%d. %s — %d волн" % [i + 1, entries[i]["name"], entries[i]["wave"]]
+		row.text = tr("MAP_RECORD_ROW") % [i + 1, entries[i]["name"], entries[i]["wave"]]
 		row.add_theme_font_size_override("font_size", 21)
 		if i == 0:
 			row.add_theme_color_override("font_color", GOLD)
@@ -334,14 +338,15 @@ func _on_cloud_loaded(ok: bool) -> void:
 ## Profile button, sync status line and the account panel (scripts/account_panel.gd).
 func _build_account_ui() -> void:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(64, 60)
+	button.custom_minimum_size = Vector2(84, 84)
 	button.focus_mode = Control.FOCUS_NONE
 	button.icon = PROFILE_ICON
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.add_theme_constant_override("icon_max_width", 40)
-	button.tooltip_text = "Профиль"
+	button.tooltip_text = tr("MAP_PROFILE")
 	button.pressed.connect(func() -> void: _account.open())
 	_sound_button.add_sibling(button)
+	_build_settings_ui()
 	_sync_label = Label.new()
 	_sync_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_sync_label.offset_left = -520.0
@@ -372,13 +377,30 @@ func _build_account_ui() -> void:
 		Online.sync_now()  # pushes progress made in the level
 
 
+## Gear button next to the sound button and the settings dialog.
+func _build_settings_ui() -> void:
+	var gear := Button.new()
+	gear.name = "SettingsButton"
+	gear.custom_minimum_size = Vector2(64, 60)
+	gear.focus_mode = Control.FOCUS_NONE
+	gear.icon = GEAR_ICON
+	gear.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	gear.add_theme_constant_override("icon_max_width", 40)
+	gear.tooltip_text = tr("SET_TOOLTIP")
+	_sound_button.add_sibling(gear)
+	_settings = SettingsPanel.new()
+	_ui_root.add_child(_settings)
+	gear.pressed.connect(_settings.open)
+	_settings.closed.connect(_update_sound_icon)
+	# Texts built in code are cached: rebuild the map in the new language.
+	_settings.language_changed.connect(func() -> void: get_tree().reload_current_scene())
+
+
 ## Shown only when something is not saved to the cloud (or the name is taken).
 func _on_sync_state(state: String) -> void:
 	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
 	_sync_label.visible = conflict or state in ["pending", "offline", "session_lost", "newer"]
-	_sync_label.text = (
-		"Имя занято — выбери другое в Профиле" if conflict else Online.state_text(state)
-	)
+	_sync_label.text = (tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state))
 	_sync_label.add_theme_color_override(
 		"font_color", Color(1.0, 0.62, 0.55) if conflict else Color(0.82, 0.86, 0.95)
 	)

@@ -131,3 +131,18 @@ npm test        # поднимает эмулятор Firestore (порт 8189) 
    (`CREDENTIAL_TOO_OLD_LOGIN_AGAIN`).
 7. Письма (сброс пароля) ограничены квотами Firebase: при лимите игрок видит «Слишком много
    попыток». Размер квоты на Spark смотрите в консоли, здесь не проверялся.
+
+## Кооператив: Realtime Database (необязательно)
+
+План, протокол и квоты: `docs/MULTIPLAYER.md` (раздел 12a). Включается владельцем:
+
+1. **Build → Realtime Database → Create database** (регион рядом с игроками; для `europe-west1`
+   URL вида `https://<проект>-default-rtdb.europe-west1.firebasedatabase.app`), режим **locked**.
+   Для проекта `bimbleguard` URL `https://bimbleguard-default-rtdb.firebaseio.com`.
+2. Прописать URL в `firebase.cfg` (не коммитится): `database_url="https://..."` в секции
+   `[firebase]` (образец — `firebase.example.cfg`). Без ключа кооператива нет.
+3. Задеплоить правила (владелец, не агент): `firebase deploy --only database`
+   (или вставить `database.rules.json` во вкладку **Realtime Database → Rules**).
+4. Тесты правил на эмуляторе (Java 21): `cd firebase/rules-tests && npm install && npm test`
+   (запускает эмуляторы Firestore и Database; `firebase.json`: `singleProjectMode: false`
+   нужен, иначе эмулятор RTDB не принимает пространство имён тестов).

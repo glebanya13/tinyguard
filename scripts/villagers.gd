@@ -36,6 +36,8 @@ const BODY_POINTS: Array[Vector2] = [
 @export var body_radius: float = 0.3
 
 var game_state: GameState = null
+## Seeds the villagers' decorative strolls (the battle seed).
+var seed_value: int = 0
 ## Lots sold this level.
 var lots_sold: int = 0
 
@@ -70,7 +72,13 @@ func spawn(
 			var room: float = _room(spot)
 			if room >= min_room:
 				candidates.append(Vector4(spot.x, spot.z, room - distance_penalty * distance, 0.0))
-	candidates.sort_custom(func(a: Vector4, b: Vector4) -> bool: return a.z > b.z)
+	# Equal scores are ordered by position: sort_custom is not stable.
+	candidates.sort_custom(
+		func(a: Vector4, b: Vector4) -> bool:
+			if a.z != b.z:
+				return a.z > b.z
+			return a.x < b.x if a.x != b.x else a.y < b.y
+	)
 	var homes: Array[Vector3] = []
 	for c in candidates:
 		var spot := Vector3(c.x, 0.0, c.y)
@@ -82,6 +90,7 @@ func spawn(
 	for spot in homes:
 		var villager := VILLAGER_SCENE.instantiate() as Villager
 		villager.home = spot
+		villager.rng.seed = seed_value + _villagers.size() + 1
 		villager.wander_radius = stroll_radius
 		villager.ground_check = is_open
 		add_child(villager)

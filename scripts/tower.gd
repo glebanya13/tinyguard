@@ -1,8 +1,9 @@
 class_name Tower
 extends Node3D
 ## Shoots projectiles at the enemy within range that its priority picks (by
-## default the one closest to the castle), or a chain bolt that
-## jumps between enemies (lightning: no projectile, damage is instant).
+## default the one closest to the castle), or a chain bolt that jumps between
+## enemies (lightning: no projectile, damage is instant).
+## Acts in fixed simulation steps (sim_step); ties are broken by the enemy id.
 
 ## Emitted on every shot; visuals (aiming, recoil) listen to it.
 signal fired(target: Enemy)
@@ -24,6 +25,9 @@ signal level_changed(level: int)
 ## Bolt effect for chain towers.
 @export var chain_fx: PackedScene
 
+## Stable id (set by Sim.add_tower).
+var id: int = 0
+var sim: Sim = null
 ## Current upgrade level, 0-based.
 var level: int = 0
 ## Tower type this tower was built from (set by apply_level).
@@ -42,8 +46,20 @@ var priority: int = -1
 var _cooldown: float = 0.0
 
 
-func _process(delta: float) -> void:
-	_cooldown = maxf(_cooldown - delta, 0.0)
+func _exit_tree() -> void:
+	if sim != null:
+		sim.remove_tower(self)
+
+
+## Joins the simulation (called by whoever builds the tower).
+func attach(new_sim: Sim) -> void:
+	sim = new_sim
+	sim.add_tower(self)
+
+
+## One fixed simulation step.
+func sim_step() -> void:
+	_cooldown = maxf(_cooldown - Sim.TICK_DT, 0.0)
 	if _cooldown > 0.0:
 		return
 	var target: Enemy = find_target()
@@ -74,44 +90,50 @@ func apply_level(tower_data: TowerData, new_level: int) -> void:
 	level_changed.emit(level)
 
 
-## Next priority of the player's switch (wraps around).
-func cycle_priority() -> void:
-	priority = (priority + 1) % TowerData.Priority.size()
+## Integers describing the simulated state (for Sim.state_hash).
+func state_ints() -> Array[int]:
+	return [id, level, roundi(damage * 1000.0), roundi(_cooldown * 1000.0), priority]
 
 
-## The enemy in range that the current priority picks, or null.
+## Changes the target priority (a TowerData.Priority); the SET_PRIORITY command.
+func set_priority(new_priority: int) -> void:
+	priority = clampi(new_priority, 0, TowerData.Priority.size() - 1)
+
+
+## The enemy in range that the priority picks. Integer keys, and the first of
+## equal keys wins (enemies are in id order), so the choice is deterministic.
 func find_target() -> Enemy:
 	var best: Enemy = null
-	var best_key: float = INF
+	if sim == null:
+		return null
+	var best_key: int = 0
 	var range_sq: float = range_m * range_m
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var enemy := node as Enemy
-		if enemy == null or not enemy.is_alive() or (enemy.is_flying() and not hits_air):
+	for enemy in sim.enemies:
+		if not enemy.is_alive() or (enemy.is_flying() and not hits_air):
 			continue
-		var offset: Vector3 = enemy.global_position - global_position
+		var offset: Vector3 = enemy.sim_position() - global_position
 		offset.y = 0.0
 		var dist_sq: float = offset.length_squared()
 		if dist_sq > range_sq:
 			continue
-		var key: float = _priority_key(enemy, dist_sq)
-		if key < best_key:
+		var key: int = _priority_key(enemy, dist_sq)
+		if best == null or key < best_key:
 			best_key = key
 			best = enemy
 	return best
 
 
-## Smaller is shot first. Ties (e.g. enemies at the same spot) go to the nearer one.
-func _priority_key(enemy: Enemy, dist_sq: float) -> float:
-	var tie: float = dist_sq * 0.0001
+## Smaller is shot first.
+func _priority_key(enemy: Enemy, dist_sq: float) -> int:
 	match priority:
 		TowerData.Priority.LAST:
-			return -enemy.distance_to_goal() + tie
+			return -enemy.goal_mm()
 		TowerData.Priority.STRONGEST:
-			return -enemy.health + tie
+			return -roundi(enemy.health * 1000.0)
 		TowerData.Priority.NEAREST:
-			return dist_sq
+			return roundi(dist_sq * 1000.0)
 		_:
-			return enemy.distance_to_goal() + tie
+			return enemy.goal_mm()
 
 
 func _shoot(target: Enemy) -> void:
@@ -125,10 +147,11 @@ func _shoot(target: Enemy) -> void:
 	# A sibling, not a child: shots in flight survive selling the tower.
 	projectile.top_level = true
 	add_sibling(projectile)
-	var aim: Vector3 = target.global_position - global_position
+	var aim: Vector3 = target.sim_position() - global_position
 	aim.y = 0.0
 	var reach: Vector3 = aim.normalized() * muzzle_reach if aim.length() > 0.01 else Vector3.ZERO
 	projectile.global_position = global_position + Vector3.UP * muzzle_height + reach
+	projectile.sim = sim
 	projectile.launch(target, damage, splash_radius, slow_factor, slow_duration, damage_kind)
 	fired.emit(target)
 
@@ -145,7 +168,7 @@ func _shoot_chain(target: Enemy) -> void:
 			break
 		points.append(current.get_aim_point())
 		hit.append(current)
-		var next: Enemy = _nearest_unhit(current.global_position, hit)
+		var next: Enemy = _nearest_unhit(current.sim_position(), hit)
 		var shock: float = chilled_bonus if current.is_slowed() else 1.0
 		current.take_damage(amount * shock, damage_kind)
 		amount *= 0.8
@@ -161,12 +184,11 @@ func _shoot_chain(target: Enemy) -> void:
 func _nearest_unhit(from: Vector3, hit: Array[Enemy]) -> Enemy:
 	var best: Enemy = null
 	var best_sq: float = chain_range * chain_range
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var enemy := node as Enemy
-		if enemy == null or not enemy.is_alive() or enemy in hit:
+	for enemy in sim.enemies:
+		if not enemy.is_alive() or enemy in hit:
 			continue
-		var d: float = enemy.global_position.distance_squared_to(from)
-		if d <= best_sq:
+		var d: float = enemy.sim_position().distance_squared_to(from)
+		if best == null and d <= best_sq or d < best_sq:
 			best_sq = d
 			best = enemy
 	return best

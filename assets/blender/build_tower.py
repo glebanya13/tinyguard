@@ -176,7 +176,8 @@ def build_arrow():
 
 
 def build_slot_ring(rng):
-    """Ring of cut stones framing a build slot (inner disc is a Godot mesh)."""
+    """Ring of cut stones framing a build slot (inner disc is a Godot mesh). Baked into
+    the level terrain by build_terrain.py; at the origin its mesh is offset, move the object."""
     parts = []
     n = 10
     for i in range(n):
@@ -349,6 +350,4 @@ def build() -> list:
                          ("frost_shard", build_frost_shard, 0.05)):
         _clear()
         out.append(tg.finish_asset(name, fn(), ao_distance=ao, ao_strength=0.4, ground=False))
-    _clear()
-    out.append(tg.finish_asset("slot_ring", build_slot_ring(random.Random(3)), ao_distance=0.08, ao_strength=0.6))
     return out

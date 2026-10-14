@@ -6,6 +6,11 @@ extends CharacterBody3D
 ## The attack action swings the sword: it hurts enemies in front and chops
 ## trees for wood. Standing still next to an enemy or a tree swings by itself
 ## (auto_action), so on a phone walking up to a tree is enough to chop it.
+##
+## Simulation boundary: the knight's walking (CharacterBody3D, physics) is local
+## and not part of the deterministic simulation. What he does to the world
+## enters it only as GameCommands: a swing / whirlwind carries his position and
+## facing, and the hit itself, cooldowns and wood are resolved in Sim steps.
 
 ## Emitted when an order's destination is reached (before its callback runs).
 signal order_finished
@@ -51,6 +56,9 @@ signal wood_gathered(amount: int, at: Vector3)
 @export var spin_duration: float = 0.45
 @export var spin_fx: PackedScene
 
+## Where swings are submitted and what clock times them (set by the level).
+var commands: GameCommands = null
+var sim: Sim = null
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
 ## Walkable grid for orders; without it the hero walks in a straight line.
@@ -71,8 +79,10 @@ var _order_reach: float = 0.1
 var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
 var _last_distance: float = INF
-var _cooldown_left: float = 0.0
-var _spin_left: float = 0.0
+## Simulation steps before which the next swing / whirlwind is refused.
+var _attack_ready_tick: int = 0
+var _spin_ready_tick: int = 0
+## Seconds of swing animation left (the feet are planted meanwhile; drawing only).
 var _attack_left: float = 0.0
 
 @onready var _model: Node3D = $Model
@@ -82,15 +92,17 @@ var _attack_left: float = 0.0
 
 
 func _ready() -> void:
+	# Each shadow caster is one more draw call: the body's shadow is enough.
+	for mesh: Node in _model.find_children("*", "GeometryInstance3D", true, false):
+		if mesh.name != &"Body":
+			(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for anim_name: StringName in [&"idle", &"walk"]:
 		_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
 	_anim.play(&"idle")
 
 
 func _physics_process(delta: float) -> void:
-	_cooldown_left = maxf(_cooldown_left - delta, 0.0)
 	_attack_left = maxf(_attack_left - delta, 0.0)
-	_spin_left = maxf(_spin_left - delta, 0.0)
 	if Input.is_action_just_pressed(&"attack"):
 		try_attack()
 	if Input.is_action_just_pressed(&"spin"):
@@ -107,7 +119,7 @@ func _physics_process(delta: float) -> void:
 	if (
 		auto_action
 		and direction == Vector3.ZERO
-		and _cooldown_left <= 0.0
+		and can_attack()
 		and get_focus_target(true) != null
 	):
 		try_attack()
@@ -150,29 +162,58 @@ func upgrade_sword() -> void:
 
 ## Swings the sword unless it is still cooling down. Returns true on a swing.
 func try_attack() -> bool:
-	if _cooldown_left > 0.0:
+	if commands == null or not can_attack():
 		return false
-	cancel_order()
-	_cooldown_left = attack_cooldown
-	_attack_left = _anim.get_animation(&"attack").length
+	var yaw: float = _model.rotation.y
 	var target: Node3D = _nearest_target(auto_aim_range)
 	if target != null:
 		var offset: Vector3 = target.global_position - global_position
-		_model.rotation.y = atan2(offset.x, offset.z)
-	_anim.play(&"attack", 0.05)
-	_anim.speed_scale = 1.0
-	_swing_sound.play()
-	get_tree().create_timer(attack_hit_delay, false).timeout.connect(_strike)
-	return true
+		yaw = atan2(offset.x, offset.z)
+	return commands.submit(GameCommand.hero_attack(global_position, yaw))
 
 
 ## Whirlwind: one turn of the sword that hits every enemy within spin_radius.
 func try_spin() -> bool:
-	if _spin_left > 0.0:
+	if commands == null or not sim.running or spin_cooldown_left() > 0.0:
+		return false
+	return commands.submit(GameCommand.hero_spin(global_position))
+
+
+func can_attack() -> bool:
+	# Nothing swings before the battle clock runs (the level is still being built).
+	return sim != null and sim.running and sim.tick >= _attack_ready_tick
+
+
+## Seconds until the whirlwind is ready again (0 = ready).
+func spin_cooldown_left() -> float:
+	if sim == null:
+		return 0.0
+	return maxi(_spin_ready_tick - sim.tick, 0) * Sim.TICK_DT
+
+
+## The swing command executes (live or from a replay): starts the swing at
+## `origin` facing `yaw`; the blade hits attack_hit_delay later, in a Sim step.
+func apply_attack(origin: Vector3, yaw: float) -> bool:
+	if not can_attack():
 		return false
 	cancel_order()
-	_spin_left = spin_cooldown
-	_cooldown_left = attack_cooldown
+	_attack_ready_tick = sim.tick + Sim.ticks(attack_cooldown)
+	_attack_left = _anim.get_animation(&"attack").length
+	_model.rotation.y = yaw
+	_anim.play(&"attack", 0.05)
+	_anim.speed_scale = 1.0
+	_swing_sound.play()
+	sim.schedule_in(Sim.ticks(attack_hit_delay), _strike.bind(origin, yaw))
+	return true
+
+
+## The whirlwind command executes: hurts every enemy within reach of `origin` now.
+func apply_spin(origin: Vector3) -> bool:
+	if spin_cooldown_left() > 0.0:
+		return false
+	cancel_order()
+	_spin_ready_tick = sim.tick + Sim.ticks(spin_cooldown)
+	_attack_ready_tick = sim.tick + Sim.ticks(attack_cooldown)
 	_attack_left = spin_duration
 	_anim.play(&"attack", 0.05)
 	_anim.speed_scale = 1.4
@@ -182,17 +223,16 @@ func try_spin() -> bool:
 	if spin_fx:
 		var fx := spin_fx.instantiate() as Node3D
 		add_sibling(fx)
-		fx.global_position = global_position
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var enemy := node as Enemy
-		if enemy.is_alive() and _flat_distance(enemy) <= spin_radius:
+		fx.global_position = origin
+	for enemy in sim.enemies.duplicate():
+		if enemy.is_alive() and _flat_distance_from(origin, enemy.sim_position()) <= spin_radius:
 			enemy.take_damage(attack_damage * damage_multiplier * spin_damage_mult)
 	return true
 
 
-## Seconds until the whirlwind is ready again (0 = ready).
-func spin_cooldown_left() -> float:
-	return _spin_left
+## Integers describing the simulated state (for Sim.state_hash).
+func state_ints() -> Array[int]:
+	return [sword_level, _attack_ready_tick, _spin_ready_tick]
 
 
 ## What a swing would hit now: the nearest living enemy in sword reach, else
@@ -202,16 +242,17 @@ func get_focus_target(strict: bool = false) -> Node3D:
 	var slack: float = 0.0 if strict else 0.5
 	var best: Node3D = null
 	var best_distance: float = attack_range + slack
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var d: float = _flat_distance(node as Node3D)
-		if (node as Enemy).is_alive() and d < best_distance:
+	if sim == null:
+		return null
+	for enemy in sim.enemies:
+		var d: float = _flat_distance(enemy)
+		if enemy.is_alive() and d < best_distance:
 			best_distance = d
-			best = node as Node3D
+			best = enemy
 	if best != null:
 		return best
 	best_distance = chop_range + slack
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
+	for tree in sim.trees:
 		var d: float = _flat_distance(tree)
 		if tree.is_choppable() and d < best_distance:
 			best_distance = d
@@ -242,17 +283,15 @@ func is_near(point: Vector3, reach: float) -> bool:
 	return offset.length() <= reach
 
 
-func _strike() -> void:
-	var forward := Vector3(sin(_model.rotation.y), 0.0, cos(_model.rotation.y))
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var enemy := node as Enemy
-		if enemy.is_alive() and _in_cone(enemy.global_position, forward, attack_range):
+func _strike(origin: Vector3, yaw: float) -> void:
+	var forward := Vector3(sin(yaw), 0.0, cos(yaw))
+	for enemy in sim.enemies.duplicate():
+		if enemy.is_alive() and _in_cone(origin, enemy.sim_position(), forward, attack_range):
 			enemy.take_damage(attack_damage * damage_multiplier)
 	var chopped := false
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
-		if tree.is_choppable() and _in_cone(tree.global_position, forward, chop_range):
-			var wood: int = tree.chop(global_position)
+	for tree in sim.trees:
+		if tree.is_choppable() and _in_cone(origin, tree.global_position, forward, chop_range):
+			var wood: int = tree.chop(origin)
 			if wood > 0:
 				chopped = true
 				wood_gathered.emit(wood + wood_bonus, tree.global_position)
@@ -260,8 +299,8 @@ func _strike() -> void:
 		_chop_sound.play()
 
 
-func _in_cone(point: Vector3, forward: Vector3, reach: float) -> bool:
-	var offset: Vector3 = point - global_position
+func _in_cone(origin: Vector3, point: Vector3, forward: Vector3, reach: float) -> bool:
+	var offset: Vector3 = point - origin
 	offset.y = 0.0
 	var distance: float = offset.length()
 	if distance > reach:
@@ -273,21 +312,28 @@ func _in_cone(point: Vector3, forward: Vector3, reach: float) -> bool:
 func _nearest_target(reach: float) -> Node3D:
 	var best: Node3D = null
 	var best_distance: float = reach
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var d: float = _flat_distance(node as Node3D)
+	if sim == null:
+		return null
+	for enemy in sim.enemies:
+		var d: float = _flat_distance(enemy)
 		if d < best_distance:
 			best_distance = d
-			best = node as Node3D
+			best = enemy
 	if best != null:
 		return best
 	best_distance = reach
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
+	for tree in sim.trees:
 		var d: float = _flat_distance(tree)
 		if tree.is_choppable() and d < best_distance:
 			best_distance = d
 			best = tree
 	return best
+
+
+func _flat_distance_from(origin: Vector3, point: Vector3) -> float:
+	var offset: Vector3 = point - origin
+	offset.y = 0.0
+	return offset.length()
 
 
 func _flat_distance(node: Node3D) -> float:

@@ -19,13 +19,9 @@ const ERROR_COLOR := Color(1.0, 0.62, 0.55)
 const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const FIELD_HEIGHT := 58.0
 const KINDS := ["link", "signin", "reset"]
-const TITLES := ["Привязать почту", "Войти по почте", "Сброс пароля"]
-const NOTES := [
-	"Прогресс останется на месте, а войти с этой почтой можно будет на любом устройстве.",
-	"Прогресс этого устройства добавится к аккаунту: останутся лучшие звёзды и рекорды.",
-	"Пришлём письмо со ссылкой для нового пароля.",
-]
-const ACTIONS := ["Привязать", "Войти", "Отправить письмо"]
+const TITLES := ["EMAIL_TITLE_LINK", "EMAIL_TITLE_SIGNIN", "EMAIL_TITLE_RESET"]
+const NOTES := ["EMAIL_NOTE_LINK", "EMAIL_NOTE_SIGNIN", "EMAIL_NOTE_RESET"]
+const ACTIONS := ["EMAIL_ACTION_LINK", "EMAIL_ACTION_SIGNIN", "EMAIL_ACTION_RESET"]
 
 var _mode: Mode = Mode.LINK
 var _busy: bool = false
@@ -65,12 +61,12 @@ func open(mode: Mode, email: String = "") -> void:
 	_email.text = email
 	_password.text = ""
 	_password.secret = true
-	_reveal.text = "Показать"
-	_title.text = TITLES[mode]
-	_note.text = NOTES[mode]
+	_reveal.text = tr("EMAIL_SHOW")
+	_title.text = tr(TITLES[mode])
+	_note.text = tr(NOTES[mode])
 	_password_row.visible = mode != Mode.RESET
 	_forgot.visible = mode == Mode.SIGN_IN
-	_action.text = ACTIONS[mode]
+	_action.text = tr(ACTIONS[mode])
 	_set_busy(false)
 	_set_status("", SOFT_COLOR)
 	show()
@@ -107,7 +103,7 @@ func submit() -> void:
 	if _busy:
 		return
 	_set_busy(true)
-	_set_status("Проверяем…", INFO_COLOR)
+	_set_status(tr("EMAIL_CHECKING"), INFO_COLOR)
 	var password: String = _password.text
 	var result: Dictionary = {}
 	match _mode:
@@ -153,7 +149,7 @@ func _build() -> void:
 	_note.custom_minimum_size = Vector2(640, 0)
 	box.add_child(_note)
 
-	_email = _field("Почта", false)
+	_email = _field(tr("EMAIL_FIELD_EMAIL"), false)
 	_email.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_EMAIL_ADDRESS
 	_email.text_submitted.connect(_on_email_submitted)
 	box.add_child(_email)
@@ -162,12 +158,12 @@ func _build() -> void:
 	row.add_theme_constant_override("separation", 10)
 	_password_row = row
 	box.add_child(row)
-	_password = _field("Пароль", true)
+	_password = _field(tr("EMAIL_FIELD_PASSWORD"), true)
 	_password.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_PASSWORD
 	_password.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_password.text_submitted.connect(func(_t: String) -> void: submit())
 	row.add_child(_password)
-	_reveal = _button("Показать", _on_reveal_pressed, true, 170)
+	_reveal = _button(tr("EMAIL_SHOW"), _on_reveal_pressed, true, 170)
 	row.add_child(_reveal)
 
 	_status = _label("", 18, SOFT_COLOR)
@@ -179,10 +175,10 @@ func _build() -> void:
 	buttons.add_theme_constant_override("separation", 12)
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	box.add_child(buttons)
-	_forgot = _button("Забыли пароль?", _on_forgot_pressed, true, 230)
+	_forgot = _button(tr("EMAIL_FORGOT"), _on_forgot_pressed, true, 230)
 	_forgot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(_forgot)
-	_cancel = _button("Отмена", close, true, 170)
+	_cancel = _button(tr("COMMON_CANCEL"), close, true, 170)
 	buttons.add_child(_cancel)
 	_action = _button("", submit, false, 250)
 	buttons.add_child(_action)
@@ -197,7 +193,7 @@ func _on_email_submitted(_text: String) -> void:
 
 func _on_reveal_pressed() -> void:
 	_password.secret = not _password.secret
-	_reveal.text = "Показать" if _password.secret else "Скрыть"
+	_reveal.text = tr("EMAIL_SHOW") if _password.secret else tr("EMAIL_HIDE")
 
 
 func _on_forgot_pressed() -> void:

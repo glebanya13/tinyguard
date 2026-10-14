@@ -27,21 +27,21 @@ const RESERVED: Array[String] = [
 	"system",
 	"tinyguard",
 	"bimbleguard",
-	"рыцарь",
-	"админ",
-	"администратор",
-	"модератор",
-	"поддержка",
+	"рыцарь",  # i18n:keep
+	"админ",  # i18n:keep
+	"администратор",  # i18n:keep
+	"модератор",  # i18n:keep
+	"поддержка",  # i18n:keep
 ]
 const MESSAGES := {
-	"too_short": "Минимум %d символа" % MIN_LENGTH,
-	"too_long": "Не больше %d символов" % MAX_LENGTH,
-	"bad_char": "Только буквы, цифры, пробел и _",
-	"mixed_script": "Не смешивай латиницу и кириллицу",
-	"bad_separator": "Пробел и _ — только между буквами",
-	"reserved": "Это имя занято королевством",
-	"taken": "Это имя уже занято — попробуй другое",
-	"rate_limited": "Имя можно менять не чаще раза в сутки",
+	"too_short": "NICK_TOO_SHORT",
+	"too_long": "NICK_TOO_LONG",
+	"bad_char": "NICK_BAD_CHAR",
+	"mixed_script": "NICK_MIXED_SCRIPT",
+	"bad_separator": "NICK_BAD_SEPARATOR",
+	"reserved": "NICK_RESERVED",
+	"taken": "NICK_TAKEN",
+	"rate_limited": "NICK_RATE_LIMITED",
 }
 
 
@@ -78,12 +78,20 @@ static func validate(raw: String) -> Dictionary:
 
 
 static func message(error: String) -> String:
-	return str(MESSAGES.get(error, ""))
+	if not MESSAGES.has(error):
+		return ""
+	var text: String = TranslationServer.translate(str(MESSAGES[error]))
+	match error:
+		"too_short":
+			return text % MIN_LENGTH
+		"too_long":
+			return text % MAX_LENGTH
+	return text
 
 
 ## Uniqueness key of a valid (cleaned) nickname.
 static func normalize(name: String) -> String:
-	return name.to_lower().replace("ё", "е").replace(" ", "_")
+	return name.to_lower().replace("ё", "е").replace(" ", "_")  # i18n:keep
 
 
 ## Only ranges where Godot's String.to_lower() and JavaScript's toLowerCase()

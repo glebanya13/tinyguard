@@ -28,19 +28,36 @@ limit "$GODOT" --headless --path . --import >/dev/null 2>&1
 
 ran=0
 failed=0
+leaky=0
+ERRORS_FILE="tests/expected_errors.txt"
+# Leaks at exit are reported in the summary but never fail a test.
+LEAK_RE='ObjectDB instances were leaked|resources still in use at exit'
 run() {
-	local out rc name
+	local out rc name bad leaks
 	name="${*: -1}"
 	out=$(limit "$@" 2>&1)
 	rc=$?
 	ran=$((ran + 1))
 	echo "$out" | grep -E "FAIL|RESULT|SCRIPT ERROR"
+	# Engine errors/warnings that the test did not announce in expected_errors.txt.
+	bad=$(echo "$out" | grep -E '^(SCRIPT ERROR|ERROR|WARNING|USER ERROR|USER WARNING)|Parse Error' \
+		| grep -Ev "$LEAK_RE" \
+		| { if [ -f "$ERRORS_FILE" ]; then grep -Evf <(grep -Ev '^[[:space:]]*(#|$)' "$ERRORS_FILE") || true; else cat; fi; })
+	leaks=$(echo "$out" | grep -E "$LEAK_RE" || true)
+	if [ -n "$leaks" ]; then
+		leaky=$((leaky + 1))
+		echo "-- leak warning (not a failure): ${LEVEL:+level $LEVEL }$name"
+	fi
 	if ! echo "$out" | grep -q "RESULT: PASS"; then
 		failed=$((failed + 1))
 		echo "!! NOT PASSED: ${LEVEL:+level $LEVEL }$name (exit code $rc)"
 		if [ "$rc" -ge 124 ]; then
 			echo "!! (possibly timed out after ${TIMEOUT_SEC}s)"
 		fi
+	elif [ -n "$bad" ]; then
+		failed=$((failed + 1))
+		echo "!! ERRORS IN OUTPUT: ${LEVEL:+level $LEVEL }$name"
+		echo "$bad" | head -10 | sed 's/^/   /'
 	fi
 }
 for level in 1 2 3 4 5 6; do
@@ -48,11 +65,19 @@ for level in 1 2 3 4 5 6; do
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_gameplay.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_walk.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_villagers.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_replay.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_command_validation.gd
 done
 echo "== pause / speed / stars / perks / endless"
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_meta.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_combat.gd
 run "$GODOT" --headless --path . --script res://tests/test_online.gd
+run "$GODOT" --headless --path . --script res://tests/test_records.gd
+run "$GODOT" --headless --path . --script res://tests/test_waves.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_units.gd
+run "$GODOT" --headless --path . --script res://tests/test_i18n.gd
+echo "== co-op network (fake transport)"
+run "$GODOT" --headless --path . --script res://tests/test_coop_net.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd
@@ -60,7 +85,7 @@ run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutori
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
 
-echo "== summary: $ran run, $failed not passed"
+echo "== summary: $ran run, $failed not passed, $leaky with leak warnings at exit"
 if [ "$ran" -eq 0 ]; then
 	echo "FATAL: no tests were run" >&2
 	exit 1

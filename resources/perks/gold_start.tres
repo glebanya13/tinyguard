@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1_perk")
 id = &"gold_start"
-display_name = "Казна"
-description = "Стартовое золото: %s"
+display_name = "PERK_GOLD_START_NAME"
+description = "PERK_GOLD_START_DESC"
 icon = ExtResource("2_icon")
 costs = Array[int]([1, 1, 2])
 values = Array[float]([15.0, 30.0, 50.0])

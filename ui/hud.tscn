@@ -225,7 +225,7 @@ theme_override_constants/separation = 10
 alignment = 2
 
 [node name="SpeedButton" type="Button" parent="Root/TopRight"]
-custom_minimum_size = Vector2(64, 56)
+custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 focus_mode = 0
 theme_override_font_sizes/font_size = 22
@@ -264,7 +264,7 @@ text = "×1"
 horizontal_alignment = 2
 
 [node name="PauseButton" type="Button" parent="Root/TopRight"]
-custom_minimum_size = Vector2(64, 56)
+custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 focus_mode = 0
 
@@ -350,7 +350,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.86, 0.45, 1)
 theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 44
-text = "Волна 1!"
+text = "HUD_BANNER_PLACEHOLDER"
 
 [node name="Subtitle" type="Label" parent="Root/Banner"]
 layout_mode = 2
@@ -396,7 +396,7 @@ theme_override_constants/separation = 12
 layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_font_sizes/font_size = 22
-text = "Рыцарь"
+text = "HUD_KNIGHT"
 
 [node name="Stats" type="Label" parent="Root/CommandCard/Content/Head"]
 layout_mode = 2
@@ -543,7 +543,7 @@ alignment = 1
 layout_mode = 2
 theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 56
-text = "Победа!"
+text = "HUD_VICTORY"
 horizontal_alignment = 1
 
 [node name="Stars" type="HBoxContainer" parent="Root/EndScreen/EndPanel/Content"]
@@ -562,43 +562,43 @@ autowrap_mode = 3
 
 [node name="ContinueButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
-custom_minimum_size = Vector2(300, 70)
+custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 size_flags_horizontal = 4
-text = "Продолжить"
+text = "HUD_CONTINUE"
 icon = ExtResource("i_play")
 
 [node name="ForgeButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
-custom_minimum_size = Vector2(300, 56)
+custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"SecondaryButton"
-text = "Кузница"
+text = "HUD_FORGE"
 icon = ExtResource("i_hammer")
 
 [node name="SoundButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
-custom_minimum_size = Vector2(300, 56)
+custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"SecondaryButton"
-text = "Звук: вкл"
+text = "HUD_SOUND_ON"
 icon = ExtResource("i_sound_on")
 
 [node name="RestartButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
-custom_minimum_size = Vector2(300, 70)
+custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 size_flags_horizontal = 4
-text = "Играть заново"
+text = "HUD_RESTART"
 icon = ExtResource("i_restart")
 
 [node name="MapButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3
-custom_minimum_size = Vector2(300, 64)
+custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"SecondaryButton"
-text = "К карте"
+text = "HUD_TO_MAP"
 icon = ExtResource("i_map")

@@ -108,6 +108,13 @@ func _run() -> void:
 			tree = node as WoodTree
 			break
 	check(tree != null, "an isolated tree exists")
+	# A swing starts where the knight stands (the hit lands 0.2 s later at that
+	# spot): let one begun at his spawn point finish before teleporting him.
+	hero.auto_action = false
+	await frames(40)
+	hero.auto_action = true
+	gs.wood = 0
+	gs.wood_changed.emit(0)
 	hero.global_position = tree.global_position + Vector3(1.0, 0, 0)
 	await wait_until(func() -> bool: return gs.wood > 0, 120)
 	check(gs.wood == 3, "auto chop gives wood: %d" % gs.wood)
@@ -140,7 +147,9 @@ func _run() -> void:
 	gs.add_wood(200)
 	await tap_key(KEY_2)
 	await wait_until(func() -> bool: return not slot.is_free(), 600)
-	check(not slot.is_free() and slot.tower.data.display_name == "Пушка", "cannon built")
+	check(
+		not slot.is_free() and slot.tower.data.display_name == "TOWER_CANNON_NAME", "cannon built"
+	)
 	check(gs.gold == 160 and gs.wood >= 170, "paid 40 gold + 30 wood (%d/%d)" % [gs.gold, gs.wood])
 	await frames(30)
 	await tap_key(KEY_U)

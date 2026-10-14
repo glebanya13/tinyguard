@@ -11,6 +11,7 @@ var _routed: bool = false
 
 
 func _ready() -> void:
+	GameSettings.apply_language()
 	$Center/Box/Title.text = GameInfo.TITLE
 	LevelCatalog.apply_sound()
 	LevelCatalog.tutorial = false

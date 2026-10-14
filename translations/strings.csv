@@ -1,0 +1,347 @@
+keys,ru,en
+ERR_EMAIL_EMPTY,Введи почту,Enter your email
+ERR_EMAIL_INVALID,Проверь почту: нужен адрес вида name@example.com,Check the email: it should look like name@example.com
+ERR_PASSWORD_EMPTY,Введи пароль,Enter your password
+ERR_PASSWORD_WEAK,"Пароль слишком простой: минимум 6 символов, лучше с цифрами","Password is too weak: at least 6 characters, digits help"
+ERR_PASSWORD_LONG,Пароль слишком длинный: не больше 128 символов,Password is too long: 128 characters at most
+ERR_CREDENTIAL_IN_USE,Эта почта уже занята. Если аккаунт твой — нажми «Войти по почте» вместо привязки,"This email is already taken. If the account is yours, tap ""Sign in with email"" instead of linking"
+ERR_INVALID_CREDENTIALS,Неверная почта или пароль,Wrong email or password
+ERR_TOO_MANY_ATTEMPTS,Слишком много попыток. Подожди немного и попробуй снова,Too many attempts. Wait a little and try again
+ERR_REAUTH_REQUIRED,Нужен свежий вход: войди по почте и повтори действие,A fresh sign-in is needed: sign in with email and repeat the action
+ERR_ALREADY_LINKED,К этому аккаунту почта уже привязана,An email is already linked to this account
+ERR_DISABLED,Этот аккаунт заблокирован,This account is blocked
+ERR_NOT_AVAILABLE,Вход по почте сейчас недоступен,Email sign-in is unavailable right now
+ERR_OFFLINE,"Нет связи. Попробуй, когда появится интернет",No connection. Try again when you are online
+ERR_SERVER,Сервер не отвечает. Попробуй позже,The server is not responding. Try again later
+ERR_OTHER_ACCOUNT,Ты уже вошёл в другой аккаунт. Сначала выйди из него в Профиле,You are already signed in to another account. Sign out of it in Profile first
+ERR_SESSION_LOST,"Вход на устройстве потерян. Войди по почте, если она уже привязана",The sign-in on this device was lost. Sign in with email if one is already linked
+ERR_NOT_CONFIGURED,Онлайн недоступен в этой сборке,Online is not available in this build
+ERR_BUSY,"Подожди, предыдущий запрос ещё выполняется","Wait, the previous request is still running"
+ERR_GUEST_CANNOT_SIGN_OUT,Гость не может выйти: прогресс пропадёт. Сначала привяжи почту,A guest cannot sign out: progress would be lost. Link an email first
+ERR_UNSYNCED,"Нужен интернет, чтобы сохранить прогресс в облаке перед выходом",You need internet to save progress to the cloud before signing out
+ERR_GENERIC,Не получилось. Попробуй ещё раз,Something went wrong. Try again
+NICK_TOO_SHORT,Минимум %d символа,At least %d characters
+NICK_TOO_LONG,Не больше %d символов,At most %d characters
+NICK_BAD_CHAR,"Только буквы, цифры, пробел и _","Only letters, digits, space and _"
+NICK_MIXED_SCRIPT,Не смешивай латиницу и кириллицу,Do not mix Latin and Cyrillic letters
+NICK_BAD_SEPARATOR,Пробел и _ — только между буквами,Space and _ only between letters
+NICK_RESERVED,Это имя занято королевством,This name belongs to the kingdom
+NICK_TAKEN,Это имя уже занято — попробуй другое,"This name is already taken, try another"
+NICK_RATE_LIMITED,Имя можно менять не чаще раза в сутки,You can change the name once a day at most
+NICK_HINT,"3–16 букв или цифр, можно пробел и _","3–16 letters or digits, space and _ allowed"
+NICK_TAKEN_NAMED,Имя «%s» уже занято — выбери другое,"The name ""%s"" is already taken, pick another"
+NICK_HAVE_ACCOUNT,У меня уже есть аккаунт,I already have an account
+NICK_GO,Вперёд!,Let's go!
+NICK_GREAT,Отличное имя!,Great name!
+NICK_CHECKING_NAME,Проверяем имя…,Checking the name…
+NICK_WELCOME,"Приятно познакомиться, %s!","Nice to meet you, %s!"
+NICK_CONTINUE,Продолжить,Continue
+NICK_OFFLINE_SAVED,"Нет связи. Имя сохранено на устройстве — проверим его, когда появится интернет","No connection. The name is saved on the device, we will check it when you are online"
+NICK_NOT_SUITABLE,Не подходит — попробуй другое имя,"Not suitable, try another name"
+NICK_CHECKING,Проверяем…,Checking…
+SYNC_OFF,Только на этом устройстве,This device only
+SYNC_SYNCING,Синхронизация…,Syncing…
+SYNC_SYNCED,Сохранено в облаке,Saved to the cloud
+SYNC_PENDING,Не синхронизировано,Not synced
+SYNC_OFFLINE,Не синхронизировано · нет связи,Not synced · no connection
+SYNC_SESSION_LOST,Не синхронизировано · вход потерян,Not synced · signed out
+SYNC_NEWER,Не синхронизировано · обновите игру,Not synced · update the game
+SYNC_DISABLED,Аккаунт заблокирован,Account blocked
+ONLINE_RECORD_SENT,Рекорд отправлен,Record sent
+ONLINE_RECORD_FAILED,Не удалось отправить рекорд,Could not send the record
+ONLINE_SAVED,Прогресс сохранён в облаке,Progress saved to the cloud
+ONLINE_UPDATED,Прогресс обновлён из облака,Progress updated from the cloud
+ONLINE_SAME,Прогресс уже совпадает,Progress already matches
+ONLINE_NAME_TAKEN,Имя «%s» занято — выбери другое,"The name ""%s"" is taken, pick another"
+ONLINE_ERR_OFFLINE,Нет связи с сервером,No connection to the server
+ONLINE_ERR_NEWER,Облачный прогресс из новой версии — обновите игру,"Cloud progress is from a newer version, update the game"
+ONLINE_ERR_SESSION_LOST,Вход потерян — откройте Профиль,"Signed out, open Profile"
+ONLINE_ERR_NOT_CONFIGURED,Облако недоступно,The cloud is unavailable
+ONLINE_ERR_GENERIC,Не удалось синхронизировать,Could not sync
+EMAIL_TITLE_LINK,Привязать почту,Link email
+EMAIL_TITLE_SIGNIN,Войти по почте,Sign in with email
+EMAIL_TITLE_RESET,Сброс пароля,Reset password
+EMAIL_NOTE_LINK,"Прогресс останется на месте, а войти с этой почтой можно будет на любом устройстве.","Your progress stays put, and you can sign in with this email on any device."
+EMAIL_NOTE_SIGNIN,Прогресс этого устройства добавится к аккаунту: останутся лучшие звёзды и рекорды.,This device's progress is merged into the account: the best stars and records are kept.
+EMAIL_NOTE_RESET,Пришлём письмо со ссылкой для нового пароля.,We will send an email with a link for a new password.
+EMAIL_ACTION_LINK,Привязать,Link
+EMAIL_ACTION_SIGNIN,Войти,Sign in
+EMAIL_ACTION_RESET,Отправить письмо,Send email
+EMAIL_SHOW,Показать,Show
+EMAIL_HIDE,Скрыть,Hide
+EMAIL_CHECKING,Проверяем…,Checking…
+EMAIL_FIELD_EMAIL,Почта,Email
+EMAIL_FIELD_PASSWORD,Пароль,Password
+EMAIL_FORGOT,Забыли пароль?,Forgot password?
+COMMON_CANCEL,Отмена,Cancel
+INFO_DELETION_WEB,Удалить данные без приложения: %s,Delete your data without the app: %s
+ACC_PRIVACY_SUMMARY,"Мы храним только: случайный ID гостя, выбранное имя, прогресс и настройки, а если привяжешь, то и почту (пароль хранит Firebase, не мы). Без рекламы, аналитики и геолокации. Удаление — кнопкой ниже.","We store only: a random guest ID, your chosen name, progress and settings, and, if you link one, your email (Firebase keeps the password, not us). No ads, analytics or location. Delete everything with the button below."
+ACC_NAME,Имя: %s,Name: %s
+ACC_NAME_TAKEN,"занято, выбери другое","taken, pick another"
+ACC_NAME_LOCAL,на этом устройстве,on this device
+ACC_NAME_VERIFIED,✓ подтверждено,✓ verified
+ACC_NAME_PENDING,ждёт проверки,awaiting check
+ACC_TYPE_LOCAL,Онлайн выключен: всё хранится только на этом устройстве,Online is off: everything is stored on this device only
+ACC_TYPE_GUEST,"Гостевой аккаунт: прогресс в облаке, но войти можно только с этого телефона. Привяжи почту, чтобы играть и на других устройствах.","Guest account: progress is in the cloud, but you can only sign in from this phone. Link an email to play on other devices."
+ACC_TYPE_EMAIL,Аккаунт с почтой: войди с ней на другом устройстве,Email account: sign in with it on another device
+ACC_TYPE_NONE,"Гостевой аккаунт создастся, когда появится связь",A guest account will be created when you are online
+ACC_DELETE_ACCOUNT,Удалить аккаунт,Delete account
+ACC_DELETE_DATA,Удалить данные,Delete data
+ACC_PLAYER_ID,ID игрока (для поддержки): %s,Player ID (for support): %s
+ACC_TITLE,Профиль,Profile
+ACC_DONE,Готово,Done
+ACC_RENAME,Сменить имя,Change name
+ACC_NEW_GUEST,Новый гость,New guest
+ACC_SYNC,Синхронизировать,Sync
+ACC_LINK_EMAIL,Привязать почту,Link email
+ACC_SIGNIN_EMAIL,Войти по почте,Sign in with email
+ACC_SIGNIN_AGAIN,Войти заново,Sign in again
+ACC_SIGNOUT,Выйти из аккаунта,Sign out
+ACC_REPLAY_TUTORIAL,Пройти обучение заново,Replay tutorial
+ACC_PRIVACY,Конфиденциальность,Privacy
+ACC_DELETE_ACCOUNT_Q,Удалить аккаунт?,Delete account?
+ACC_DELETE_DATA_Q,Удалить данные?,Delete data?
+ACC_DELETE_FOREVER,Удалить навсегда,Delete forever
+ACC_LINKED,Почта привязана. Войди с ней на другом устройстве.,Email linked. Sign in with it on another device.
+ACC_SIGNIN_OK,Вход подтверждён.,Signed in.
+ACC_RESET_SENT,"Если такая почта зарегистрирована, мы отправили письмо. Загляни и в «Спам».","If this email is registered, we sent a message. Check the spam folder too."
+ACC_SIGNOUT_Q,Выйти из аккаунта?,Sign out?
+ACC_SIGNOUT_BODY,"Прогресс сохранён в облаке под твоей почтой. С этого устройства он будет стёрт; чтобы вернуться, войди по почте.","Your progress is saved in the cloud under your email. It will be erased from this device; to come back, sign in with email."
+ACC_SIGNOUT_YES,Выйти,Sign out
+ACC_SAVING,Сохраняем прогресс…,Saving progress…
+ACC_DELETE_BODY_ONLINE,"Удалим имя, прогресс, настройки и рекорды — на сервере и на этом устройстве. Вернуть их будет нельзя.","We will delete the name, progress, settings and records, on the server and on this device. This cannot be undone."
+ACC_DELETE_BODY_LOCAL,"Удалим имя, прогресс и настройки с этого устройства. Вернуть их будет нельзя.","We will delete the name, progress and settings from this device. This cannot be undone."
+ACC_DELETING,Удаляем…,Deleting…
+ACC_DELETE_FAILED,Не получилось удалить аккаунт. Попробуйте позже.,Could not delete the account. Try again later.
+ACC_DELETE_OFFLINE,Нужен интернет: данные на сервере можно удалить только онлайн. Попробуйте позже.,Internet is required: server data can only be deleted online. Try again later.
+ACC_DELETE_REAUTH,"Данные в облаке удалены, но для удаления входа нужно войти заново. Нажми «Войти заново» в Профиле и повтори удаление.","The cloud data is deleted, but deleting the sign-in requires signing in again. Tap ""Sign in again"" in Profile and repeat the deletion."
+ACC_DELETE_SESSION_LOST,"Вход на этом устройстве потерян, поэтому удалить данные на сервере отсюда нельзя. Напишите в поддержку и укажите ID игрока из Профиля.","The sign-in on this device was lost, so server data cannot be deleted from here. Contact support and give the player ID from Profile."
+ACC_SYNC_OFFLINE,"Нет связи — синхронизируем, когда появится интернет",No connection. We will sync when you are online
+ACC_SERVER_OFFLINE,Нет связи с сервером — попробуйте позже,No connection to the server. Try again later
+TUT_WELCOME_NAMED,"Добро пожаловать, %s!","Welcome, %s!"
+TUT_WELCOME,Добро пожаловать!,Welcome!
+TUT_WELCOME_BODY,"Слизни идут волнами по тропе к твоему замку. Не пусти их внутрь!
+Сейчас покажу, как защищаться.","Slimes march in waves along the path to your castle. Don't let them in!
+Let me show you how to defend."
+TUT_START,Начнём!,Let's start!
+TUT_SKIP,Пропустить,Skip
+TUT_READY_NAMED,"Ты готов, %s!","You're ready, %s!"
+TUT_READY,Ты готов!,You're ready!
+TUT_READY_BODY,"Волны приходят каждые 30 секунд. Руби деревья, бей слизней, строй и улучшай башни — в любой момент боя. Удачи!","Waves come every 30 seconds. Chop trees, hit slimes, build and upgrade towers at any moment of the fight. Good luck!"
+TUT_TO_MAP,На карту,To the map
+TUT_KEEP_PLAYING,Играть дальше,Keep playing
+TUT_STEP_OF,Шаг %d из %d,Step %d of %d
+TUT_CHOP_TITLE,Наруби дров,Chop some wood
+TUT_CHOP_BODY,"Подойди к дереву или нажми на него — рыцарь сам начнёт рубить.
+Дерево: %d из %d","Walk up to a tree or tap it, and the knight starts chopping.
+Wood: %d of %d"
+TUT_SLIMES_TITLE,Слизни идут!,Slimes are coming!
+TUT_SLIMES_BODY,"Подведи рыцаря к слизням — он бьёт мечом сам. За каждого дают золото.
+Золото: %d из %d","Lead the knight to the slimes, he strikes with the sword on his own. Each one drops gold.
+Gold: %d of %d"
+TUT_SELECT_TITLE,Выбери площадку,Pick a plot
+TUT_SELECT_BODY,Нажми на каменную площадку у тропы — там встанет башня.,"Tap a stone plot by the path, a tower will stand there."
+TUT_BUILD_TITLE,Построй башню,Build a tower
+TUT_BUILD_BODY,Выбери башню на панели внизу. Рыцарь подойдёт и построит её.,Pick a tower on the bottom panel. The knight will walk over and build it.
+TUT_MOVE_TITLE,Управляй рыцарем,Move the knight
+TUT_MOVE_BODY,Веди джойстик слева внизу или нажми на землю — рыцарь пойдёт туда.,"Use the joystick at the bottom left or tap the ground, and the knight goes there."
+TUT_SPIN_TITLE,Вихрь!,Whirlwind!
+TUT_SPIN_BODY,Нажми кнопку вихря: рыцарь крутанётся и ударит всех врагов вокруг.,Press the whirlwind button: the knight spins and hits all enemies around.
+TUT_SPIN_COOLDOWN,"
+Кнопка ещё перезаряжается — подожди пару секунд.","
+The button is still recharging, wait a couple of seconds."
+TUT_WAVE_TITLE,Настоящая волна,A real wave
+TUT_WAVE_BODY,Волна идёт по тропе! Башня и рыцарь защищают замок. Победи всех слизней.,A wave is coming down the path! The tower and the knight defend the castle. Defeat all the slimes.
+TUT_UPGRADE_TITLE,Улучши башню,Upgrade the tower
+TUT_UPGRADE_BODY,Нажми на свою башню и выбери «Улучшить». Улучшать можно в любой момент.,"Tap your tower and choose ""Upgrade"". You can upgrade at any time."
+TUT_UPGRADE_NEED,"
+Нужно: золото %d/%d, дерево %d/%d","
+Needed: gold %d/%d, wood %d/%d"
+TUT_SKIP_Q,Пропустить обучение?,Skip the tutorial?
+TUT_SKIP_BODY,Его можно пройти заново на карте: Профиль → «Пройти обучение заново».,"You can replay it on the map: Profile → ""Replay tutorial""."
+TUT_BACK,Назад,Back
+TUT_GIFT,Король прислал золото на первую башню!,The king sent gold for the first tower!
+TUT_STEP_PLACEHOLDER,Шаг 1 из 8,Step 1 of 8
+MAP_BOSS_NOTE_PLACEHOLDER,1. Зелёная долина,1. Green Valley
+MAP_NO_ENDLESS,  Пройдите уровень — откроется бесконечная осада,  Beat the level to unlock the endless siege
+MAP_ENDLESS_RECORD,  Осада: рекорд %d волн · звёзд %d/%d,  Siege: best %d waves · stars %d/%d
+MAP_FREE_STARS,Свободно: %d,Free: %d
+MAP_PERK_LEVEL,Уровень %d / %d,Level %d / %d
+MAP_PERK_NONE,нет,none
+MAP_PERK_MAX,Максимум,Maximum
+MAP_PERK_BUY,Купить за %d,Buy for %d
+MAP_RECORDS_TITLE,Рекорды осады: %s,Siege records: %s
+MAP_LOADING,Загрузка…,Loading…
+MAP_YOUR_NAME,Ваше имя: %s (сменить — в Профиле),Your name: %s (change it in Profile)
+MAP_TO_CLOUD,В облако,To cloud
+MAP_FROM_CLOUD,Из облака,From cloud
+MAP_CLOSE,Закрыть,Close
+MAP_NO_RECORDS,Пока никто не играл в осаду на этом уровне,Nobody has played the siege on this level yet
+MAP_RECORD_ROW,%d. %s — %d волн,%d. %s — %d waves
+MAP_PROFILE,Профиль,Profile
+MAP_NAME_CONFLICT,Имя занято — выбери другое в Профиле,"Name is taken, pick another in Profile"
+MAP_TREASURY,Казна,Treasury
+MAP_RECORDS,Рекорды,Records
+MAP_PLAY,Играть,Play
+MAP_ENDLESS,Бесконечная осада,Endless siege
+MAP_TREASURY_TITLE,Королевская казна,Royal treasury
+MAP_TREASURY_HINT,"Звёзды дают уровни (до 3 за уровень) и бесконечная осада (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях.","Stars come from levels (up to 3 each) and the endless siege (1 per 10 waves, up to 5). Upgrades work in every battle."
+MAP_REFUND,Вернуть звёзды,Refund stars
+MAP_DONE,Готово,Done
+LEVEL_1_NAME,Зелёная долина,Green Valley
+LEVEL_1_SUB,"15 волн · 3 дороги · босс на 10-й и 15-й","15 waves · 3 roads · boss on waves 10 and 15"
+LEVEL_2_NAME,Тёмная чаща,Dark Thicket
+LEVEL_2_SUB,"25 волн · 5 дорог · боссы на 10, 20 и 25-й","25 waves · 5 roads · bosses on waves 10, 20 and 25"
+LEVEL_3_NAME,Королевский тракт,King's Road
+LEVEL_3_SUB,"40 волн · 5 дорог · босс каждые 10 волн, с 30-й — два","40 waves · 5 roads · a boss every 10 waves, two from wave 30"
+LEVEL_4_NAME,Снежный перевал,Snowy Pass
+LEVEL_4_SUB,"30 волн · 5 дорог · летуны и щитовики · боссы каждые 10 волн","30 waves · 5 roads · flyers and shield bearers · a boss every 10 waves"
+LEVEL_5_NAME,Осенняя роща,Autumn Grove
+LEVEL_5_SUB,"35 волн · 5 дорог · все враги · боссы каждые 10 волн","35 waves · 5 roads · all enemies · a boss every 10 waves"
+LEVEL_6_NAME,Песчаная крепость,Sand Fortress
+LEVEL_6_SUB,"40 волн · 5 дорог · финальная битва · два короля с 30-й волны","40 waves · 5 roads · the final battle · two kings from wave 30"
+TOWER_ARCHER_NAME,Лучник,Archer
+TOWER_ARCHER_ROLE,"быстро, по одной цели; слаб против щитов","fast, single target; weak against shields"
+TOWER_FROST_NAME,Мороз,Frost
+TOWER_FROST_ROLE,замедляет врагов,slows enemies
+TOWER_CANNON_NAME,Пушка,Cannon
+TOWER_CANNON_ROLE,"медленно, по площади; не бьёт летунов","slow, area damage; cannot hit flyers"
+TOWER_LIGHTNING_NAME,Молния,Lightning
+TOWER_LIGHTNING_ROLE,цепь по 3–5 врагам; замедленных Морозом бьёт на 40% сильнее,chain through 3–5 enemies; hits frost-slowed ones 40% harder
+ENEMY_SLIME_NAME,Слайм,Slime
+ENEMY_SLIME_FAST_NAME,Быстрый слайм,Fast slime
+ENEMY_SLIME_BAT_NAME,Летучий слайм,Flying slime
+ENEMY_SLIME_MINI_NAME,Слизнёнок,Slimeling
+ENEMY_SLIME_SHIELD_NAME,Щитовик,Shield bearer
+ENEMY_SLIME_KING_NAME,Король слаймов,Slime king
+ENEMY_SLIME_HEALER_NAME,Лекарь,Healer
+ENEMY_SLIME_TANK_NAME,Бронеслайм,Armored slime
+ENEMY_STONE_GOLEM_NAME,Каменный голем,Stone golem
+ENEMY_SLIME_SPLITTER_NAME,Делящийся слизень,Splitting slime
+PERK_AXE_NAME,Острый топор,Sharp axe
+PERK_AXE_DESC,Дерево за удар: %s,Wood per chop: %s
+PERK_WALLS_NAME,Крепкие стены,Sturdy walls
+PERK_WALLS_DESC,Жизни замка: %s,Castle lives: %s
+PERK_TOWERS_NAME,Меткие стрелки,Sharp shooters
+PERK_TOWERS_DESC,Урон башен: %s,Tower damage: %s
+PERK_SWORD_NAME,Закалка,Tempering
+PERK_SWORD_DESC,Урон меча: %s,Sword damage: %s
+PERK_GOLD_START_NAME,Казна,Treasury
+PERK_GOLD_START_DESC,Стартовое золото: %s,Starting gold: %s
+PERK_WOOD_START_NAME,Лесопилка,Sawmill
+PERK_WOOD_START_DESC,Стартовое дерево: %s,Starting wood: %s
+MAP_FREE_PLACEHOLDER,Свободно: 0,Free: 0
+HUD_PAUSE_TIP,"Пауза и меню: кузница, звук (P)","Pause and menu: forge, sound (P)"
+HUD_SPEED_TIP,Скорость игры (F),Game speed (F)
+HUD_FORGE_TIP,Меч и ремонт стен замка (K),Sword and castle wall repair (K)
+HUD_ATTACK_TIP,Атаковать / рубить (Пробел),Attack / chop (Space)
+HUD_SPIN_TIP,Вихрь: удар по всем врагам вокруг (Q),Whirlwind: hit all enemies around (Q)
+HUD_SIEGE_WAVE,Осада %d,Siege %d
+HUD_PAUSE,Пауза,Paused
+HUD_CLOSE,Закрыть,Close
+HUD_SOUND_ON,Звук: вкл,Sound: on
+HUD_SOUND_OFF,Звук: выкл,Sound: off
+HUD_BANNER_PLACEHOLDER,Волна 1!,Wave 1!
+HUD_KNIGHT,Рыцарь,Knight
+HUD_VICTORY,Победа!,Victory!
+HUD_CONTINUE,Продолжить,Resume
+HUD_FORGE,Кузница,Forge
+HUD_RESTART,Играть заново,Play again
+HUD_TO_MAP,К карте,To the map
+CARD_NEED_PREFIX,Не хватает,Not enough
+CARD_NEED_BOTH,Не хватает золота или дерева,Not enough gold or wood
+CARD_NEED_WOOD_VILLAGER,Не хватает дерева: житель берёт по %d,Not enough wood: the villager takes %d at a time
+CARD_PLOT,Площадка,Plot
+CARD_TOWER_TIP,"%s (%d) — %s
+%s","%s (%d) — %s
+%s"
+CARD_TOWER_TITLE,%s · ур. %d/%d,%s · lvl %d/%d
+CARD_UPGRADE_TIP,Улучшить (U),Upgrade (U)
+CARD_UPGRADE_TIP_NEXT,Улучшить (U) → %s,Upgrade (U) → %s
+CARD_MAX,макс.,max
+CARD_SELL_TIP,Продать за %d%% вложенного (X),Sell for %d%% of the investment (X)
+CARD_DESELECT_TIP,Снять выбор (Esc),Deselect (Esc)
+CARD_KNIGHT_WALKS,Рыцарь идёт к площадке…,The knight is walking to the plot…
+CARD_FORGE_TITLE,Кузница,Forge
+CARD_FORGE_STATS,Меч %d%s · стены %d/%d,Sword %d%s · walls %d/%d
+CARD_SWORD_TIP,Закалить меч (U),Temper the sword (U)
+CARD_REPAIR_TIP,Починить стены: +%d жизни,Repair walls: +%d lives
+CARD_CLOSE_TIP,Закрыть (Esc),Close (Esc)
+CARD_VILLAGER,Житель,Villager
+CARD_TRADE_STATS,Курс: %d дерева → %d золота · дерева у вас: %d,Rate: %d wood → %d gold · your wood: %d
+CARD_TRADE_HINT,"Чем больше продаёте, тем ниже цена","The more you sell, the lower the price"
+CARD_TRADE_LOT_TIP,Продать %d дерева → +%d золота,Sell %d wood → +%d gold
+CARD_TRADE_ALL_TIP,Продать всё: %d дерева → +%d золота,Sell all: %d wood → +%d gold
+GUIDE_CHOP,Нажмите на дерево — рыцарь нарубит дров,Tap a tree and the knight chops wood
+GUIDE_GOLD,Бейте слизней у тропы — за них золото,"Hit slimes by the path, they drop gold"
+GUIDE_BUILD,Нажмите на площадку и постройте башню,Tap a plot and build a tower
+TOWER_STATS,Урон %d · радиус %.1f · %.2f с,Damage %d · range %.1f · %.2f s
+TOWER_STATS_SPLASH, · взрыв %.1f м, · blast %.1f m
+TOWER_STATS_SLOW, · замедл. %d%%, · slow %d%%
+WAVE_FIRST_IN,Первая волна через %s,First wave in %s
+WAVE_NEXT_IN,Следующая через %s,Next wave in %s
+WAVE_N,Волна %d!,Wave %d!
+WAVE_LAST,Последняя волна!,Final wave!
+TIME_SECONDS_ONE,%d секунду,%d second
+TIME_SECONDS_FEW,%d секунды,%d seconds
+TIME_SECONDS_MANY,%d секунд,%d seconds
+END_STATS_1,Врагов побеждено: %d · золота добыто: %d,Enemies defeated: %d · gold earned: %d
+END_STATS_2,Дерева нарублено: %d · башен: %d · время %d:%02d,Wood chopped: %d · towers: %d · time %d:%02d
+END_STARS_TOTAL,Звёзд всего: %d из %d,Stars in total: %d of %d
+END_STARS_NEW,"Новые звёзды: +%d! %s
+Потратьте их в Казне на карте","New stars: +%d! %s
+Spend them in the Treasury on the map"
+END_STARS_HINT,"
+3 звезды — пройти, не потеряв ни одной жизни","
+3 stars: win without losing a single life"
+END_NEW_RECORD,Новый рекорд: %d волн!,New record: %d waves!
+END_SIEGE_OVER,Осада окончена,Siege over
+END_SIEGE_STATS,Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d,Waves cleared: %d · record: %d · siege stars: %d of %d
+END_DEFEAT,Поражение,Defeat
+END_TIP,Совет: %s,Tip: %s
+TIP_REPAIR,ремонт стен в кузнице: +%d жизни за %d дерева,repair the walls at the forge: +%d lives for %d wood
+TIP_FROST,Мороз перед Пушкой: замедленные враги дольше под обстрелом,Frost before Cannon: slowed enemies stay under fire longer
+TIP_SWORD,улучшайте меч в кузнице и встречайте босса «Вихрем»,upgrade the sword at the forge and meet the boss with the Whirlwind
+TIP_STARS,звёзды покупают постоянные улучшения в Казне на карте,stars buy permanent upgrades in the Treasury on the map
+TIP_WOOD,рубите деревья между волнами — дерево нужно для улучшений,"chop trees between waves, upgrades need wood"
+TIP_LOOP,"ставьте башни там, где тропа делает петлю: враги проходят их дважды",build towers where the path loops: enemies pass them twice
+BOOT_LOADING,Загрузка…,Loading…
+NICK_TITLE,Выбери имя героя!,Choose your hero's name!
+NICK_SUBTITLE,Как тебя называть в приключениях?,What should we call you on your adventures?
+NICK_PLACEHOLDER,Твоё имя,Your name
+NICK_HINT_SHORT,3–16 букв или цифр,3–16 letters or digits
+NICK_PRIVACY_NOTE,Имя видят другие игроки в рекордах. Не используй настоящее имя и фамилию.,Other players see the name in the records. Do not use your real first and last name.
+SET_TITLE,Настройки,Settings
+SET_DONE,Готово,Done
+SET_LANGUAGE,Язык,Language
+SET_LANG_AUTO,Авто,Auto
+SET_LANG_RU,Русский,Русский
+SET_LANG_EN,English,English
+SET_SOUND_ON,Звук: вкл,Sound: on
+SET_SOUND_OFF,Звук: выкл,Sound: off
+SET_PRIVACY,Политика конфиденциальности,Privacy policy
+SET_DELETION,Удаление данных,Delete my data
+SET_VERSION,Версия %s,Version %s
+SET_TOOLTIP,Настройки,Settings
+HUD_SETTINGS,Настройки,Settings
+PRIORITY_FIRST,Первый,First
+PRIORITY_LAST,Последний,Last
+PRIORITY_STRONGEST,Сильный,Strongest
+PRIORITY_NEAREST,Ближний,Nearest
+PRIORITY_FIRST_HINT,ближайший к замку,closest to the castle
+PRIORITY_LAST_HINT,самый далёкий от замка,furthest from the castle
+PRIORITY_STRONGEST_HINT,с наибольшим здоровьем,with the most health
+PRIORITY_NEAREST_HINT,ближайший к башне,closest to the tower
+PRIORITY_TIP,"Цель: %s — %s. Нажмите, чтобы сменить","Target: %s — %s. Tap to change"
+DIR_N,севера,the north
+DIR_NE,северо-востока,the north-east
+DIR_E,востока,the east
+DIR_SE,юго-востока,the south-east
+DIR_S,юга,the south
+DIR_SW,юго-запада,the south-west
+DIR_W,запада,the west
+DIR_NW,северо-запада,the north-west
+LANES_ALL,Со всех сторон!,From every side!
+LANES_FROM,С %s!,From %s!
+LANES_FROM_TWO,С %s и %s!,From %s and %s!
+TIP_LANES,"Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам","Lightning hits frost-slowed enemies harder; watch the banner: waves come along different paths"

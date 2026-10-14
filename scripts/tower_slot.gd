@@ -15,6 +15,8 @@ const GROUP := &"tower_slots"
 ## Height of the pad top, where a built tower stands.
 @export var tower_offset: float = 0.05
 
+## Index in the level's "slots" (the id commands refer to).
+var slot_id: int = 0
 var state: State = State.FREE
 var tower: Tower = null
 var is_selected: bool = false

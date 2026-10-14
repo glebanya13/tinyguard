@@ -1,4 +1,4 @@
-# gdlint:disable=max-public-methods
+# gdlint:disable=max-public-methods,max-returns
 extends Node
 ## Optional online features over Firebase REST APIs (no SDK, no native
 ## plugins). Autoload "Online": a facade over AuthService (guest sign-in,
@@ -25,32 +25,45 @@ const CONFIG_PATH := "res://firebase.cfg"
 const LEADERBOARD_SIZE := 10
 const NAME_MAX := 16
 ## Leaderboard name of players without a reserved nickname (firestore.rules).
-const ANONYMOUS_NAME := "Рыцарь"
+const ANONYMOUS_NAME := "Рыцарь"  # i18n:keep (server-side name)
 ## Rounds of read-merge-write when another device writes in between.
 const MAX_SYNC_ROUNDS := 3
+## Local save section of the endless record queue (run start + unsent record).
+const RECORD_SECTION := "record_queue"
+const RETRY_MAX := 300.0
+const MAX_RETRIES := 8
 ## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
 const NICKNAME_CHANGE_SECONDS := 86400
 const _PROFILE_TIMES: Array[String] = ["createdAt", "nicknameChangedAt"]
 const STATE_TEXT := {
-	"off": "Только на этом устройстве",
-	"syncing": "Синхронизация…",
-	"synced": "Сохранено в облаке",
-	"pending": "Не синхронизировано",
-	"offline": "Не синхронизировано · нет связи",
-	"session_lost": "Не синхронизировано · вход потерян",
-	"newer": "Не синхронизировано · обновите игру",
-	"disabled": "Аккаунт заблокирован",
+	"off": "SYNC_OFF",
+	"syncing": "SYNC_SYNCING",
+	"synced": "SYNC_SYNCED",
+	"pending": "SYNC_PENDING",
+	"offline": "SYNC_OFFLINE",
+	"session_lost": "SYNC_SESSION_LOST",
+	"newer": "SYNC_NEWER",
+	"disabled": "SYNC_DISABLED",
 }
 
 var api_key: String = ""
 var project_id: String = ""
 var auth := AuthService.new()
 var firestore := FirestoreClient.new()
+## Realtime Database URL for co-op (firebase.cfg "database_url"); "" = co-op off.
+var database_url: String = ""
+## Transport of the co-op layer (CoopLobby / CoopSession); null without database_url.
+var rtdb: RtdbClient = null
 ## The first start() finished (signed in and synced, or failed offline).
 var startup_done: bool = false
+## First retry delay of an unsent record, seconds (tests shorten it).
+var retry_base: float = 5.0
 
 var _transport: HttpTransport = null
 var _started: bool = false
+var _retry_delay: float = 5.0
+var _retries: int = 0
+var _record_busy: bool = false
 var _sync_busy: bool = false
 var _reserve_busy: bool = false
 ## A link / sign-in / sign-out request is running (one at a time).
@@ -65,9 +78,12 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	var key := ""
 	var project := ""
+	var db_url := ""
 	if cfg.load(CONFIG_PATH) == OK:
 		key = str(cfg.get_value("firebase", "api_key", ""))
 		project = str(cfg.get_value("firebase", "project_id", ""))
+		db_url = str(cfg.get_value("firebase", "database_url", ""))
+	database_url = db_url
 	setup(key, project, HttpTransport.new())
 
 
@@ -88,6 +104,15 @@ func setup(key: String, project: String, transport: HttpTransport) -> void:
 	firestore.project_id = project
 	firestore.transport = transport
 	firestore.auth = auth
+	if rtdb != null:
+		rtdb.queue_free()
+		rtdb = null
+	if database_url != "" and key != "":
+		rtdb = RtdbClient.new()
+		add_child(rtdb)
+		if not rtdb.configure(database_url, auth):
+			rtdb.queue_free()
+			rtdb = null
 	_started = false
 	startup_done = false
 	_last_error = ""
@@ -115,6 +140,7 @@ func start() -> void:
 	_remember_uid()
 	if is_configured():
 		await sync_now()
+		flush_records()
 	startup_done = true
 	sync_state_changed.emit(sync_state())
 
@@ -134,7 +160,7 @@ func sync_state() -> String:
 
 
 static func state_text(state: String) -> String:
-	return str(STATE_TEXT.get(state, ""))
+	return TranslationServer.translate(str(STATE_TEXT.get(state, "")))
 
 
 ## "local" (no Firebase), "guest", "email" or "none" (not signed in yet).
@@ -197,6 +223,11 @@ func delete_account() -> Dictionary:
 	var signed: Dictionary = await auth.ensure_token(false)
 	if not signed["ok"]:
 		return {"ok": false, "reason": signed["error"], "scope": ""}
+	if rtdb != null:
+		# Co-op rooms (uid, nickname, commands) first: the rules need the signed-in user.
+		var rooms: Dictionary = await CoopLobby.new(rtdb).purge_user()
+		if not rooms["ok"]:
+			return {"ok": false, "reason": "offline", "scope": ""}
 	var plan: Dictionary = await _deletion_writes(auth.uid)
 	if not plan["ok"]:
 		return {"ok": false, "reason": plan["reason"], "scope": ""}
@@ -379,6 +410,9 @@ func set_player_name(value: String) -> void:
 ## rules accept a record of wave N only (N-1)*15 s after this moment, so call it
 ## when the run begins. Fire and forget; without a connection the run simply
 ## has no online record. Returns true if the start was stored.
+## A run that did not start online can never reach the table later: the rules
+## accept only startedAt == request.time, so it cannot be written back-dated. Its
+## record stays a local record (LevelCatalog.save_endless) and is not queued.
 func start_run(level_id: int) -> bool:
 	if not is_configured():
 		return false
@@ -388,24 +422,101 @@ func start_run(level_id: int) -> bool:
 	var data := {"level": "level_%d" % level_id}
 	var write: Dictionary = firestore.write_set("runs/" + auth.uid, data, ["startedAt"])
 	var reply: Dictionary = await firestore.commit([write])
+	if reply["ok"]:
+		# The new startedAt replaces the old one on the server, so a still queued
+		# record of the previous run would be judged against it: drop it.
+		var cfg: ConfigFile = LevelCatalog.data()
+		if cfg.has_section(RECORD_SECTION):
+			cfg.erase_section(RECORD_SECTION)
+		cfg.set_value(RECORD_SECTION, "run_level", level_id)
+		cfg.set_value(RECORD_SECTION, "run_uid", auth.uid)
+		LevelCatalog.commit()
+		_retry_delay = retry_base
 	return reply["ok"]
 
 
 ## Sends the endless record of a level (the rules keep only higher records, stamp
 ## the time with the server clock and check it against start_run()).
 ## The name is the reserved nickname, else ANONYMOUS_NAME.
+## The record is queued in the local save when the run did start online, and sent
+## with retries (exponential delay) if the network fails meanwhile.
 func submit_record(level_id: int, wave: int) -> void:
 	if not is_configured() or wave <= 0:
 		return
+	var cfg: ConfigFile = LevelCatalog.data()
+	var run_ok: bool = (
+		int(cfg.get_value(RECORD_SECTION, "run_level", -1)) == level_id
+		and str(cfg.get_value(RECORD_SECTION, "run_uid", "")) == auth.uid
+		and auth.uid != ""
+	)
+	if not run_ok:
+		return  # no server-side run start: the rules would refuse it (see start_run)
+	if wave > int(cfg.get_value(RECORD_SECTION, "wave", 0)):
+		cfg.set_value(RECORD_SECTION, "wave", wave)
+		LevelCatalog.commit()
+	await flush_records()
+
+
+## True while a record waits for the network.
+func has_pending_record() -> bool:
+	return int(LevelCatalog.data().get_value(RECORD_SECTION, "wave", 0)) > 0
+
+
+## Sends the queued record once. Network/server failures keep it and schedule a
+## retry (delay doubles up to RETRY_MAX, at most MAX_RETRIES in a row); a refusal by
+## the rules (4xx) drops it. Never sends twice at the same time.
+func flush_records() -> void:
+	if _record_busy or not is_configured() or not has_pending_record():
+		return
+	_record_busy = true
+	var cfg: ConfigFile = LevelCatalog.data()
+	var level_id: int = int(cfg.get_value(RECORD_SECTION, "run_level", -1))
+	var wave: int = int(cfg.get_value(RECORD_SECTION, "wave", 0))
+	var owner_uid: String = str(cfg.get_value(RECORD_SECTION, "run_uid", ""))
+	var result: String = await _send_record(level_id, wave, owner_uid)
+	_record_busy = false
+	match result:
+		"sent":
+			cfg.set_value(RECORD_SECTION, "wave", null)
+			LevelCatalog.commit()
+			_retry_delay = retry_base
+			_retries = 0
+			status_changed.emit(tr("ONLINE_RECORD_SENT"))
+		"refused":
+			cfg.set_value(RECORD_SECTION, "wave", null)
+			LevelCatalog.commit()
+			status_changed.emit(tr("ONLINE_RECORD_FAILED"))
+		_:
+			_schedule_record_retry()
+
+
+func _send_record(level_id: int, wave: int, owner_uid: String) -> String:
 	var signed: Dictionary = await auth.ensure_token(true)
 	if not signed["ok"]:
-		return
+		return "retry"
+	if auth.uid != owner_uid:
+		return "refused"  # another account is signed in now
 	var p: Dictionary = PlayerProfile.local()
 	var nick: String = str(p["nickname"]) if bool(p["nicknameVerified"]) else ANONYMOUS_NAME
 	var path: String = "leaderboards/level_%d/scores/%s" % [level_id, auth.uid]
 	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
 	var reply: Dictionary = await firestore.commit([write])
-	status_changed.emit("Рекорд отправлен" if reply["ok"] else "Не удалось отправить рекорд")
+	if reply["ok"]:
+		return "sent"
+	var code: int = int(reply.get("code", 0))
+	if reply.get("network", false) or code >= 500 or code == 429:
+		return "retry"
+	return "refused"
+
+
+func _schedule_record_retry() -> void:
+	if _retries >= MAX_RETRIES or not is_inside_tree():
+		_retries = 0
+		return  # the next start() tries again
+	_retries += 1
+	var delay: float = _retry_delay
+	_retry_delay = minf(_retry_delay * 2.0, RETRY_MAX)
+	get_tree().create_timer(delay).timeout.connect(flush_records)
 
 
 func fetch_leaderboard(level_id: int) -> void:
@@ -426,7 +537,7 @@ func fetch_leaderboard(level_id: int) -> void:
 ## Syncs the profile now (the button "В облако").
 func cloud_save() -> void:
 	var result: Dictionary = await sync_now()
-	status_changed.emit("Прогресс сохранён в облаке" if result["ok"] else _error_text(result))
+	status_changed.emit(tr("ONLINE_SAVED") if result["ok"] else _error_text(result))
 
 
 ## Merges the cloud profile into the local one (the button "Из облака");
@@ -435,7 +546,7 @@ func cloud_load() -> void:
 	var result: Dictionary = await sync_now()
 	var changed: bool = result["ok"] and result["changed"]
 	if result["ok"]:
-		status_changed.emit("Прогресс обновлён из облака" if changed else "Прогресс уже совпадает")
+		status_changed.emit(tr("ONLINE_UPDATED") if changed else tr("ONLINE_SAME"))
 	else:
 		status_changed.emit(_error_text(result))
 	cloud_loaded.emit(changed)
@@ -504,7 +615,7 @@ func _sync() -> Dictionary:
 			var reserved: Dictionary = await _reserve(str(local["nickname"]))
 			if reserved["reason"] in ["taken", "invalid"]:
 				Onboarding.flag_nickname_conflict()
-				status_changed.emit("Имя «%s» занято — выбери другое" % local["nickname"])
+				status_changed.emit(tr("ONLINE_NAME_TAKEN") % local["nickname"])
 	var start_hash: String = PlayerProfile.content_hash(PlayerProfile.local())
 	var result: Dictionary = {"ok": false, "error": "server", "changed": false}
 	for round_index in MAX_SYNC_ROUNDS:
@@ -764,11 +875,11 @@ static func _reply_error(reply: Dictionary) -> String:
 func _error_text(result: Dictionary) -> String:
 	match str(result.get("error", "")):
 		"offline":
-			return "Нет связи с сервером"
+			return tr("ONLINE_ERR_OFFLINE")
 		"newer":
-			return "Облачный прогресс из новой версии — обновите игру"
+			return tr("ONLINE_ERR_NEWER")
 		"session_lost":
-			return "Вход потерян — откройте Профиль"
+			return tr("ONLINE_ERR_SESSION_LOST")
 		"not_configured":
-			return "Облако недоступно"
-	return "Не удалось синхронизировать"
+			return tr("ONLINE_ERR_NOT_CONFIGURED")
+	return tr("ONLINE_ERR_GENERIC")

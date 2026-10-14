@@ -6,8 +6,8 @@
 
 [resource]
 script = ExtResource("1_data")
-display_name = "Молния"
-role = "цепь по 3–5 врагам; замедленных Морозом бьёт на 40% сильнее"
+display_name = "TOWER_LIGHTNING_NAME"
+role = "TOWER_LIGHTNING_ROLE"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 50
