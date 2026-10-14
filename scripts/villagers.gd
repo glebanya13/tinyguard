@@ -1,7 +1,7 @@
 class_name Villagers
 extends Node3D
 ## Villagers of a level: settles them on free ground near the castle, away
-## from the enemy path and tower slots, and buys the hero's wood for gold at
+## from the enemy paths and tower slots, and buys the hero's wood for gold at
 ## the VillagerTrade prices (every lot sold makes the next one cheaper).
 
 signal wood_sold(wood: int, gold: int)
@@ -29,7 +29,7 @@ const BODY_POINTS: Array[Vector2] = [
 @export_range(0.0, 1.0) var min_room: float = 0.45
 ## A home keeps this far from the hero's start (no trade card at level start).
 @export var hero_clearance: float = 2.5
-## Where villagers may stand: this far from the enemy path and from slots.
+## Where villagers may stand: this far from the enemy paths and from slots.
 @export var path_clearance: float = 1.5
 @export var slot_clearance: float = 1.4
 ## Half the villager's width: these points around a spot must be free too.
@@ -41,16 +41,20 @@ var lots_sold: int = 0
 
 var _villagers: Array[Villager] = []
 var _grid: WalkGrid = null
-var _path: Path3D = null
+var _paths: Array[Path3D] = []
 var _slots := PackedVector3Array()
 
 
 ## Places `count` villagers around `castle`. Needs the built walk grid.
 func spawn(
-	grid: WalkGrid, path: Path3D, castle: Vector3, hero_start: Vector3, slots: PackedVector3Array
+	grid: WalkGrid,
+	paths: Array[Path3D],
+	castle: Vector3,
+	hero_start: Vector3,
+	slots: PackedVector3Array
 ) -> void:
 	_grid = grid
-	_path = path
+	_paths = paths
 	_slots = slots
 	# Candidates on a 1 m lattice around the castle, roomiest and closest first.
 	var candidates: Array[Vector4] = []  # x, z, score, unused
@@ -89,7 +93,7 @@ func get_villagers() -> Array[Villager]:
 	return _villagers
 
 
-## True if a villager may stand on `point`: free ground, off the path and slots.
+## True if a villager may stand on `point`: free ground, off the paths and slots.
 func is_open(point: Vector3) -> bool:
 	if _grid == null:
 		return false
@@ -99,8 +103,10 @@ func is_open(point: Vector3) -> bool:
 	for slot in _slots:
 		if _flat_distance(slot, point) < slot_clearance:
 			return false
-	if _path != null and _path.curve.point_count > 1:
-		var closest: Vector3 = _path.to_global(_path.curve.get_closest_point(_path.to_local(point)))
+	for path in _paths:
+		if path.curve.point_count < 2:
+			continue
+		var closest: Vector3 = path.to_global(path.curve.get_closest_point(path.to_local(point)))
 		if _flat_distance(closest, point) < path_clearance:
 			return false
 	return true

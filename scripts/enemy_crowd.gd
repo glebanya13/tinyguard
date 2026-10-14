@@ -104,7 +104,7 @@ func _make_kind(model: PackedScene) -> Dictionary:
 			anim = &"arm_l" if mesh_node.name.ends_with("L") else &"arm_r"
 		elif mesh_node.name == "Body":
 			anim = &"sway" if has_arms else &"squash"
-		var rest: Transform3D = root.global_transform.affine_inverse() * _rest_of(mesh_node, root)
+		var rest: Transform3D = root.transform.affine_inverse() * _rest_of(mesh_node, root)
 		parts.append({"rest": rest, "anim": anim})
 		mms.append(_new_multimesh(mesh_node.mesh))
 	root.free()

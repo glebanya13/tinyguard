@@ -2,11 +2,13 @@
 """Rough balance check: plays every level of resources/levels.json with a
 greedy player and prints lives left after each boss wave and at the end.
 
-Model: enemies walk the level path (wave plan as in scripts/wave_plan.gd),
+Model: enemies walk the level paths (wave plan as in scripts/wave_plan.gd;
+every enemy kind takes the paths in turn as in scripts/wave_manager.gd),
 towers hit instantly (nearest enemy in range, splash and slow as in
 tower/projectile code), gold from kills, wood at a steady chopping rate. The
-hero guards the path near the castle with his sword (as an extra "tower"). The player builds on the slots that cover most of the
-path, mixing archer / cannon / frost, and upgrades when every slot is taken.
+hero guards the castle road (where the paths have joined) with his sword (as
+an extra "tower"). The player builds on the slots that cover most of the
+paths, mixing archer / cannon / frost, and upgrades when every slot is taken.
 It is an estimate: real players also fight with the hero and call waves early.
 
 Usage: python3 tools/balance_sim.py [level_id ...]
@@ -26,7 +28,7 @@ TOWER_BONUS = 1.0
 WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
 HERO = {"damage_levels": [14.0], "range_levels": [1.4], "interval_levels": [0.5],
         "splash_levels": [0.0], "slow_levels": [1.0]}
-HERO_AT = 0.85  # fraction of the path where the hero stands  # the hero chops a tree (12 wood) in ~2.5 s, plus walking
+HERO_FROM_CASTLE = 3.0  # metres before the castle gate (on path 0) where the hero stands
 BOSS_GROWTH_EXPONENT = 0.75  # scripts/wave_plan.gd
 INTERVAL_DECAY = 0.97
 
@@ -96,13 +98,33 @@ class Path2D:
                    if math.dist(self.at(k * 0.25), (x, z)) <= r)
 
 
+def routes(lv: dict) -> list:
+    """Full enemy routes as in LevelCatalog.routes(): a path that ends on an
+    earlier one continues along it to the castle."""
+    out = []
+    for pts in lv["paths"]:
+        route = [tuple(p) for p in pts]
+        if out:
+            end = route[-1]
+            for prev in out:
+                hit = [i for i, (a, b) in enumerate(zip(prev, prev[1:]))
+                       if min(a[0], b[0]) - 0.01 <= end[0] <= max(a[0], b[0]) + 0.01
+                       and min(a[1], b[1]) - 0.01 <= end[1] <= max(a[1], b[1]) + 0.01]
+                if hit:
+                    route += prev[hit[0] + 1:]
+                    break
+        out.append(route)
+    return out
+
+
 def play(lv: dict, verbose: bool = True) -> int:
     w = lv["waves"]
-    path = Path2D(lv["path"])
-    slots = sorted(lv["slots"], key=lambda s: -path.coverage(s[0], s[1], 3.2))
+    paths = [Path2D(r) for r in routes(lv)]
+    drawn = [Path2D(pts) for pts in lv["paths"]]  # every metre of road once
+    slots = sorted(lv["slots"], key=lambda s: -sum(p.coverage(s[0], s[1], 3.2) for p in drawn))
     gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], lv["start"]["lives"]
     towers = []  # dicts: kind, level, x, z, cd
-    hx, hz = path.at(path.length * HERO_AT)
+    hx, hz = paths[0].at(paths[0].length - HERO_FROM_CASTLE)
     hero = {"kind": "hero", "level": 0, "x": hx + 0.8, "z": hz, "cd": 0.0}
     t = 0.0
     report = []
@@ -133,10 +155,15 @@ def play(lv: dict, verbose: bool = True) -> int:
                         changed = True
                         break
 
-    def add_enemy(enemies, kind, mult, d=0.0):
+    spawned = {}  # kind -> enemies of that kind so far: picks the next path
+
+    def add_enemy(enemies, kind, mult, d=0.0, route=None):
+        if route is None:
+            route = spawned.get(kind, 0) % len(paths)
+            spawned[kind] = spawned.get(kind, 0) + 1
         e = ENEMIES[kind]
         enemies.append({"kind": kind, "hp": e["health"] * mult, "max": e["health"] * mult, "mult": mult, "d": d,
-                        "slow": 1.0, "slow_t": 0.0, "heal_t": 0.0, "pos": path.at(d)})
+                        "slow": 1.0, "slow_t": 0.0, "heal_t": 0.0, "pos": paths[route].at(d), "route": route})
 
     # Waves on a fixed clock (scripts/wave_manager.gd): one every wave_duration s,
     # enemies spread over spawn_window s; waves overlap.
@@ -169,7 +196,7 @@ def play(lv: dict, verbose: bool = True) -> int:
             if en["slow_t"] <= 0:
                 en["slow"] = 1.0
             en["d"] += e["speed"] * en["slow"] * DT
-            en["pos"] = path.at(en["d"])
+            en["pos"] = paths[en["route"]].at(en["d"])
             if e.get("heal_fraction", 0):
                 en["heal_t"] -= DT
                 if en["heal_t"] <= 0:
@@ -177,7 +204,7 @@ def play(lv: dict, verbose: bool = True) -> int:
                     for o in enemies:
                         if o is not en and math.dist(o["pos"], en["pos"]) <= e.get("heal_radius", 1.8):
                             o["hp"] = min(o["max"], o["hp"] + o["max"] * e["heal_fraction"])
-        for en in [en for en in enemies if en["d"] >= path.length]:
+        for en in [en for en in enemies if en["d"] >= paths[en["route"]].length]:
             lives -= int(ENEMIES[en["kind"]]["base_damage"])
             leaks[en["kind"]] = leaks.get(en["kind"], 0) + int(ENEMIES[en["kind"]]["base_damage"])
             enemies.remove(en)
@@ -230,12 +257,13 @@ def play(lv: dict, verbose: bool = True) -> int:
             enemies.remove(en)
             if e.get("split_count"):
                 for k in range(int(e["split_count"])):
-                    add_enemy(enemies, "slime_mini", en["mult"], max(en["d"] - 0.35 * k, 0.0))
+                    add_enemy(enemies, "slime_mini", en["mult"], max(en["d"] - 0.35 * k, 0.0), en["route"])
         if wave >= w["count"] and not spawners and not enemies:
             break
     if verbose:
         lost = ", ".join(f"{k} {v}" for k, v in sorted(leaks.items(), key=lambda kv: -kv[1]))
-        print(f"{lv['id']}. {lv['name']}: " + "; ".join(report) + (f" | прорвались: {lost}" if lost else ""))
+        print(f"{lv['id']}. {lv['name']} ({len(paths)} пути): " + "; ".join(report)
+              + f" | итог: жизни {max(lives, 0)}/{lv['start']['lives']}" + (f" | прорвались: {lost}" if lost else ""))
     return max(lives, 0)
 
 

@@ -249,6 +249,62 @@ def _seg_dist(p, a, b) -> float:
     return ((ax + dx * k - px) ** 2 + (az + dz * k - pz) ** 2) ** 0.5
 
 
+def _on_segment(p, a, b) -> bool:
+    """True if p lies on the segment a-b."""
+    return _seg_dist(p, a, b) < 0.01
+
+
+def _check_paths(tag: str, lv: dict) -> list:
+    """Checks lv["paths"]; returns every segment as (path, index, a, b).
+
+    Path 0 ends at the castle gate. Every other path ends on a segment of an
+    earlier path (a T-junction) and its enemies follow that path on to the castle.
+    Segments of all paths keep 3 m apart, except a path's last segment and the
+    segment it joins.
+    """
+    x0, z0, w, h = lv["bounds"]
+    segs: list = []
+    joins: dict = {}  # path -> (path, segment) it ends on
+    for k, pts in enumerate(lv["paths"]):
+        ptag = f"{tag} path {k}"
+        if len(pts) < 2:
+            errors.append(f"{ptag}: needs at least 2 points")
+            continue
+        sx, sz = pts[0]
+        if min(abs(sx - x0), abs(sx - x0 - w), abs(sz - z0), abs(sz - z0 - h)) > 0.5:
+            errors.append(f"{ptag}: portal {pts[0]} is not on the play area border")
+        for i, (a, b) in enumerate(zip(pts, pts[1:])):
+            if a[0] != b[0] and a[1] != b[1]:
+                errors.append(f"{ptag}: segment {i} is not axis-aligned")
+            if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.6:
+                errors.append(f"{ptag}: segment {i} shorter than the 0.75 m corner radius x2")
+        if k > 0:
+            end, before = pts[-1], pts[-2]
+            host = [(j, i, a, b) for j, i, a, b in segs if _on_segment(end, a, b)]
+            if not host:
+                errors.append(f"{ptag}: must end on a segment of an earlier path")
+            else:
+                j, i, a, b = host[0]
+                joins[k] = (j, i)
+                if (before[1] == end[1]) == (a[1] == b[1]):
+                    errors.append(f"{ptag}: last segment must meet path {j} at a right angle")
+                corner = min(abs(end[0] - a[0]) + abs(end[1] - a[1]), abs(end[0] - b[0]) + abs(end[1] - b[1]))
+                if corner < 1.6:
+                    errors.append(f"{ptag}: joins path {j} too close to a corner")
+        segs += [(k, i, a, b) for i, (a, b) in enumerate(zip(pts, pts[1:]))]
+    last = {k: len(pts) - 2 for k, pts in enumerate(lv["paths"])}
+    for n, (k1, i, a, b) in enumerate(segs):
+        for k2, j, c, d in segs[n + 1:]:
+            if k1 == k2 and j <= i + 1:
+                continue
+            if k1 != k2 and joins.get(k2) == (k1, i) and j == last[k2]:
+                continue
+            gap = min(_seg_dist(a, c, d), _seg_dist(b, c, d), _seg_dist(c, a, b), _seg_dist(d, a, b))
+            if gap < 3.0:
+                errors.append(f"{tag}: path {k1} segment {i} and path {k2} segment {j} only {gap:.1f} m apart")
+    return segs
+
+
 def check_levels() -> None:
     """Layout sanity for resources/levels.json (shared by Godot and Blender)."""
     path = ROOT / "resources" / "levels.json"
@@ -258,34 +314,32 @@ def check_levels() -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     for lv in data["levels"]:
         tag = f"levels.json level {lv['id']}"
+        if "path" in lv or not lv.get("paths"):
+            errors.append(f'{tag}: expected "paths": [[...], ...] instead of "path"')
+            continue
         x0, z0, w, h = lv["bounds"]
-        pts = lv["path"]
-        segs = list(zip(pts, pts[1:]))
-        for i, (a, b) in enumerate(segs):
-            if a[0] != b[0] and a[1] != b[1]:
-                errors.append(f"{tag}: path segment {i} is not axis-aligned")
-            if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.6:
-                errors.append(f"{tag}: path segment {i} shorter than the 0.75 m corner radius x2")
-        for i, (a, b) in enumerate(segs):
-            for j, (c, d) in enumerate(segs):
-                if j <= i + 1:
-                    continue
-                gap = min(_seg_dist(a, c, d), _seg_dist(b, c, d), _seg_dist(c, a, b), _seg_dist(d, a, b))
-                if gap < 3.0:
-                    errors.append(f"{tag}: path segments {i} and {j} only {gap:.1f} m apart")
+        if abs(x0 + w / 2) > 0.01 or abs(z0 + h / 2) > 0.01:
+            errors.append(f"{tag}: bounds must be centred on the origin (build_terrain.py)")
+        segs = [(a, b) for _, _, a, b in _check_paths(tag, lv)]
         cx, cz = lv["castle"]
         if not (x0 + 1.2 <= cx <= x0 + w - 1.2 and z0 + 1.2 <= cz <= z0 + h - 1.2):
             errors.append(f"{tag}: castle outside the play bounds")
+        gate = lv["paths"][0][-1]
+        if abs(gate[0] - cx) + abs(gate[1] - cz) > 1.5:
+            errors.append(f"{tag}: path 0 must end at the castle gate")
         spots = [("slot", s, 1.3) for s in lv["slots"]] + [("tree", s, 1.2) for s in lv["trees"]]
         spots.append(("hero", lv["hero"], 0.8))
         for kind, s, clearance in spots:
             d = min(_seg_dist(s, a, b) for a, b in segs)
             if d < clearance:
-                errors.append(f"{tag}: {kind} {s} is {d:.2f} m from the path (< {clearance})")
+                errors.append(f"{tag}: {kind} {s} is {d:.2f} m from a path (< {clearance})")
             if not (x0 + 0.4 <= s[0] <= x0 + w - 0.4 and z0 + 0.4 <= s[1] <= z0 + h - 0.4):
                 errors.append(f"{tag}: {kind} {s} outside the play bounds")
             if abs(s[0] - cx) < 1.6 and abs(s[1] - cz) < 1.6:
                 errors.append(f"{tag}: {kind} {s} overlaps the castle")
+            for pts in lv["paths"]:
+                if ((s[0] - pts[0][0]) ** 2 + (s[1] - pts[0][1]) ** 2) ** 0.5 < 2.0:
+                    errors.append(f"{tag}: {kind} {s} blocks the portal at {pts[0]}")
         # Every slot must reach the path with the shortest-ranged tower at level 1.
         reach = _min_tower_range() - REACH_MARGIN
         for sx, sz in lv["slots"]:

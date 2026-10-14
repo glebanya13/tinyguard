@@ -1,6 +1,6 @@
 extends Node3D
 ## Root of a level: builds the selected level from resources/levels.json
-## (terrain, castle, portal, path, slots, trees, hero spot), wires the game
+## (terrain, castle, portals and paths, slots, trees, hero spot), wires the game
 ## systems together through their signals and turns the hero's command card
 ## into orders (walk to the slot, then build).
 
@@ -269,18 +269,28 @@ func _build_level() -> void:
 		if part == "decor":
 			_plant_trees(node)
 
-	var path: Array = level["path"]
-	var curve := Curve3D.new()
-	for point: Array in path:
-		curve.add_point(_ground(point, PATH_HEIGHT))
-	_enemy_path.curve = curve
+	# One Path3D per entry: the scene's EnemyPath for the first, siblings for the rest.
+	var paths: Array[Path3D] = []
+	for route: PackedVector2Array in LevelCatalog.routes(level):
+		var path3d: Path3D = _enemy_path
+		if not paths.is_empty():
+			path3d = Path3D.new()
+			path3d.name = "EnemyPath%d" % (paths.size() + 1)
+			_level_root.add_child(path3d)
+		var curve := Curve3D.new()
+		for point: Vector2 in route:
+			curve.add_point(Vector3(point.x, PATH_HEIGHT, point.y))
+		path3d.curve = curve
+		paths.append(path3d)
 
-	var first_dir: Vector3 = (_ground(path[1]) - _ground(path[0])).normalized()
-	var portal: Node3D = PORTAL_SCENE.instantiate()
-	portal.position = _ground(path[0])
-	portal.rotation.y = atan2(first_dir.x, first_dir.z)
-	_level_root.add_child(portal)
+		var first_dir: Vector3 = Vector3(route[1].x - route[0].x, 0.0, route[1].y - route[0].y)
+		var portal: Node3D = PORTAL_SCENE.instantiate()
+		portal.position = Vector3(route[0].x, 0.0, route[0].y)
+		portal.rotation.y = atan2(first_dir.x, first_dir.z)
+		_level_root.add_child(portal)
+	_wave_manager.enemy_paths = paths
 
+	var path: Array = level["paths"][0]
 	var last_dir: Vector3 = (_ground(path[-1]) - _ground(path[-2])).normalized()
 	var castle: Node3D = CASTLE_SCENE.instantiate()
 	_castle = castle
@@ -332,7 +342,13 @@ func _build_walk_grid() -> void:
 	var slots := PackedVector3Array()
 	for point: Array in level["slots"]:
 		slots.append(_ground(point))
-	villagers.spawn(walk_grid, _enemy_path, _ground(level["castle"]), _ground(level["hero"]), slots)
+	villagers.spawn(
+		walk_grid,
+		_wave_manager.get_paths(),
+		_ground(level["castle"]),
+		_ground(level["hero"]),
+		slots
+	)
 
 
 func _ground(point: Array, height: float = 0.0) -> Vector3:

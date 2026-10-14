@@ -1,10 +1,12 @@
-"""Level terrain: ground with hills, the enemy path, path details and decoration.
+"""Level terrain: ground with hills, the enemy paths, path details and decoration.
 
 Layouts come from resources/levels.json (shared with Godot). For every level this
 builds level_<id>_terrain.glb, level_<id>_decor.glb and level_<id>_forest.glb in
 world coordinates (placed at the origin in Godot). Godot (x, y, z) == Blender
 (x, -z, y). Path corners are rounded (0.75 m) but stay within half a metre of the
 sharp curve enemies walk on (a 0.75 m quadratic corner is 0.27 m off the sharp one).
+Path 0 runs to the castle; the others end on an earlier path (a T-junction) and
+are drawn a few millimetres lower so the path they join covers the overlap.
 Set TG_LEVELS=1,3 to build only some levels.
 """
 import json
@@ -19,36 +21,48 @@ import build_environment as env
 import tg_common as tg
 
 LEVELS_FILE = tg.ROOT / "resources" / "levels.json"
-GROUND_HALF = 40.0
+GROUND_HALF = 46.0
 STEP = 0.5
 PATH_HALF = 0.5
 CORNER_R = 0.75  # > path half width + shoulder (0.6), else the inner edge folds
 CHUNK = 10.0
+# Secondary paths sit this much lower than the path they join.
+JOIN_DROP = 0.004
+# Decoration counts inside the play area (44 x 30 m), kept low for the frame
+# triangle budget (a flower patch is ~770 triangles).
+TALL_PROPS = 80
+SMALL_PROPS = 60
+GRASS_TUFTS = 420
+PEBBLES = 100
+EDGE_STONE_SKIP = 0.45
 
 # Current level (set by use_level).
 PLAY_X = PLAY_Z = DENSE_X = DENSE_Z = 0.0
-PATH: list = []
+PATHS: list = []  # drawn polylines, path 0 first
+SEGS: list = []  # every segment of every path
 SLOTS: list = []
 HERO: tuple = (0.0, 0.0)
 CASTLE: tuple = (0.0, 0.0)
-PORTAL: tuple = (0.0, 0.0)
+PORTALS: list = []
 CHOP_TREES: list = []
 
 
 def use_level(lv: dict) -> None:
-    global PLAY_X, PLAY_Z, DENSE_X, DENSE_Z, PATH, SLOTS, HERO, CASTLE, PORTAL, CHOP_TREES
+    global PLAY_X, PLAY_Z, DENSE_X, DENSE_Z, PATHS, SEGS, SLOTS, HERO, CASTLE, PORTALS, CHOP_TREES
     x0, z0, w, h = lv["bounds"]
     PLAY_X, PLAY_Z = w / 2, h / 2
     DENSE_X, DENSE_Z = PLAY_X + 1.5, PLAY_Z + 1.5
-    pts = [tuple(p) for p in lv["path"]]
-    # Extend the last segment to the castle steps.
-    (ax, az), (bx, bz) = pts[-2], pts[-1]
+    PATHS = [[tuple(p) for p in pts] for pts in lv["paths"]]
+    # Extend the castle path's last segment to the castle steps.
+    main = PATHS[0]
+    (ax, az), (bx, bz) = main[-2], main[-1]
     d = Vector((bx - ax, bz - az)).normalized()
-    PATH = pts[:-1] + [(bx + d.x * 0.45, bz + d.y * 0.45)]
+    main[-1] = (bx + d.x * 0.45, bz + d.y * 0.45)
+    SEGS = [(Vector(a), Vector(c)) for pts in PATHS for a, c in zip(pts, pts[1:])]
     SLOTS = [tuple(s) for s in lv["slots"]]
     HERO = tuple(lv["hero"])
     CASTLE = tuple(lv["castle"])
-    PORTAL = pts[0]
+    PORTALS = [pts[0] for pts in PATHS]
     CHOP_TREES = [tuple(s) for s in lv["trees"]]
 
 
@@ -57,31 +71,31 @@ def b(gx, gz, h=0.0) -> tuple:
     return (gx, -gz, h)
 
 
-def centerline() -> list:
+def centerline(polyline: list) -> list:
     """Path centre with corners replaced by quadratic Bezier arcs."""
     pts = []
-    for i in range(len(PATH) - 1):
-        p0, p1 = Vector(PATH[i]), Vector(PATH[i + 1])
+    for i in range(len(polyline) - 1):
+        p0, p1 = Vector(polyline[i]), Vector(polyline[i + 1])
         d = (p1 - p0).normalized()
         start = p0 + d * (CORNER_R if i > 0 else 0)
-        end = p1 - d * (CORNER_R if i < len(PATH) - 2 else 0)
+        end = p1 - d * (CORNER_R if i < len(polyline) - 2 else 0)
         n = max(2, int((end - start).length / STEP))
         pts += [start.lerp(end, k / n) for k in range(n)]
-        if i < len(PATH) - 2:
-            p2 = Vector(PATH[i + 2])
+        if i < len(polyline) - 2:
+            p2 = Vector(polyline[i + 2])
             a, c = end, p1 + (p2 - p1).normalized() * CORNER_R
             for k in range(8):
                 t = k / 8
                 pts.append(a * (1 - t) ** 2 + p1 * 2 * (1 - t) * t + c * t * t)
-    pts.append(Vector(PATH[-1]))
+    pts.append(Vector(polyline[-1]))
     return pts
 
 
 def dist_to_path(x, z) -> float:
+    """Distance to the nearest path centre line."""
     p = Vector((x, z))
     best = 1e9
-    for i in range(len(PATH) - 1):
-        a, c = Vector(PATH[i]), Vector(PATH[i + 1])
+    for a, c in SEGS:
         ab = c - a
         t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
         best = min(best, (a + ab * t - p).length)
@@ -89,7 +103,7 @@ def dist_to_path(x, z) -> float:
 
 
 def free_spot(x, z, margin=0.75) -> bool:
-    """True where decoration may go: off the path, slots, castle, hero, portal and choppable trees."""
+    """True where decoration may go: off the paths, slots, castle, hero, portals and choppable trees."""
     if abs(x) > PLAY_X - 0.3 or abs(z) > PLAY_Z - 0.3:
         return False
     if dist_to_path(x, z) < margin:
@@ -100,7 +114,7 @@ def free_spot(x, z, margin=0.75) -> bool:
         return False
     if math.hypot(x - HERO[0], z - HERO[1]) < 0.8:
         return False
-    if math.hypot(x - PORTAL[0], z - PORTAL[1]) < 1.8:
+    if any(math.hypot(x - px, z - pz) < 1.8 for px, pz in PORTALS):
         return False
     if any(math.hypot(x - tx, z - tz) < 1.1 for tx, tz in CHOP_TREES):
         return False
@@ -166,10 +180,11 @@ def build_walls():
     return walls
 
 
-def build_path():
-    pts = centerline()
+def build_path(polyline: list, drop: float):
+    pts = centerline(polyline)
     section = [(-0.6, -0.02, "path_dark"), (-0.5, 0.012, "path"), (-0.25, 0.016, "path"), (0.0, 0.018, "path"),
                (0.25, 0.016, "path"), (0.5, 0.012, "path_dark"), (0.6, -0.02, None)]
+    section = [(off, h - drop, m) for off, h, m in section]
     verts, faces, fmat = [], [], []
     for k, p in enumerate(pts):
         a = pts[max(k - 1, 0)]
@@ -209,27 +224,14 @@ def pebble(name, rng, x, z, size, mat):
     return s
 
 
-def build_details(rng, pts):
+def build_details(rng, lines):
     parts = []
-    # Stones along both path edges.
-    for k in range(0, len(pts), 2):
-        p = pts[k]
-        a, c = pts[max(k - 1, 0)], pts[min(k + 1, len(pts) - 1)]
-        t = (c - a).normalized()
-        n = Vector((-t.y, t.x))
-        for side in (-1, 1):
-            q = p + n * side * rng.uniform(0.6, 0.68) + t * rng.uniform(-0.08, 0.08)
-            if rng.random() < 0.25 or math.hypot(q.x - PORTAL[0], q.y - PORTAL[1]) < 1.3:
-                continue
-            if math.hypot(q.x - CASTLE[0], q.y - CASTLE[1]) < 1.9:
-                continue
-            if any(math.hypot(q.x - sx, q.y - sz) < 0.62 for sx, sz in SLOTS):
-                continue
-            parts.append(pebble(f"edge{k}{side}", rng, q.x, q.y, rng.uniform(0.07, 0.11),
-                                rng.choice(["rock", "stone_light", "rock"])))
+    # Stones along both path edges (not across a junction).
+    for pts in lines:
+        parts += edge_stones(rng, pts, len(parts))
     # Grass tufts and scattered pebbles on free ground.
     placed = 0
-    while placed < 330:
+    while placed < GRASS_TUFTS:
         x, z = rng.uniform(-PLAY_X, PLAY_X), rng.uniform(-PLAY_Z, PLAY_Z)
         if not free_spot(x, z, 0.7):
             continue
@@ -243,11 +245,39 @@ def build_details(rng, pts):
             blades.append(bl)
         parts += blades
         placed += 1
-    for i in range(90):
+    for i in range(PEBBLES):
         x, z = rng.uniform(-PLAY_X, PLAY_X), rng.uniform(-PLAY_Z, PLAY_Z)
         if free_spot(x, z, 0.65):
             parts.append(pebble(f"peb{i}", rng, x, z, rng.uniform(0.04, 0.07), "rock"))
-    return tg.join(parts, "Details")
+    # One mesh per CHUNK cell so Godot culls the details off screen.
+    cells = {}
+    for part in parts:
+        verts = part.data.vertices
+        c = sum((part.matrix_world @ v.co for v in verts), Vector()) / max(len(verts), 1)
+        cells.setdefault((math.floor(c.x / CHUNK), math.floor(-c.y / CHUNK)), []).append(part)
+    return [tg.join(objs, f"Details_{kx}_{kz}".replace("-", "m")) for (kx, kz), objs in sorted(cells.items())]
+
+
+def edge_stones(rng, pts, first: int) -> list:
+    stones = []
+    for k in range(0, len(pts), 2):
+        p = pts[k]
+        a, c = pts[max(k - 1, 0)], pts[min(k + 1, len(pts) - 1)]
+        t = (c - a).normalized()
+        n = Vector((-t.y, t.x))
+        for side in (-1, 1):
+            q = p + n * side * rng.uniform(0.6, 0.68) + t * rng.uniform(-0.08, 0.08)
+            if rng.random() < EDGE_STONE_SKIP or any(math.hypot(q.x - px, q.y - pz) < 1.3 for px, pz in PORTALS):
+                continue
+            if dist_to_path(q.x, q.y) < 0.58:  # on another path at a junction
+                continue
+            if math.hypot(q.x - CASTLE[0], q.y - CASTLE[1]) < 1.9:
+                continue
+            if any(math.hypot(q.x - sx, q.y - sz) < 0.62 for sx, sz in SLOTS):
+                continue
+            stones.append(pebble(f"edge{first + len(stones)}", rng, q.x, q.y, rng.uniform(0.07, 0.11),
+                                 rng.choice(["rock", "stone_light", "rock"])))
+    return stones
 
 
 MAKERS = {"pine": env.tree_pine, "round": env.tree_round, "round_lite": env.tree_round_lite, "bush": env.bush,
@@ -264,7 +294,7 @@ def generated_layout(rng):
     def spaced(x, z, d):
         return all(math.hypot(x - a, z - c) > d for a, c in taken)
     tries = 0
-    while len(tall) < 46 and tries < 8000:
+    while len(tall) < TALL_PROPS and tries < 12000:
         tries += 1
         x, z = rng.uniform(-PLAY_X + 0.8, PLAY_X - 0.8), rng.uniform(-PLAY_Z + 0.8, PLAY_Z - 0.8)
         if not free_spot(x, z, 1.0) or not spaced(x, z, 1.3):
@@ -273,11 +303,11 @@ def generated_layout(rng):
         tall.append((kind, x, z, rng.uniform(0, 360), rng.uniform(0.85, 1.2)))
         taken.append((x, z))
     tries = 0
-    while len(small) < 60 and tries < 8000:
+    while len(small) < SMALL_PROPS and tries < 12000:
         tries += 1
         x, z = rng.uniform(-PLAY_X + 0.5, PLAY_X - 0.5), rng.uniform(-PLAY_Z + 0.5, PLAY_Z - 0.5)
         if free_spot(x, z, 0.8):
-            small.append((rng.choice(["flowers", "flowers", "rock_a", "rock_b"]), x, z, rng.uniform(0, 360),
+            small.append((rng.choice(["flowers", "rock_a", "rock_b"]), x, z, rng.uniform(0, 360),
                           rng.uniform(0.8, 1.2)))
     # Forest ring: dense next to the walls, sparser further out.
     ring = []
@@ -322,8 +352,12 @@ def build_level(lv: dict) -> list:
     use_level(lv)
     rng = random.Random(5 + lv["id"])
     ground = build_ground()
-    path, pts = build_path()
-    details = build_details(rng, pts)
+    paths, lines = [], []
+    for k, polyline in enumerate(PATHS):
+        path, pts = build_path(polyline, JOIN_DROP if k else 0.0)
+        paths.append(path)
+        lines.append(pts)
+    details = build_details(rng, lines)
     gen_tall, gen_small, ring = generated_layout(random.Random(13 + lv["id"]))
     # Every tree inside the play area can be chopped: Godot puts a WoodTree on each
     # Chop_<kind>_<i> marker, so those trees are not baked into the decor mesh.
@@ -331,7 +365,9 @@ def build_level(lv: dict) -> list:
     chop = [("round", x, z, rng_spot.uniform(0, 360), rng_spot.uniform(0.95, 1.15)) for x, z in CHOP_TREES]
     chop += [item for item in gen_tall if item[0] in TREES]
     gen_tall = [item for item in gen_tall if item[0] not in TREES]
-    terrain = tg.join([ground, path, details], "Terrain")
+    terrain = tg.join([ground] + paths, "Terrain")
+    for chunk in details:
+        tg.parent(chunk, terrain)
     for wall in build_walls():
         tg.parent(wall, terrain)
 

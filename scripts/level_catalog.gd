@@ -5,6 +5,8 @@ extends RefCounted
 ## The selected level survives scene changes as a static variable.
 
 const LEVELS_PATH := "res://resources/levels.json"
+## A path's last point counts as lying on another path this close to it (metres).
+const JOIN_TOLERANCE := 0.01
 ## Tests point this at a scratch file.
 static var save_path: String = "user://progress.cfg"
 
@@ -30,6 +32,21 @@ static func get_level(id: int) -> Dictionary:
 		if int(level["id"]) == id:
 			return level
 	return levels()[0]
+
+
+## Full enemy routes of a level (X/Z points), one per entry of level["paths"]:
+## path 0 runs to the castle; every other path ends on a segment of an earlier
+## one and its route goes on along that one (see tools/validate_project.py).
+static func routes(level: Dictionary) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	for points: Array in level["paths"]:
+		var route := PackedVector2Array()
+		for point: Array in points:
+			route.append(Vector2(float(point[0]), float(point[1])))
+		if not out.is_empty():
+			route.append_array(_route_after(out, route[route.size() - 1]))
+		out.append(route)
+	return out
 
 
 ## Highest level id the player may start (1 = only the first).
@@ -144,3 +161,16 @@ static func replace_with(text: String) -> bool:
 	_save_broken = false
 	commit()
 	return true
+
+
+## Points of the first route in `routes` that passes through `join`, after it.
+static func _route_after(routes: Array[PackedVector2Array], join: Vector2) -> PackedVector2Array:
+	for route in routes:
+		for i in route.size() - 1:
+			var closest: Vector2 = Geometry2D.get_closest_point_to_segment(
+				join, route[i], route[i + 1]
+			)
+			if closest.distance_to(join) < JOIN_TOLERANCE:
+				return route.slice(i + 1)
+	push_error("LevelCatalog: path ending at %s does not join another path" % join)
+	return PackedVector2Array()

@@ -63,14 +63,44 @@ func _run() -> void:
 		get_nodes_in_group(WoodTree.GROUP).size() >= level["trees"].size() + 10,
 		"trees built: %d" % get_nodes_in_group(WoodTree.GROUP).size()
 	)
-	check(
-		(main.get_node("Level/EnemyPath") as Path3D).curve.point_count == level["path"].size(),
-		"path built"
-	)
+	var routes: Array[PackedVector2Array] = LevelCatalog.routes(level)
+	var paths: Array[Path3D] = wm.get_paths()
+	check(routes.size() >= 2 and paths.size() == routes.size(), "paths built: %d" % paths.size())
+	for i in paths.size():
+		var curve: Curve3D = paths[i].curve
+		var end: Vector3 = curve.get_point_position(curve.point_count - 1)
+		check(
+			(
+				curve.point_count == routes[i].size()
+				and end.is_equal_approx(
+					paths[0].curve.get_point_position(paths[0].curve.point_count - 1)
+				)
+			),
+			"path %d ends at the castle" % i
+		)
+	var portals: int = 0
+	for node: Node in main.get_node("Level").get_children():
+		if node.scene_file_path == "res://assets/models/spawn_portal.glb":
+			portals += 1
+	check(portals == routes.size(), "a portal per path: %d" % portals)
 	check(wm.get_total_waves() == int(level["waves"]["count"]), "waves: %d" % wm.get_total_waves())
 
 	# Chop a tree: standing next to it is enough (auto action).
-	var tree: WoodTree = get_nodes_in_group(WoodTree.GROUP)[0]
+	# A tree with no other tree within 4 m, so the hero chops only this one.
+	var tree: WoodTree = null
+	for node: Node in get_nodes_in_group(WoodTree.GROUP):
+		var alone: bool = true
+		for other: Node in get_nodes_in_group(WoodTree.GROUP):
+			var apart: float = (node as Node3D).global_position.distance_to(
+				(other as Node3D).global_position
+			)
+			if other != node and apart < 4.0:
+				alone = false
+				break
+		if alone:
+			tree = node as WoodTree
+			break
+	check(tree != null, "an isolated tree exists")
 	hero.global_position = tree.global_position + Vector3(1.0, 0, 0)
 	await wait_until(func() -> bool: return gs.wood > 0, 120)
 	check(gs.wood == 3, "auto chop gives wood: %d" % gs.wood)
@@ -173,6 +203,15 @@ func _run() -> void:
 	check(hero.try_spin(), "whirlwind")
 	check(e.health < before, "whirlwind damages an enemy 1.5 m away")
 	check(not hero.try_spin() and hero.spin_cooldown_left() > 10.0, "whirlwind cooldown")
+
+	# The wave's enemies take every path in turn.
+	var used := {}
+	var all_used := func() -> bool:
+		for node: Node in get_nodes_in_group(Enemy.GROUP):
+			used[node.get_parent()] = true
+		return used.size() == paths.size()
+	await wait_until(all_used, 1800)
+	check(used.size() == paths.size(), "enemies spawn on %d/%d paths" % [used.size(), paths.size()])
 
 	print("RESULT: %s (%d failures)" % ["PASS" if _failures == 0 else "FAIL", _failures])
 	quit(_failures)

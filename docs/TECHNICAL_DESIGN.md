@@ -24,22 +24,29 @@
 Выбор пишется в статическую `LevelCatalog.selected_id`, затем грузится `main.tscn`.
 
 `resources/levels.json` — единый источник для Godot (`LevelCatalog`) и Blender
-(`build_terrain.py`): границы, старт (золото/дерево/жизни), план волн, тропа
-(ломаная из осевых отрезков), замок, герой, площадки, рубимые деревья.
-`tools/validate_project.py` проверяет расстояния между ними.
+(`build_terrain.py`): границы (44 × 30 м, центр в начале координат), старт
+(золото/дерево/жизни), план волн, тропы `paths` (ломаные из осевых отрезков, у
+каждой свой портал на краю поля), замок, герой, площадки, рубимые деревья.
+Тропа 0 ведёт к воротам замка; каждая следующая заканчивается на отрезке более
+ранней (Т-образный перекрёсток под прямым углом, не ближе 1.6 м к её углу), и её
+враги идут дальше по той тропе — полный маршрут строит `LevelCatalog.routes()`
+(и так же `balance_sim.py`). `tools/validate_project.py` проверяет расстояния: все
+отрезки всех троп ≥ 3 м друг от друга, кроме последнего отрезка тропы и отрезка, на
+котором она кончается; площадки, деревья и герой — от всех троп и порталов.
 
 ```
 Main (Node3D, main.gd)               — строит уровень из данных и связывает системы
 ├── WorldEnvironment, Sun, Camera     — окружение, свет, изометрия (camera_follow.gd)
 ├── Level (Node3D)
 │   ├── Hero (hero.tscn)              — ставится в level.hero
-│   ├── EnemyPath (Path3D)            — Curve3D из level.path
-│   └── (в _ready) level_N_terrain/decor/forest.glb, портал, замок,
+│   ├── EnemyPath (Path3D)            — Curve3D маршрута тропы 0
+│   └── (в _ready) EnemyPath2/3 (Path3D) для остальных троп, портал у начала
+│       каждой, level_N_terrain/decor/forest.glb, замок,
 │       TowerSlot × N (tower_slot.tscn), Grove (MultiMesh стоящих деревьев),
 │       WoodTree × N на метках Chop_<вид>_<i> из level_N_decor.glb,
 │       Villagers (villagers.gd) → Villager × 2 (villager.tscn), после сетки ходьбы
 ├── GameState (Node)                  — золото, дерево, жизни
-├── WaveManager (Node)                — спавн по WavePlan
+├── WaveManager (Node)                — спавн по WavePlan на enemy_paths (по очереди для каждого вида врага)
 ├── BuildManager (Node)               — площадки, tower_types: archer/cannon/frost.tres
 ├── Sfx                               — рог, рёв босса, удар по замку, победа/поражение
 └── HUD (ui/hud.tscn)                 — показатели, командная карта, атака, баннер босса
@@ -342,7 +349,7 @@ r = 0.34) к слоям 1 и 3; новая башня блокирует сво�
 - Действия ввода — в `project.godot` (`[input]`): WASD, стрелки, левый стик и крестовина;
   `build_tower` (B / A), `upgrade_tower` (U / Y), `cancel_command` (Esc / B геймпада).
 - Препятствия: модели с узлами `*-colonly` из Blender импортируются как `StaticBody3D`
-  (слой 1): башня, замок, портал, стволы деревьев, стены зоны 26 × 18 м. Площадки — `Area3D`,
+  (слой 1): башня, замок, портал, стволы деревьев, стены по границам поля (44 × 30 м). Площадки — `Area3D`,
   герою не мешают; луч выбора площадок их тел не видит (`collide_with_bodies = false`).
 - `camera_follow.gd`: камера сохраняет изометрический угол и плавно следует за героем;
   точка взгляда ограничена `bounds`.

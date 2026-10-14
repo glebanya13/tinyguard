@@ -26,7 +26,7 @@ func _run() -> void:
 	for slot: Node in slots:
 		var arrived := [false]
 		hero.move_to((slot as Node3D).global_position, 1.25, func() -> void: arrived[0] = true)
-		for i in 900:
+		for i in 1800:
 			await physics_frame
 			if not hero.has_order():
 				break

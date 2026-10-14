@@ -1,9 +1,11 @@
 class_name WaveManager
 extends Node
-## Spawns enemies onto enemy_path following a WavePlan. Waves run on a fixed
+## Spawns enemies onto the level's paths following a WavePlan. Waves run on a fixed
 ## clock: every wave lasts plan.wave_duration seconds (its enemies are spread
 ## over the first plan.spawn_window of it) and then the next one starts,
 ## whether or not the previous one is cleared. Waves may overlap.
+## With several paths every enemy kind takes them in turn (the 1st slime the
+## first path, the 2nd slime the second, ...; bosses alternate the same way).
 
 signal wave_started(wave: int, total: int, boss: bool)
 ## All enemies of `wave` are gone (killed or reached the castle).
@@ -13,12 +15,15 @@ signal enemy_killed(reward: int)
 signal enemy_reached_base(damage: int)
 
 @export var enemy_scene: PackedScene
+## The only path when enemy_paths is empty.
 @export var enemy_path: Path3D
 ## Shared MultiMesh renderer for all enemies (optional).
 @export var crowd: EnemyCrowd
 
 var current_wave: int = 0
 var plan: WavePlan = null
+## Every route from a portal to the castle (set by the level).
+var enemy_paths: Array[Path3D] = []
 
 var _stopped: bool = false
 var _alive: int = 0
@@ -27,6 +32,8 @@ var _spawners: Array[Dictionary] = []
 ## Enemies still alive (or still to spawn) per wave number.
 var _remaining: Dictionary = {}
 var _next_wave_timer: Timer
+## Enemies spawned so far per EnemyData: picks the next path for that kind.
+var _spawned_by_kind: Dictionary = {}
 
 
 func _ready() -> void:
@@ -109,17 +116,32 @@ func stop() -> void:
 	_next_wave_timer.stop()
 
 
-## Adds an extra enemy of `data` at `progress` along the path (e.g. the halves
-## of a splitting slime); it counts towards `wave`.
-func spawn_extra(data: EnemyData, health_mult: float, progress: float, wave: int) -> void:
+## Paths enemies walk: enemy_paths, or just enemy_path.
+func get_paths() -> Array[Path3D]:
+	if enemy_paths.is_empty():
+		return [enemy_path]
+	return enemy_paths
+
+
+## Adds an extra enemy of `data` at `progress` along `path` (default: the first)
+## (e.g. the halves of a splitting slime); it counts towards `wave`.
+func spawn_extra(
+	data: EnemyData, health_mult: float, progress: float, wave: int, path: Path3D = null
+) -> void:
 	if _stopped:
 		return
 	_remaining[wave] = int(_remaining.get(wave, 0)) + 1
-	var enemy := _spawn_enemy({"data": data, "hp": health_mult}, wave)
+	var enemy := _spawn_enemy({"data": data, "hp": health_mult}, wave, path)
 	enemy.progress = progress
 
 
-func _spawn_enemy(entry: Dictionary, wave: int) -> Enemy:
+## `path` null: the next path in turn for this enemy kind.
+func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
+	if path == null:
+		var paths: Array[Path3D] = get_paths()
+		var spawned: int = _spawned_by_kind.get(entry["data"], 0)
+		_spawned_by_kind[entry["data"]] = spawned + 1
+		path = paths[spawned % paths.size()]
 	var enemy := enemy_scene.instantiate() as Enemy
 	enemy.setup(entry["data"], entry["hp"])
 	enemy.wave = wave
@@ -128,14 +150,16 @@ func _spawn_enemy(entry: Dictionary, wave: int) -> Enemy:
 	enemy.died.connect(enemy_killed.emit)
 	enemy.reached_base.connect(_on_enemy_gone.bind(wave, false), CONNECT_ONE_SHOT)
 	enemy.reached_base.connect(enemy_reached_base.emit)
-	enemy.split.connect(_on_enemy_split)
-	enemy_path.add_child(enemy)
+	enemy.split.connect(_on_enemy_split.bind(path))
+	path.add_child(enemy)
 	_alive += 1
 	return enemy
 
 
-func _on_enemy_split(data: EnemyData, health_mult: float, progress: float, wave: int) -> void:
-	spawn_extra(data, health_mult, progress, wave)
+func _on_enemy_split(
+	data: EnemyData, health_mult: float, progress: float, wave: int, path: Path3D
+) -> void:
+	spawn_extra(data, health_mult, progress, wave, path)
 
 
 func _on_enemy_gone(_value: int, wave: int, _killed: bool) -> void:

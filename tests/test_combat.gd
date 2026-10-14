@@ -104,7 +104,7 @@ func _run() -> void:
 	# Splitter: two minis join its wave when it dies.
 	var splitter := spawn("res://resources/enemies/slime_splitter.tres", 12.0)
 	splitter.wave = 1
-	splitter.split.connect(wm._on_enemy_split)
+	splitter.split.connect(wm._on_enemy_split.bind(splitter.get_parent() as Path3D))
 	splitter.take_damage(99999.0)
 	await process_frame
 	var minis: int = 0
