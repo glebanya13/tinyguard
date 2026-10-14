@@ -33,16 +33,23 @@ def tres(path: str) -> dict:
     out = {}
     for key, value in re.findall(r"^(\w+) = (.+)$", (ROOT / path).read_text(), re.M):
         nums = re.findall(r"-?\d+\.?\d*", value)
-        if value.startswith("Array"):
+        if value in ("true", "false"):
+            out[key] = value == "true"
+        elif value.startswith('&"'):
+            out[key] = value[2:-1]
+        elif value.startswith("Array"):
             out[key] = [float(n) for n in nums]
         elif nums and not value.startswith(("ExtResource", '"')):
             out[key] = float(nums[0])
     return out
 
 
-TOWERS = {k: tres(f"resources/towers/{k}.tres") for k in ("archer", "cannon", "frost")}
-ENEMIES = {k: tres(f"resources/enemies/{k}.tres") for k in ("slime", "slime_fast", "slime_tank", "slime_king")}
-BUILD_ORDER = ["archer", "archer", "cannon", "frost", "archer", "cannon", "archer", "frost", "cannon"]
+TOWERS = {k: tres(f"resources/towers/{k}.tres") for k in ("archer", "cannon", "frost", "lightning")}
+ENEMIES = {k: tres(f"resources/enemies/{k}.tres")
+           for k in ("slime", "slime_fast", "slime_tank", "slime_king", "slime_bat", "slime_shield")}
+BUILD_ORDER = ["archer", "archer", "cannon", "frost", "lightning", "archer", "cannon", "lightning", "frost",
+               "archer", "cannon", "lightning"]
+NEVER = 100000
 
 
 def wave_spawns(w: dict, n: int) -> list:
@@ -53,6 +60,10 @@ def wave_spawns(w: dict, n: int) -> list:
         kind = "slime"
         if n >= w["tank_from"] and i % 4 == 3:
             kind = "slime_tank"
+        elif n >= w.get("shield_from", NEVER) and i % 6 == 5:
+            kind = "slime_shield"
+        elif n >= w.get("bat_from", NEVER) and i % 5 == 2:
+            kind = "slime_bat"
         elif n >= w["fast_from"] and i % 3 == 1:
             kind = "slime_fast"
         out.append((kind, hp))
@@ -148,14 +159,32 @@ def play(lv: dict, verbose: bool = True) -> int:
                 if tw["cd"] > 0:
                     continue
                 d, lvl = (HERO if tw["kind"] == "hero" else TOWERS[tw["kind"]]), tw["level"]
-                in_range = [en for en in enemies if math.dist(en["pos"], (tw["x"], tw["z"])) <= d["range_levels"][lvl]]
+                air = d.get("hits_air", True)
+                in_range = [en for en in enemies if math.dist(en["pos"], (tw["x"], tw["z"])) <= d["range_levels"][lvl]
+                            and (air or not ENEMIES[en["kind"]].get("flying", False))]
                 if not in_range:
                     continue
                 target = min(in_range, key=lambda en: math.dist(en["pos"], (tw["x"], tw["z"])))
                 splash = d["splash_levels"][lvl]
-                hit = [en for en in enemies if math.dist(en["pos"], target["pos"]) <= splash] if splash else [target]
-                for en in hit:
-                    en["hp"] -= d["damage_levels"][lvl]
+                chain = int(d.get("chain_levels", [0, 0, 0])[lvl])
+                if splash:
+                    hit = [en for en in enemies if math.dist(en["pos"], target["pos"]) <= splash
+                           and not ENEMIES[en["kind"]].get("flying", False)]
+                elif chain:
+                    hit = [target]
+                    while len(hit) <= chain:
+                        rest = [en for en in enemies if en not in hit
+                                and math.dist(en["pos"], hit[-1]["pos"]) <= d.get("chain_range", 2.2)]
+                        if not rest:
+                            break
+                        hit.append(min(rest, key=lambda en: math.dist(en["pos"], hit[-1]["pos"])))
+                else:
+                    hit = [target]
+                for k, en in enumerate(hit):
+                    dmg = d["damage_levels"][lvl] * (0.8 ** k if chain else 1.0)
+                    if d.get("damage_kind") == "arrow":
+                        dmg *= ENEMIES[en["kind"]].get("arrow_damage_mult", 1.0)
+                    en["hp"] -= dmg
                     if d["slow_levels"][lvl] < 1.0:
                         en["slow"] = min(en["slow"], d["slow_levels"][lvl])
                         en["slow_t"] = d.get("slow_duration", 1.6)

@@ -50,7 +50,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 40.0
 
 [node name="Camera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.615661, 0.788011, 0, -0.788011, 0.615661, 0, 14.5, 11.5)
+transform = Transform3D(1, 0, 0, 0, 0.615661, 0.788011, 0, -0.788011, 0.615661, 0, 16.0, 15.5)
 fov = 50.0
 current = true
 

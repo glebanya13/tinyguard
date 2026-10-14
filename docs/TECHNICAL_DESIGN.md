@@ -80,12 +80,43 @@ Main (Node3D, main.gd)               — строит уровень из дан
   `icon_background.png` (адаптивная 432), `ui/app/splash.png` (заставка
   `application/boot_splash`). Пути прописаны в `export_presets.cfg`.
 
+## Биомы, новые враги и башни
+
+- `levels.json` → `"biome"`: `meadow` / `winter` / `autumn` / `desert`. Blender
+  перекрашивает террейн, декор и лес по `tg.BIOMES` (замена цветов палитры), рубимые
+  деревья — `tree_<round|pine>_<biome>.glb`; `WoodTree.model_scene()` грузит модель по
+  имени варианта.
+- `EnemyData.flying` / `fly_height` (летун; снаряды пушки и её прицел его не видят),
+  `arrow_damage_mult` (щитовик). Урон передаётся с типом: `take_damage(amount, kind)`.
+- `TowerData.chain_levels` / `chain_range` (молния: без снаряда, мгновенный урон по
+  цепи, эффект `scenes/fx/lightning_fx.tscn`), `damage_kind`, `hits_air`.
+- Коллайдеры моделей — выпуклые (`-convcolonly`, `tg.COLLIDER_SUFFIX`), по одному на
+  ствол: полые trimesh-коллайдеры позволяли рыцарю «провалиться» внутрь куста.
+
+## Онлайн (Firebase)
+
+`scripts/online.gd` — autoload `Online` (единственный): REST Firebase без плагинов.
+Анонимный вход (Identity Toolkit, обновление токена), рекорды осады
+(`leaderboards/level_<id>/scores/<uid>`, запрос `runQuery` топ-10), облачная копия
+прогресса (`saves/<uid>`, текст `ConfigFile`). Конфиг — `res://firebase.cfg`
+(не коммитится, есть `firebase.example.cfg`), правила — `firestore.rules`.
+Без конфига `Online.is_configured()` = false, кнопка «Рекорды» скрыта.
+
+## Сохранение
+
+`LevelCatalog.data()` — кэш `ConfigFile`; `commit()` пишет атомарно (`.tmp` →
+переименование, прошлая версия — `.bak`). Повреждённый файл: берётся `.bak`, а если
+и он не читается — игра работает на значениях по умолчанию и **не** перезаписывает
+файл.
+
 ## Тесты и баланс
 
 `tests/run_all.sh <godot>` — headless-тесты: `test_gameplay.gd` (рубка, постройка,
 улучшение, продажа, кузница, вихрь, боссы; на каждом уровне), `test_walk.gd` (рыцарь
 доходит до всех площадок), `test_pause.gd` (пауза, «Назад», ×2, звёзды, звук),
-`test_meta.gd` (звёзды, покупка и сброс улучшений, старт с бонусом, осада и рекорд).
+`test_meta.gd` (звёзды, улучшения, осада, повреждённое сохранение), `test_combat.gd`
+(летуны, щиты, молния), `test_online.gd` (Firebase без сети: разбор ответов,
+восстановление прогресса). Геймплей и проходимость — на всех 6 уровнях.
 `tools/balance_sim.py` — дискретная симуляция волн с жадным игроком и героем у замка.
 
 ## Камера

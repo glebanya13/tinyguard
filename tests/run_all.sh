@@ -11,7 +11,7 @@ run() {
 	echo "$out" | grep -E "FAIL|RESULT|SCRIPT ERROR"
 	echo "$out" | grep -q "RESULT: PASS" || status=1
 }
-for level in 1 2 3; do
+for level in 1 2 3 4 5 6; do
 	echo "== level $level"
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_gameplay.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_walk.gd

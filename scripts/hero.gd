@@ -66,6 +66,7 @@ var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
 ## Remaining corners of the route to _order_target (the target is last).
 var _waypoints: PackedVector3Array = PackedVector3Array()
+var _replanned: bool = false
 var _order_reach: float = 0.1
 var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
@@ -122,6 +123,7 @@ func _physics_process(delta: float) -> void:
 func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable()) -> void:
 	cancel_order()  # a new order replaces the old one (listeners hear it end)
 	_has_order = true
+	_replanned = false
 	_order_target = Vector3(target.x, 0.0, target.z)
 	_waypoints = (
 		walk_grid.find_path(global_position, _order_target) if walk_grid else PackedVector3Array()
@@ -327,10 +329,20 @@ func _track_progress(distance: float, delta: float) -> void:
 	if distance < _last_distance - 0.01:
 		_last_distance = distance
 		_stuck_time = 0.0
-	else:
-		_stuck_time += delta
-		if _stuck_time > stuck_timeout:
-			cancel_order()
+		return
+	_stuck_time += delta
+	if _stuck_time <= stuck_timeout:
+		return
+	if not _replanned and walk_grid:
+		# Snagged on an obstacle: plan once more from here before giving up.
+		_replanned = true
+		_stuck_time = 0.0
+		_last_distance = INF
+		_waypoints = walk_grid.find_path(global_position, _order_target)
+		if not _waypoints.is_empty():
+			_waypoints.remove_at(_waypoints.size() - 1)
+		return
+	cancel_order()
 
 
 ## Length of the route after the next corner.

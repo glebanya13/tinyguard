@@ -406,7 +406,9 @@ def surface_y(obj, x: float, z: float, lift: float = 0.0) -> float:
     return (obj.matrix_world @ loc).y - lift
 
 
-COLLIDER_SUFFIX = "-colonly"
+# Godot import hint: a mesh named *-convcolonly becomes a StaticBody3D with a convex
+# shape (solid; "-colonly" would give a hollow trimesh the hero can slip into).
+COLLIDER_SUFFIX = "-convcolonly"
 
 
 def is_collider(obj) -> bool:
@@ -414,7 +416,7 @@ def is_collider(obj) -> bool:
 
 
 def collider_box(name, size, loc=(0, 0, 0), rot=(0, 0, 0)):
-    """Godot import hint: a mesh named *-colonly becomes a StaticBody3D shape."""
+    """Solid box collider (see COLLIDER_SUFFIX)."""
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=[math.radians(a) for a in rot])
     obj = bpy.context.active_object
     obj.scale = size
@@ -604,7 +606,7 @@ def finish_asset(name: str, roots, ao_distance: float, ao_strength: float = 0.8,
     for r in roots:
         objs.append(r)
         objs.extend(r.children_recursive)
-    # "-colonly" meshes become invisible StaticBody3D colliders in Godot: no AO, no material.
+    # Collider meshes (COLLIDER_SUFFIX) become invisible StaticBody3D shapes in Godot: no AO, no material.
     meshes = [o for o in objs if o.type == "MESH" and not is_collider(o)]
     extra = list(occluders)
     if ground:

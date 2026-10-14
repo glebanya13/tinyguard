@@ -9,6 +9,8 @@ const CELL := 0.5
 const CLEARANCE := 0.34
 ## Distance between samples when checking a straight line for obstacles.
 const LINE_STEP := 0.2
+## Half width of the corridor a shortcut must keep free (about the hero's radius).
+const LINE_HALF_WIDTH := 0.3
 
 var _astar := AStarGrid2D.new()
 var _origin := Vector2.ZERO
@@ -26,7 +28,7 @@ func build(space: PhysicsDirectSpaceState3D, area: Rect2, mask: int) -> void:
 	_astar.update()
 	var shape := CylinderShape3D.new()
 	shape.radius = CLEARANCE
-	shape.height = 1.0
+	shape.height = 1.1  # same span as the hero capsule: from the ground up
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = shape
 	query.collision_mask = mask
@@ -34,7 +36,7 @@ func build(space: PhysicsDirectSpaceState3D, area: Rect2, mask: int) -> void:
 	for x in cells.x:
 		for y in cells.y:
 			var p: Vector2 = _cell_center(Vector2i(x, y))
-			query.transform = Transform3D(Basis.IDENTITY, Vector3(p.x, 0.6, p.y))
+			query.transform = Transform3D(Basis.IDENTITY, Vector3(p.x, 0.55, p.y))
 			if not space.intersect_shape(query, 1).is_empty():
 				_astar.set_point_solid(Vector2i(x, y))
 
@@ -96,10 +98,17 @@ func is_free(point: Vector2) -> bool:
 	return _astar.is_in_boundsv(cell) and not _astar.is_point_solid(cell)
 
 
+## Straight walk check with the hero's width: the centre line and two lines
+## shifted sideways must all stay on free cells (no cutting past trunks).
 func _line_free(a: Vector2, b: Vector2) -> bool:
-	var steps: int = maxi(1, ceili(a.distance_to(b) / LINE_STEP))
+	var length: float = a.distance_to(b)
+	if length < 0.001:
+		return true
+	var side: Vector2 = (b - a).orthogonal().normalized() * LINE_HALF_WIDTH
+	var steps: int = maxi(1, ceili(length / LINE_STEP))
 	for k in range(1, steps):
-		if not is_free(a.lerp(b, float(k) / steps)):
+		var p: Vector2 = a.lerp(b, float(k) / steps)
+		if not (is_free(p) and is_free(p + side) and is_free(p - side)):
 			return false
 	return true
 

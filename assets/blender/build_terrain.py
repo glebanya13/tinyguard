@@ -155,7 +155,7 @@ def build_ground():
 
 
 def build_walls():
-    """Invisible walls around the play area (Godot StaticBody3D via -colonly)."""
+    """Invisible walls around the play area (Godot StaticBody3D, see tg.COLLIDER_SUFFIX)."""
     t = 0.5
     walls = [
         tg.collider_box("WallN", (2 * PLAY_X + 2 * t, t, 3), b(0, -PLAY_Z - t / 2, 1.5)),
@@ -350,7 +350,8 @@ def build_level(lv: dict) -> list:
     cols = [tg.collider_cylinder(f"trunk{i}", 0.28 if kind in TREES else 0.32, 1.2, b(x, z, 0))
             for i, (kind, x, z, _, s) in enumerate(gen_tall)]
     if cols:
-        tg.parent(tg.join(cols, "Trunks" + tg.COLLIDER_SUFFIX), decor)
+        for col in cols:  # separate: one convex cylinder per trunk
+            tg.parent(col, decor)
     chunks = [c for c in decor.children if c.type == "MESH" and not tg.is_collider(c)] + list(forest.children)
 
     def tint(co):
