@@ -139,7 +139,9 @@ BIOMES = {
                "flower_white": "snow", "berry": "ruby"},
     "autumn": {"leaf": "slime_fast", "leaf_light": "flower_yellow", "leaf_dark": "berry",
                "flower_pink": "slime_fast", "flower_white": "flower_yellow", "grass_dark": "dirt"},
-    "desert": {"grass": "sand", "grass_dark": "path", "leaf": "leaf_dark", "leaf_light": "leaf",
+    # Ground is the darker tan (BFA06A) with dirt-brown paths: the pale "sand" washed out
+    # against the sky and the path, the light filmic tonemap made it nearly white.
+    "desert": {"grass": "path_dark", "grass_dark": "wood_light", "leaf": "leaf_dark", "leaf_light": "leaf",
                "pine": "leaf_dark", "pine_light": "leaf", "dirt": "path_dark", "path": "dirt",
                "path_dark": "dirt_dark", "flower_pink": "berry", "flower_white": "flower_yellow"},
 }
