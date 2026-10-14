@@ -51,6 +51,7 @@ func _run() -> void:
 	await _test_online_sync()
 	await _test_nickname_and_delete()
 	await _test_trace_and_records()
+	_test_release_constants()
 	_clean()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_accounts_other.cfg"))
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
@@ -486,6 +487,16 @@ func _test_online_sync() -> void:
 		"newer cloud schema not overwritten"
 	)
 	fake.users_doc = null
+
+
+func _test_release_constants() -> void:
+	print("-- release constants")
+	var url: String = GameInfo.DELETION_URL
+	check(url == "" or url.begins_with("https://"), "DELETION_URL is empty or https")
+	check(
+		(GameInfo.web_deletion_line() == "") == (url == ""),
+		"web deletion line is shown only when the URL is set"
+	)
 
 
 func _test_nickname_and_delete() -> void:
