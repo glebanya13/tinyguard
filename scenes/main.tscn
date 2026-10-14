@@ -15,7 +15,7 @@
 [ext_resource type="Resource" path="res://resources/towers/lightning.tres" id="t_lightning"]
 [ext_resource type="PackedScene" path="res://scenes/hero.tscn" id="11_hero"]
 [ext_resource type="Script" path="res://scripts/camera_follow.gd" id="13_camera"]
-[ext_resource type="AudioStream" path="res://assets/audio/wave_horn.wav" id="14_horn"]
+[ext_resource type="AudioStream" path="res://assets/audio/wave_boom.wav" id="14_boom"]
 [ext_resource type="AudioStream" path="res://assets/audio/base_hit.wav" id="15_base_hit"]
 [ext_resource type="AudioStream" path="res://assets/audio/victory.wav" id="16_victory"]
 [ext_resource type="AudioStream" path="res://assets/audio/defeat.wav" id="17_defeat"]
@@ -171,8 +171,8 @@ stream = ExtResource("19_music")
 volume_db = -14.0
 autoplay = true
 
-[node name="WaveHorn" type="AudioStreamPlayer" parent="Sfx"]
-stream = ExtResource("14_horn")
+[node name="WaveBoom" type="AudioStreamPlayer" parent="Sfx"]
+stream = ExtResource("14_boom")
 volume_db = -6.0
 
 [node name="BossRoar" type="AudioStreamPlayer" parent="Sfx"]

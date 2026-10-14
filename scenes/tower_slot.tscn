@@ -49,6 +49,7 @@ selected_material = SubResource("mat_selected")
 occupied_material = SubResource("mat_occupied")
 
 [node name="Pad" type="MeshInstance3D" parent="."]
+cast_shadow = 0
 material_override = SubResource("mat_free")
 mesh = SubResource("mesh_pad")
 

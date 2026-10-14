@@ -52,8 +52,6 @@ const GUIDE_REFRESH_FRAMES := 12
 const WALK_OBSTACLE_MASK := 1 | 4
 ## Radius a built tower blocks on the walk grid.
 const TOWER_BLOCK_RADIUS := 0.6
-## Gold for each second left on the countdown when a wave is called early.
-const EARLY_CALL_GOLD_PER_SECOND := 0.3
 ## A tap this close to a villager sends the hero to trade with it.
 const VILLAGER_TAP_REACH := 1.0
 ## The trade card stays open until the hero is this much further than the trade reach.
@@ -99,7 +97,7 @@ var _trade_walking: bool = false
 @onready var _range_ring: MeshInstance3D = $RangeRing
 @onready var _guide_arrow: MeshInstance3D = $GuideArrow
 @onready var _ring_material: StandardMaterial3D = _target_ring.mesh.surface_get_material(0)
-@onready var _wave_horn: AudioStreamPlayer = $Sfx/WaveHorn
+@onready var _wave_boom: AudioStreamPlayer = $Sfx/WaveBoom
 @onready var _boss_roar: AudioStreamPlayer = $Sfx/BossRoar
 @onready var _base_hit: AudioStreamPlayer = $Sfx/BaseHit
 @onready var _victory_sound: AudioStreamPlayer = $Sfx/Victory
@@ -140,7 +138,6 @@ func _ready() -> void:
 	_hud.command_pressed.connect(_on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
 	_hud.spin_pressed.connect(_hero.try_spin)
-	_hud.next_wave_pressed.connect(_on_next_wave_pressed)
 	_hud.restart_pressed.connect(_on_restart_pressed)
 	_hud.map_pressed.connect(_on_map_pressed)
 	_hud.pause_pressed.connect(_toggle_pause)
@@ -164,6 +161,7 @@ func _ready() -> void:
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
+	_hud.show_banner("Первая волна через " + _seconds_text(_wave_manager.plan.first_delay))
 	_build_walk_grid.call_deferred()
 
 
@@ -227,10 +225,6 @@ func _stats_summary() -> String:
 
 func _process(delta: float) -> void:
 	_stats["time"] += delta / Engine.time_scale  # real seconds, also at x2
-	var next: int = _wave_manager.current_wave + 1
-	_hud.set_next_wave(
-		next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next)
-	)
 	_auto_select_near_hero()
 	_update_trade()
 	_focus = _hero.get_focus_target()
@@ -448,11 +442,11 @@ func _refresh_card() -> void:
 	_forge_open = false
 	_hud.show_hint("")
 	if slot.is_free():
-		info["title"] = "Площадка для башни"
-		var roles: PackedStringArray = []
+		info["title"] = "Площадка"
+		var names: PackedStringArray = []
 		for data: TowerData in _tower_types():
-			roles.append("%s — %s" % [data.display_name, data.role])
-		info["stats"] = "\n".join(roles)
+			names.append(data.display_name)
+		info["stats"] = " · ".join(names)
 		var short := true
 		for i in _tower_types().size():
 			var data: TowerData = _tower_types()[i]
@@ -467,7 +461,11 @@ func _refresh_card() -> void:
 						"gold": data.cost_gold,
 						"wood": data.cost_wood,
 						"enabled": ok,
-						"tooltip": "%s (%d): %s" % [data.display_name, i + 1, _stats_text(data, 0)],
+						"tooltip":
+						(
+							"%s (%d) — %s\n%s"
+							% [data.display_name, i + 1, data.role, _stats_text(data, 0)]
+						),
 					}
 				)
 			)
@@ -488,11 +486,10 @@ func _refresh_card() -> void:
 		}
 		if cost.x < 0:
 			upgrade["label"] = "макс."
-			info["hint"] = "Максимальный уровень"
 		else:
 			upgrade["gold"] = cost.x
 			upgrade["wood"] = cost.y
-			info["hint"] = "Дальше: " + _stats_text(data, level_index + 1)
+			upgrade["tooltip"] = "Улучшить (U) → " + _stats_text(data, level_index + 1)
 			if not upgrade["enabled"]:
 				info["hint"] = "Не хватает золота или дерева"
 		buttons.append(upgrade)
@@ -544,7 +541,7 @@ func _forge_card() -> Dictionary:
 		var next_index: int = mini(_hero.sword_level + 1, _hero.sword_damage_levels.size() - 1)
 		next_damage = (" → %d" % (_hero.sword_damage_levels[next_index] * _hero.damage_multiplier))
 	info["stats"] = (
-		"Меч: урон %d%s · замок: %d/%d жизней"
+		"Меч %d%s · стены %d/%d"
 		% [
 			_hero.attack_damage * _hero.damage_multiplier,
 			next_damage,
@@ -570,9 +567,6 @@ func _forge_card() -> Dictionary:
 		"enabled": _game_state.can_repair(),
 		"tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives
 	}
-	info["hint"] = (
-		"Ремонт стен: +%d жизни за %d дерева" % [_game_state.repair_lives, _game_state.repair_wood]
-	)
 	info["buttons"] = [
 		upgrade,
 		repair,
@@ -668,11 +662,11 @@ func _toggle_forge() -> void:
 func _hint_text() -> String:
 	match _guide_step():
 		GuideStep.CHOP:
-			return "Подойдите к дереву или нажмите на него — рыцарь сам нарубит дров"
+			return "Нажмите на дерево — рыцарь нарубит дров"
 		GuideStep.GOLD:
-			return "Бейте слизней у тропы — за них дают золото"
+			return "Бейте слизней у тропы — за них золото"
 		GuideStep.BUILD:
-			return "Нажмите на каменную площадку и постройте башню"
+			return "Нажмите на площадку и постройте башню"
 	return ""
 
 
@@ -751,9 +745,9 @@ func _stats_text(data: TowerData, index: int) -> String:
 		% [data.damage_levels[index], data.range_levels[index], data.interval_levels[index]]
 	)
 	if data.splash_levels[index] > 0.0:
-		text += " · по площади %.1f м" % data.splash_levels[index]
+		text += " · взрыв %.1f м" % data.splash_levels[index]
 	if data.slow_levels[index] < 1.0:
-		text += " · замедление %d%%" % roundi((1.0 - data.slow_levels[index]) * 100.0)
+		text += " · замедл. %d%%" % roundi((1.0 - data.slow_levels[index]) * 100.0)
 	return text
 
 
@@ -849,15 +843,6 @@ func _on_ground_tapped(point: Vector3) -> void:
 		_hero.move_to(point, 0.15)
 
 
-func _on_next_wave_pressed() -> void:
-	var left: float = _wave_manager.time_to_next_wave()
-	if left > 0.0 and _wave_manager.start_next_wave():
-		var bonus: int = floori(left * EARLY_CALL_GOLD_PER_SECOND)
-		if bonus > 0:
-			_game_state.add_gold(bonus)
-			_popup("+%d" % bonus, _hero.global_position + Vector3.UP * 2.0, GOLD_COLOR, COIN_ICON)
-
-
 func _on_enemy_reached_base(damage: int) -> void:
 	_base_hit.play()
 	_game_state.lose_lives(damage)
@@ -865,10 +850,27 @@ func _on_enemy_reached_base(damage: int) -> void:
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.set_wave(wave, 0 if _endless else total)
-	_wave_horn.play()
+	_wave_boom.play()
 	if boss:
 		_boss_roar.play()
-		_hud.show_boss_banner()
+	# One banner per wave (a boss wave gets the king icon, not a second banner).
+	var last: bool = not _endless and wave >= total
+	var title: String = "Последняя волна!" if last else "Волна %d!" % wave
+	var next: String = ""
+	if not last:
+		next = "Следующая через " + _seconds_text(_wave_manager.plan.wave_duration)
+	_hud.show_banner(title, next, boss)
+
+
+## "30 секунд", "21 секунду", "2 секунды".
+func _seconds_text(seconds: float) -> String:
+	var n: int = roundi(seconds)
+	var word: String = "секунд"
+	if n % 10 == 1 and n % 100 != 11:
+		word = "секунду"
+	elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
+		word = "секунды"
+	return "%d %s" % [n, word]
 
 
 func _on_all_waves_cleared() -> void:

@@ -11,3 +11,6 @@ hit_fx = ExtResource("3_hit_fx")
 arc_height = 1.6
 
 [node name="Model" parent="." instance=ExtResource("2_model")]
+
+[node name="Ball" parent="Model" index="0"]
+cast_shadow = 0

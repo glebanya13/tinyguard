@@ -9,3 +9,6 @@ script = ExtResource("1_projectile")
 hit_fx = ExtResource("3_hit_fx")
 
 [node name="Arrow" parent="." instance=ExtResource("2_arrow")]
+
+[node name="Arrow" parent="Arrow" index="0"]
+cast_shadow = 0

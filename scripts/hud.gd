@@ -1,15 +1,15 @@
 class_name Hud
 extends CanvasLayer
-## Wave, gold, wood and lives readouts, the next-wave countdown (with a button
-## to call the wave early), the boss banner, floating "+gold/+wood" popups,
-## the hero's command card (Warcraft style), the attack button, the touch
-## joystick and the end screen.
+## Compact wave, gold, wood and lives chips, speed and pause buttons, a short
+## first-steps hint that fades by itself, the wave banner ("Волна 3!", boss
+## waves with the king), floating "+gold/+wood" popups, the hero's command card
+## (Warcraft style), the attack and whirlwind buttons, the touch joystick and
+## the pause / end screen (the forge is opened from the pause menu or with K).
 
 ## A command card button was pressed; `id` is the one passed to update_card().
 signal command_pressed(id: StringName)
 signal attack_pressed
 signal spin_pressed
-signal next_wave_pressed
 signal restart_pressed
 signal map_pressed
 signal pause_pressed
@@ -20,12 +20,18 @@ signal joystick_changed(vector: Vector2)
 
 const VICTORY_COLOR := Color(0.98, 0.8, 0.4)
 const DEFEAT_COLOR := Color(1.0, 0.5, 0.45)
+const BANNER_COLOR := Color(1.0, 0.86, 0.45)
+const BOSS_COLOR := Color(1.0, 0.55, 0.5)
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COST_COLOR := Color(0.2, 0.13, 0.05)
+const GAIN_COLOR := Color(0.08, 0.36, 0.1)
 const PAUSE_COLOR := Color(1.0, 0.96, 0.87)
 const WARN_COLOR := Color(1.0, 0.62, 0.55)
 const INFO_COLOR := Color(0.62, 0.86, 1.0)
+## Command card buttons: 84 px is ~48 dp on a 1080p phone (720 px tall canvas).
+const CARD_BUTTON_SIZE := Vector2(84, 84)
+const CARD_ICON_HEIGHT := 46.0
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
@@ -43,10 +49,16 @@ const SHORTCUTS := {
 	&"cancel": &"cancel_command",
 }
 
+## Seconds the first-steps hint stays up after it last changed.
+@export var hint_seconds: float = 6.0
+## Seconds the wave banner stays fully visible (plus fade in/out).
+@export var banner_seconds: float = 2.5
+
 var _button_ids: Array[StringName] = []
 var _hint_tween: Tween = null
+var _hint_text: String = ""
+var _banner_tween: Tween = null
 var _joystick_visible: bool = false
-var _next_wave_key: int = -1
 var _card_hash: int = 0
 var _spin_shown: int = -1
 ## Touch build: no keyboard hints or hover tooltips.
@@ -56,17 +68,17 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _gold_label: Label = $Root/TopBar/GoldPill/Row/GoldLabel
 @onready var _wood_label: Label = $Root/TopBar/WoodPill/Row/WoodLabel
 @onready var _lives_label: Label = $Root/TopBar/LivesPill/Row/LivesLabel
-@onready var _next_wave_pill: Control = $Root/NextWavePill
-@onready var _next_wave_label: Label = $Root/NextWavePill/Row/NextWaveLabel
-@onready var _next_wave_button: Button = $Root/NextWavePill/Row/NextWaveButton
 @onready var _root: Control = $Root
-@onready var _hint_pill: Control = $Root/HintPill
-@onready var _hint_label: Label = $Root/HintPill/Row/Label
-@onready var _boss_banner: Control = $Root/BossBanner
+@onready var _hint_pill: Control = $Root/Hint
+@onready var _hint_label: Label = $Root/Hint/Pill/Row/Label
+@onready var _banner: Control = $Root/Banner
+@onready var _banner_title: Label = $Root/Banner/Row/Title
+@onready var _banner_subtitle: Label = $Root/Banner/Subtitle
+@onready var _banner_boss: Control = $Root/Banner/Row/BossIcon
 @onready var _popups: Control = $Root/Popups
 @onready var _card: Control = $Root/CommandCard
-@onready var _card_title: Label = $Root/CommandCard/Content/Title
-@onready var _card_stats: Label = $Root/CommandCard/Content/Stats
+@onready var _card_title: Label = $Root/CommandCard/Content/Head/Title
+@onready var _card_stats: Label = $Root/CommandCard/Content/Head/Stats
 @onready var _card_hint: Label = $Root/CommandCard/Content/Hint
 @onready var _buttons: HBoxContainer = $Root/CommandCard/Content/Buttons
 @onready var _attack_button: Button = $Root/AttackButton
@@ -80,10 +92,9 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _stars: HBoxContainer = $Root/EndScreen/EndPanel/Content/Stars
 @onready var _sound_button: Button = $Root/EndScreen/EndPanel/Content/SoundButton
 @onready var _continue_button: Button = $Root/EndScreen/EndPanel/Content/ContinueButton
+@onready var _forge_button: Button = $Root/EndScreen/EndPanel/Content/ForgeButton
 @onready var _speed_button: Button = $Root/TopRight/SpeedButton
-@onready var _forge_button: Button = $Root/TopRight/ForgeButton
 @onready var _speed_multiplier: Label = $Root/TopRight/SpeedButton/Multiplier
-@onready var _next_boss_icon: Control = $Root/NextWavePill/Row/BossIcon
 @onready var _pause_button: Button = $Root/TopRight/PauseButton
 @onready var _restart_button: Button = $Root/EndScreen/EndPanel/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/EndPanel/Content/MapButton
@@ -97,35 +108,38 @@ func _ready() -> void:
 	_continue_button.shortcut = _shortcut(&"pause")
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_speed_button.pressed.connect(speed_pressed.emit)
-	_forge_button.pressed.connect(forge_pressed.emit)
-	_forge_button.shortcut = _shortcut(&"forge")
+	_forge_button.pressed.connect(_on_forge_menu_pressed)
 	_pause_button.shortcut = _shortcut(&"pause")
 	_speed_button.shortcut = _shortcut(&"speed")
 	if not _touch:
-		_pause_button.tooltip_text = "Пауза (P)"
+		_pause_button.tooltip_text = "Пауза и меню: кузница, звук (P)"
 		_speed_button.tooltip_text = "Скорость игры (F)"
-		_forge_button.tooltip_text = "Кузница: меч и ремонт замка (K)"
+		_forge_button.tooltip_text = "Меч и ремонт стен замка (K)"
 	_attack_button.pressed.connect(attack_pressed.emit)
 	_spin_button.pressed.connect(spin_pressed.emit)
 	_spin_icon.pivot_offset = _spin_icon.size / 2.0
 	if not _touch:
 		_attack_button.tooltip_text = "Атаковать / рубить (Пробел)"
 		_spin_button.tooltip_text = "Вихрь: удар по всем врагам вокруг (Q)"
-	_next_wave_button.pressed.connect(next_wave_pressed.emit)
-	_next_wave_button.tooltip_text = "Вызвать волну сейчас"
 	_joystick.vector_changed.connect(joystick_changed.emit)
 	_end_screen.hide()
-	_next_wave_pill.hide()
-	_boss_banner.hide()
+	_banner.hide()
 	_hint_pill.hide()
 	_card.hide()
 	_apply_safe_area()
 	get_viewport().size_changed.connect(_apply_safe_area)
 
 
+func _unhandled_key_input(event: InputEvent) -> void:
+	# The forge has no button on the battlefield any more: K opens it directly.
+	if event.is_action_pressed(&"forge") and not _end_screen.visible:
+		forge_pressed.emit()
+		get_viewport().set_input_as_handled()
+
+
 ## `total` 0 = endless siege.
 func set_wave(wave: int, total: int) -> void:
-	_wave_label.text = "Осада: волна %d" % wave if total <= 0 else "Волна %d/%d" % [wave, total]
+	_wave_label.text = "Осада %d" % wave if total <= 0 else "%d/%d" % [wave, total]
 
 
 func set_gold(gold: int) -> void:
@@ -138,19 +152,6 @@ func set_wood(wood: int) -> void:
 
 func set_lives(lives: int) -> void:
 	_lives_label.text = str(lives)
-
-
-## Countdown to the next wave; seconds < 0 hides it. A boss wave shows the king.
-func set_next_wave(wave: int, seconds: float, boss: bool = false) -> void:
-	_next_wave_pill.visible = seconds >= 0.0
-	# Called every frame: rebuild the text only when the shown second changes.
-	var key: int = wave * 10000 + ceili(seconds)
-	if seconds >= 0.0 and key != _next_wave_key:
-		_next_wave_key = key
-		_next_boss_icon.visible = boss
-		_next_wave_label.text = (
-			"%s %d через %d с" % ["Босс! Волна" if boss else "Волна", wave, ceili(seconds)]
-		)
 
 
 ## Whirlwind button: seconds left on the cooldown (0 = ready).
@@ -172,10 +173,12 @@ func set_attack_mode(tree: bool) -> void:
 		_attack_button.icon = icon
 
 
-## One-line tip under the top bar; "" hides it.
+## One-line tip under the top bar; "" hides it. A tip fades out by itself
+## after hint_seconds and comes back only when the text changes.
 func show_hint(text: String) -> void:
-	if text == _hint_label.text and _hint_pill.visible == (text != ""):
+	if text == _hint_text:
 		return
+	_hint_text = text
 	_hint_label.text = text
 	if _hint_tween:
 		_hint_tween.kill()
@@ -186,25 +189,38 @@ func show_hint(text: String) -> void:
 	_hint_pill.modulate.a = 0.0
 	_hint_tween = create_tween()
 	_hint_tween.tween_property(_hint_pill, "modulate:a", 1.0, 0.3)
+	_hint_tween.tween_interval(hint_seconds)
+	_hint_tween.tween_property(_hint_pill, "modulate:a", 0.0, 0.6)
+	_hint_tween.tween_callback(_hint_pill.hide)
 
 
-func show_boss_banner() -> void:
-	_boss_banner.show()
-	_boss_banner.modulate.a = 0.0
-	_boss_banner.scale = Vector2.ONE * 0.6
-	_boss_banner.pivot_offset = _boss_banner.size / 2.0
-	var tween := create_tween()
-	tween.tween_property(_boss_banner, "modulate:a", 1.0, 0.25)
+## Short centred banner ("Волна 3!" + "Следующая через 30 секунд") that fades
+## out after banner_seconds. A boss wave shows the king and a coral title; a
+## new banner replaces the one on screen.
+func show_banner(title: String, subtitle: String = "", boss: bool = false) -> void:
+	_banner_title.text = title
+	_banner_title.add_theme_color_override("font_color", BOSS_COLOR if boss else BANNER_COLOR)
+	_banner_subtitle.text = subtitle
+	_banner_subtitle.visible = subtitle != ""
+	_banner_boss.visible = boss
+	if _banner_tween:
+		_banner_tween.kill()
+	_banner.show()
+	_banner.modulate.a = 0.0
+	_banner.scale = Vector2.ONE * 0.7
+	_banner.pivot_offset = Vector2(_banner.size.x / 2.0, 40.0)
+	_banner_tween = create_tween()
+	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.25)
 	(
-		tween
+		_banner_tween
 		. parallel()
-		. tween_property(_boss_banner, "scale", Vector2.ONE, 0.35)
+		. tween_property(_banner, "scale", Vector2.ONE, 0.35)
 		. set_trans(Tween.TRANS_BACK)
 		. set_ease(Tween.EASE_OUT)
 	)
-	tween.tween_interval(2.2)
-	tween.tween_property(_boss_banner, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(_boss_banner.hide)
+	_banner_tween.tween_interval(banner_seconds)
+	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.5)
+	_banner_tween.tween_callback(_banner.hide)
 
 
 ## Floating text that rises from `screen_pos` and fades out.
@@ -309,6 +325,7 @@ func show_pause_menu() -> void:
 	_stars.hide()
 	_stats.hide()
 	_continue_button.show()
+	_forge_button.show()
 	_sound_button.show()
 	_update_sound_label()
 
@@ -353,7 +370,7 @@ func _apply_safe_area() -> void:
 
 func _make_button(spec: Dictionary) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(96, 104)
+	button.custom_minimum_size = CARD_BUTTON_SIZE
 	button.focus_mode = Control.FOCUS_NONE
 	var id: StringName = spec["id"]
 	button.pressed.connect(command_pressed.emit.bind(id))
@@ -367,7 +384,7 @@ func _make_button(spec: Dictionary) -> Button:
 	button.add_child(stack)
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.custom_minimum_size = Vector2(0, 58)
+	icon.custom_minimum_size = Vector2(0, CARD_ICON_HEIGHT)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -394,13 +411,14 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 			label = "Закрыть"
 		cost.add_child(_cost_label(label))
 		return
-	var sign: String = "+" if spec.get("gain", false) else ""
+	# Income (selling) in green instead of a "+" sign: both numbers fit the button.
+	var color: Color = GAIN_COLOR if spec.get("gain", false) else COST_COLOR
 	if spec.get("gold", 0) > 0:
 		cost.add_child(_mini_icon(COIN_ICON))
-		cost.add_child(_cost_label(sign + str(spec["gold"])))
+		cost.add_child(_cost_label(str(spec["gold"]), color))
 	if spec.get("wood", 0) > 0:
 		cost.add_child(_mini_icon(WOOD_ICON))
-		cost.add_child(_cost_label(sign + str(spec["wood"])))
+		cost.add_child(_cost_label(str(spec["wood"]), color))
 
 
 func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:
@@ -413,12 +431,12 @@ func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:
 	return rect
 
 
-func _cost_label(text: String) -> Label:
+func _cost_label(text: String, color: Color = COST_COLOR) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_color_override("font_color", COST_COLOR)
+	label.add_theme_color_override("font_color", color)
 	label.add_theme_constant_override("outline_size", 0)
-	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_font_size_override("font_size", 16)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
 
@@ -446,6 +464,14 @@ func _on_sound_pressed() -> void:
 func _update_sound_label() -> void:
 	_sound_button.text = "Звук: вкл" if LevelCatalog.sound_on() else "Звук: выкл"
 	_sound_button.icon = SOUND_ON_ICON if LevelCatalog.sound_on() else SOUND_OFF_ICON
+
+
+## Pause menu "Кузница": resume the game, then open the forge card (unless it
+## is already the card on screen: forge_pressed toggles it).
+func _on_forge_menu_pressed() -> void:
+	continue_pressed.emit()
+	if not _button_ids.has(&"sword"):
+		forge_pressed.emit()
 
 
 func _on_end_button_pressed(next: Signal) -> void:

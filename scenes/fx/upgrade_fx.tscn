@@ -24,6 +24,7 @@ script = ExtResource("1_fx")
 lifetime = 1.4
 
 [node name="Sparkles" type="CPUParticles3D" parent="."]
+cast_shadow = 0
 emitting = false
 amount = 26
 lifetime = 1.1

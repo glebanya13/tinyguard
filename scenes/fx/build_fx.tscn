@@ -23,6 +23,7 @@ script = ExtResource("1_fx")
 lifetime = 1.3
 
 [node name="Dust" type="CPUParticles3D" parent="."]
+cast_shadow = 0
 emitting = false
 amount = 30
 lifetime = 1.1
