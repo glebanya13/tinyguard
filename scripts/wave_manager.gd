@@ -130,6 +130,19 @@ func get_paths() -> Array[Path3D]:
 	return enemy_paths
 
 
+## Straight flight lines (portal -> castle gate) as Path3D children of `parent`.
+func build_air_paths(routes: Array[PackedVector2Array], parent: Node, height: float) -> void:
+	air_paths.clear()
+	for route: PackedVector2Array in routes:
+		var air := Path3D.new()
+		air.name = "AirPath%d" % (air_paths.size() + 1)
+		air.curve = Curve3D.new()
+		for point: Vector2 in route:
+			air.curve.add_point(Vector3(point.x, height, point.y))
+		parent.add_child(air)
+		air_paths.append(air)
+
+
 ## Sorted indices of the paths a spawn list uses (empty without a lane plan).
 func lanes_of(queue: Array[Dictionary]) -> Array:
 	var lanes: Array = []

@@ -110,6 +110,17 @@ static func direction_text(level: Dictionary, lanes: Array) -> String:
 	return "С %s и %s!" % [", ".join(names), last]
 
 
+## "30 секунд", "21 секунду", "2 секунды".
+static func seconds_text(seconds: float) -> String:
+	var n: int = roundi(seconds)
+	var word: String = "секунд"
+	if n % 10 == 1 and n % 100 != 11:
+		word = "секунду"
+	elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
+		word = "секунды"
+	return "%d %s" % [n, word]
+
+
 ## Highest level id the player may start (1 = only the first).
 static func unlocked() -> int:
 	var cfg: ConfigFile = data()

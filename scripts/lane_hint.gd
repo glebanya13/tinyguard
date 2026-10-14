@@ -45,6 +45,21 @@ func show_points(points: Array[Vector3], seconds: float = SHOW_SECONDS) -> void:
 	queue_redraw()
 
 
+## A wave starts on the paths `lanes`: portals pulse and, unless the wave comes
+## from everywhere, get markers.
+func announce(portals: Array[Node3D], lanes: Array) -> void:
+	var points: Array[Vector3] = []
+	for lane: int in lanes:
+		var portal: Node3D = portals[lane]
+		points.append(portal.global_position + Vector3.UP * 0.6)
+		var tween: Tween = portal.create_tween()
+		for i in 3:
+			tween.tween_property(portal, "scale", Vector3.ONE * 1.3, 0.25)
+			tween.tween_property(portal, "scale", Vector3.ONE, 0.25)
+	if lanes.size() < portals.size():
+		show_points(points)
+
+
 ## True while markers are shown.
 func is_active() -> bool:
 	return _left > 0.0

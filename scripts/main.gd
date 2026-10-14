@@ -12,9 +12,7 @@ const DEFEAT_TIPS: Array[String] = [
 	"звёзды покупают постоянные улучшения в Казне на карте",
 	"рубите деревья между волнами — дерево нужно для улучшений",
 	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
-	"Молния бьёт замедленных Морозом на 40% сильнее — ставьте их рядом",
-	"волны идут по разным дорогам: следите за баннером и стрелками у краёв экрана",
-	"у башни можно сменить цель (Первый / Сильный / Последний / Ближний)",
+	"Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам",
 ]
 
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
@@ -181,7 +179,9 @@ func _ready() -> void:
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	if _endless:
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
-	_hud.show_banner("Первая волна через " + _seconds_text(_wave_manager.plan.first_delay))
+	_hud.show_banner(
+		"Первая волна через " + LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
+	)
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
 
@@ -312,18 +312,7 @@ func _build_level() -> void:
 		_portals.append(portal)
 	_wave_manager.enemy_paths = paths
 
-	# Flyers cross the map on a straight line from their portal to the castle.
-	var air_paths: Array[Path3D] = []
-	for route: PackedVector2Array in LevelCatalog.air_routes(level):
-		var air := Path3D.new()
-		air.name = "AirPath%d" % (air_paths.size() + 1)
-		var air_curve := Curve3D.new()
-		for point: Vector2 in route:
-			air_curve.add_point(Vector3(point.x, PATH_HEIGHT, point.y))
-		air.curve = air_curve
-		_level_root.add_child(air)
-		air_paths.append(air)
-	_wave_manager.air_paths = air_paths
+	_wave_manager.build_air_paths(LevelCatalog.air_routes(level), _level_root, PATH_HEIGHT)
 
 	var path: Array = level["paths"][0]
 	var last_dir: Vector3 = (_ground(path[-1]) - _ground(path[-2])).normalized()
@@ -419,14 +408,12 @@ func _on_command_pressed(id: StringName) -> void:
 			_spawn_fx(BUILD_FX, _castle.global_position)
 		_refresh_card()
 		return
-	if id == &"priority":
+	if id == &"sell" or id == &"priority":
 		var chosen: TowerSlot = _build_manager.selected_slot
-		if chosen != null and chosen.tower != null:
+		if id == &"sell":
+			_build_manager.sell(chosen)
+		elif chosen != null and chosen.tower != null:
 			chosen.tower.cycle_priority()
-		_refresh_card()
-		return
-	if id == &"sell":
-		_build_manager.sell(_build_manager.selected_slot)
 		_refresh_card()
 		return
 	var slot: TowerSlot = _build_manager.selected_slot
@@ -521,7 +508,7 @@ func _refresh_card() -> void:
 						"tooltip":
 						(
 							"%s (%d) — %s\n%s"
-							% [data.display_name, i + 1, data.role, _stats_text(data, 0)]
+							% [data.display_name, i + 1, data.role, data.stats_text(0)]
 						),
 					}
 				)
@@ -534,7 +521,7 @@ func _refresh_card() -> void:
 		info["title"] = (
 			"%s · ур. %d/%d" % [data.display_name, level_index + 1, data.max_level() + 1]
 		)
-		info["stats"] = _stats_text(data, level_index)
+		info["stats"] = data.stats_text(level_index)
 		var upgrade := {
 			"id": &"upgrade",
 			"icon": UPGRADE_ICON,
@@ -546,26 +533,15 @@ func _refresh_card() -> void:
 		else:
 			upgrade["gold"] = cost.x
 			upgrade["wood"] = cost.y
-			upgrade["tooltip"] = "Улучшить (U) → " + _stats_text(data, level_index + 1)
+			upgrade["tooltip"] = "Улучшить (U) → " + data.stats_text(level_index + 1)
 			if not upgrade["enabled"]:
 				info["hint"] = "Не хватает золота или дерева"
 		buttons.append(upgrade)
-		buttons.append(
-			{
-				"id": &"priority",
-				"icon": TARGET_ICON,
-				"label": TowerData.PRIORITY_NAMES[slot.tower.priority],
-				"enabled": true,
-				"tooltip":
-				(
-					"Цель: %s — %s. Нажмите, чтобы сменить"
-					% [
-						TowerData.PRIORITY_NAMES[slot.tower.priority],
-						TowerData.PRIORITY_HINTS[slot.tower.priority]
-					]
-				),
-			}
-		)
+		var tip: String = TowerData.priority_tooltip(slot.tower.priority)
+		var label: String = TowerData.PRIORITY_NAMES[slot.tower.priority]
+		var spec := {"id": &"priority", "icon": TARGET_ICON, "label": label, "tooltip": tip}
+		spec["enabled"] = true
+		buttons.append(spec)
 		var refund: Vector2i = data.sell_value(level_index)
 		buttons.append(
 			{
@@ -826,18 +802,6 @@ func _nearest_in_group(group: StringName, accept: Callable) -> Node3D:
 	return best
 
 
-func _stats_text(data: TowerData, index: int) -> String:
-	var text := (
-		"Урон %d · радиус %.1f · %.2f с"
-		% [data.damage_levels[index], data.range_levels[index], data.interval_levels[index]]
-	)
-	if data.splash_levels[index] > 0.0:
-		text += " · взрыв %.1f м" % data.splash_levels[index]
-	if data.slow_levels[index] < 1.0:
-		text += " · замедл. %d%%" % roundi((1.0 - data.slow_levels[index]) * 100.0)
-	return text
-
-
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
 	var fx := scene.instantiate() as Node3D
 	add_child(fx)
@@ -939,16 +903,7 @@ func _on_enemy_reached_base(damage: int) -> void:
 ## mark the portals on screen (rings / edge arrows) and make them pulse.
 func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 	_wave_direction = LevelCatalog.direction_text(level, lanes)
-	var points: Array[Vector3] = []
-	for lane: int in lanes:
-		var portal: Node3D = _portals[lane]
-		points.append(portal.global_position + Vector3.UP * 0.6)
-		var tween: Tween = portal.create_tween()
-		for i in 3:
-			tween.tween_property(portal, "scale", Vector3.ONE * 1.3, 0.25)
-			tween.tween_property(portal, "scale", Vector3.ONE, 0.25)
-	if lanes.size() < _portals.size():
-		_lane_hint.show_points(points)
+	_lane_hint.announce(_portals, lanes)
 
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
@@ -961,21 +916,10 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	var title: String = "Последняя волна!" if last else "Волна %d!" % wave
 	var next: String = ""
 	if not last:
-		next = "Следующая через " + _seconds_text(_wave_manager.plan.wave_duration)
+		next = "Следующая через " + LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
 	if _wave_direction != "":
 		next = (_wave_direction + "\n" + next).strip_edges()
 	_hud.show_banner(title, next, boss)
-
-
-## "30 секунд", "21 секунду", "2 секунды".
-func _seconds_text(seconds: float) -> String:
-	var n: int = roundi(seconds)
-	var word: String = "секунд"
-	if n % 10 == 1 and n % 100 != 11:
-		word = "секунду"
-	elif n % 10 in [2, 3, 4] and not (n % 100 in [12, 13, 14]):
-		word = "секунды"
-	return "%d %s" % [n, word]
 
 
 func _on_all_waves_cleared() -> void:

@@ -77,3 +77,24 @@ func upgrade_cost(level: int) -> Vector2i:
 	if level >= upgrade_gold.size():
 		return Vector2i(-1, -1)
 	return Vector2i(upgrade_gold[level], upgrade_wood[level])
+
+
+## Tooltip of the target-priority button.
+static func priority_tooltip(priority: int) -> String:
+	return (
+		"Цель: %s — %s. Нажмите, чтобы сменить"
+		% [PRIORITY_NAMES[priority], PRIORITY_HINTS[priority]]
+	)
+
+
+## One-line stats of `level_index` for the command card.
+func stats_text(level_index: int) -> String:
+	var text := (
+		"Урон %d · радиус %.1f · %.2f с"
+		% [damage_levels[level_index], range_levels[level_index], interval_levels[level_index]]
+	)
+	if splash_levels[level_index] > 0.0:
+		text += " · взрыв %.1f м" % splash_levels[level_index]
+	if slow_levels[level_index] < 1.0:
+		text += " · замедл. %d%%" % roundi((1.0 - slow_levels[level_index]) * 100.0)
+	return text

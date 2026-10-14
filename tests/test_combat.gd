@@ -58,10 +58,10 @@ func _run() -> void:
 	check(bat.is_flying() and bat.get_aim_point().y > 1.0, "bat flies above the path")
 	var cannon := build(1, bat.global_position)
 	cannon.range_m = 100.0
-	check(cannon.find_nearest_enemy() == null, "cannon ignores flying enemies")
+	check(cannon.find_target() == null, "cannon ignores flying enemies")
 	var archer := build(0, bat.global_position)
 	archer.range_m = 100.0
-	check(archer.find_nearest_enemy() == bat, "archer targets flying enemies")
+	check(archer.find_target() == bat, "archer targets flying enemies")
 	bat.queue_free()
 
 	var shield := spawn("res://resources/enemies/slime_shield.tres", 8.0)
@@ -130,6 +130,50 @@ func _run() -> void:
 	hp_golem = golem.health
 	golem.take_damage(2.0)
 	check(is_equal_approx(hp_golem - golem.health, 1.0), "at least 1 damage gets through")
+
+	# Target priority: first = closest to the castle, last, strongest, nearest to the tower.
+	for node: Node in get_nodes_in_group(Enemy.GROUP):
+		(node as Enemy).take_damage(1000000.0)
+	await process_frame
+	var ahead := spawn("res://resources/enemies/slime.tres", 16.0)
+	var behind := spawn("res://resources/enemies/slime_tank.tres", 15.0)
+	await process_frame
+	var shooter := build(0, behind.global_position)
+	shooter.range_m = 100.0
+	check(shooter.priority == TowerData.Priority.FIRST, "archers start on First")
+	check(shooter.find_target() == ahead, "First picks the enemy closest to the castle")
+	shooter.cycle_priority()
+	check(shooter.priority == TowerData.Priority.LAST, "switch -> Last")
+	check(shooter.find_target() == behind, "Last picks the one furthest from the castle")
+	shooter.cycle_priority()
+	check(shooter.priority == TowerData.Priority.STRONGEST, "switch -> Strongest")
+	check(shooter.find_target() == behind, "Strongest picks the tank")
+	shooter.cycle_priority()
+	shooter.cycle_priority()
+	check(shooter.priority == TowerData.Priority.FIRST, "the switch wraps around")
+	check(
+		ahead.distance_to_goal() < behind.distance_to_goal(),
+		"distance to goal shrinks along the path"
+	)
+
+	# Frost + lightning: a chilled enemy takes the shock harder.
+	var chilled := spawn("res://resources/enemies/slime_tank.tres", 18.0)
+	var plain := spawn("res://resources/enemies/slime_tank.tres", 25.0)
+	var zap := build(3, chilled.global_position)
+	zap.range_m = 100.0
+	var hp_plain: float = plain.health
+	zap._shoot(plain)
+	var plain_loss: float = hp_plain - plain.health
+	chilled.apply_slow(0.5, 5.0)
+	var hp_chilled: float = chilled.health
+	zap._shoot(chilled)
+	check(
+		(
+			chilled.is_slowed()
+			and is_equal_approx((hp_chilled - chilled.health) / plain_loss, zap.chilled_bonus)
+		),
+		"lightning hits a chilled enemy x%.1f harder" % zap.chilled_bonus
+	)
 
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

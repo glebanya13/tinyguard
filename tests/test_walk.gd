@@ -21,6 +21,8 @@ func _run() -> void:
 		await physics_frame
 	var hero: Hero = current_scene.get_node("Level/Hero")
 	hero.auto_action = false
+	# Walking to every slot takes longer than the first waves need to beat the castle.
+	(current_scene.get_node("WaveManager") as WaveManager).stop()
 	var slots: Array[Node] = get_nodes_in_group(TowerSlot.GROUP)
 	var reached: int = 0
 	for slot: Node in slots:

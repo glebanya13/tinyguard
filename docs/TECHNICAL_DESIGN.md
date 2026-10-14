@@ -46,7 +46,7 @@ Main (Node3D, main.gd)               — строит уровень из дан
 │       WoodTree × N на метках Chop_<вид>_<i> из level_N_decor.glb,
 │       Villagers (villagers.gd) → Villager × 2 (villager.tscn), после сетки ходьбы
 ├── GameState (Node)                  — золото, дерево, жизни
-├── WaveManager (Node)                — спавн по WavePlan на enemy_paths (по очереди для каждого вида врага)
+├── WaveManager (Node)                — спавн по WavePlan на enemy_paths (по `lane` каждого спавна из WavePlan; летуны — по air_paths; по очереди для каждого вида врага)
 ├── BuildManager (Node)               — площадки, tower_types: archer/cannon/frost.tres
 ├── Sfx                               — рог, рёв босса, удар по замку, победа/поражение
 └── HUD (ui/hud.tscn)                 — показатели, командная карта, атака, баннер босса
@@ -430,3 +430,19 @@ max(min_gold, round(start_gold · price_decay^n)). `main.gd` открывает 
 - Общие материалы, без уникальных материалов на инстанс.
 - Тени: только от `DirectionalLight3D`, ограниченная дистанция теней.
 - Профилирование на реальном устройстве через Remote Debug.
+
+
+## Тропы волн, цели башен, подсказки сторон
+
+- `levels.json` → `waves.lanes`: `patterns` (веса каждой тропы по волнам, цикл), `scout_paths`, `boss_paths`;
+  `waves.elite`: `from`, `every`, `step`, `kind`, `hp`, `reward`, `scale`. Проверяет `tools/validate_project.py`.
+- `WavePlan.spawns(wave)` отдаёт для каждого врага `lane` (индекс тропы, метод наибольшего частного: вес / (выдано + 1),
+  отдельно для каждого вида, старт перебора сдвигается с волной) и `elite`. Без `lanes` менеджер раздаёт тропы по очереди.
+- `WaveManager`: сигнал `wave_lanes(wave, lanes)` перед `wave_started`; `air_paths` — прямые Path3D портал → ворота замка
+  (`LevelCatalog.air_routes`) для летунов. Порядок «враг дошёл до базы» → «волна зачищена» не менялся.
+- `Enemy.distance_to_goal()` — остаток пути до замка по своей тропе (сравним между тропами); `is_slowed()` для синергии.
+- `Tower.priority` (`TowerData.Priority`: FIRST, LAST, STRONGEST, NEAREST), по умолчанию `TowerData.default_priority`;
+  кнопка «цель» на командной карте. Урон Молнии по замедленным умножается на `chilled_bonus`.
+- `LaneHint` (экранные кольца/стрелки у краёв) + пульс порталов, текст «С севера!» — `LevelCatalog.direction_text`
+  (стороны считаются по экрану: камера смотрит вдоль (-1,-1,-1), верх экрана — угол (-X, -Z) мира).
+- `tools/balance_sim.py` играет три стратегии (balanced / greedy / turtle) и предупреждает, если «черепаха» у замка выигрывает.

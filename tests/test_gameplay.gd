@@ -236,7 +236,9 @@ func _run() -> void:
 				elites += 1
 	check(planned.size() == paths.size(), "waves use all %d paths" % planned.size())
 	check(scouts_ok and bosses_ok, "scouts and bosses keep to their paths")
-	check(elites > 0 or wm.get_total_waves() < int(level["waves"]["elite"]["from"]), "elites planned")
+	check(
+		elites > 0 or wm.get_total_waves() < int(level["waves"]["elite"]["from"]), "elites planned"
+	)
 	var lanes_w1: Array = wm.lanes_of(wm.plan.spawns(1))
 	check(lanes_w1.size() < paths.size(), "wave 1 does not use every path: %s" % [lanes_w1])
 	check(
@@ -253,7 +255,9 @@ func _run() -> void:
 			var e2 := node as Enemy
 			if e2.is_flying() and e2.get_parent() not in wm.air_paths:
 				flyer_on_air = false
-		return used.size() == paths.size() + (1 if used.has(main.get_node("Level/EnemyPath")) else 0)
+		return (
+			used.size() == paths.size() + (1 if used.has(main.get_node("Level/EnemyPath")) else 0)
+		)
 	Engine.time_scale = 4.0
 	var guard: int = 0
 	while guard < 24 and not _all_paths_seen(used, paths):
