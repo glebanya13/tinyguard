@@ -1,7 +1,7 @@
 class_name HttpTransport
 extends Node
 ## One HTTPS request at a time per call (a fresh HTTPRequest child each), used
-## by AuthService, FirestoreClient and the Cloud Functions calls. Tests replace
+## by AuthService and FirestoreClient. Tests replace
 ## it with a fake that answers from a script and never touches the network.
 ## Nothing here is logged: requests carry tokens and private data.
 

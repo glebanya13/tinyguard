@@ -186,7 +186,7 @@ func _test_merge() -> void:
 func _test_onboarding_offline() -> void:
 	_clean()
 	var online: Node = root.get_node("Online")
-	online.setup("", "", "europe-west1", HttpTransport.new())
+	online.setup("", "", HttpTransport.new())
 	await online.start()
 	check(online.startup_done and not online.is_configured(), "offline start without firebase.cfg")
 	check(online.sync_state() == "off" and online.account_type() == "local", "account: local only")
@@ -346,7 +346,10 @@ func _test_auth() -> void:
 	SessionStore.clear()
 
 
-## Fake Firebase project: auth, users/{uid}, saves/{uid}, callable functions.
+## Fake Firebase project: auth, users/{uid}, saves/{uid} and a generic document
+## store for publicProfiles / nicknames / leaderboards. It mimics the rules that
+## matter: creating an existing nickname document is refused (403), a taken name
+## belongs to another uid.
 class FakeFirebase:
 	extends RefCounted
 	var users_doc: Variant = null  # Dictionary of decoded fields or null
@@ -355,7 +358,15 @@ class FakeFirebase:
 	var fail_commits: int = 0
 	var offline: bool = false
 	var taken: Array[String] = []
+	## users/{uid} commits only.
 	var commits: Array[Dictionary] = []
+	## Every commit body, in order.
+	var all_commits: Array[Array] = []
+	## Other documents by path ("publicProfiles/uid1" -> decoded fields).
+	var docs: Dictionary = {}
+	var auth_deleted: bool = false
+	var auth_delete_error: String = ""
+	var refuse_commits: int = 0
 
 	func handle(method: int, url: String, body: String) -> Array:
 		if offline:
@@ -369,27 +380,73 @@ class FakeFirebase:
 				200,
 				{"id_token": "ID", "refresh_token": "RT", "user_id": "uid1", "expires_in": "3600"}
 			]
-		if "cloudfunctions.net" in url:
-			return reserve(body) if url.ends_with("/reserveNickname") else [200, {"result": {}}]
+		if "accounts:delete" in url:
+			if auth_delete_error != "":
+				return [400, {"error": {"message": auth_delete_error}}]
+			auth_deleted = true
+			return [200, {}]
 		if url.ends_with(":commit"):
 			return commit(body)
 		return document(method, url)
 
-	func reserve(body: String) -> Array:
-		var rules: Dictionary = NicknameRules.validate(JSON.parse_string(body)["data"]["nickname"])
-		if rules["normalized"] in taken:
-			var error := {"status": "ALREADY_EXISTS", "details": {"reason": "taken"}}
-			return [409, {"error": error}]
-		return [200, {"result": {"nickname": rules["nickname"], "normalized": rules["normalized"]}}]
+	func path_of(name: String) -> String:
+		return name.get_slice("/documents/", 1)
+
+	func exists(path: String) -> bool:
+		if path.begins_with("nicknames/") and path.trim_prefix("nicknames/") in taken:
+			return true
+		return docs.has(path)
+
+	func fields_of(path: String) -> Dictionary:
+		if path.begins_with("nicknames/") and path.trim_prefix("nicknames/") in taken:
+			return {"uid": "someone-else"}
+		return docs.get(path, {})
 
 	func commit(body: String) -> Array:
+		var writes: Array = JSON.parse_string(body)["writes"]
+		all_commits.append(writes)
+		if refuse_commits > 0:
+			refuse_commits -= 1
+			return [403, {"error": {"status": "PERMISSION_DENIED"}}]
+		var touches_users := false
+		for write: Dictionary in writes:
+			var name: String = str(write["update"]["name"] if write.has("update") else write["delete"])
+			if path_of(name).begins_with("users/"):
+				touches_users = true
+		if touches_users and writes.size() == 1 and writes[0].has("update"):
+			return commit_users(writes[0])
+		# Generic documents: validate every write first (all or nothing).
+		for write: Dictionary in writes:
+			if write.has("update"):
+				var path: String = path_of(write["update"]["name"])
+				var precondition: Dictionary = write.get("currentDocument", {})
+				if precondition.get("exists", true) == false and exists(path):
+					return [403, {"error": {"status": "PERMISSION_DENIED"}}]
+				if precondition.get("exists", false) == true and not exists(path):
+					return [404, {"error": {"status": "NOT_FOUND"}}]
+		for write: Dictionary in writes:
+			if write.has("delete"):
+				var gone: String = path_of(write["delete"])
+				docs.erase(gone)
+				if gone.begins_with("users/"):
+					users_doc = null
+			else:
+				var path: String = path_of(write["update"]["name"])
+				var fields: Dictionary = FirestoreClient.decode_fields(write["update"]["fields"])
+				for transform: Dictionary in write.get("updateTransforms", []):
+					fields[str(transform["fieldPath"])] = int(Time.get_unix_time_from_system())
+				var merged: Dictionary = docs.get(path, {})
+				merged.merge(fields, true)
+				docs[path] = merged
+		return [200, {"writeResults": [{}]}]
+
+	func commit_users(write: Dictionary) -> Array:
 		if fail_commits > 0:
 			# Another device wrote first: the precondition fails.
 			fail_commits -= 1
 			users_doc = {"schemaVersion": 1, "progression": {"unlocked": 5, "stars": {"4": 3}}}
 			update_time = "2026-10-14T11:00:00.000001Z"
 			return [400, {"error": {"status": "FAILED_PRECONDITION"}}]
-		var write: Dictionary = JSON.parse_string(body)["writes"][0]
 		commits.append(write)
 		var fields: Dictionary = FirestoreClient.decode_fields(write["update"]["fields"])
 		fields["updatedAt"] = 2000000000
@@ -411,6 +468,9 @@ class FakeFirebase:
 		if "/saves/" in url and method == HTTPClient.METHOD_DELETE:
 			legacy_text = ""
 			return [200, {}]
+		var path: String = url.get_slice("/documents/", 1)
+		if method == HTTPClient.METHOD_GET and exists(path):
+			return [200, {"fields": FirestoreClient.encode_fields(fields_of(path))}]
 		return missing
 
 
@@ -418,7 +478,7 @@ func _configured_online(fake: FakeFirebase) -> Node:
 	var online: Node = root.get_node("Online")
 	var t := FakeTransport.new()
 	t.handler = fake.handle
-	online.setup("test-key", "test-project", "europe-west1", t)
+	online.setup("test-key", "test-project", t)
 	online.auth.backoff_scale = 0.0
 	online.firestore.backoff_scale = 0.0
 	return online
@@ -514,6 +574,37 @@ func _test_nickname_and_delete() -> void:
 	var r: Dictionary = await online.reserve_nickname("Ёжик")
 	check(r["ok"] and r["reason"] == "reserved", "name reserved on the server")
 	check(PlayerProfile.local()["nicknameVerified"], "reserved name is verified")
+	# Reservation is one atomic commit: index document + public profile.
+	check(fake.docs.has("publicProfiles/uid1"), "public profile written")
+	check(fake.docs["nicknames/ежик"]["uid"] == "uid1", "index document owned by this uid")
+	check(fake.docs["publicProfiles/uid1"]["nicknameNormalized"] == "ежик", "profile key")
+	var first_commit: Array = fake.all_commits.filter(
+		func(w: Array) -> bool: return w.size() == 2 and "nicknames/" in str(w[0])
+	)[0]
+	check(
+		first_commit[0]["currentDocument"] == {"exists": false},
+		"nickname index is create-only (exists=false)"
+	)
+	# A change inside 24 hours is refused locally, after 24 hours it moves the name.
+	r = await online.reserve_nickname("Ёжик Новый")
+	check(r["reason"] == "rate_limited" and not r["ok"], "second change within 24 hours refused")
+	fake.docs["publicProfiles/uid1"]["nicknameChangedAt"] = 1000
+	r = await online.reserve_nickname("Ёжик Новый")
+	check(r["ok"] and r["reason"] == "reserved", "name changed after 24 hours")
+	check(
+		not fake.docs.has("nicknames/ежик") and fake.docs.has("nicknames/ежик_новый"),
+		"old key released, new key created"
+	)
+	var change: Array = fake.all_commits[-1]
+	check(
+		change[0].has("delete") and change[1]["currentDocument"] == {"exists": false},
+		"change = delete old + create new (one commit)"
+	)
+	# The rules refuse (403) a name that appeared in between: reported as taken.
+	fake.taken.append("опоздавший")
+	fake.docs["publicProfiles/uid1"]["nicknameChangedAt"] = 1000
+	r = await online.reserve_nickname("Опоздавший")
+	check(r["reason"] == "taken", "403 on a taken index document -> taken")
 	fake.offline = true
 	r = await online.reserve_nickname("Сова")
 	check(r["reason"] == "offline" and r["saved_locally"], "offline: name kept on the device")
@@ -533,25 +624,32 @@ func _test_nickname_and_delete() -> void:
 		"conflict -> ask again"
 	)
 
-	var callable_error: Dictionary = FirestoreClient.parse_callable_reply(
-		{
-			"ok": false,
-			"code": 429,
-			"json":
-			{"error": {"status": "RESOURCE_EXHAUSTED", "details": {"reason": "rate_limited"}}}
-		}
-	)
-	check(callable_error["reason"] == "rate_limited", "callable error reason parsed")
-	check(
-		(
-			FirestoreClient.parse_callable_reply({"ok": false, "code": 404, "json": null})["reason"]
-			== "unavailable"
-		),
-		"function not deployed -> unavailable"
-	)
-
+	# Deleting the account: documents first, then the Auth user, then local data.
+	fake.docs["leaderboards/level_1/scores/uid1"] = {"name": "x", "wave": 3}
+	fake.refuse_commits = 1
 	r = await online.delete_account()
-	check(r["ok"] and r["scope"] == "cloud", "account deleted through deleteAccount")
+	check(not r["ok"] and not fake.auth_deleted, "documents refused -> Auth user kept, retry possible")
+	fake.auth_delete_error = "CREDENTIAL_TOO_OLD_LOGIN_AGAIN"
+	r = await online.delete_account()
+	check(not r["ok"] and r["reason"] == "reauth_required", "old login -> reauth_required")
+	check(FileAccess.file_exists(SAVE), "local data kept when the account was not deleted")
+	fake.auth_delete_error = ""
+	r = await online.delete_account()
+	check(r["ok"] and r["scope"] == "cloud", "account deleted from the client")
+	check(fake.auth_deleted, "Auth user deleted (accounts:delete)")
+	var gone := true
+	for path: String in ["publicProfiles/uid1", "leaderboards/level_1/scores/uid1"]:
+		gone = gone and not fake.docs.has(path)
+	for path: String in fake.docs:
+		gone = gone and not path.begins_with("nicknames/")
+	check(gone and fake.users_doc == null, "own documents, nickname index and records deleted")
+	var last: Array = fake.all_commits[-1]
+	var paths := last.map(func(w: Dictionary) -> String: return str(w.get("delete", "")))
+	check(
+		paths.any(func(x: String) -> bool: return x.ends_with("/users/uid1"))
+		and last.size() >= 4,
+		"deletion commit covers users, profile, nickname, saves, records"
+	)
 	check(
 		not FileAccess.file_exists(SAVE) and not FileAccess.file_exists(SESSION), "local data wiped"
 	)
@@ -559,4 +657,4 @@ func _test_nickname_and_delete() -> void:
 		Onboarding.route(PlayerProfile.local()) == Onboarding.Route.NICKNAME,
 		"after deletion: fresh start"
 	)
-	online.setup("", "", "europe-west1", HttpTransport.new())
+	online.setup("", "", HttpTransport.new())

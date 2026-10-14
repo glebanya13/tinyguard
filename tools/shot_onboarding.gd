@@ -24,9 +24,12 @@ class FakeTransport:
 				"id_token": "I", "refresh_token": "R", "user_id": "u", "expires_in": "3600",
 			}
 			return {"ok": true, "code": 200, "json": auth, "network": false}
-		if url.ends_with("/reserveNickname"):
-			var error := {"status": "ALREADY_EXISTS", "details": {"reason": "taken"}}
-			return {"ok": false, "code": 409, "json": {"error": error}, "network": false}
+		if url.ends_with(":commit"):  # the rules refuse a taken nickname with 403
+			var denied := {"status": "PERMISSION_DENIED"}
+			return {"ok": false, "code": 403, "json": {"error": denied}, "network": false}
+		if "/nicknames/" in url:  # the index document belongs to somebody else
+			var fields := {"uid": {"stringValue": "someone-else"}}
+			return {"ok": true, "code": 200, "json": {"fields": fields}, "network": false}
 		return {"ok": false, "code": 404, "json": null, "network": false}
 
 
@@ -51,7 +54,7 @@ func _run() -> void:
 	var online: Node = root.get_node("Online")
 	var fake := FakeTransport.new()
 	fake.name = "FakeTransport"
-	online.setup("fake-key", "fake-project", "europe-west1", fake)
+	online.setup("fake-key", "fake-project", fake)
 
 	change_scene_to_file(Onboarding.NICKNAME_SCENE)
 	await _frames(20)
@@ -70,7 +73,7 @@ func _run() -> void:
 	await _wait_idle(screen)
 	await _shot("nickname_offline")
 
-	online.setup("", "", "europe-west1", HttpTransport.new())
+	online.setup("", "", HttpTransport.new())
 	LevelCatalog.erase_all()
 	SessionStore.clear()
 	Onboarding.set_local_nickname("Сова", "сова", false)
@@ -106,7 +109,7 @@ func _run() -> void:
 	# A guest account whose name and progress are waiting for the network.
 	var offline_net := FakeTransport.new()
 	offline_net.offline = true
-	online.setup("fake-key", "fake-project", "europe-west1", offline_net)
+	online.setup("fake-key", "fake-project", offline_net)
 	SessionStore.save_session({"uid": "Xk3pQ9mZ2vR7tL1wN8yA4bC6dE5f", "refresh_token": "R"})
 	change_scene_to_file(Onboarding.MAP_SCENE)
 	await create_timer(3.0).timeout

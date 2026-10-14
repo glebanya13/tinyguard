@@ -1,18 +1,17 @@
 class_name FirestoreClient
 extends RefCounted
-## Cloud Firestore REST v1 (documents.get / commit / delete / runQuery) and
-## callable Cloud Functions over HTTPS, signed with AuthService's id token.
+## Cloud Firestore REST v1 (documents.get / commit / delete / runQuery), signed
+## with AuthService's id token. No Cloud Functions (Spark plan): everything the
+## server must guarantee is enforced by firestore.rules.
 ## Values are converted between Godot types and Firestore's typed JSON here.
 ## Transient failures are retried with backoff; a 401 refreshes the token once.
 
 const HOST := "https://firestore.googleapis.com/v1"
 const ROOT := "projects/%s/databases/(default)/documents"
-const FUNCTIONS_URL := "https://%s-%s.cloudfunctions.net/%s"
 const MAX_ATTEMPTS := 3
 const BACKOFF_SECONDS := 0.8
 
 var project_id: String = ""
-var functions_region: String = "europe-west1"
 var transport: HttpTransport = null
 var auth: AuthService = null
 ## 0 makes retries immediate (tests).
@@ -48,20 +47,36 @@ func commit(writes: Array) -> Dictionary:
 	return await request(HTTPClient.METHOD_POST, url, {"writes": writes}, true)
 
 
+## Commit write: creates `path` (fails if it exists). `time_fields` are set to the
+## server time (the rules require request.time for them).
+func write_create(path: String, data: Dictionary, time_fields: Array[String]) -> Dictionary:
+	var transforms: Array = []
+	for key in time_fields:
+		transforms.append({"fieldPath": key, "setToServerValue": "REQUEST_TIME"})
+	return {
+		"update": {"name": doc_name(path), "fields": encode_fields(data)},
+		"updateTransforms": transforms,
+		"currentDocument": {"exists": false},
+	}
+
+
+## Commit write: changes only `data`'s fields of an existing document.
+func write_update(path: String, data: Dictionary, time_fields: Array[String]) -> Dictionary:
+	var write: Dictionary = write_create(path, data, time_fields)
+	write["updateMask"] = {"fieldPaths": data.keys()}
+	write["currentDocument"] = {"exists": true}
+	return write
+
+
+func write_delete(path: String) -> Dictionary:
+	return {"delete": doc_name(path)}
+
+
 ## Structured query under `parent` ("" = root, else e.g. "leaderboards/level_1").
 func run_query(parent: String, query: Dictionary, signed: bool) -> Dictionary:
 	var base: String = HOST + "/" + (ROOT % project_id)
 	var url: String = (base + "/" + parent if parent != "" else base) + ":runQuery"
 	return await request(HTTPClient.METHOD_POST, url, {"structuredQuery": query}, signed)
-
-
-## Calls an HTTPS callable function. {"ok", "result", "reason", "status", "network"}.
-func call_function(name: String, data: Dictionary) -> Dictionary:
-	var url: String = FUNCTIONS_URL % [functions_region, project_id, name]
-	var reply: Dictionary = await request(HTTPClient.METHOD_POST, url, {"data": data}, true)
-	var parsed: Dictionary = parse_callable_reply(reply)
-	parsed["network"] = reply.get("network", false)
-	return parsed
 
 
 ## One request with retries. `body` is null or a Dictionary (sent as JSON).
@@ -87,39 +102,10 @@ func request(method: int, url: String, body: Variant, signed: bool) -> Dictionar
 			if not again["ok"]:
 				break
 			continue  # the retry with a new token does not count as an attempt
-		if not HttpTransport.is_transient(reply) or _is_app_error(reply):
+		if not HttpTransport.is_transient(reply):
 			break
 		attempt += 1
 	return reply
-
-
-## A deliberate answer of our functions (e.g. 429 rate_limited): do not retry.
-static func _is_app_error(reply: Dictionary) -> bool:
-	var json: Variant = reply.get("json")
-	if not json is Dictionary or not (json as Dictionary).get("error") is Dictionary:
-		return false
-	var details: Variant = (json["error"] as Dictionary).get("details")
-	return details is Dictionary and (details as Dictionary).has("reason")
-
-
-## Callable protocol reply -> {"ok", "result", "reason", "status"}. Errors come
-## as {"error": {"status": "ALREADY_EXISTS", "message", "details": {"reason"}}}.
-static func parse_callable_reply(reply: Dictionary) -> Dictionary:
-	var json: Dictionary = reply.get("json") if reply.get("json") is Dictionary else {}
-	if reply.get("ok", false) and json.has("result"):
-		return {"ok": true, "result": json["result"], "reason": "", "status": "OK"}
-	var error: Dictionary = json.get("error") if json.get("error") is Dictionary else {}
-	var details: Dictionary = error.get("details") if error.get("details") is Dictionary else {}
-	var status: String = str(error.get("status", ""))
-	var reason: String = str(details.get("reason", ""))
-	if reason == "":
-		if HttpTransport.is_transient(reply):
-			reason = "offline" if reply.get("network", false) else "unavailable"
-		elif int(reply.get("code", 0)) == 404:
-			reason = "unavailable"  # function not deployed
-		else:
-			reason = "server"
-	return {"ok": false, "result": null, "reason": reason, "status": status}
 
 
 static func encode_value(value: Variant) -> Dictionary:

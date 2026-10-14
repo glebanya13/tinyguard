@@ -1,7 +1,7 @@
 extends Node
 ## Optional online features over Firebase REST APIs (no SDK, no native
 ## plugins). Autoload "Online": a facade over AuthService (guest sign-in,
-## sessions), FirestoreClient (profile sync, leaderboards, callable functions)
+## sessions), FirestoreClient (profile sync, leaderboards, nicknames)
 ## and PlayerProfile (local/cloud merge). Without res://firebase.cfg
 ## (docs/FIREBASE.md) everything online is disabled and the game, the local
 ## profile and the onboarding work offline.
@@ -25,6 +25,9 @@ const NAME_MAX := 16
 const ANONYMOUS_NAME := "Рыцарь"
 ## Rounds of read-merge-write when another device writes in between.
 const MAX_SYNC_ROUNDS := 3
+## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
+const NICKNAME_CHANGE_SECONDS := 86400
+const _PROFILE_TIMES: Array[String] = ["createdAt", "nicknameChangedAt"]
 const STATE_TEXT := {
 	"off": "Только на этом устройстве",
 	"syncing": "Синхронизация…",
@@ -38,7 +41,6 @@ const STATE_TEXT := {
 
 var api_key: String = ""
 var project_id: String = ""
-var functions_region: String = "europe-west1"
 var auth := AuthService.new()
 var firestore := FirestoreClient.new()
 ## The first start() finished (signed in and synced, or failed offline).
@@ -56,16 +58,14 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	var key := ""
 	var project := ""
-	var region := functions_region
 	if cfg.load(CONFIG_PATH) == OK:
 		key = str(cfg.get_value("firebase", "api_key", ""))
 		project = str(cfg.get_value("firebase", "project_id", ""))
-		region = str(cfg.get_value("firebase", "functions_region", region))
-	setup(key, project, region, HttpTransport.new())
+	setup(key, project, HttpTransport.new())
 
 
 ## (Re)wires the services. Tests pass a fake transport and a made-up project.
-func setup(key: String, project: String, region: String, transport: HttpTransport) -> void:
+func setup(key: String, project: String, transport: HttpTransport) -> void:
 	if _transport != null and _transport != transport:
 		_transport.queue_free()
 	_transport = transport
@@ -73,14 +73,12 @@ func setup(key: String, project: String, region: String, transport: HttpTranspor
 		add_child(transport)
 	api_key = key
 	project_id = project
-	functions_region = region
 	auth = AuthService.new()
 	auth.api_key = key
 	auth.transport = transport
 	auth.changed.connect(_on_auth_changed)
 	firestore = FirestoreClient.new()
 	firestore.project_id = project
-	firestore.functions_region = region
 	firestore.transport = transport
 	firestore.auth = auth
 	_started = false
@@ -159,8 +157,9 @@ func sync_now() -> Dictionary:
 	return result
 
 
-## Nickname screen: validates, reserves the name on the server (callable
-## function reserveNickname) and stores it. {"ok", "reason", "error",
+## Nickname screen: validates, reserves the name in Firestore (one atomic
+## commit, checked by firestore.rules: nicknames/{key} is create-only) and
+## stores it. {"ok", "reason", "error",
 ## "saved_locally"}. reason: reserved, local (no Firebase), offline (kept on
 ## the device as unverified, reserved at the next sync), taken, invalid,
 ## rate_limited, busy.
@@ -176,9 +175,12 @@ func reserve_nickname(raw: String) -> Dictionary:
 	return result
 
 
-## Deletes the account: server data through the deleteAccount function, then
-## the session and the local save. Without Firebase or an account only the
-## local data is erased. {"ok", "reason", "scope" ("cloud" | "local")}.
+## Deletes the account from the client (Spark plan, no Cloud Functions): the
+## player's own Firestore documents (profile, nickname and its index entry,
+## records, legacy save), then the Firebase Auth user (accounts:delete), then
+## the local data. Safe to repeat after a partial failure. Without Firebase or
+## an account only the local data is erased.
+## {"ok", "reason", "scope" ("cloud" | "local")}.
 func delete_account() -> Dictionary:
 	if not is_configured() or auth.uid == "":
 		_wipe_local()
@@ -186,9 +188,32 @@ func delete_account() -> Dictionary:
 	var signed: Dictionary = await auth.ensure_token(false)
 	if not signed["ok"]:
 		return {"ok": false, "reason": signed["error"], "scope": ""}
-	var reply: Dictionary = await firestore.call_function("deleteAccount", {})
-	if not reply["ok"]:
-		return {"ok": false, "reason": reply["reason"], "scope": ""}
+	var uid: String = auth.uid
+	var writes: Array = []
+	var profile_path: String = "publicProfiles/" + uid
+	var public_doc: Dictionary = await firestore.get_doc(profile_path)
+	if not public_doc["ok"] and not public_doc["missing"]:
+		return {"ok": false, "reason": _reply_error(public_doc), "scope": ""}
+	if public_doc["ok"]:
+		var key: String = str(public_doc["fields"].get("nicknameNormalized", ""))
+		var name_doc: Dictionary = await firestore.get_doc("nicknames/" + key)
+		if not name_doc["ok"] and not name_doc["missing"]:
+			return {"ok": false, "reason": _reply_error(name_doc), "scope": ""}
+		# The rules only let the owner delete an existing index document.
+		if name_doc["ok"] and str(name_doc["fields"].get("uid", "")) == uid:
+			writes.append(firestore.write_delete("nicknames/" + key))
+		writes.append(firestore.write_delete(profile_path))
+	writes.append(firestore.write_delete("users/" + uid))
+	writes.append(firestore.write_delete("saves/" + uid))
+	for level: Dictionary in LevelCatalog.levels():
+		var scores: String = "leaderboards/level_%d/scores/%s" % [int(level["id"]), uid]
+		writes.append(firestore.write_delete(scores))
+	var deleted: Dictionary = await firestore.commit(writes)
+	if not deleted["ok"]:
+		return {"ok": false, "reason": _reply_error(deleted), "scope": ""}
+	var removed: Dictionary = await auth.delete_account()
+	if not removed["ok"]:
+		return {"ok": false, "reason": removed["error"], "scope": ""}
 	_wipe_local()
 	return {"ok": true, "reason": "", "scope": "cloud"}
 
@@ -334,7 +359,7 @@ func _sync() -> Dictionary:
 	if str(local["nickname"]) != "" and not bool(local["nicknameVerified"]):
 		if not bool(local["nicknameConflict"]):
 			var reserved: Dictionary = await _reserve(str(local["nickname"]))
-			if reserved["reason"] in ["taken", "invalid", "reserved"]:
+			if reserved["reason"] in ["taken", "invalid"]:
 				Onboarding.flag_nickname_conflict()
 				status_changed.emit("Имя «%s» занято — выбери другое" % local["nickname"])
 	var start_hash: String = PlayerProfile.content_hash(PlayerProfile.local())
@@ -355,6 +380,9 @@ func _sync_round(start_hash: String) -> Dictionary:
 		return {"ok": false, "error": _reply_error(got), "changed": false}
 	var cloud: Dictionary = {}
 	var from_legacy := false
+	var public_doc: Dictionary = await firestore.get_doc("publicProfiles/" + auth.uid)
+	if not public_doc["ok"] and not public_doc["missing"]:
+		return {"ok": false, "error": _reply_error(public_doc), "changed": false}
 	if got["ok"]:
 		cloud = PlayerProfile.from_cloud(got["fields"])
 	else:
@@ -364,6 +392,12 @@ func _sync_round(start_hash: String) -> Dictionary:
 			from_legacy = not cloud.is_empty()
 	if cloud.get("newer", false):
 		return {"ok": false, "error": "newer", "changed": false}
+	if public_doc["ok"]:
+		if cloud.is_empty():
+			cloud = PlayerProfile.from_cloud({"schemaVersion": PlayerProfile.SCHEMA_VERSION})
+		cloud["nickname"] = str(public_doc["fields"].get("nickname", ""))
+		cloud["nicknameNormalized"] = str(public_doc["fields"].get("nicknameNormalized", ""))
+		cloud["nicknameVerified"] = cloud["nickname"] != ""
 	var merged: Dictionary = PlayerProfile.local()
 	if not cloud.is_empty():
 		merged = PlayerProfile.merge(merged, cloud)
@@ -410,17 +444,69 @@ func _profile_write(p: Dictionary, exists: bool, update_time: String) -> Diction
 	return write
 
 
-## Calls reserveNickname; on success stores the name as verified.
-## {"ok", "reason"}: "", taken, invalid, rate_limited, offline, unavailable...
+## Reserves the nickname for the signed-in player and stores it as verified.
+## One atomic commit: create nicknames/{key} (fails when taken), release the
+## old key, write publicProfiles/{uid}. {"ok", "reason"}: "", invalid, taken,
+## rate_limited, offline, server, denied.
 func _reserve(nickname: String) -> Dictionary:
-	var reply: Dictionary = await firestore.call_function("reserveNickname", {"nickname": nickname})
+	var check: Dictionary = NicknameRules.validate(nickname)
+	if not check["ok"]:
+		return {"ok": false, "reason": "invalid"}
+	var key: String = check["normalized"]
+	var uid: String = auth.uid
+	var current: Dictionary = await firestore.get_doc("publicProfiles/" + uid)
+	if not current["ok"] and not current["missing"]:
+		return {"ok": false, "reason": _reply_error(current)}
+	var old_key := ""
+	if current["ok"]:
+		old_key = str(current["fields"].get("nicknameNormalized", ""))
+		if old_key == key:  # already reserved (e.g. from another device)
+			var stored: String = str(current["fields"].get("nickname", nickname))
+			Onboarding.set_local_nickname(stored, key, true)
+			return {"ok": true, "reason": ""}
+		var changed_at: int = int(current["fields"].get("nicknameChangedAt", 0))
+		if Time.get_unix_time_from_system() < changed_at + NICKNAME_CHANGE_SECONDS:
+			return {"ok": false, "reason": "rate_limited"}
+	var writes: Array = []
+	if old_key != "":
+		writes.append(firestore.write_delete("nicknames/" + old_key))
+	var index := {"uid": uid, "nickname": check["nickname"]}
+	writes.append(firestore.write_create("nicknames/" + key, index, ["createdAt"]))
+	var profile := {"nickname": check["nickname"], "nicknameNormalized": key}
+	if old_key == "":
+		writes.append(firestore.write_create("publicProfiles/" + uid, profile, _PROFILE_TIMES))
+	else:
+		var time_fields: Array[String] = ["nicknameChangedAt"]
+		writes.append(firestore.write_update("publicProfiles/" + uid, profile, time_fields))
+	var reply: Dictionary = await firestore.commit(writes)
 	if not reply["ok"]:
-		return {"ok": false, "reason": reply["reason"]}
-	var result: Dictionary = reply["result"] if reply["result"] is Dictionary else {}
-	Onboarding.set_local_nickname(
-		str(result.get("nickname", nickname)), str(result.get("normalized", "")), true
-	)
+		return {"ok": false, "reason": await _reserve_failure(reply, key, uid)}
+	Onboarding.set_local_nickname(check["nickname"], key, true)
+	_rename_records(check["nickname"])
 	return {"ok": true, "reason": ""}
+
+
+## Why a nickname commit was refused: the name is taken (another uid owns the
+## index document) or something else. The rules answer 403 for both.
+func _reserve_failure(reply: Dictionary, key: String, uid: String) -> String:
+	var code: int = int(reply.get("code", 0))
+	if code == 409:  # precondition: the index document exists
+		return "taken"
+	if code != 403:
+		return _reply_error(reply)
+	var owner: Dictionary = await firestore.get_doc("nicknames/" + key)
+	if owner["ok"] and str(owner["fields"].get("uid", "")) != uid:
+		return "taken"
+	return "denied"
+
+
+## Best effort: the player's old endless records show the new nickname.
+func _rename_records(nickname: String) -> void:
+	var endless: Dictionary = PlayerProfile.local()["progression"]["endless"]
+	var no_times: Array[String] = []
+	for id: String in endless:
+		var path: String = "leaderboards/level_%d/scores/%s" % [int(id), auth.uid]
+		await firestore.commit([firestore.write_update(path, {"name": nickname}, no_times)])
 
 
 func _reserve_flow(check: Dictionary) -> Dictionary:
@@ -436,9 +522,9 @@ func _reserve_flow(check: Dictionary) -> Dictionary:
 	if reply["ok"]:
 		out.merge({"ok": true, "reason": "reserved"}, true)
 		sync_now()
-	elif reply["reason"] in ["taken", "invalid", "rate_limited", "reserved"]:
+	elif reply["reason"] in ["taken", "invalid", "rate_limited"]:
 		out["reason"] = reply["reason"]
-		out["error"] = "taken" if reply["reason"] == "reserved" else reply["reason"]
+		out["error"] = reply["reason"]
 	else:
 		# No connection or the server is unavailable: keep the name on the device
 		# (unverified) and reserve it at the next sync.

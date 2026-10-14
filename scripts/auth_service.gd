@@ -27,6 +27,7 @@ signal token_request_finished(result: Dictionary)
 
 const SIGN_UP_URL := "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=%s"
 const UPDATE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:update?key=%s"
+const DELETE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=%s"
 const REFRESH_URL := "https://securetoken.googleapis.com/v1/token?key=%s"
 const TYPE_GUEST := "guest"
 const TYPE_EMAIL := "email"
@@ -173,6 +174,30 @@ func link_email(email: String, password: String) -> Dictionary:
 	account_type = TYPE_EMAIL
 	_persist()
 	changed.emit()
+	return {"ok": true, "error": ""}
+
+
+## Deletes the Firebase Auth user of this device (accounts:delete with the
+## idToken; no Cloud Function needed) and forgets the session. The caller
+## deletes the Firestore documents first. {"ok", "error"}: reauth_required (an
+## old email sign-in must be repeated), offline, server. An already deleted
+## user counts as success.
+func delete_account() -> Dictionary:
+	var auth: Dictionary = await ensure_token(false)
+	if not auth["ok"]:
+		return {"ok": false, "error": auth["error"]}
+	var reply: Dictionary = await _post_json(DELETE_URL % api_key, {"idToken": _id_token}, true)
+	if not reply["ok"]:
+		var message: String = error_message(reply["json"])
+		if message == "USER_NOT_FOUND":
+			forget()
+			return {"ok": true, "error": ""}
+		if HttpTransport.is_transient(reply):
+			return {"ok": false, "error": "offline" if reply["network"] else "server"}
+		if message.begins_with("CREDENTIAL_TOO_OLD"):
+			return {"ok": false, "error": "reauth_required"}
+		return {"ok": false, "error": "server"}
+	forget()
 	return {"ok": true, "error": ""}
 
 
