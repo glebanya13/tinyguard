@@ -6,6 +6,15 @@ extends Node3D
 
 enum GuideStep { NONE, CHOP, GOLD, BUILD }
 
+const DEFEAT_TIPS: Array[String] = [
+	"Мороз перед Пушкой: замедленные враги дольше под обстрелом",
+	"улучшайте меч в кузнице и встречайте босса «Вихрем»",
+	"звёзды покупают постоянные улучшения в Казне на карте",
+	"рубите деревья между волнами — дерево нужно для улучшений",
+	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
+	"ремонт стен в кузнице: +2 жизни за 25 дерева",
+]
+
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
@@ -702,9 +711,16 @@ func _on_all_waves_cleared() -> void:
 	if _game_state.is_defeated:
 		return
 	var stars: int = LevelCatalog.stars_for(_game_state.lives, _game_state.starting_lives)
+	var before: int = Perks.earned_stars()
 	LevelCatalog.complete(int(level["id"]), stars)
+	var gained: int = Perks.earned_stars() - before
 	_victory_sound.play()
-	_end_game("Победа!", true, stars)
+	var line: String = "Звёзд всего: %d из %d" % [Perks.earned_stars(), Perks.max_stars()]
+	if gained > 0:
+		line = "Новые звёзды: +%d! %s\nПотратьте их в Казне на карте" % [gained, line]
+	elif stars < 3:
+		line += "\n3 звезды — пройти, не потеряв ни одной жизни"
+	_end_game("Победа!", true, stars, line + "\n")
 
 
 func _on_defeated() -> void:
@@ -726,7 +742,7 @@ func _on_defeated() -> void:
 		)
 		_end_game(title, record, 0, line + "\n")
 		return
-	_end_game("Поражение", false)
+	_end_game("Поражение", false, 0, "Совет: " + DEFEAT_TIPS.pick_random() + "\n")
 
 
 func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:

@@ -24,6 +24,8 @@ const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COST_COLOR := Color(0.2, 0.13, 0.05)
 const PAUSE_COLOR := Color(1.0, 0.96, 0.87)
+const WARN_COLOR := Color(1.0, 0.62, 0.55)
+const INFO_COLOR := Color(0.62, 0.86, 1.0)
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
@@ -238,6 +240,9 @@ func update_card(info: Dictionary) -> void:
 	_card_stats.text = info.get("stats", "")
 	_card_hint.text = info.get("hint", "")
 	_card_hint.visible = _card_hint.text != ""
+	# Red only for problems ("not enough..."), calm blue for information.
+	var warn: bool = _card_hint.text.begins_with("Не хватает")
+	_card_hint.add_theme_color_override("font_color", WARN_COLOR if warn else INFO_COLOR)
 	var specs: Array = info.get("buttons", [])
 	_card.visible = not specs.is_empty()
 	var ids: Array[StringName] = []
