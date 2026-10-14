@@ -83,6 +83,9 @@ func stop() -> void:
 
 
 func _spawn_enemy() -> void:
+	if _queue.is_empty():
+		_check_wave_end()
+		return
 	var entry: Dictionary = _queue.pop_front()
 	var enemy := enemy_scene.instantiate() as Enemy
 	enemy.setup(entry["data"], entry["hp"])

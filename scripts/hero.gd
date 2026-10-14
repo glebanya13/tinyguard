@@ -47,6 +47,8 @@ signal wood_gathered(amount: int, at: Vector3)
 @export var spin_radius: float = 2.2
 @export var spin_damage_mult: float = 1.6
 @export var spin_cooldown: float = 12.0
+## Seconds one whirlwind turn takes.
+@export var spin_duration: float = 0.45
 @export var spin_fx: PackedScene
 
 ## Set by the on-screen joystick (length 0..1).
@@ -118,6 +120,7 @@ func _physics_process(delta: float) -> void:
 
 ## Walk to `target` until within `reach` metres, then call `on_arrive`.
 func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable()) -> void:
+	cancel_order()  # a new order replaces the old one (listeners hear it end)
 	_has_order = true
 	_order_target = Vector3(target.x, 0.0, target.z)
 	_waypoints = (
@@ -168,11 +171,11 @@ func try_spin() -> bool:
 	cancel_order()
 	_spin_left = spin_cooldown
 	_cooldown_left = attack_cooldown
-	_attack_left = 0.45
+	_attack_left = spin_duration
 	_anim.play(&"attack", 0.05)
 	_anim.speed_scale = 1.4
 	var tween := create_tween()
-	tween.tween_property(_model, "rotation:y", _model.rotation.y + TAU, 0.45)
+	tween.tween_property(_model, "rotation:y", _model.rotation.y + TAU, spin_duration)
 	_swing_sound.play()
 	if spin_fx:
 		var fx := spin_fx.instantiate() as Node3D

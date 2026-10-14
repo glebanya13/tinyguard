@@ -18,6 +18,8 @@ const ORBIT_SWAY := 0.12
 
 var _site_buttons: Array[Button] = []
 var _sites: Array[Node3D] = []
+## Level id of each site button (same order as _site_buttons).
+var _site_ids: Array[int] = []
 var _selected: int = 0
 var _time: float = 0.0
 var _camera_base: Transform3D
@@ -63,7 +65,7 @@ func _process(delta: float) -> void:
 	_camera.transform = Transform3D(Basis(Vector3.UP, angle), Vector3.ZERO) * _camera_base
 	for i in _site_buttons.size():
 		var button: Button = _site_buttons[i]
-		var bob: float = sin(_time * 2.4 + i) * 4.0 if i + 1 == _selected else 0.0
+		var bob: float = sin(_time * 2.4 + i) * 4.0 if _site_ids[i] == _selected else 0.0
 		var screen: Vector2 = _camera.unproject_position(_sites[i].global_position)
 		button.position = screen - button.size / 2.0 + Vector2(0.0, bob)
 
@@ -107,6 +109,7 @@ func _build_sites() -> void:
 		button.add_child(number)
 		_site_buttons.append(button)
 		_sites.append(site)
+		_site_ids.append(id)
 
 
 ## Three star icons, the first `earned` lit.
@@ -145,7 +148,7 @@ func _select(id: int) -> void:
 			% [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
 		)
 	for i in _site_buttons.size():
-		_site_buttons[i].modulate = Color(1.15, 1.1, 0.9) if i + 1 == id else Color.WHITE
+		_site_buttons[i].modulate = Color(1.15, 1.1, 0.9) if _site_ids[i] == id else Color.WHITE
 
 
 func _refresh_stars() -> void:

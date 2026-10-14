@@ -120,7 +120,6 @@ func _regrow() -> void:
 		# Someone stands on the stump: try again a bit later.
 		get_tree().create_timer(3.0, false).timeout.connect(_regrow)
 		return
-	_hits_left = hits
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
 	_tree.quaternion = _yaw
 	_tree.scale = Vector3.ONE * 0.05 * model_scale
@@ -135,6 +134,7 @@ func _regrow() -> void:
 		. set_ease(Tween.EASE_OUT)
 	)
 	_tween.tween_callback(_stump.hide)
+	_tween.tween_callback(func() -> void: _hits_left = hits)  # choppable once grown
 	_tween.tween_callback(_set_animated.bind(false))
 
 

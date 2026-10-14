@@ -18,6 +18,8 @@ signal level_changed(level: int)
 @export var muzzle_height: float = 1.1
 ## Horizontal distance from the tower axis towards the target (crossbow tip).
 @export var muzzle_reach: float = 0.3
+## Seconds between target searches while nothing is in range.
+@export var retarget_interval: float = 0.15
 ## Bolt effect for chain towers.
 @export var chain_fx: PackedScene
 
@@ -42,6 +44,7 @@ func _process(delta: float) -> void:
 		return
 	var target: Enemy = find_nearest_enemy()
 	if target == null:
+		_cooldown = retarget_interval
 		return
 	_shoot(target)
 	_cooldown = fire_interval
@@ -88,9 +91,9 @@ func _shoot(target: Enemy) -> void:
 		push_warning("Tower: projectile_scene is not set")
 		return
 	var projectile := projectile_scene.instantiate() as Projectile
-	# top_level keeps the projectile in world space, independent of the tower.
+	# A sibling, not a child: shots in flight survive selling the tower.
 	projectile.top_level = true
-	add_child(projectile)
+	add_sibling(projectile)
 	var aim: Vector3 = target.global_position - global_position
 	aim.y = 0.0
 	var reach: Vector3 = aim.normalized() * muzzle_reach if aim.length() > 0.01 else Vector3.ZERO

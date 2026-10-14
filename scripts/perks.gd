@@ -35,7 +35,9 @@ static func get_perk(id: StringName) -> PerkData:
 
 
 static func level(id: StringName) -> int:
-	return int(_cfg().get_value("perks", String(id), 0))
+	var perk: PerkData = get_perk(id)
+	var saved: int = int(LevelCatalog.data().get_value("perks", String(id), 0))
+	return clampi(saved, 0, perk.max_level()) if perk else 0
 
 
 ## Current effect of a perk (0 when not bought).
@@ -95,21 +97,14 @@ static func any_affordable() -> bool:
 static func buy(perk: PerkData) -> bool:
 	if not can_buy(perk):
 		return false
-	var cfg: ConfigFile = _cfg()
-	cfg.set_value("perks", String(perk.id), level(perk.id) + 1)
-	cfg.save(LevelCatalog.save_path)
+	LevelCatalog.data().set_value("perks", String(perk.id), level(perk.id) + 1)
+	LevelCatalog.commit()
 	return true
 
 
 ## Returns every star spent on perks.
 static func reset() -> void:
-	var cfg: ConfigFile = _cfg()
+	var cfg: ConfigFile = LevelCatalog.data()
 	if cfg.has_section("perks"):
 		cfg.erase_section("perks")
-	cfg.save(LevelCatalog.save_path)
-
-
-static func _cfg() -> ConfigFile:
-	var cfg := ConfigFile.new()
-	cfg.load(LevelCatalog.save_path)
-	return cfg
+	LevelCatalog.commit()

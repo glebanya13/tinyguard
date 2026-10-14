@@ -12,6 +12,10 @@ static var selected_id: int = 1
 ## True when the selected level is played as an endless siege.
 static var endless: bool = false
 static var _levels: Array = []
+static var _save: ConfigFile = null
+static var _save_loaded_from: String = ""
+## Set when the save exists but cannot be parsed: never overwrite it then.
+static var _save_broken: bool = false
 
 
 static func levels() -> Array:
@@ -30,21 +34,18 @@ static func get_level(id: int) -> Dictionary:
 
 ## Highest level id the player may start (1 = only the first).
 static func unlocked() -> int:
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	return int(cfg.get_value("progress", "unlocked", 1))
 
 
 static func is_completed(id: int) -> bool:
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	return bool(cfg.get_value("progress", "won_%d" % id, false))
 
 
 ## Best result on a level: 0 (not won) .. 3 stars.
 static func stars(id: int) -> int:
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	var best: int = int(cfg.get_value("progress", "stars_%d" % id, 0))
 	if best == 0 and bool(cfg.get_value("progress", "won_%d" % id, false)):
 		best = 1  # saved before stars existed
@@ -60,26 +61,23 @@ static func stars_for(lives_left: int, lives_start: int) -> int:
 
 static func complete(id: int, earned_stars: int = 1) -> void:
 	var best: int = maxi(stars(id), earned_stars)
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	cfg.set_value("progress", "won_%d" % id, true)
 	cfg.set_value("progress", "stars_%d" % id, best)
 	cfg.set_value("progress", "unlocked", maxi(unlocked(), mini(id + 1, levels().size())))
-	cfg.save(save_path)
+	commit()
 
 
 static func sound_on() -> bool:
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	return bool(cfg.get_value("settings", "sound", true))
 
 
 ## Mutes or unmutes the master bus and remembers the choice.
 static func set_sound_on(on: bool) -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	cfg.set_value("settings", "sound", on)
-	cfg.save(save_path)
+	commit()
 	apply_sound()
 
 
@@ -89,8 +87,7 @@ static func apply_sound() -> void:
 
 ## Best wave survived in the endless siege of a level (0 = never played).
 static func endless_record(id: int) -> int:
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	return int(cfg.get_value("progress", "endless_%d" % id, 0))
 
 
@@ -98,8 +95,39 @@ static func endless_record(id: int) -> int:
 static func save_endless(id: int, wave: int) -> bool:
 	if wave <= endless_record(id):
 		return false
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
+	var cfg: ConfigFile = data()
 	cfg.set_value("progress", "endless_%d" % id, wave)
-	cfg.save(save_path)
+	commit()
 	return true
+
+
+## The save file, loaded once and cached. A corrupt file falls back to its
+## .bak copy; if both fail the game runs on defaults and never writes.
+static func data() -> ConfigFile:
+	if _save != null and _save_loaded_from == save_path:
+		return _save
+	_save = ConfigFile.new()
+	_save_loaded_from = save_path
+	_save_broken = false
+	var error: Error = _save.load(save_path)
+	if error != OK and error != ERR_FILE_NOT_FOUND:
+		push_error("Save %s is damaged (%s), trying the backup" % [save_path, error_string(error)])
+		_save = ConfigFile.new()
+		if _save.load(save_path + ".bak") != OK:
+			_save = ConfigFile.new()
+			_save_broken = true
+	return _save
+
+
+## Writes the cached save atomically: temp file, keep the old one as .bak, rename.
+static func commit() -> void:
+	if _save == null or _save_broken:
+		return
+	var tmp: String = save_path + ".tmp"
+	if _save.save(tmp) != OK:
+		push_error("Cannot write the save to %s" % tmp)
+		return
+	var real: String = ProjectSettings.globalize_path(save_path)
+	if FileAccess.file_exists(save_path):
+		DirAccess.copy_absolute(real, real + ".bak")
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real)

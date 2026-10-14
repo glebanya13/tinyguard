@@ -7,6 +7,9 @@ var _failures := 0
 
 
 func _initialize() -> void:
+	# Never touch the developer's real save (perks would change the numbers).
+	LevelCatalog.save_path = "user://test_gameplay.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
 	LevelCatalog.selected_id = (
 		int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
 	)

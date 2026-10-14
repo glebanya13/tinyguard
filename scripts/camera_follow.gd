@@ -74,6 +74,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		zoom_by(1.0 / magnify.factor)
 
 
+## Forgets active touches (their release may have been lost during a pause).
+func reset_touches() -> void:
+	_touches.clear()
+	_pinch_distance = 0.0
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		reset_touches()
+
+
 ## Multiplies the orthographic size (> 1 zooms out).
 func zoom_by(factor: float) -> void:
 	size = clampf(size * factor, min_size, max_size)

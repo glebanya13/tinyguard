@@ -13,6 +13,9 @@ func check(c: bool, w: String) -> void:
 
 
 func _initialize() -> void:
+	# Never touch the developer's real save (perks would change the numbers).
+	LevelCatalog.save_path = "user://test_combat.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
 	LevelCatalog.selected_id = 1
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()

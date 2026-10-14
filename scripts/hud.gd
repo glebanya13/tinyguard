@@ -48,6 +48,7 @@ var _hint_tween: Tween = null
 var _joystick_visible: bool = false
 var _next_wave_key: int = -1
 var _card_hash: int = 0
+var _spin_shown: int = -1
 ## Touch build: no keyboard hints or hover tooltips.
 var _touch: bool = OS.has_feature("mobile")
 
@@ -154,11 +155,14 @@ func set_next_wave(wave: int, seconds: float, boss: bool = false) -> void:
 
 ## Whirlwind button: seconds left on the cooldown (0 = ready).
 func set_spin_cooldown(seconds: float) -> void:
+	var shown: int = ceili(seconds)
+	if shown == _spin_shown:
+		return  # called every frame: touch the controls only when the number changes
+	_spin_shown = shown
 	var ready: bool = seconds <= 0.0
 	_spin_button.disabled = not ready
 	_spin_label.text = "" if ready else str(ceili(seconds))
 	_spin_icon.modulate.a = 1.0 if ready else 0.35
-	_spin_icon.rotation = 0.0 if not ready else _spin_icon.rotation + 0.02
 
 
 ## Sword for enemies, axe for trees.

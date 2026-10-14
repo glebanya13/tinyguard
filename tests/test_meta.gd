@@ -52,7 +52,31 @@ func _run() -> void:
 	check(Perks.endless_stars(1) == 3, "record raises stars")
 	Perks.reset()
 	check(Perks.spent_stars() == 0, "perks reset")
+
+	# A damaged save is never overwritten; the .bak copy (made on commit) is used.
+	LevelCatalog.complete(1, 3)  # commit -> the previous file becomes .bak
+	var real: String = ProjectSettings.globalize_path(SAVE)
+	var f := FileAccess.open(real, FileAccess.WRITE)
+	f.store_string("[progress\nbroken = = =")
+	f.close()
+	LevelCatalog.save_path = "user://other.cfg"  # drop the cache
+	LevelCatalog.save_path = SAVE
+	check(LevelCatalog.stars(1) == 3, "damaged save falls back to the backup")
+	DirAccess.remove_absolute(real + ".bak")
+	f = FileAccess.open(real, FileAccess.WRITE)
+	f.store_string("[progress\nbroken = = =")
+	f.close()
+	LevelCatalog.save_path = "user://other.cfg"
+	LevelCatalog.data()
+	LevelCatalog.save_path = SAVE
+	LevelCatalog.set_sound_on(true)
+	check(
+		FileAccess.get_file_as_string(real).begins_with("[progress\nbroken"),
+		"damaged save left untouched"
+	)
+	DirAccess.remove_absolute(real + ".tmp")
 	LevelCatalog.endless = false
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
+	for suffix in ["", ".bak", ".tmp"]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE) + suffix)
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

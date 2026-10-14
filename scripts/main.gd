@@ -12,7 +12,6 @@ const DEFEAT_TIPS: Array[String] = [
 	"звёзды покупают постоянные улучшения в Казне на карте",
 	"рубите деревья между волнами — дерево нужно для улучшений",
 	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
-	"ремонт стен в кузнице: +2 жизни за 25 дерева",
 ]
 
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
@@ -46,6 +45,8 @@ const AUTO_SELECT_REACH := 1.1
 const PATH_HEIGHT := 0.05
 ## Camera look-at area is the level bounds shrunk by this margin.
 const CAMERA_MARGIN := 4.0
+## The guide arrow looks for a new target this often (it scans groups).
+const GUIDE_REFRESH_FRAMES := 12
 ## Physics layers that block walking: level colliders (1) and trees (3).
 const WALK_OBSTACLE_MASK := 1 | 4
 ## Radius a built tower blocks on the walk grid.
@@ -57,6 +58,12 @@ var level: Dictionary = {}
 var walk_grid := WalkGrid.new()
 
 var _focused_tree: WoodTree = null
+## What the hero's next swing hits, computed once per frame.
+var _focus: Node3D = null
+var _guide_target: Node3D = null
+var _pending_slot: TowerSlot = null
+var _guide_wait: int = 0
+var _guide_done: bool = false
 var _paused: bool = false
 var _endless: bool = false
 var _waves_cleared: int = 0
@@ -111,7 +118,7 @@ func _ready() -> void:
 	_wave_manager.wave_started.connect(_on_wave_started)
 	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared)
 
-	_build_manager.slot_selected.connect(_refresh_card.unbind(1))
+	_build_manager.slot_selected.connect(_on_slot_selected)
 	_build_manager.selection_cleared.connect(_refresh_card)
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
@@ -163,6 +170,8 @@ func _toggle_pause() -> void:
 		return
 	_paused = not _paused
 	get_tree().paused = _paused
+	_hero.joystick_vector = Vector2.ZERO
+	_camera.reset_touches()
 	if _paused:
 		_hero.cancel_order()
 		_hud.show_pause_menu()
@@ -200,12 +209,13 @@ func _stats_summary() -> String:
 
 
 func _process(delta: float) -> void:
-	_stats["time"] += delta
+	_stats["time"] += delta / Engine.time_scale  # real seconds, also at x2
 	var next: int = _wave_manager.current_wave + 1
 	_hud.set_next_wave(
 		next, _wave_manager.time_to_next_wave(), _wave_manager.plan.is_boss_wave(next)
 	)
 	_auto_select_near_hero()
+	_focus = _hero.get_focus_target()
 	_update_target_ring()
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 	_update_guide_arrow()
@@ -214,7 +224,7 @@ func _process(delta: float) -> void:
 ## Ring under whatever the next swing hits; the attack button shows an axe
 ## for trees and a sword for enemies.
 func _update_target_ring() -> void:
-	var target: Node3D = _hero.get_focus_target()
+	var target: Node3D = _focus
 	if target != _focused_tree:
 		if is_instance_valid(_focused_tree):
 			_focused_tree.set_highlighted(false)
@@ -346,6 +356,7 @@ func _on_command_pressed(id: StringName) -> void:
 	else:
 		_hero.move_to(slot.global_position, BUILD_REACH, _execute.bind(id, slot))
 		_pending_command = id
+		_pending_slot = slot
 		_refresh_card()
 
 
@@ -460,7 +471,7 @@ func _refresh_card() -> void:
 				"wood": refund.y,
 				"gain": true,
 				"enabled": true,
-				"tooltip": "Продать за 70%% вложенного (X)"
+				"tooltip": "Продать за %d%% вложенного (X)" % roundi(TowerData.SELL_REFUND * 100.0)
 			}
 		)
 	if slot != null:
@@ -495,10 +506,16 @@ func _forge_card() -> Dictionary:
 	var sword: Vector2i = _hero.sword_upgrade_cost()
 	var next_damage: String = ""
 	if sword.x >= 0:
-		next_damage = " → %d" % _hero.sword_damage_levels[_hero.sword_level + 1]
+		var next_index: int = mini(_hero.sword_level + 1, _hero.sword_damage_levels.size() - 1)
+		next_damage = (" → %d" % (_hero.sword_damage_levels[next_index] * _hero.damage_multiplier))
 	info["stats"] = (
 		"Меч: урон %d%s · замок: %d/%d жизней"
-		% [_hero.attack_damage, next_damage, _game_state.lives, _game_state.starting_lives]
+		% [
+			_hero.attack_damage * _hero.damage_multiplier,
+			next_damage,
+			_game_state.lives,
+			_game_state.starting_lives
+		]
 	)
 	var upgrade := {
 		"id": &"sword",
@@ -573,6 +590,18 @@ func _guide_step() -> GuideStep:
 ## Bouncing arrow over the next thing to do: a tree, a slime, a free slot.
 func _update_guide_arrow() -> void:
 	var target: Node3D = null
+	_guide_wait -= 1
+	if _guide_done or _guide_wait > 0:
+		if _guide_done:
+			_guide_arrow.hide()
+		elif _guide_target and is_instance_valid(_guide_target):
+			_place_guide_arrow(_guide_target)
+		else:
+			_guide_arrow.hide()
+		return
+	_guide_wait = GUIDE_REFRESH_FRAMES
+	if _guide_step() == GuideStep.NONE:
+		_guide_done = true  # hints end for good once the first towers stand
 	if _build_manager.selected_slot == null and not _forge_open:
 		match _guide_step():
 			GuideStep.CHOP:
@@ -587,7 +616,12 @@ func _update_guide_arrow() -> void:
 				target = _nearest_in_group(
 					TowerSlot.GROUP, func(n: Node) -> bool: return (n as TowerSlot).is_free()
 				)
-	_guide_arrow.visible = target != null and target != _hero.get_focus_target()
+	_guide_target = target
+	_place_guide_arrow(target)
+
+
+func _place_guide_arrow(target: Node3D) -> void:
+	_guide_arrow.visible = target != null and target != _focus
 	if _guide_arrow.visible:
 		var bob: float = 0.18 * sin(Time.get_ticks_msec() * 0.006)
 		var height: float = 2.6 if target is WoodTree else 1.0
@@ -629,6 +663,13 @@ func _popup(text: String, at: Vector3, color: Color, icon: Texture2D = null) -> 
 		_hud.popup(text, _camera.unproject_position(at), color, icon)
 
 
+func _on_slot_selected(slot: TowerSlot) -> void:
+	# Picking another slot drops a build/upgrade the hero was walking to do.
+	if _pending_command != &"" and slot != _pending_slot:
+		_hero.cancel_order()
+	_refresh_card()
+
+
 func _on_resources_changed() -> void:
 	_hud.set_gold(_game_state.gold)
 	_hud.set_wood(_game_state.wood)
@@ -647,7 +688,9 @@ func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 	_spawn_fx(BUILD_FX, slot.global_position)
 	# Rise out of the dust.
 	tower.scale = Vector3(1.0, 0.2, 1.0)
-	create_tween().tween_property(tower, "scale", Vector3.ONE, 0.45).set_trans(Tween.TRANS_BACK)
+	tower.create_tween().tween_property(tower, "scale", Vector3.ONE, 0.45).set_trans(
+		Tween.TRANS_BACK
+	)
 	_refresh_card()
 
 
@@ -742,7 +785,14 @@ func _on_defeated() -> void:
 		)
 		_end_game(title, record, 0, line + "\n")
 		return
-	_end_game("Поражение", false, 0, "Совет: " + DEFEAT_TIPS.pick_random() + "\n")
+	var tips: Array[String] = DEFEAT_TIPS.duplicate()
+	tips.append(
+		(
+			"ремонт стен в кузнице: +%d жизни за %d дерева"
+			% [_game_state.repair_lives, _game_state.repair_wood]
+		)
+	)
+	_end_game("Поражение", false, 0, "Совет: " + tips.pick_random() + "\n")
 
 
 func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:

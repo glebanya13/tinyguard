@@ -40,6 +40,10 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
+	# A finger lifted while hidden or paused never reaches _gui_input: let go.
+	var hidden: bool = what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree()
+	if (hidden or what == NOTIFICATION_APPLICATION_FOCUS_OUT) and _touch_index != -1:
+		_release()
 	if what == NOTIFICATION_RESIZED:
 		_center = size / 2.0
 		if _touch_index == -1:

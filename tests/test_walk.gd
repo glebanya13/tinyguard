@@ -4,6 +4,9 @@ extends SceneTree
 
 
 func _initialize() -> void:
+	# Never touch the developer's real save (perks would change the numbers).
+	LevelCatalog.save_path = "user://test_walk.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
 	LevelCatalog.selected_id = (
 		int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
 	)
