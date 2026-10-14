@@ -1,6 +1,7 @@
-[gd_scene load_steps=31 format=3]
+[gd_scene load_steps=32 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/enemy_crowd.gd" id="20_crowd"]
 [ext_resource type="AudioStream" path="res://assets/audio/music_loop.wav" id="19_music"]
 [ext_resource type="Script" path="res://scripts/game_state.gd" id="4_game_state"]
 [ext_resource type="Script" path="res://scripts/wave_manager.gd" id="5_wave_manager"]
@@ -125,6 +126,9 @@ bounds = Rect2(-10, -7, 20, 14)
 
 [node name="EnemyPath" type="Path3D" parent="Level"]
 
+[node name="EnemyCrowd" type="Node3D" parent="Level"]
+script = ExtResource("20_crowd")
+
 [node name="TargetRing" type="MeshInstance3D" parent="."]
 visible = false
 cast_shadow = 0
@@ -147,10 +151,11 @@ mesh = SubResource("arrow_mesh")
 [node name="GameState" type="Node" parent="."]
 script = ExtResource("4_game_state")
 
-[node name="WaveManager" type="Node" parent="." node_paths=PackedStringArray("enemy_path")]
+[node name="WaveManager" type="Node" parent="." node_paths=PackedStringArray("enemy_path", "crowd")]
 script = ExtResource("5_wave_manager")
 enemy_scene = ExtResource("7_enemy")
 enemy_path = NodePath("../Level/EnemyPath")
+crowd = NodePath("../Level/EnemyCrowd")
 
 [node name="BuildManager" type="Node" parent="." node_paths=PackedStringArray("game_state", "camera")]
 script = ExtResource("9_build_manager")

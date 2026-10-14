@@ -49,3 +49,6 @@ tinyguard.zip
 # Firebase project config (per developer / build machine)
 firebase.cfg
 .firebaserc
+
+# Claude Code agent worktrees (local only)
+.claude/

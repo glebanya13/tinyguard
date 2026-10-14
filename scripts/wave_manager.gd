@@ -14,6 +14,8 @@ signal enemy_reached_base(damage: int)
 
 @export var enemy_scene: PackedScene
 @export var enemy_path: Path3D
+## Shared MultiMesh renderer for all enemies (optional).
+@export var crowd: EnemyCrowd
 
 var current_wave: int = 0
 var plan: WavePlan = null
@@ -121,6 +123,7 @@ func _spawn_enemy(entry: Dictionary, wave: int) -> Enemy:
 	var enemy := enemy_scene.instantiate() as Enemy
 	enemy.setup(entry["data"], entry["hp"])
 	enemy.wave = wave
+	enemy.crowd = crowd
 	enemy.died.connect(_on_enemy_gone.bind(wave, true), CONNECT_ONE_SHOT)
 	enemy.died.connect(enemy_killed.emit)
 	enemy.reached_base.connect(_on_enemy_gone.bind(wave, false), CONNECT_ONE_SHOT)

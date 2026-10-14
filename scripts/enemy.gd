@@ -2,7 +2,8 @@ class_name Enemy
 extends PathFollow3D
 ## Walks along the parent Path3D towards the base. Built from EnemyData via
 ## setup() before entering the tree. Reports death and reaching the base
-## through signals and frees itself in both cases.
+## through signals and frees itself in both cases. Drawn by an EnemyCrowd when
+## one is set (MultiMesh, no own model); otherwise it instantiates its model.
 
 signal died(reward: int)
 signal reached_base(damage: int)
@@ -28,6 +29,12 @@ var health: float = 0.0
 var data: EnemyData = null
 ## Wave this enemy belongs to (set by WaveManager).
 var wave: int = 0
+## Shared renderer; set before adding the enemy to the tree (null = own model).
+var crowd: EnemyCrowd = null
+## Offset into the idle animation cycle (0..1) so a crowd does not bob in sync.
+var anim_phase: float = randf()
+## Squash on hits / heal pulses (the crowd renderer reads it).
+var visual_scale: Vector3 = Vector3.ONE
 
 var _is_dead: bool = false
 var _slow_factor: float = 1.0
@@ -53,6 +60,12 @@ func setup(enemy_data: EnemyData, health_multiplier: float) -> void:
 func _ready() -> void:
 	health = max_health
 	add_to_group(GROUP)
+	_bar_width = data.health_bar_width / 0.6 if data else 1.0
+	if crowd and data:
+		crowd.add(self)
+		_health_bar.queue_free()
+		_health_bar = null
+		return
 	if data:
 		_model = data.model.instantiate() as Node3D
 		_model.set_script(LOOPING_MODEL)
@@ -63,7 +76,6 @@ func _ready() -> void:
 		for mesh: Node in _model.find_children("*", "GeometryInstance3D", true, false):
 			(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_health_bar.position.y = data.health_bar_height + data.fly_height
-		_bar_width = data.health_bar_width / 0.6
 		_health_bar.scale.x = _bar_width
 		if data.is_boss:
 			_health_bar.scale.y = 1.8
@@ -98,8 +110,7 @@ func take_damage(amount: float, kind: StringName = &"") -> void:
 	if data and data.armor > 0.0:
 		amount = maxf(amount - data.armor, 1.0)
 	health = maxf(health - amount, 0.0)
-	_health_bar.visible = true
-	_health_bar.scale.x = _bar_width * health / max_health
+	_update_own_bar()
 	if health <= 0.0:
 		_spawn_death_fx()
 		_remove()
@@ -108,11 +119,8 @@ func take_damage(amount: float, kind: StringName = &"") -> void:
 			for i in data.split_count:
 				split.emit(data.split_into, _health_mult, maxf(progress - 0.35 * i, 0.0), wave)
 		died.emit(reward)
-	elif _model:
-		# Squash on hit.
-		var tween := create_tween()
-		_model.scale = Vector3(1.18, 0.82, 1.18)
-		tween.tween_property(_model, "scale", Vector3.ONE, 0.18)
+	else:
+		_pulse(Vector3(1.18, 0.82, 1.18), 0.0, 0.18)  # squash on hit
 
 
 ## Slows movement to `factor` of the normal speed for `duration` seconds.
@@ -130,7 +138,7 @@ func heal(amount: float) -> void:
 	if _is_dead or health >= max_health:
 		return
 	health = minf(health + amount, max_health)
-	_health_bar.scale.x = _bar_width * health / max_health
+	_update_own_bar()
 
 
 func is_flying() -> bool:
@@ -139,6 +147,31 @@ func is_flying() -> bool:
 
 func is_boss() -> bool:
 	return data != null and data.is_boss
+
+
+func health_ratio() -> float:
+	return health / max_health if max_health > 0.0 else 0.0
+
+
+## A full bar says nothing: only hurt enemies and bosses show one.
+func shows_health_bar() -> bool:
+	return is_boss() or health < max_health
+
+
+## Bar scale relative to the 0.6 m bar mesh, and its height above the path.
+func bar_width() -> float:
+	return _bar_width
+
+
+func bar_height() -> float:
+	return data.health_bar_height + data.fly_height if data else 0.8
+
+
+## Model transform relative to the enemy (turned to face the walking
+## direction, lifted when flying, squashed by hits).
+func model_offset() -> Transform3D:
+	var lift: float = data.fly_height if data else 0.0
+	return Transform3D(Basis(Vector3.UP, PI).scaled(visual_scale), Vector3(0.0, lift, 0.0))
 
 
 func get_aim_point() -> Vector3:
@@ -152,10 +185,30 @@ func _heal_neighbours() -> void:
 		var other := node as Enemy
 		if other != self and other.global_position.distance_squared_to(global_position) <= r2:
 			other.heal(other.max_health * data.heal_fraction)
+	_pulse(Vector3.ONE * 1.12, 0.12, 0.2)
+
+
+## Scale kick (hit squash / heal pulse) on the own model or the crowd instance.
+func _pulse(peak: Vector3, rise: float, fall: float) -> void:
+	var tween := create_tween()
 	if _model:
-		var tween := create_tween()
-		tween.tween_property(_model, "scale", Vector3.ONE * 1.12, 0.12)
-		tween.tween_property(_model, "scale", Vector3.ONE, 0.2)
+		if rise > 0.0:
+			tween.tween_property(_model, "scale", peak, rise)
+		else:
+			_model.scale = peak
+		tween.tween_property(_model, "scale", Vector3.ONE, fall)
+	else:
+		if rise > 0.0:
+			tween.tween_property(self, "visual_scale", peak, rise)
+		else:
+			visual_scale = peak
+		tween.tween_property(self, "visual_scale", Vector3.ONE, fall)
+
+
+func _update_own_bar() -> void:
+	if _health_bar:
+		_health_bar.visible = true
+		_health_bar.scale.x = _bar_width * health_ratio()
 
 
 func _spawn_death_fx() -> void:
@@ -170,5 +223,7 @@ func _spawn_death_fx() -> void:
 
 func _remove() -> void:
 	_is_dead = true
+	if crowd:
+		crowd.remove(self)
 	remove_from_group(GROUP)
 	queue_free()

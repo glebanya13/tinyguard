@@ -221,7 +221,7 @@ def declares_nodepath(res_path: str, prop: str) -> bool:
 
 def collect_class_names() -> None:
     seen: dict[str, str] = {}
-    for path in sorted(ROOT.rglob("*.gd")):
+    for path in sorted(p for p in ROOT.rglob("*.gd") if not _hidden(p)):
         if ".godot" in path.parts:
             continue
         m = re.search(r"^class_name\s+(\w+)", path.read_text(encoding="utf-8"), re.M)
@@ -313,6 +313,11 @@ MIN_SLOT_COVERAGE = 3.5
 REACH_MARGIN = 0.3
 
 
+def _hidden(path) -> bool:
+    """Files under dot-directories (.godot cache, .claude worktrees) are not the project."""
+    return any(part.startswith(".") for part in path.relative_to(ROOT).parts[:-1])
+
+
 def _min_tower_range() -> float:
     import re
     best = 99.0
@@ -329,10 +334,10 @@ def main() -> int:
     check_project_settings()
     collect_class_names()
     for pattern in ("*.tscn", "*.tres"):
-        for path in ROOT.rglob(pattern):
+        for path in (p for p in ROOT.rglob(pattern) if not _hidden(p)):
             if ".godot" not in path.parts:
                 check_scene(path)
-    for path in ROOT.rglob("*.gd"):
+    for path in (p for p in ROOT.rglob("*.gd") if not _hidden(p)):
         if ".godot" not in path.parts:
             check_gdscript(path)
 
