@@ -177,10 +177,11 @@ func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
 	enemy.crowd = crowd
 	enemy.sim = sim
 	enemy.path = path
-	enemy.died.connect(_on_enemy_gone.bind(wave, true), CONNECT_ONE_SHOT)
+	# The enemy's own report (gold, lost lives) goes out before "wave cleared".
 	enemy.died.connect(enemy_killed.emit)
-	enemy.reached_base.connect(_on_enemy_gone.bind(wave, false), CONNECT_ONE_SHOT)
+	enemy.died.connect(_on_enemy_gone.bind(wave, true), CONNECT_ONE_SHOT)
 	enemy.reached_base.connect(enemy_reached_base.emit)
+	enemy.reached_base.connect(_on_enemy_gone.bind(wave, false), CONNECT_ONE_SHOT)
 	enemy.split.connect(_on_enemy_split.bind(path))
 	path.add_child(enemy)
 	_alive += 1

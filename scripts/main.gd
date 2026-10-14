@@ -516,8 +516,7 @@ func _auto_select_near_hero() -> void:
 		return
 	var nearest: TowerSlot = null
 	var best: float = AUTO_SELECT_REACH
-	for node: Node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
-		var slot := node as TowerSlot
+	for slot in _commands.slots:
 		var offset: Vector3 = slot.global_position - _hero.global_position
 		offset.y = 0.0
 		if offset.length() < best:
@@ -535,11 +534,11 @@ func _refresh_card() -> void:
 		_range_ring.hide()
 	if slot == null and _forge_open:
 		_hud.show_hint("")
-		_hud.update_card(_forge_card())
+		_hud.update_card(CommandCards.forge(_hero, _game_state))
 		return
 	if slot == null and _trade_with != null:
 		_hud.show_hint("")
-		_hud.update_card(_trade_card())
+		_hud.update_card(CommandCards.trade(villagers, _game_state))
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text())
@@ -636,97 +635,6 @@ func _show_range(slot: TowerSlot) -> void:
 		var r: float = slot.tower.range_m if slot.tower else _tower_types()[0].range_levels[0]
 		_range_ring.global_position = Vector3(slot.global_position.x, 0.07, slot.global_position.z)
 		_range_ring.scale = Vector3(r, 1.0, r)
-
-
-## Forge card: sword upgrade and castle repair.
-func _forge_card() -> Dictionary:
-	var info := {"title": "Кузница"}
-	var sword: Vector2i = _hero.sword_upgrade_cost()
-	var next_damage: String = ""
-	if sword.x >= 0:
-		var next_index: int = mini(_hero.sword_level + 1, _hero.sword_damage_levels.size() - 1)
-		next_damage = (" → %d" % (_hero.sword_damage_levels[next_index] * _hero.damage_multiplier))
-	info["stats"] = (
-		"Меч %d%s · стены %d/%d"
-		% [
-			_hero.attack_damage * _hero.damage_multiplier,
-			next_damage,
-			_game_state.lives,
-			_game_state.starting_lives
-		]
-	)
-	var upgrade := {
-		"id": &"sword",
-		"icon": SWORD_ICON,
-		"enabled": _game_state.can_afford(sword),
-		"tooltip": "Закалить меч (U)"
-	}
-	if sword.x < 0:
-		upgrade["label"] = "макс."
-	else:
-		upgrade["gold"] = sword.x
-		upgrade["wood"] = sword.y
-	var repair := {
-		"id": &"repair",
-		"icon": HEART_ICON,
-		"wood": _game_state.repair_wood,
-		"enabled": _game_state.can_repair(),
-		"tooltip": "Починить стены: +%d жизни" % _game_state.repair_lives
-	}
-	info["buttons"] = [
-		upgrade,
-		repair,
-		{
-			"id": &"cancel",
-			"icon": CANCEL_ICON,
-			"label": "Esc",
-			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
-		}
-	]
-	return info
-
-
-## Trade card: sell wood to the villager in lots, the price drops with every lot.
-func _trade_card() -> Dictionary:
-	var lot: int = villagers.trade.wood_per_lot
-	var lots: int = villagers.lots_affordable()
-	var price: int = villagers.lot_price()
-	var info := {"title": "Житель"}
-	info["stats"] = (
-		"Курс: %d дерева → %d золота · дерева у вас: %d" % [lot, price, _game_state.wood]
-	)
-	info["hint"] = (
-		"Чем больше продаёте, тем ниже цена"
-		if lots > 0
-		else "Не хватает дерева: житель берёт по %d" % lot
-	)
-	info["buttons"] = [
-		{
-			"id": &"trade_lot",
-			"icon": VILLAGER_ICON,
-			"gold": price,
-			"gain": true,
-			"enabled": lots > 0,
-			"tooltip": "Продать %d дерева → +%d золота" % [lot, price]
-		},
-		{
-			"id": &"trade_all",
-			"icon": SELL_ICON,
-			"gold": villagers.quote(lots),
-			"gain": true,
-			"enabled": lots > 0,
-			"tooltip": "Продать всё: %d дерева → +%d золота" % [lots * lot, villagers.quote(lots)]
-		},
-		{
-			"id": &"cancel",
-			"icon": CANCEL_ICON,
-			"label": "Esc",
-			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
-		}
-	]
-	return info
 
 
 ## Opens the trade card when the hero comes up to a villager and closes it
@@ -950,8 +858,7 @@ func _on_ground_tapped(point: Vector3) -> void:
 	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
 	var best: WoodTree = null
 	var best_distance: float = TREE_TAP_REACH
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
+	for tree in _sim.trees:
 		var offset: Vector3 = tree.global_position - point
 		offset.y = 0.0
 		if tree.is_choppable() and offset.length() < best_distance:

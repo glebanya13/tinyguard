@@ -238,16 +238,17 @@ func get_focus_target(strict: bool = false) -> Node3D:
 	var slack: float = 0.0 if strict else 0.5
 	var best: Node3D = null
 	var best_distance: float = attack_range + slack
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var d: float = _flat_distance(node as Node3D)
-		if (node as Enemy).is_alive() and d < best_distance:
+	if sim == null:
+		return null
+	for enemy in sim.enemies:
+		var d: float = _flat_distance(enemy)
+		if enemy.is_alive() and d < best_distance:
 			best_distance = d
-			best = node as Node3D
+			best = enemy
 	if best != null:
 		return best
 	best_distance = chop_range + slack
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
+	for tree in sim.trees:
 		var d: float = _flat_distance(tree)
 		if tree.is_choppable() and d < best_distance:
 			best_distance = d
@@ -307,16 +308,17 @@ func _in_cone(origin: Vector3, point: Vector3, forward: Vector3, reach: float) -
 func _nearest_target(reach: float) -> Node3D:
 	var best: Node3D = null
 	var best_distance: float = reach
-	for node: Node in get_tree().get_nodes_in_group(Enemy.GROUP):
-		var d: float = _flat_distance(node as Node3D)
+	if sim == null:
+		return null
+	for enemy in sim.enemies:
+		var d: float = _flat_distance(enemy)
 		if d < best_distance:
 			best_distance = d
-			best = node as Node3D
+			best = enemy
 	if best != null:
 		return best
 	best_distance = reach
-	for node: Node in get_tree().get_nodes_in_group(WoodTree.GROUP):
-		var tree := node as WoodTree
+	for tree in sim.trees:
 		var d: float = _flat_distance(tree)
 		if tree.is_choppable() and d < best_distance:
 			best_distance = d
