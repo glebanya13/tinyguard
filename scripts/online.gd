@@ -52,11 +52,11 @@ var auth := AuthService.new()
 var firestore := FirestoreClient.new()
 ## The first start() finished (signed in and synced, or failed offline).
 var startup_done: bool = false
+## First retry delay of an unsent record, seconds (tests shorten it).
+var retry_base: float = 5.0
 
 var _transport: HttpTransport = null
 var _started: bool = false
-## First retry delay of an unsent record, seconds (tests shorten it).
-var retry_base: float = 5.0
 var _retry_delay: float = 5.0
 var _retries: int = 0
 var _record_busy: bool = false
