@@ -232,7 +232,8 @@ flags/{level}/{uid}/by/{flagger}       {reason, updated}                   — �
   `resource == null`;
 - ограничения размера строк (`blob.size() < 60000`, `name.size() <= 16`);
 - **правило «минимально возможного времени»** (дешёвый анти-чит, 1 чтение на запись):
-  при старте забега клиент пишет `runs/{uid} {startedAt: request.time, level}`; рекорд
+  **(реализовано в `firestore.rules` и `Online.start_run`, см. `docs/ACCOUNTS.md`; граница
+  там `(w-1)*15 с`, с запасом 15 с)** при старте забега клиент пишет `runs/{uid} {startedAt: request.time, level}`; рекорд
   для волны `w` допустим, только если
   `request.time - get(runs/uid).startedAt >= (first_delay + (w-1)*wave_duration)/2`
   (÷2 — ускорение ×2). Работает потому, что волны идут по фиксированным часам

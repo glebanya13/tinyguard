@@ -7,7 +7,10 @@ rules_version = '2';
 //   users/{uid}            private profile: progression, settings, onboarding flags
 //   publicProfiles/{uid}   public nickname (readable by signed-in players)
 //   nicknames/{normalized} uniqueness index {uid, nickname, createdAt}; create-only
-//   leaderboards/level_N/scores/{uid}   endless-siege records, only upwards
+//   nicknameTrace/{uid}    when the nickname last changed; survives profile deletion
+//   runs/{uid}             start of the current endless run (server time)
+//   leaderboards/level_N/scores/{uid}   endless-siege records, only upwards and
+//                          not faster than the wave clock allows (see below)
 //   saves/{uid}            legacy cloud save of older app versions
 //
 // Nickname reservation and change are ONE atomic commit from the client
@@ -36,11 +39,19 @@ service cloud.firestore {
       return '0-9A-Za-z\\x{C0}-\\x{D6}\\x{D8}-\\x{F6}\\x{F8}-\\x{12F}\\x{131}-\\x{17E}\\x{401}-\\x{40C}\\x{40E}-\\x{45F}';
     }
 
+    // Latin and Cyrillic letters in one nickname ("Аdmin" with a Cyrillic А) is how
+    // reserved or taken names are imitated, so a nickname uses ONE alphabet (digits,
+    // space and underscore are neutral). Twin: NicknameRules "mixed_script".
+    function mixedScript(n) {
+      return n.matches('.*[A-Za-z\\x{C0}-\\x{17E}].*') && n.matches('.*[\\x{401}-\\x{45F}].*');
+    }
+
     // 3..16 characters; one space or underscore only between letters/digits.
     function validNickname(n) {
       return n is string
         && n.size() >= 3 && n.size() <= 16
-        && n.matches('^[' + nickChars() + ']+([ _][' + nickChars() + ']+)*$');
+        && n.matches('^[' + nickChars() + ']+([ _][' + nickChars() + ']+)*$')
+        && !mixedScript(n);
     }
 
     // The uniqueness key (lower case, "ё" -> "е", space -> "_"). Rules' lower()
@@ -68,15 +79,67 @@ service cloud.firestore {
       return /databases/$(database)/documents/publicProfiles/$(uid);
     }
 
+    function traceDoc(uid) {
+      return /databases/$(database)/documents/nicknameTrace/$(uid);
+    }
+
     // ---- users/{uid}: private profile ------------------------------------
+
+    // Every map is bounded in KEYS (a fixed list) and VALUES (small ints), otherwise
+    // one anonymous account could keep ~1 MiB of arbitrary data in its profile
+    // (free storage / quota abuse). New levels or perks: extend these lists and
+    // redeploy the rules (tools/validate_project.py checks the perk ids).
+    function levelKeys() {
+      return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14',
+              '15', '16', '17', '18', '19', '20'];
+    }
+
+    function perkKeys() {
+      return ['axe', 'walls', 'sword', 'gold_start', 'towers', 'wood_start'];
+    }
+
+    function smallInt(m, k, hi) {
+      return !(k in m) || (m[k] is int && m[k] >= 0 && m[k] <= hi);
+    }
+
+    // Stars 0..3 and perk levels 0..9 (checked per key: rules cannot loop over maps).
+    function starsOk(m) {
+      return m.keys().hasOnly(levelKeys())
+        && smallInt(m, '1', 3) && smallInt(m, '2', 3) && smallInt(m, '3', 3)
+        && smallInt(m, '4', 3) && smallInt(m, '5', 3) && smallInt(m, '6', 3)
+        && smallInt(m, '7', 3) && smallInt(m, '8', 3) && smallInt(m, '9', 3)
+        && smallInt(m, '10', 3) && smallInt(m, '11', 3) && smallInt(m, '12', 3)
+        && smallInt(m, '13', 3) && smallInt(m, '14', 3) && smallInt(m, '15', 3)
+        && smallInt(m, '16', 3) && smallInt(m, '17', 3) && smallInt(m, '18', 3)
+        && smallInt(m, '19', 3) && smallInt(m, '20', 3);
+    }
+
+    // Endless records: waves below 5000, like the leaderboard.
+    function endlessOk(m) {
+      return m.keys().hasOnly(levelKeys())
+        && smallInt(m, '1', 4999) && smallInt(m, '2', 4999) && smallInt(m, '3', 4999)
+        && smallInt(m, '4', 4999) && smallInt(m, '5', 4999) && smallInt(m, '6', 4999)
+        && smallInt(m, '7', 4999) && smallInt(m, '8', 4999) && smallInt(m, '9', 4999)
+        && smallInt(m, '10', 4999) && smallInt(m, '11', 4999) && smallInt(m, '12', 4999)
+        && smallInt(m, '13', 4999) && smallInt(m, '14', 4999) && smallInt(m, '15', 4999)
+        && smallInt(m, '16', 4999) && smallInt(m, '17', 4999) && smallInt(m, '18', 4999)
+        && smallInt(m, '19', 4999) && smallInt(m, '20', 4999);
+    }
+
+    function perksOk(m) {
+      return m.keys().hasOnly(perkKeys())
+        && smallInt(m, 'axe', 9) && smallInt(m, 'walls', 9) && smallInt(m, 'sword', 9)
+        && smallInt(m, 'gold_start', 9) && smallInt(m, 'towers', 9)
+        && smallInt(m, 'wood_start', 9);
+    }
 
     function validProgression(p) {
       return p is map
         && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks'])
         && p.unlocked is int && p.unlocked >= 1 && p.unlocked <= 100
-        && p.stars is map && p.stars.size() <= 100
-        && p.endless is map && p.endless.size() <= 100
-        && p.perks is map && p.perks.size() <= 32;
+        && p.stars is map && starsOk(p.stars)
+        && p.endless is map && endlessOk(p.endless)
+        && p.perks is map && perksOk(p.perks);
     }
 
     function validUser(d) {
@@ -116,6 +179,10 @@ service cloud.firestore {
         && keyMatches(d.nickname, d.nicknameNormalized)
         && !reservedNick(d.nicknameNormalized)
         && d.nicknameChangedAt == request.time
+        // The same commit stamps the trace document (see nicknameTrace below), so a
+        // profile cannot be (re)created without moving the 24 hour clock.
+        && existsAfter(traceDoc(uid))
+        && getAfter(traceDoc(uid)).data.changedAt == request.time
         // The same commit creates the matching index document for this player.
         && existsAfter(nameDocAfter(d.nicknameNormalized))
         && getAfter(nameDocAfter(d.nicknameNormalized)).data.uid == uid;
@@ -138,6 +205,45 @@ service cloud.firestore {
       // Only together with deleting the index document.
       allow delete: if isOwner(uid)
         && !existsAfter(nameDocAfter(resource.data.nicknameNormalized));
+    }
+
+    // ---- nicknameTrace/{uid}: the 24 hour clock that outlives the profile ---
+    // Deleting publicProfiles/{uid} (allowed, it is part of account deletion) used
+    // to reset the limit: the next reservation looked like the free first one. The
+    // trace keeps the time of the last change. It is written in every reservation
+    // commit and may only be rewritten or deleted once 24 hours have passed, so
+    // delete-and-recreate gains nothing. Creating the first one is free.
+    // Deleting an account within 24 hours of a nickname change leaves the trace
+    // (uid + time, no name) behind; the Auth user is gone, so it is inert.
+
+    match /nicknameTrace/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create: if isOwner(uid) && validTrace(request.resource.data);
+      allow update: if isOwner(uid) && validTrace(request.resource.data)
+        && request.time >= resource.data.changedAt + duration.value(24, 'h');
+      allow delete: if isOwner(uid)
+        && request.time >= resource.data.changedAt + duration.value(24, 'h');
+    }
+
+    function validTrace(d) {
+      return d.keys().hasOnly(['changedAt']) && d.changedAt == request.time;
+    }
+
+    // ---- runs/{uid}: when the current endless run started ------------------
+    // The client writes it (server time) when an endless run begins; a record is
+    // accepted only if enough real time has passed since (leaderboards below).
+    // startedAt can only be "now", never backdated.
+
+    match /runs/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['level', 'startedAt'])
+        && request.resource.data.level is string
+        && request.resource.data.level.matches('^level_[0-9]{1,3}$')
+        && request.resource.data.startedAt == request.time;
+      allow delete: if isOwner(uid); // account deletion
     }
 
     // ---- nicknames/{normalized}: uniqueness index, create-only -----------
@@ -167,9 +273,26 @@ service cloud.firestore {
 
     // ---- leaderboards -----------------------------------------------------
 
-    match /leaderboards/{level}/scores/{uid} {
-      allow read: if true;
-      allow create, update: if isOwner(uid)
+    // Waves run on a fixed clock: wave N starts first_delay + (N-1)*wave_duration
+    // = N*30 game seconds after the run begins (resources/levels.json; checked by
+    // tools/validate_project.py) and a wave is "cleared" after it started. The
+    // game can run at x2, so at least N*15 real seconds pass. A record of wave N
+    // must therefore arrive >= (N-1)*15 s (15 s grace for the run-start request
+    // and network delay) after runs/{uid}.startedAt. This is a LOWER bound only: it
+    // makes a faked record cost real time, it does not prove the game was played.
+    function minRunSeconds(wave) {
+      return (wave - 1) * 15;
+    }
+
+    function runAllows(level, uid, wave) {
+      let run = /databases/$(database)/documents/runs/$(uid);
+      return exists(run)
+        && get(run).data.level == level
+        && request.time >= get(run).data.startedAt + duration.value(minRunSeconds(wave), 's');
+    }
+
+    function validScoreBase(level, uid) {
+      return isOwner(uid)
         && level.matches('^level_[0-9]{1,3}$')
         && request.resource.data.keys().hasOnly(['name', 'wave', 'updated'])
         && request.resource.data.name is string
@@ -181,9 +304,26 @@ service cloud.firestore {
         && request.resource.data.wave is int
         && request.resource.data.wave > 0
         && request.resource.data.wave < 5000
-        && request.resource.data.updated is timestamp
-        // A record can only go up (the same wave allows renaming the entry).
-        && (resource == null || request.resource.data.wave >= resource.data.wave);
+        && request.resource.data.updated is timestamp;
+    }
+
+    match /leaderboards/{level}/scores/{uid} {
+      // Public, but a list is capped (the client asks for 10): no unbounded scans.
+      allow get: if true;
+      allow list: if request.query.limit <= 100;
+      // A new record: strictly higher, stamped with the server time, and not
+      // faster than the wave clock.
+      allow create: if validScoreBase(level, uid)
+        && request.resource.data.updated == request.time
+        && runAllows(level, uid, request.resource.data.wave);
+      allow update: if validScoreBase(level, uid)
+        && (
+          (request.resource.data.wave > resource.data.wave
+           && request.resource.data.updated == request.time
+           && runAllows(level, uid, request.resource.data.wave))
+          // Renaming the entry after a nickname change: wave and time untouched.
+          || (request.resource.data.wave == resource.data.wave
+              && request.resource.data.updated == resource.data.updated));
       allow delete: if isOwner(uid); // account deletion
     }
 

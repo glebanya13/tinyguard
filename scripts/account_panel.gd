@@ -1,13 +1,19 @@
 class_name AccountPanel
 extends Control
 ## "Профиль" panel of the world map: nickname (rename), account type, sync
-## status, replay of the tutorial, privacy policy and account deletion.
-## Built in code like the records panel; reports navigation up by signals.
+## status, email link / sign-in / sign-out (EmailAuthDialog), replay of the
+## tutorial, privacy policy and account deletion. Built in code like the
+## records panel; reports navigation up by signals. Without Firebase the email
+## buttons and the sync rows are hidden and the panel is local-only.
 
 signal rename_requested
 signal replay_tutorial_requested
 ## The account (or the local data) was deleted: the game restarts from boot.
 signal account_deleted
+## Signed out of the email account: local data is gone, the game restarts from boot.
+signal signed_out
+## Signed in to another account: the map reloads to show its progress.
+signal account_switched
 
 const GOLD := Color(0.98, 0.8, 0.4)
 const OK_COLOR := Color(0.62, 0.95, 0.42)
@@ -17,8 +23,9 @@ const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const DANGER_COLOR := Color(1.0, 0.45, 0.4)
 const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const PRIVACY_SUMMARY := (
-	"Мы храним только: случайный ID гостя, выбранное имя, прогресс и настройки."
-	+ " Без рекламы, аналитики, почты и геолокации. Удаление — кнопкой ниже."
+	"Мы храним только: случайный ID гостя, выбранное имя, прогресс и настройки,"
+	+ " а если привяжешь, то и почту (пароль хранит Firebase, не мы)."
+	+ " Без рекламы, аналитики и геолокации. Удаление — кнопкой ниже."
 )
 
 var _name_label: Label
@@ -27,11 +34,17 @@ var _account_label: Label
 var _sync_label: Label
 var _sync_row: Control
 var _link_row: Control
+var _link_button: Button
+var _signin_button: Button
+var _reauth_button: Button
+var _signout_button: Button
+var _dialog: EmailAuthDialog
 var _delete_button: Button
 var _sync_button: Button
 var _new_guest_button: Button
 var _info_label: Label
 var _id_label: Label
+var _web_label: Label
 var _confirm: Control
 var _confirm_title: Label
 var _confirm_body: Label
@@ -39,6 +52,8 @@ var _confirm_status: Label
 var _confirm_yes: Button
 var _confirm_no: Button
 var _busy: bool = false
+## What the confirmation asks: "delete" or "signout".
+var _confirm_mode: String = "delete"
 
 
 func _ready() -> void:
@@ -53,6 +68,7 @@ func open() -> void:
 	refresh()
 	_info_label.text = ""
 	_confirm.hide()
+	_dialog.hide()
 	show()
 
 
@@ -60,7 +76,9 @@ func open() -> void:
 func close() -> void:
 	if _busy:
 		return
-	if _confirm.visible:
+	if _dialog.visible:
+		_dialog.close()
+	elif _confirm.visible:
 		_confirm.hide()
 	else:
 		hide()
@@ -82,18 +100,37 @@ func refresh() -> void:
 		"local":
 			_account_label.text = "Онлайн выключен: всё хранится только на этом устройстве"
 		"guest":
-			_account_label.text = "Гостевой аккаунт: прогресс в облаке, вход с этого устройства"
+			_account_label.text = (
+				"Гостевой аккаунт: прогресс в облаке, но войти можно только с этого телефона."
+				+ " Привяжи почту, чтобы играть и на других устройствах."
+			)
 		"email":
-			_account_label.text = "Аккаунт с почтой: можно войти на другом устройстве"
+			_account_label.text = "Аккаунт с почтой: войди с ней на другом устройстве"
 		_:
 			_account_label.text = "Гостевой аккаунт создастся, когда появится связь"
 	_on_sync_state()
 	var configured: bool = Online.is_configured()
 	_sync_row.visible = configured
-	_link_row.visible = configured
+	_update_email_buttons()
 	_delete_button.text = "Удалить аккаунт" if configured else "Удалить данные"
 	var uid: String = Online.auth.uid if configured else ""
 	_id_label.text = "ID игрока (для поддержки): " + uid if uid != "" else ""
+	_web_label.text = GameInfo.web_deletion_line()
+	_web_label.visible = _web_label.text != ""
+
+
+## True when the email buttons are shown (tests: hidden without Firebase).
+func email_controls_visible() -> bool:
+	return _link_row.visible
+
+
+func _update_email_buttons() -> void:
+	var type: String = Online.account_type()
+	_link_button.visible = type == "guest"
+	_signin_button.visible = type in ["guest", "none"]
+	_reauth_button.visible = type == "email"
+	_signout_button.visible = type == "email"
+	_link_row.visible = Online.is_configured()
 
 
 func _on_sync_state() -> void:
@@ -168,15 +205,21 @@ func _build() -> void:
 	_link_row = link_row
 	link_row.add_theme_constant_override("separation", 12)
 	box.add_child(link_row)
-	var link := _button("Привязать аккаунт", Callable(), true, 260)
-	link.disabled = true
-	link_row.add_child(link)
-	var link_note := _label(
-		"Скоро: вход на другом устройстве. Пока гость живёт на этом телефоне.", 17, SOFT_COLOR
+	link_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_link_button = _button(
+		"Привязать почту", _open_dialog.bind(EmailAuthDialog.Mode.LINK), true, 250
 	)
-	link_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	link_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	link_row.add_child(link_note)
+	link_row.add_child(_link_button)
+	_signin_button = _button(
+		"Войти по почте", _open_dialog.bind(EmailAuthDialog.Mode.SIGN_IN), true, 250
+	)
+	link_row.add_child(_signin_button)
+	_reauth_button = _button(
+		"Войти заново", _open_dialog.bind(EmailAuthDialog.Mode.SIGN_IN), true, 250
+	)
+	link_row.add_child(_reauth_button)
+	_signout_button = _button("Выйти из аккаунта", _ask_sign_out, true, 280)
+	link_row.add_child(_signout_button)
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
@@ -196,8 +239,15 @@ func _build() -> void:
 	box.add_child(_info_label)
 	_id_label = _label("", 15, Color(SOFT_COLOR, 0.75))
 	box.add_child(_id_label)
+	_web_label = _label("", 15, Color(SOFT_COLOR, 0.75))
+	_web_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_web_label.custom_minimum_size = Vector2(740, 0)
+	box.add_child(_web_label)
 
 	_build_confirm()
+	_dialog = EmailAuthDialog.new()
+	add_child(_dialog)
+	_dialog.succeeded.connect(_on_email_done)
 
 
 func _build_confirm() -> void:
@@ -233,14 +283,80 @@ func _build_confirm() -> void:
 	box.add_child(buttons)
 	_confirm_no = _button("Отмена", close, false, 220)
 	buttons.add_child(_confirm_no)
-	_confirm_yes = _button("Удалить навсегда", _on_delete_confirmed, true, 280)
+	_confirm_yes = _button("Удалить навсегда", _on_confirmed, true, 280)
 	_confirm_yes.add_theme_color_override("font_color", DANGER_COLOR)
 	_confirm_yes.add_theme_color_override("font_hover_color", DANGER_COLOR)
 	buttons.add_child(_confirm_yes)
 	_confirm.hide()
 
 
+func _open_dialog(mode: EmailAuthDialog.Mode) -> void:
+	if not _busy:
+		_dialog.open(mode)
+
+
+func _on_email_done(kind: String, result: Dictionary) -> void:
+	match kind:
+		"link":
+			refresh()
+			_set_label(_info_label, "Почта привязана. Войди с ней на другом устройстве.", OK_COLOR)
+		"signin":
+			refresh()
+			if bool(result.get("switched", false)):
+				account_switched.emit()
+			else:
+				_set_label(_info_label, "Вход подтверждён.", OK_COLOR)
+		"reset":
+			_set_label(
+				_info_label,
+				"Если такая почта зарегистрирована, мы отправили письмо. Загляни и в «Спам».",
+				OK_COLOR
+			)
+
+
+func _ask_sign_out() -> void:
+	_confirm_mode = "signout"
+	_confirm_title.text = "Выйти из аккаунта?"
+	_confirm_title.add_theme_color_override("font_color", GOLD)
+	_confirm_body.text = (
+		"Прогресс сохранён в облаке под твоей почтой. С этого устройства он будет стёрт;"
+		+ " чтобы вернуться, войди по почте."
+	)
+	_confirm_yes.text = "Выйти"
+	_confirm_status.text = ""
+	_confirm_yes.disabled = false
+	_confirm_no.disabled = false
+	_confirm.show()
+
+
+func _on_confirmed() -> void:
+	if _confirm_mode == "signout":
+		_on_sign_out_confirmed()
+	else:
+		_on_delete_confirmed()
+
+
+func _on_sign_out_confirmed() -> void:
+	if _busy:
+		return
+	_busy = true
+	_confirm_yes.disabled = true
+	_confirm_no.disabled = true
+	_set_label(_confirm_status, "Сохраняем прогресс…", INFO_COLOR)
+	var result: Dictionary = await Online.sign_out()
+	_busy = false
+	if result["ok"]:
+		signed_out.emit()
+		return
+	_confirm_no.disabled = false
+	_confirm_yes.disabled = false
+	_set_label(_confirm_status, EmailRules.message(str(result["error"])), ERROR_COLOR)
+
+
 func _ask_delete() -> void:
+	_confirm_mode = "delete"
+	_confirm_yes.text = "Удалить навсегда"
+	_confirm_title.add_theme_color_override("font_color", DANGER_COLOR)
 	var online: bool = Online.is_configured() and Online.auth.uid != ""
 	_confirm_title.text = "Удалить аккаунт?" if online else "Удалить данные?"
 	_confirm_body.text = (
@@ -278,7 +394,7 @@ func _on_delete_confirmed() -> void:
 		"reauth_required":
 			text = (
 				"Данные в облаке удалены, но для удаления входа нужно войти заново."
-				+ " Войдите снова и повторите удаление."
+				+ " Нажми «Войти заново» в Профиле и повтори удаление."
 			)
 		"session_lost", "no_session":
 			text = (

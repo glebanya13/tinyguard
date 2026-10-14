@@ -47,6 +47,8 @@ HEADER_RE = re.compile(r"^\[(\w+)(.*)\]$")
 ATTR_RE = re.compile(r'(\w+)=("[^"]*"|\S+)')
 
 errors: list[str] = []
+# Non-fatal findings (release blockers that must not break day-to-day checks).
+warnings: list[str] = []
 # res:// path of every script -> its class_name (filled before scenes are checked).
 class_names: dict[str, str] = {}
 
@@ -305,6 +307,25 @@ def _check_paths(tag: str, lv: dict) -> list:
     return segs
 
 
+def check_rules_lists() -> None:
+    """firestore.rules whitelist the keys of users/{uid}.progression (storage abuse);
+    a perk or level missing there would make its owner's cloud sync fail."""
+    rules = ROOT / "firestore.rules"
+    if not rules.is_file():
+        return
+    text = rules.read_text(encoding="utf-8")
+    for perk in sorted((ROOT / "resources" / "perks").glob("*.tres")):
+        m = re.search(r'^id = &"([a-z_0-9]+)"', perk.read_text(encoding="utf-8"), re.M)
+        if m and f"'{m.group(1)}'" not in text:
+            errors.append(f"firestore.rules: perk id '{m.group(1)}' ({perk.name}) is missing in perkKeys()/perksOk()")
+    levels = ROOT / "resources" / "levels.json"
+    if levels.is_file():
+        import json
+        for lv in json.loads(levels.read_text(encoding="utf-8"))["levels"]:
+            if f"'{lv['id']}'" not in text:
+                errors.append(f"firestore.rules: level {lv['id']} is missing in levelKeys()/starsOk()")
+
+
 def check_levels() -> None:
     """Layout sanity for resources/levels.json (shared by Godot and Blender)."""
     path = ROOT / "resources" / "levels.json"
@@ -314,6 +335,12 @@ def check_levels() -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     for lv in data["levels"]:
         tag = f"levels.json level {lv['id']}"
+        # firestore.rules (leaderboards): a record of wave N needs >= (N-1)*15 s of real
+        # time = N*30 game seconds at the x2 maximum speed. Faster waves break that bound.
+        waves = lv.get("waves", {})
+        if waves.get("first_delay", 0) < 30 or waves.get("wave_duration", 0) < 30:
+            errors.append(f"{tag}: first_delay and wave_duration must be >= 30 "
+                          "(the record time check in firestore.rules assumes it)")
         if "path" in lv or not lv.get("paths"):
             errors.append(f'{tag}: expected "paths": [[...], ...] instead of "path"')
             continue
@@ -382,9 +409,65 @@ def _min_tower_range() -> float:
     return best
 
 
+def check_export_presets() -> None:
+    path = ROOT / "export_presets.cfg"
+    if not path.is_file():
+        errors.append("export_presets.cfg is missing")
+        return
+    text = path.read_text(encoding="utf-8")
+    if 'package/unique_name="com.bimbleguard.app"' not in text:
+        errors.append("export_presets.cfg: package/unique_name must be com.bimbleguard.app")
+    if "permissions/internet=true" not in text:
+        errors.append("export_presets.cfg: INTERNET permission is required (Online module)")
+    for line in text.splitlines():
+        if line.startswith("permissions/") and line.endswith("=true"):
+            if line != "permissions/internet=true":
+                errors.append(f"export_presets.cfg: unexpected permission: {line}")
+    if "firebase.cfg" not in text:
+        errors.append("export_presets.cfg: include_filter must contain firebase.cfg")
+
+
+def check_privacy_url() -> None:
+    """Warns (does not fail) while the public privacy policy URL is not set."""
+    path = ROOT / "scripts" / "game_info.gd"
+    hint = "publish docs/PRIVACY.md (see docs/PRIVACY_PUBLISH.md) and set GameInfo.PRIVACY_URL"
+    if not path.is_file():
+        warnings.append(f"PRIVACY_URL: scripts/game_info.gd not found; {hint}")
+        return
+    m = re.search(r'^const\s+PRIVACY_URL\s*(?::[^=]+)?:?=\s*"([^"]*)"', path.read_text(encoding="utf-8"), re.M)
+    url = m.group(1).strip() if m else ""
+    if not url or "TODO" in url.upper():
+        warnings.append(f"PRIVACY_URL is empty/TODO (required before store release): {hint}")
+    elif not url.startswith("https://"):
+        warnings.append(f"PRIVACY_URL must be an https:// URL, got: {url}")
+
+
+def check_release_constants() -> None:
+    """Warns while the other store-release constants of GameInfo are unset."""
+    path = ROOT / "scripts" / "game_info.gd"
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    for name, hint in (
+        ("DELETION_URL", "web account-deletion page (Play policy), see docs/RELEASE_READINESS.md"),
+        ("SUPPORT_EMAIL", "support e-mail for the policy and store listing"),
+    ):
+        m = re.search(rf'^const\s+{name}\s*(?::[^=]+)?:?=\s*"([^"]*)"', text, re.M)
+        if m is None:
+            errors.append(f"scripts/game_info.gd: const {name} is missing")
+        elif not m.group(1).strip():
+            warnings.append(f"{name} is empty (required before store release): {hint}")
+        elif name == "DELETION_URL" and not m.group(1).startswith("https://"):
+            warnings.append(f"{name} must be an https:// URL, got: {m.group(1)}")
+
+
 def main() -> int:
     check_layout()
+    check_export_presets()
+    check_privacy_url()
+    check_release_constants()
     check_levels()
+    check_rules_lists()
     check_project_settings()
     collect_class_names()
     for pattern in ("*.tscn", "*.tres"):
@@ -400,6 +483,8 @@ def main() -> int:
         for e in errors:
             print(f"  - {e}")
         return 1
+    for w in warnings:
+        print(f"WARNING: {w}")
     print("OK: structure, project settings, scenes and scripts look consistent.")
     print("Note: this is a static check; run the project in Godot to verify it.")
     return 0

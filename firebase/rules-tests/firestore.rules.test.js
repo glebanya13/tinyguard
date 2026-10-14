@@ -36,12 +36,14 @@ const profile = () => ({
 const normalize = (name) => name.toLowerCase().replace(/ё/g, "е").replace(/ /g, "_");
 
 /** Reserve (or change to) `name` the way the client does: one atomic batch. */
-function reserveBatch(db, uid, name, { old = null, first = true } = {}) {
+function reserveBatch(db, uid, name, { old = null, first = true, trace = true } = {}) {
   const key = normalize(name);
   const batch = writeBatch(db);
   if (old) batch.delete(doc(db, `nicknames/${normalize(old)}`));
   batch.set(doc(db, `nicknames/${key}`), { uid, nickname: name, createdAt: serverTimestamp() });
   const fields = { nickname: name, nicknameNormalized: key, nicknameChangedAt: serverTimestamp() };
+  // The trace is rewritten in every reservation (set creates or replaces).
+  if (trace) batch.set(doc(db, `nicknameTrace/${uid}`), { changedAt: serverTimestamp() });
   if (first) batch.set(doc(db, `publicProfiles/${uid}`), { ...fields, createdAt: serverTimestamp() });
   else batch.update(doc(db, `publicProfiles/${uid}`), fields);
   return batch;
@@ -68,6 +70,15 @@ async function seedNickname(uid, name, hoursAgo = 48) {
       createdAt: at,
       nicknameChangedAt: at,
     });
+    await setDoc(doc(db, `nicknameTrace/${uid}`), { changedAt: at });
+  });
+}
+
+/** Seeds the run document as if the run started `secondsAgo` seconds ago. */
+async function seedRun(uid, level, secondsAgo) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const at = Timestamp.fromMillis(Date.now() - secondsAgo * 1000);
+    await setDoc(doc(ctx.firestore(), `runs/${uid}`), { level, startedAt: at });
   });
 }
 
@@ -279,22 +290,26 @@ test("nickname: policy is enforced (length, characters, reserved, key, extra fie
   }
   // Wrong key for a valid name.
   const wrongKey = writeBatch(db);
+  wrongKey.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });
   wrongKey.set(doc(db, "nicknames/other"), { uid: "alice", nickname: "Valid", createdAt: serverTimestamp() });
   wrongKey.set(doc(db, "publicProfiles/alice"), { nickname: "Valid", nicknameNormalized: "other", createdAt: serverTimestamp(), nicknameChangedAt: serverTimestamp() });
   await assertFails(wrongKey.commit());
   // Extra fields.
   const extra = writeBatch(db);
+  extra.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });
   extra.set(doc(db, "nicknames/valid"), { uid: "alice", nickname: "Valid", createdAt: serverTimestamp(), email: "a@b.c" });
   extra.set(doc(db, "publicProfiles/alice"), { nickname: "Valid", nicknameNormalized: "valid", createdAt: serverTimestamp(), nicknameChangedAt: serverTimestamp() });
   await assertFails(extra.commit());
   // Fake timestamps.
   const fake = writeBatch(db);
+  fake.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });
   fake.set(doc(db, "nicknames/valid"), { uid: "alice", nickname: "Valid", createdAt: Timestamp.fromMillis(0) });
   fake.set(doc(db, "publicProfiles/alice"), { nickname: "Valid", nicknameNormalized: "valid", createdAt: serverTimestamp(), nicknameChangedAt: serverTimestamp() });
   await assertFails(fake.commit());
   // A key that is not the lower-case form (would allow duplicates differing in case).
   for (const key of ["Valid", "VALID", "valid_", "val id", "vаlid"]) {
     const b = writeBatch(db);
+    b.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });
     b.set(doc(db, `nicknames/${key}`), { uid: "alice", nickname: "Valid", createdAt: serverTimestamp() });
     b.set(doc(db, "publicProfiles/alice"), { nickname: "Valid", nicknameNormalized: key, createdAt: serverTimestamp(), nicknameChangedAt: serverTimestamp() });
     await assertFails(b.commit());
@@ -321,6 +336,7 @@ test("nickname: rules agree with tests/nickname_cases.json (the Godot policy tab
       const guess = normalize(raw);
       const key = /^__.*__$|\//.test(guess) || guess === "" ? "zzz" : guess;
       const batch = writeBatch(db);
+      batch.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });
       batch.set(doc(db, `nicknames/${key}`), { uid: "alice", nickname: raw, createdAt: serverTimestamp() });
       batch.set(doc(db, "publicProfiles/alice"), { nickname: raw, nicknameNormalized: key, createdAt: serverTimestamp(), nicknameChangedAt: serverTimestamp() });
       await assertFails(batch.commit());
@@ -341,10 +357,13 @@ test("nickname: every character the client accepts gets the same key in the rule
   const mismatches = [];
   for (const [ch, lower] of letters) {
     await env.clearFirestore();
-    const name = `x${ch}x`;
-    const key = `x${lower}x`;
+    // Pad with a letter of the same alphabet (a nickname may not mix Latin and Cyrillic).
+    const pad = /[\u0400-\u045f]/.test(ch) ? "\u0436" : "x";
+    const name = `${pad}${ch}${pad}`;
+    const key = `${pad}${lower}${pad}`;
     const batch = writeBatch(db);
     batch.set(doc(db, `nicknames/${key}`), { uid: "alice", nickname: name, createdAt: serverTimestamp() });
+    batch.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });
     batch.set(doc(db, "publicProfiles/alice"), { nickname: name, nicknameNormalized: key, createdAt: serverTimestamp(), nicknameChangedAt: serverTimestamp() });
     try {
       await assertSucceeds(batch.commit());
@@ -386,13 +405,15 @@ test("delete account: owner can delete profile + nickname + records in one batch
     "publicProfiles/alice",
     "nicknames/alice",
     "saves/alice",
+    "nicknameTrace/alice",
+    "runs/alice",
     "leaderboards/level_1/scores/alice",
     "leaderboards/level_2/scores/alice", // never existed: deleting a missing record is fine
   ]) {
     batch.delete(doc(db, path));
   }
   await assertSucceeds(batch.commit());
-  for (const path of ["nicknames/alice", "publicProfiles/alice", "users/alice", "leaderboards/level_1/scores/alice"]) {
+  for (const path of ["nicknames/alice", "publicProfiles/alice", "users/alice", "nicknameTrace/alice", "leaderboards/level_1/scores/alice"]) {
     const snap = await adminGet(path);
     assert.equal(snap.exists(), false, path);
   }
@@ -408,39 +429,178 @@ test("delete account: nobody can delete another player's data", async () => {
   await assertFails(deleteDoc(doc(anon, "leaderboards/level_1/scores/alice")));
 });
 
+// ---- nickname trace (24 hour clock that survives profile deletion) --------
+
+test("nickname trace: deleting the profile and recreating it does not reset the 24 hour limit", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(reserveBatch(db, "alice", "Первый").commit());
+  // Delete profile + index (allowed: part of account deletion), keep the trace.
+  const del = writeBatch(db);
+  del.delete(doc(db, "nicknames/первый"));
+  del.delete(doc(db, "publicProfiles/alice"));
+  await assertSucceeds(del.commit());
+  assert.equal((await adminGet("nicknameTrace/alice")).exists(), true);
+  // "First reservation" again: refused, the trace says the name changed minutes ago.
+  await assertFails(reserveBatch(db, "alice", "Второй").commit());
+  // Without stamping the trace the profile cannot be created at all.
+  await assertFails(reserveBatch(db, "alice", "Второй", { trace: false }).commit());
+});
+
+test("nickname trace: recreation is possible once 24 hours have passed", async () => {
+  await seedNickname("alice", "Старое", 25);
+  const db = env.authenticatedContext("alice").firestore();
+  const del = writeBatch(db);
+  del.delete(doc(db, "nicknames/старое"));
+  del.delete(doc(db, "publicProfiles/alice"));
+  await assertSucceeds(del.commit());
+  await assertSucceeds(reserveBatch(db, "alice", "Новое").commit());
+});
+
+test("nickname trace: cannot be deleted, rewritten or forged within 24 hours", async () => {
+  await seedNickname("alice", "Alice", 1);
+  const db = env.authenticatedContext("alice").firestore();
+  await assertFails(deleteDoc(doc(db, "nicknameTrace/alice")));
+  await assertFails(setDoc(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(db, "nicknameTrace/alice"), { changedAt: Timestamp.fromMillis(0) }));
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, "nicknameTrace/alice")));
+  await assertFails(deleteDoc(doc(bob, "nicknameTrace/alice")));
+  await assertSucceeds(getDoc(doc(db, "nicknameTrace/alice")));
+  // A first trace: only for yourself, only server time, no extra keys.
+  await assertFails(setDoc(doc(db, "nicknameTrace/carol"), { changedAt: serverTimestamp() }));
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(setDoc(doc(carol, "nicknameTrace/carol"), { changedAt: Timestamp.fromMillis(0) }));
+  await assertFails(setDoc(doc(carol, "nicknameTrace/carol"), { changedAt: serverTimestamp(), x: 1 }));
+  await assertSucceeds(setDoc(doc(carol, "nicknameTrace/carol"), { changedAt: serverTimestamp() }));
+});
+
+test("nickname trace: deleting the whole account stays possible", async () => {
+  // Old trace: deleted together with everything else.
+  await seedNickname("alice", "Alice", 48);
+  const db = env.authenticatedContext("alice").firestore();
+  const batch = writeBatch(db);
+  for (const path of ["nicknames/alice", "publicProfiles/alice", "nicknameTrace/alice", "runs/alice", "users/alice"]) {
+    batch.delete(doc(db, path));
+  }
+  await assertSucceeds(batch.commit());
+  assert.equal((await adminGet("nicknameTrace/alice")).exists(), false);
+  // Recent trace: the trace delete is refused, the rest of the data can go
+  // (the client leaves the trace out of the batch).
+  await seedNickname("bob", "Bob", 1);
+  const bobDb = env.authenticatedContext("bob").firestore();
+  const withTrace = writeBatch(bobDb);
+  withTrace.delete(doc(bobDb, "nicknames/bob"));
+  withTrace.delete(doc(bobDb, "publicProfiles/bob"));
+  withTrace.delete(doc(bobDb, "nicknameTrace/bob"));
+  await assertFails(withTrace.commit());
+  const without = writeBatch(bobDb);
+  without.delete(doc(bobDb, "nicknames/bob"));
+  without.delete(doc(bobDb, "publicProfiles/bob"));
+  await assertSucceeds(without.commit());
+});
+
+// ---- runs ----------------------------------------------------------------
+
+test("runs: owner writes the start with server time, nobody backdates it", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  const ref = doc(db, "runs/alice");
+  await assertSucceeds(setDoc(ref, { level: "level_1", startedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(ref, { level: "level_2", startedAt: serverTimestamp() })); // new run
+  await assertFails(setDoc(ref, { level: "level_1", startedAt: Timestamp.fromMillis(0) }));
+  await assertFails(setDoc(ref, { level: "level_1", startedAt: Timestamp.now() })); // client clock
+  await assertFails(setDoc(ref, { level: "level_1", startedAt: serverTimestamp(), x: 1 }));
+  await assertFails(setDoc(ref, { level: 1, startedAt: serverTimestamp() }));
+  await assertFails(setDoc(ref, { level: "levels", startedAt: serverTimestamp() }));
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(setDoc(doc(bob, "runs/alice"), { level: "level_1", startedAt: serverTimestamp() }));
+  await assertFails(getDoc(doc(bob, "runs/alice")));
+  await assertSucceeds(deleteDoc(ref));
+});
+
 // ---- leaderboard ---------------------------------------------------------
 
+const score = (extra = {}) => ({ name: "Рыцарь", wave: 5, updated: serverTimestamp(), ...extra });
+
 test("leaderboard: own entry, reserved name or the anonymous name, only upwards", async () => {
+  await seedRun("alice", "level_1", 3600);
   const db = env.authenticatedContext("alice").firestore();
   const ref = doc(db, "leaderboards/level_1/scores/alice");
-  await assertFails(setDoc(ref, { name: "Самозванец", wave: 5, updated: new Date() }));
-  await assertSucceeds(setDoc(ref, { name: "Рыцарь", wave: 5, updated: new Date() }));
+  await assertFails(setDoc(ref, score({ name: "Самозванец" })));
+  await assertSucceeds(setDoc(ref, score()));
   await seedNickname("alice", "Alice");
-  await assertSucceeds(setDoc(ref, { name: "Alice", wave: 7, updated: new Date() }));
-  await assertFails(setDoc(ref, { name: "Alice", wave: 6, updated: new Date() }));
-  // The same wave is allowed (renaming the entry after a nickname change).
-  await assertSucceeds(setDoc(ref, { name: "Рыцарь", wave: 7, updated: new Date() }));
-  await assertFails(
-    setDoc(doc(db, "leaderboards/level_1/scores/bob"), { name: "Рыцарь", wave: 9, updated: new Date() }),
-  );
+  await assertSucceeds(setDoc(ref, score({ name: "Alice", wave: 7 })));
+  await assertFails(setDoc(ref, score({ name: "Alice", wave: 6 })));
+  await assertFails(setDoc(ref, score({ name: "Alice", wave: 7 }))); // not higher
+  await assertFails(setDoc(doc(db, "leaderboards/level_1/scores/bob"), score({ wave: 9 })));
   await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "leaderboards/level_1/scores/alice")));
 });
 
+test("leaderboard: renaming the entry keeps wave and time", async () => {
+  await seedRun("alice", "level_1", 3600);
+  await seedNickname("alice", "Alice");
+  const db = env.authenticatedContext("alice").firestore();
+  const ref = doc(db, "leaderboards/level_1/scores/alice");
+  await assertSucceeds(setDoc(ref, score({ wave: 7 })));
+  // The client updates only the name (updateMask); wave and time stay as they were.
+  await assertSucceeds(updateDoc(ref, { name: "Alice" }));
+  await assertFails(updateDoc(ref, { name: "Самозванец" }));
+  await assertFails(updateDoc(ref, { name: "Рыцарь", wave: 6 })); // downwards
+  await assertFails(updateDoc(ref, { name: "Рыцарь", updated: serverTimestamp() }));
+  // The rename still works after a newer run replaced the run document.
+  await seedRun("alice", "level_1", 1);
+  await assertSucceeds(updateDoc(ref, { name: "Рыцарь" }));
+  // ...but a higher wave still needs the clock.
+  await assertFails(updateDoc(ref, { wave: 8, updated: serverTimestamp() }));
+});
+
+test("leaderboard: a record cannot be faster than the wave clock (anti-cheat)", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  const ref = doc(db, "leaderboards/level_1/scores/alice");
+  // No run document at all.
+  await assertFails(setDoc(ref, score({ wave: 1 })));
+  // Run started 100 s ago: wave N needs (N-1)*15 s -> up to wave 7 (90 s).
+  await seedRun("alice", "level_1", 100);
+  await assertFails(setDoc(ref, score({ wave: 50 })));
+  await assertFails(setDoc(ref, score({ wave: 8 })));
+  await assertSucceeds(setDoc(ref, score({ wave: 7 })));
+  // Higher again only once more time has passed.
+  await assertFails(setDoc(ref, score({ wave: 20 })));
+  await seedRun("alice", "level_1", 400);
+  await assertSucceeds(setDoc(ref, score({ wave: 20 })));
+  await assertFails(setDoc(ref, score({ wave: 4999 })));
+});
+
+test("leaderboard: the run must be for the same level and the time must be the server's", async () => {
+  await seedRun("alice", "level_2", 3600);
+  const db = env.authenticatedContext("alice").firestore();
+  await assertFails(setDoc(doc(db, "leaderboards/level_1/scores/alice"), score()));
+  const ref = doc(db, "leaderboards/level_2/scores/alice");
+  await assertSucceeds(setDoc(ref, score()));
+  // Client clocks / old timestamps / missing time are refused.
+  await assertFails(setDoc(ref, score({ wave: 6, updated: new Date(Date.now() - 60000) })));
+  await assertFails(setDoc(ref, score({ wave: 6, updated: Timestamp.fromMillis(0) })));
+  await assertFails(setDoc(ref, { name: "Рыцарь", wave: 6 }));
+  // Someone else's run does not help.
+  await seedRun("bob", "level_2", 3600);
+  await assertFails(setDoc(doc(db, "leaderboards/level_2/scores/bob"), score()));
+});
+
 test("leaderboard: wave, name size, extra keys and level id are validated", async () => {
+  await seedRun("alice", "level_1", 100000);
   const db = env.authenticatedContext("alice").firestore();
   const path = (level) => `leaderboards/${level}/scores/alice`;
-  const ok = { name: "Рыцарь", wave: 5, updated: new Date() };
-  await assertFails(setDoc(doc(db, path("level_1")), { ...ok, wave: 0 }));
-  await assertFails(setDoc(doc(db, path("level_1")), { ...ok, wave: 5000 }));
-  await assertFails(setDoc(doc(db, path("level_1")), { ...ok, wave: 5.5 }));
-  await assertFails(setDoc(doc(db, path("level_1")), { ...ok, wave: "5" }));
-  await assertFails(setDoc(doc(db, path("level_1")), { ...ok, extra: 1 }));
-  await assertFails(setDoc(doc(db, path("level_1")), { ...ok, updated: "yesterday" }));
-  await assertFails(setDoc(doc(db, path("level_1")), { name: "Рыцарь", wave: 5 }));
-  await assertFails(setDoc(doc(db, path("levels")), ok));
-  await assertFails(setDoc(doc(db, path("level_x")), ok));
-  await assertSucceeds(setDoc(doc(db, path("level_6")), ok));
-  await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), path("level_1")), ok));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ wave: 0 })));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ wave: 5000 })));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ wave: 5.5 })));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ wave: "5" })));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ extra: 1 })));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ updated: "yesterday" })));
+  await assertFails(setDoc(doc(db, path("level_1")), score({ name: "x".repeat(17) })));
+  await assertFails(setDoc(doc(db, path("levels")), score()));
+  await assertFails(setDoc(doc(db, path("level_x")), score()));
+  await seedRun("alice", "level_6", 100000);
+  await assertSucceeds(setDoc(doc(db, path("level_6")), score()));
+  await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), path("level_1")), score()));
 });
 
 // ---- legacy saves, default deny -------------------------------------------
