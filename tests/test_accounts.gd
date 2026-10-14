@@ -278,8 +278,8 @@ func _test_hostile_input() -> void:
 		}
 	)
 	check(
-		cloud["progression"]["stars"].get("1", 0) == PlayerProfile.MAX_CLOUD_VALUE,
-		"cloud value is capped"
+		cloud["progression"]["stars"].get("1", 0) == 3,
+		"cloud stars are capped at 3"
 	)
 	check(not cloud["progression"]["stars"].has("2"), "non-integer cloud value is ignored")
 	var mixed: Dictionary = NicknameRules.validate("Аdmin")
