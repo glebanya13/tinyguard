@@ -6,7 +6,9 @@ extends Node
 ## (docs/FIREBASE.md) everything online is disabled and the game, the local
 ## profile and the onboarding work offline.
 ## Sent: the anonymous uid, the reserved nickname, progression and settings,
-## endless records. Never logged: tokens, raw replies, profile contents.
+## endless records. An email and password go only to Firebase Auth, only when
+## the player links or signs in, and are never stored on the device.
+## Never logged: tokens, emails, passwords, raw replies, profile contents.
 
 signal leaderboard_loaded(level_id: int, entries: Array)
 signal status_changed(text: String)
@@ -50,6 +52,10 @@ var _transport: HttpTransport = null
 var _started: bool = false
 var _sync_busy: bool = false
 var _reserve_busy: bool = false
+## A link / sign-in / sign-out request is running (one at a time).
+var _email_busy: bool = false
+## The account is being switched: no sync may run on a half-switched session.
+var _switching: bool = false
 ## Error of the last sync ("" after a success).
 var _last_error: String = ""
 
@@ -145,6 +151,8 @@ func account_type() -> String:
 func sync_now() -> Dictionary:
 	if not is_configured():
 		return {"ok": false, "error": "not_configured", "changed": false}
+	if _switching:
+		return {"ok": false, "error": "busy", "changed": false}
 	if _sync_busy:
 		return await sync_finished
 	_sync_busy = true
@@ -242,6 +250,84 @@ func start_new_guest() -> Dictionary:
 		_last_error = ""
 		sync_now()
 	return result
+
+
+## Links an email and password to the current guest account (accounts:update):
+## the uid, the profile and the progress stay, the account can then be opened on
+## another device. {"ok", "error"}; error is an EmailRules message key. The
+## password lives only in this call (never stored, never logged).
+func link_email(email: String, password: String) -> Dictionary:
+	var check: Dictionary = _check_credentials(email, password, true)
+	if not check["ok"]:
+		return check
+	if _email_busy:
+		return {"ok": false, "error": "busy"}
+	_email_busy = true
+	var result: Dictionary = await auth.link_email(check["email"], password)
+	_email_busy = false
+	return result
+
+
+## Signs in with email and password. On another device this switches to that
+## account: its cloud profile is merged with the local one (progress only grows:
+## best stars and records, most open levels; the account's nickname wins, the
+## nickname of the abandoned guest is dropped). Signing in again to the account
+## that is already open only refreshes the login (needed before deleting it).
+## {"ok", "error", "switched", "synced" (the merge reached the cloud)}.
+func sign_in_email(email: String, password: String) -> Dictionary:
+	var check: Dictionary = _check_credentials(email, password, false)
+	if not check["ok"]:
+		return {"ok": false, "error": check["error"], "switched": false, "synced": false}
+	if _email_busy:
+		return {"ok": false, "error": "busy", "switched": false, "synced": false}
+	_email_busy = true
+	if _sync_busy:
+		await sync_finished  # a sync of the old account must not meet the new session
+	_switching = true
+	var reply: Dictionary = await auth.sign_in_email(check["email"], password)
+	var result := {"ok": false, "error": str(reply["error"]), "switched": false, "synced": false}
+	if reply["ok"]:
+		if reply["switched"]:
+			_forget_nickname_of_old_account()
+		_last_error = ""
+		result.merge({"ok": true, "error": "", "switched": reply["switched"]}, true)
+	_switching = false
+	if reply["ok"]:
+		var synced: Dictionary = await sync_now()
+		result["synced"] = synced["ok"]
+	_email_busy = false
+	return result
+
+
+## Sends the password reset mail. Unknown addresses look like success on purpose.
+## {"ok", "error"}.
+func send_password_reset(email: String) -> Dictionary:
+	if not is_configured():
+		return {"ok": false, "error": "not_configured"}
+	var check: Dictionary = EmailRules.check_email(email)
+	if not check["ok"]:
+		return {"ok": false, "error": check["error"]}
+	return await auth.send_password_reset(check["email"])
+
+
+## Signs out of an email account: unsaved progress is pushed first (without a
+## connection the sign-out is refused so nothing is lost), then this device
+## forgets the session and its local data; the progress stays in the cloud under
+## the email. A guest cannot sign out (its only copy would be lost).
+## {"ok", "error"}.
+func sign_out() -> Dictionary:
+	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
+		return {"ok": false, "error": "guest_cannot_sign_out"}
+	if _email_busy:
+		return {"ok": false, "error": "busy"}
+	_email_busy = true
+	var synced: Dictionary = await sync_now()
+	if not synced["ok"] and PlayerProfile.is_pending():
+		_email_busy = false
+		return {"ok": false, "error": "unsynced"}
+	_wipe_local()
+	_email_busy = false
+	return {"ok": true, "error": ""}
 
 
 # --- API used by the map and the level (kept from the first version) ---
@@ -540,6 +626,35 @@ func _reserve_flow(check: Dictionary) -> Dictionary:
 		Onboarding.set_local_nickname(check["nickname"], check["normalized"], false)
 		out.merge({"reason": "offline", "saved_locally": true}, true)
 	return out
+
+
+## {"ok", "error", "email"}: client-side checks before any request is sent.
+func _check_credentials(email: String, password: String, new_password: bool) -> Dictionary:
+	if not is_configured():
+		return {"ok": false, "error": "not_configured"}
+	var mail: Dictionary = EmailRules.check_email(email)
+	if not mail["ok"]:
+		return mail
+	var word: Dictionary = (
+		EmailRules.check_new_password(password)
+		if new_password
+		else EmailRules.check_password(password)
+	)
+	if not word["ok"]:
+		return word
+	return mail
+
+
+## After switching to another account the nickname of the old guest (reserved
+## under its uid) is not ours any more: the account's own nickname comes with the
+## next sync, and an account without one is asked for a name.
+func _forget_nickname_of_old_account() -> void:
+	var p: Dictionary = PlayerProfile.local()
+	p["nickname"] = ""
+	p["nicknameNormalized"] = ""
+	p["nicknameVerified"] = false
+	p["nicknameConflict"] = false
+	PlayerProfile.save_local(p)
 
 
 func _wipe_local() -> void:

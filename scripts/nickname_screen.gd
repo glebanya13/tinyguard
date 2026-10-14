@@ -17,6 +17,9 @@ var _busy: bool = false
 ## After an offline save the button only continues.
 var _saved_offline: bool = false
 var _tried: bool = false
+## "I already have an account" (only with Firebase, only on the first launch).
+var _have_account: Button = null
+var _dialog: EmailAuthDialog = null
 
 @onready var _safe: MarginContainer = $Safe
 @onready var _art: Control = $Safe/Center/Row/Art
@@ -40,6 +43,7 @@ func _ready() -> void:
 	if bool(profile["nicknameConflict"]):
 		_show("Имя «%s» уже занято — выбери другое" % profile["nickname"], ERROR_COLOR)
 	_apply_safe_area()
+	_build_account_entry()
 	if not OS.has_feature("mobile"):
 		_edit.grab_focus.call_deferred()
 
@@ -51,6 +55,8 @@ func _process(_delta: float) -> void:
 	_art.visible = not compact
 	_subtitle.visible = not compact
 	_hint.visible = not compact
+	if _have_account != null:
+		_have_account.visible = not compact
 	var margins: Vector4 = ScreenUtil.safe_margins(get_viewport())
 	_safe.add_theme_constant_override("margin_bottom", int(maxf(margins.w, keyboard)))
 
@@ -58,6 +64,9 @@ func _process(_delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _busy:
+			return
+		if _dialog != null and _dialog.visible:
+			_dialog.close()
 			return
 		if Onboarding.rename_mode:
 			_leave_to_map()
@@ -73,6 +82,29 @@ func set_text(text: String) -> void:
 
 func submit() -> void:
 	_on_go_pressed()
+
+
+## A returning player on a new device signs in with the email linked in the
+## profile instead of inventing a name: the account brings its own nickname.
+func _build_account_entry() -> void:
+	if not Online.is_configured() or Onboarding.rename_mode:
+		return
+	_have_account = Button.new()
+	_have_account.text = "У меня уже есть аккаунт"
+	_have_account.focus_mode = Control.FOCUS_NONE
+	_have_account.theme_type_variation = &"SecondaryButton"
+	_have_account.custom_minimum_size = Vector2(320, 58)
+	_have_account.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_have_account.add_theme_font_size_override("font_size", 21)
+	_go.add_sibling(_have_account)
+	_dialog = EmailAuthDialog.new()
+	add_child(_dialog)
+	_have_account.pressed.connect(func() -> void: _dialog.open(EmailAuthDialog.Mode.SIGN_IN))
+	_dialog.succeeded.connect(_on_signed_in.unbind(2))
+
+
+func _on_signed_in() -> void:
+	Onboarding.go(get_tree(), Onboarding.route(PlayerProfile.local()))
 
 
 func _apply_safe_area() -> void:

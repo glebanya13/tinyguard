@@ -360,6 +360,11 @@ func _build_account_ui() -> void:
 	_account.account_deleted.connect(
 		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
 	)
+	_account.signed_out.connect(
+		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
+	)
+	# Show the progress of the account that was signed in to.
+	_account.account_switched.connect(func() -> void: get_tree().reload_current_scene())
 	Online.sync_state_changed.connect(_on_sync_state)
 	Online.start()  # no-op after boot
 	_on_sync_state(Online.sync_state())
