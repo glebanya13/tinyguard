@@ -67,8 +67,11 @@ from the Profile screen. No analytics, no ads.
 **What's new (0.4.0):** First release: 6 levels, Endless Siege with leaderboard, accounts and
 cloud save, tutorial, pause on calls, Android Back button support.
 
-Внимание: интерфейс игры пока только русский (`docs/RELEASE_READINESS.md`); EN-описание
-честно публиковать только после английской локализации либо с пометкой "Interface: Russian".
+Локализация: интерфейс игры полностью RU + EN (`translations/strings.csv`, язык по системной
+локали, переключается в Настройках), поэтому EN-описание можно публиковать как основное для
+не русскоязычных стран. Скриншоты обоих языков: `docs/screenshots/i18n_en_*.png` и
+`docs/screenshots/i18n_ru_*.png` (`tools/shot_i18n.gd`); для карточки Play брать EN-набор
+(карта, казна, настройки, бой с баннером волны, карточка башни).
 
 ## Графика (TODO владельцу)
 
