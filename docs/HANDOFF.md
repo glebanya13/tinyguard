@@ -33,12 +33,11 @@ python3 tools/balance_sim.py
 с коммита `64415a4`, на текущую ветку ставятся через
 `git apply --3way wip/<имя>.patch` (в `main.gd` возможны конфликты с новым HUD).
 
-1. **`wip/maps.patch` — большие карты и несколько дорожек.** Карты ~44×30, 2–3 пути
-   (`"paths"` в `levels.json`), порталы по краям, спавн по путям (`wave_manager.gd`,
-   `main.gd`), правки валидатора, тестов, `balance_sim.py`, `build_terrain.py`.
-   Модели `.glb` в патч не включены — пересобрать:
-   `blender -b -P assets/blender/build_terrain.py` (см. `assets/blender/README`).
-   Осталось: пересборка, импорт, тесты на 6 уровнях, перебаланс, скриншоты.
+1. **Большие карты и несколько дорожек — сделано** (ветка `worktree-agent-afbd401b485be9627`).
+   Патч `wip/maps.patch` применён, модели пересобраны (`build_terrain.py`, ~2 мин на уровень),
+   тесты на 6 уровнях проходят, `balance_sim.py` — все 6 уровней проходятся с потерями жизней.
+   Draw calls в бою на 3–14 хуже, чем до карт (см. `docs/TECHNICAL_DESIGN.md`) — стоит ужать.
+   Файл `wip/maps.patch` можно удалить после слияния.
 2. **`wip/accounts.patch` — аккаунты, профиль, онбординг, туториал.** Есть:
    `auth_service.gd`, `session_store.gd`, `firestore_client.gd`, `player_profile.gd`,
    `nickname_rules.gd` + экран ника, `boot.tscn`/`onboarding.gd`, `tutorial.gd`,
