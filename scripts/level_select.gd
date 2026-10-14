@@ -5,6 +5,7 @@ extends Node3D
 ## with "Play" and, once the level is won, the endless siege.
 
 const GAME_SCENE := "res://scenes/main.tscn"
+const COOP_SCENE := "res://scenes/coop_lobby.tscn"
 const LOCK_ICON: Texture2D = preload("res://ui/icons/lock.png")
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const CASTLE_ICON: Texture2D = preload("res://ui/icons/flag.png")
@@ -27,6 +28,7 @@ var _records_status: Label = null
 var _account: AccountPanel = null
 var _settings: SettingsPanel = null
 var _sync_label: Label = null
+var _coop_button: Button = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
@@ -57,6 +59,7 @@ func _ready() -> void:
 	_build_account_ui()
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
+	_build_coop_button()
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_treasury_button.pressed.connect(_open_treasury)
 	$UI/Root/Treasury/Panel/Content/Footer/CloseButton.pressed.connect(_treasury.hide)
@@ -90,6 +93,32 @@ func _notification(what: int) -> void:
 			_account.close()
 		else:
 			get_tree().quit()  # Android back on the map leaves the game
+
+
+## "Кооператив": only with a configured Realtime Database (Online.rtdb); otherwise
+## the map is exactly the single-player map.
+func _build_coop_button() -> void:
+	if Online.rtdb == null:
+		return
+	_coop_button = Button.new()
+	_coop_button.name = "CoopButton"
+	_coop_button.custom_minimum_size = Vector2(260, 84)
+	_coop_button.focus_mode = Control.FOCUS_NONE
+	_coop_button.theme_type_variation = &"SecondaryButton"
+	_coop_button.text = tr("COOP_BUTTON")
+	_coop_button.icon = PROFILE_ICON
+	_coop_button.add_theme_constant_override("icon_max_width", 36)
+	_coop_button.pressed.connect(_open_coop)
+	_play_button.get_parent().add_child(_coop_button)
+	var info: Control = $UI/Root/Info
+	info.offset_left = -450.0
+	info.offset_right = 450.0
+
+
+func _open_coop() -> void:
+	LevelCatalog.selected_id = _selected
+	LevelCatalog.endless = false
+	get_tree().change_scene_to_file(COOP_SCENE)
 
 
 func _build_sites() -> void:
