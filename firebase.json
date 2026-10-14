@@ -4,7 +4,18 @@
     "indexes": "firestore.indexes.json"
   },
   "emulators": {
-    "firestore": { "port": 8189 },
-    "ui": { "enabled": false }
+    "singleProjectMode": false,
+    "firestore": {
+      "port": 8189
+    },
+    "ui": {
+      "enabled": false
+    },
+    "database": {
+      "port": 9189
+    }
+  },
+  "database": {
+    "rules": "database.rules.json"
   }
 }
