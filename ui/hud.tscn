@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
@@ -7,7 +7,6 @@
 [ext_resource type="Texture2D" path="res://ui/icons/coin.png" id="i_coin"]
 [ext_resource type="Texture2D" path="res://ui/icons/wood.png" id="i_wood"]
 [ext_resource type="Texture2D" path="res://ui/icons/heart.png" id="i_heart"]
-[ext_resource type="Texture2D" path="res://ui/icons/hourglass.png" id="i_hourglass"]
 [ext_resource type="Texture2D" path="res://ui/icons/boss.png" id="i_boss"]
 [ext_resource type="Texture2D" path="res://ui/icons/sword.png" id="i_sword"]
 [ext_resource type="Texture2D" path="res://ui/icons/star.png" id="i_star"]
@@ -16,7 +15,6 @@
 [ext_resource type="Texture2D" path="res://ui/icons/map.png" id="i_map"]
 [ext_resource type="Texture2D" path="res://ui/icons/restart.png" id="i_restart"]
 [ext_resource type="Texture2D" path="res://ui/icons/play.png" id="i_play"]
-[ext_resource type="Texture2D" path="res://ui/icons/sell.png" id="i_sell"]
 [ext_resource type="Texture2D" path="res://ui/icons/speed.png" id="i_speed"]
 [ext_resource type="Texture2D" path="res://ui/icons/pause.png" id="i_pause"]
 [ext_resource type="Texture2D" path="res://ui/icons/hammer.png" id="i_hammer"]
@@ -75,6 +73,25 @@ corner_radius_bottom_right = 66
 corner_radius_bottom_left = 66
 corner_detail = 16
 
+[sub_resource type="StyleBoxFlat" id="card"]
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 10.0
+bg_color = Color(0.11, 0.16, 0.31, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.91, 0.71, 0.3, 0.9)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0.03, 0.05, 0.12, 0.3)
+shadow_size = 4
+shadow_offset = Vector2(0, 2)
+
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
 
@@ -90,25 +107,25 @@ theme = ExtResource("2_theme")
 
 [node name="TopBar" type="HBoxContainer" parent="Root"]
 layout_mode = 0
-offset_left = 20.0
-offset_top = 14.0
-offset_right = 820.0
-offset_bottom = 66.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 616.0
+offset_bottom = 52.0
 mouse_filter = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
 
 [node name="WavePill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudPill"
+theme_type_variation = &"HudChip"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/WavePill"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/WavePill/Row"]
-custom_minimum_size = Vector2(36, 36)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_flag")
@@ -118,20 +135,21 @@ stretch_mode = 5
 [node name="WaveLabel" type="Label" parent="Root/TopBar/WavePill/Row"]
 custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
-text = "Волна 0/0"
+theme_override_font_sizes/font_size = 22
+text = "0/0"
 
 [node name="GoldPill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudPill"
+theme_type_variation = &"HudChip"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/GoldPill"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/GoldPill/Row"]
-custom_minimum_size = Vector2(36, 36)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_coin")
@@ -139,22 +157,23 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="GoldLabel" type="Label" parent="Root/TopBar/GoldPill/Row"]
-custom_minimum_size = Vector2(56, 0)
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "0"
 
 [node name="WoodPill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudPill"
+theme_type_variation = &"HudChip"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/WoodPill"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/WoodPill/Row"]
-custom_minimum_size = Vector2(36, 36)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_wood")
@@ -162,22 +181,23 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="WoodLabel" type="Label" parent="Root/TopBar/WoodPill/Row"]
-custom_minimum_size = Vector2(56, 0)
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "0"
 
 [node name="LivesPill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudPill"
+theme_type_variation = &"HudChip"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/LivesPill"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/LivesPill/Row"]
-custom_minimum_size = Vector2(36, 36)
+custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_heart")
@@ -185,93 +205,24 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="LivesLabel" type="Label" parent="Root/TopBar/LivesPill/Row"]
-custom_minimum_size = Vector2(36, 0)
+custom_minimum_size = Vector2(28, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "0"
-
-[node name="NextWavePill" type="PanelContainer" parent="Root"]
-visible = false
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -582.0
-offset_top = 14.0
-offset_right = -244.0
-offset_bottom = 66.0
-grow_horizontal = 0
-mouse_filter = 2
-theme_type_variation = &"HudPill"
-
-[node name="Row" type="HBoxContainer" parent="Root/NextWavePill"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="Icon" type="TextureRect" parent="Root/NextWavePill/Row"]
-custom_minimum_size = Vector2(36, 36)
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("i_hourglass")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="BossIcon" type="TextureRect" parent="Root/NextWavePill/Row"]
-visible = false
-custom_minimum_size = Vector2(36, 36)
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("i_boss")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="NextWaveLabel" type="Label" parent="Root/NextWavePill/Row"]
-layout_mode = 2
-text = "Волна 1 через 30 с"
-
-[node name="NextWaveButton" type="Button" parent="Root/NextWavePill/Row"]
-custom_minimum_size = Vector2(56, 40)
-layout_mode = 2
-focus_mode = 0
-theme_override_constants/icon_max_width = 30
-icon = ExtResource("i_speed")
-icon_alignment = 1
 
 [node name="TopRight" type="HBoxContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -232.0
-offset_top = 12.0
-offset_right = -20.0
-offset_bottom = 68.0
+offset_left = -154.0
+offset_top = 8.0
+offset_right = -16.0
+offset_bottom = 64.0
 grow_horizontal = 0
 mouse_filter = 2
 theme_override_constants/separation = 10
 alignment = 2
-
-[node name="ForgeButton" type="Button" parent="Root/TopRight"]
-custom_minimum_size = Vector2(64, 56)
-layout_mode = 2
-focus_mode = 0
-
-[node name="Icon" type="TextureRect" parent="Root/TopRight/ForgeButton"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 5.0
-offset_right = -8.0
-offset_bottom = -9.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("i_hammer")
-expand_mode = 1
-stretch_mode = 5
 
 [node name="SpeedButton" type="Button" parent="Root/TopRight"]
 custom_minimum_size = Vector2(64, 56)
@@ -333,68 +284,81 @@ texture = ExtResource("i_pause")
 expand_mode = 1
 stretch_mode = 5
 
-
-[node name="HintPill" type="PanelContainer" parent="Root"]
+[node name="Hint" type="HBoxContainer" parent="Root"]
 visible = false
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -330.0
-offset_top = 78.0
-offset_right = 330.0
-offset_bottom = 126.0
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 64.0
+offset_bottom = 96.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_type_variation = &"HudPill"
-
-[node name="Row" type="HBoxContainer" parent="Root/HintPill"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 10
 alignment = 1
 
-[node name="Icon" type="TextureRect" parent="Root/HintPill/Row"]
-custom_minimum_size = Vector2(30, 30)
+[node name="Pill" type="PanelContainer" parent="Root/Hint"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"HudChip"
+
+[node name="Row" type="HBoxContainer" parent="Root/Hint/Pill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Root/Hint/Pill/Row"]
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_star")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="Root/HintPill/Row"]
+[node name="Label" type="Label" parent="Root/Hint/Pill/Row"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 18
 text = ""
 
-[node name="BossBanner" type="HBoxContainer" parent="Root"]
+[node name="Banner" type="VBoxContainer" parent="Root"]
 visible = false
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -260.0
-offset_top = 90.0
-offset_right = 260.0
-offset_bottom = 170.0
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 104.0
+offset_bottom = 200.0
 grow_horizontal = 2
 mouse_filter = 2
+theme_override_constants/separation = -2
+
+[node name="Row" type="HBoxContainer" parent="Root/Banner"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
 alignment = 1
 
-[node name="Icon" type="TextureRect" parent="Root/BossBanner"]
-custom_minimum_size = Vector2(80, 80)
+[node name="BossIcon" type="TextureRect" parent="Root/Banner/Row"]
+visible = false
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_boss")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="Root/BossBanner"]
+[node name="Title" type="Label" parent="Root/Banner/Row"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.55, 0.5, 1)
+theme_override_colors/font_color = Color(1, 0.86, 0.45, 1)
 theme_override_constants/outline_size = 10
-theme_override_font_sizes/font_size = 48
-text = "Босс!"
+theme_override_font_sizes/font_size = 44
+text = "Волна 1!"
+
+[node name="Subtitle" type="Label" parent="Root/Banner"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.82, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 24
+text = ""
+horizontal_alignment = 1
 
 [node name="Popups" type="Control" parent="Root"]
 layout_mode = 1
@@ -412,37 +376,43 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -600.0
-offset_top = -262.0
+offset_left = -560.0
+offset_top = -190.0
 offset_right = -176.0
-offset_bottom = -24.0
+offset_bottom = -20.0
 grow_horizontal = 0
 grow_vertical = 0
+theme_override_styles/panel = SubResource("card")
 
 [node name="Content" type="VBoxContainer" parent="Root/CommandCard"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
-[node name="Title" type="Label" parent="Root/CommandCard/Content"]
+[node name="Head" type="HBoxContainer" parent="Root/CommandCard/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root/CommandCard/Content/Head"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 22
 text = "Рыцарь"
 
-[node name="Stats" type="Label" parent="Root/CommandCard/Content"]
+[node name="Stats" type="Label" parent="Root/CommandCard/Content/Head"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
 text = ""
 
 [node name="Hint" type="Label" parent="Root/CommandCard/Content"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.62, 0.55, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
 text = ""
 
 [node name="Buttons" type="HBoxContainer" parent="Root/CommandCard/Content"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="AttackButton" type="Button" parent="Root"]
 custom_minimum_size = Vector2(132, 132)
@@ -597,6 +567,15 @@ layout_mode = 2
 size_flags_horizontal = 4
 text = "Продолжить"
 icon = ExtResource("i_play")
+
+[node name="ForgeButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+process_mode = 3
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"SecondaryButton"
+text = "Кузница"
+icon = ExtResource("i_hammer")
 
 [node name="SoundButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
 process_mode = 3

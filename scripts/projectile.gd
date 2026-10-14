@@ -2,6 +2,7 @@ class_name Projectile
 extends Node3D
 ## Tower shot. Homing (arrow, frost shard) or ballistic (cannonball: flies in an
 ## arc to where the target was and damages everything within the splash radius).
+## The model casts no shadow (set in the projectile scenes, not per shot).
 
 @export var speed: float = 10.0
 @export var hit_distance: float = 0.15
@@ -20,11 +21,6 @@ var _from: Vector3
 var _to: Vector3
 var _time: float = 0.0
 var _duration: float = 0.0
-
-
-func _ready() -> void:
-	for mesh: Node in find_children("*", "GeometryInstance3D", true, false):
-		(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Call after the projectile is in the tree and positioned at the muzzle.

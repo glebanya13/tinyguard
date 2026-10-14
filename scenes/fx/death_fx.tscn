@@ -36,6 +36,7 @@ script = ExtResource("1_fx")
 lifetime = 1.1
 
 [node name="Splash" type="CPUParticles3D" parent="."]
+cast_shadow = 0
 emitting = false
 amount = 22
 lifetime = 0.7
@@ -56,6 +57,7 @@ scale_amount_curve = SubResource("shrink")
 color = Color(0.92, 0.35, 0.3, 1)
 
 [node name="Coins" type="CPUParticles3D" parent="."]
+cast_shadow = 0
 emitting = false
 amount = 6
 lifetime = 0.9

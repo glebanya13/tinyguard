@@ -1,6 +1,9 @@
 extends Node3D
-## Visuals of the archer tower model: turns the crossbow towards the current
-## target, plays the recoil animation and shot sound, shows level decorations.
+## Visuals of a tower model: turns the turret towards the current target,
+## plays the recoil animation and shot sound, shows level decorations.
+## Only the body (Base) and the turret cast shadows: every shadow caster is one
+## more draw call per tower, and the small parts (Lv2/Lv3 decorations, the bow,
+## gun, crystal or orb on the turret) add nothing visible to the shadow.
 ## Gameplay stays in tower.gd.
 
 ## Radians per second the crossbow turns at.
@@ -17,6 +20,8 @@ var _target_yaw: float = 0.0
 
 func _ready() -> void:
 	_target_yaw = _turret.rotation.y
+	for part: Node in [_lv2, _lv3] + _turret.get_children():
+		_drop_shadow(part)
 	_on_tower_level_changed(0)
 
 
@@ -39,3 +44,10 @@ func _on_tower_fired(target: Enemy) -> void:
 func _on_tower_level_changed(level: int) -> void:
 	_lv2.visible = level >= 1
 	_lv3.visible = level >= 2
+
+
+func _drop_shadow(part: Node) -> void:
+	if part is GeometryInstance3D:
+		(part as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for mesh: Node in part.find_children("*", "GeometryInstance3D", true, false):
+		(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

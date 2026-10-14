@@ -35,6 +35,7 @@ script = ExtResource("1_fx")
 lifetime = 0.6
 
 [node name="Droplets" type="CPUParticles3D" parent="."]
+cast_shadow = 0
 emitting = false
 amount = 10
 lifetime = 0.5
@@ -55,6 +56,7 @@ scale_amount_curve = SubResource("shrink")
 color = Color(0.92, 0.35, 0.3, 1)
 
 [node name="Sparks" type="CPUParticles3D" parent="."]
+cast_shadow = 0
 emitting = false
 amount = 6
 lifetime = 0.22

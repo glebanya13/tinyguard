@@ -20,6 +20,7 @@ lifetime = 0.6
 
 [node name="Slash" type="CPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+cast_shadow = 0
 emitting = false
 amount = 28
 lifetime = 0.35
