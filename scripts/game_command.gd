@@ -19,8 +19,33 @@ enum Type {
 	SET_SPEED,  ## args: 1 or 2
 }
 
+## Co-op wire names (CoopProtocol.COMMAND_TYPES) and argument counts of the commands
+## that travel between players. Pause and speed never do: see GameCommands.submit().
+const WIRE_NAMES: Dictionary = {
+	Type.BUILD: "build",
+	Type.UPGRADE: "upgrade",
+	Type.SELL: "sell",
+	Type.SWORD: "sword",
+	Type.REPAIR: "repair",
+	Type.TRADE: "trade",
+	Type.HERO_ATTACK: "attack",
+	Type.HERO_SPIN: "spin",
+}
+const ARG_COUNTS: Dictionary = {
+	Type.BUILD: 2,
+	Type.UPGRADE: 1,
+	Type.SELL: 1,
+	Type.SWORD: 0,
+	Type.REPAIR: 0,
+	Type.TRADE: 1,
+	Type.HERO_ATTACK: 3,
+	Type.HERO_SPIN: 2,
+	Type.SET_PAUSE: 1,
+	Type.SET_SPEED: 1,
+}
+
 var tick: int = 0
-## Who issued it (0 in single player; the co-op slot later).
+## Who issued it (0 in single player; in co-op the player slot: 0 host, 1 guest).
 var player: int = 0
 var type: Type = Type.BUILD
 var args: Array[int] = []
@@ -84,6 +109,29 @@ static func to_mrad(radians: float) -> int:
 ## Ground point from two millimetre arguments.
 static func point_from_mm(x_mm: int, z_mm: int) -> Vector3:
 	return Vector3(x_mm / 1000.0, 0.0, z_mm / 1000.0)
+
+
+## Name of the command in the co-op protocol ("" for commands that never travel).
+func wire_name() -> String:
+	return WIRE_NAMES.get(type, "")
+
+
+## A command received from the partner. null when the name is unknown or the
+## argument count is wrong (a partner must never be able to crash the game).
+static func from_wire(wire: String, wire_args: Array, slot: int, at_tick: int) -> GameCommand:
+	for key: int in WIRE_NAMES:
+		if WIRE_NAMES[key] != wire:
+			continue
+		if wire_args.size() != int(ARG_COUNTS[key]):
+			return null
+		var cmd := GameCommand.new()
+		cmd.type = key as Type
+		cmd.player = slot
+		cmd.tick = at_tick
+		for value: Variant in wire_args:
+			cmd.args.append(int(value))
+		return cmd
+	return null
 
 
 func to_array() -> Array:

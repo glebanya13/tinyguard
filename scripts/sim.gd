@@ -24,6 +24,8 @@ const TICK_RATE: int = 30
 const TICK_DT: float = 1.0 / TICK_RATE
 ## Steps per frame at most (a long hitch must not freeze the game in catch-up).
 const MAX_STEPS_PER_FRAME: int = 10
+## Co-op: how many steps of real time may pile up while waiting for the partner.
+const COOP_MAX_BACKLOG: int = 3
 ## FNV-1a 64-bit (as signed integers).
 const HASH_BASIS: int = -3750763034362895579
 const HASH_PRIME: int = 1099511628211
@@ -50,6 +52,10 @@ var commands: GameCommands = null
 var game_state: GameState = null
 var wave_manager: WaveManager = null
 var hero: Hero = null
+## Co-op: both knights by player slot (empty in single player: `hero` alone).
+var heroes: Array[Hero] = []
+## Co-op: the lockstep that gates the clock and delivers the commands (null otherwise).
+var coop: CoopDriver = null
 var villagers: Villagers = null
 
 ## Living entities in registration (= id) order.
@@ -92,11 +98,16 @@ static func ticks(seconds: float) -> int:
 
 ## Collects `delta` seconds and runs the steps they pay for.
 func advance(delta: float) -> void:
+	if coop != null:
+		coop.process(delta)  # the network runs even before the level is ready
 	if not running:
 		return
 	_accum += delta
 	var steps: int = 0
 	while _accum >= TICK_DT and steps < MAX_STEPS_PER_FRAME:
+		if coop != null and not coop.can_step():
+			_accum = minf(_accum, COOP_MAX_BACKLOG * TICK_DT)  # waiting for the partner
+			break
 		_accum -= TICK_DT
 		step()
 		steps += 1
@@ -198,6 +209,8 @@ func add_tree(tree: WoodTree) -> void:
 func step() -> void:
 	_in_step = true
 	_apply_journal()
+	if coop != null:
+		coop.before_step()
 	var due: Array = _scheduled.get(tick, [])
 	if not due.is_empty():
 		_scheduled.erase(tick)
@@ -214,6 +227,8 @@ func step() -> void:
 		projectile.sim_step()
 	_in_step = false
 	tick += 1
+	if coop != null:
+		coop.after_step()
 	ticked.emit(tick)
 
 
@@ -226,7 +241,10 @@ func state_hash() -> int:
 		h = _mix_all(h, [game_state.gold, game_state.wood, game_state.lives])
 	if wave_manager != null:
 		h = _mix_all(h, wave_manager.state_ints())
-	if hero != null:
+	if not heroes.is_empty():
+		for knight in heroes:
+			h = _mix_all(h, knight.state_ints())
+	elif hero != null:
 		h = _mix_all(h, hero.state_ints())
 	if villagers != null:
 		h = _mix(h, villagers.lots_sold)
