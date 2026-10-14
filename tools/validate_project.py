@@ -307,6 +307,25 @@ def _check_paths(tag: str, lv: dict) -> list:
     return segs
 
 
+def check_rules_lists() -> None:
+    """firestore.rules whitelist the keys of users/{uid}.progression (storage abuse);
+    a perk or level missing there would make its owner's cloud sync fail."""
+    rules = ROOT / "firestore.rules"
+    if not rules.is_file():
+        return
+    text = rules.read_text(encoding="utf-8")
+    for perk in sorted((ROOT / "resources" / "perks").glob("*.tres")):
+        m = re.search(r'^id = &"([a-z_0-9]+)"', perk.read_text(encoding="utf-8"), re.M)
+        if m and f"'{m.group(1)}'" not in text:
+            errors.append(f"firestore.rules: perk id '{m.group(1)}' ({perk.name}) is missing in perkKeys()/perksOk()")
+    levels = ROOT / "resources" / "levels.json"
+    if levels.is_file():
+        import json
+        for lv in json.loads(levels.read_text(encoding="utf-8"))["levels"]:
+            if f"'{lv['id']}'" not in text:
+                errors.append(f"firestore.rules: level {lv['id']} is missing in levelKeys()/starsOk()")
+
+
 def check_levels() -> None:
     """Layout sanity for resources/levels.json (shared by Godot and Blender)."""
     path = ROOT / "resources" / "levels.json"
@@ -428,6 +447,7 @@ def main() -> int:
     check_export_presets()
     check_privacy_url()
     check_levels()
+    check_rules_lists()
     check_project_settings()
     collect_class_names()
     for pattern in ("*.tscn", "*.tres"):
