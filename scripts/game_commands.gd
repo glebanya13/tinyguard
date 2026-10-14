@@ -21,6 +21,18 @@ var villagers: Villagers = null
 ## Tower slots by id (their index in the level's "slots").
 var slots: Array[TowerSlot] = []
 var journal := CommandLog.new()
+## Validate hero commands (co-op: both clients reject the same ones). Off in
+## single player, where the player cannot cheat against anyone.
+var validate_hero: bool = false
+## A hero may cover this many times his walking speed between two commands (dashes,
+## physics slides, x2 speed jitter) plus a constant slack.
+var speed_tolerance_percent: int = 150
+var slack_mm: int = 1000
+
+var _bounds_mm: Rect2i = Rect2i()
+## player -> [x mm, z mm, tick] of the last accepted hero command.
+var _last_hero: Dictionary = {}
+var _start_mm: Vector2i = Vector2i.ZERO
 
 
 ## Live command from the player. Returns true if it changed something.
@@ -64,9 +76,10 @@ func apply(cmd: GameCommand) -> bool:
 			ok = villagers.sell(cmd.args[0]) > 0
 		GameCommand.Type.HERO_ATTACK:
 			var origin: Vector3 = GameCommand.point_from_mm(cmd.args[0], cmd.args[1])
-			ok = hero.apply_attack(origin, cmd.args[2] / 1000.0)
+			ok = _hero_position_ok(cmd) and hero.apply_attack(origin, cmd.args[2] / 1000.0)
 		GameCommand.Type.HERO_SPIN:
-			ok = hero.apply_spin(GameCommand.point_from_mm(cmd.args[0], cmd.args[1]))
+			var spot: Vector3 = GameCommand.point_from_mm(cmd.args[0], cmd.args[1])
+			ok = _hero_position_ok(cmd) and hero.apply_spin(spot)
 		GameCommand.Type.SET_PAUSE:
 			sim.set_paused(cmd.args[0] != 0)
 			ok = true
@@ -75,6 +88,40 @@ func apply(cmd: GameCommand) -> bool:
 			ok = true
 	applied.emit(cmd, ok)
 	return ok
+
+
+## Where the hero starts and the map rectangle (metres): the reference for validation.
+func set_hero_limits(start: Vector3, map: Rect2) -> void:
+	_start_mm = Vector2i(GameCommand.to_mm(start.x), GameCommand.to_mm(start.z))
+	_bounds_mm = Rect2i(
+		GameCommand.to_mm(map.position.x) - slack_mm,
+		GameCommand.to_mm(map.position.y) - slack_mm,
+		GameCommand.to_mm(map.size.x) + 2 * slack_mm,
+		GameCommand.to_mm(map.size.y) + 2 * slack_mm
+	)
+
+
+## Integer-only check of a hero command's position (x, z in mm): inside the map and
+## reachable at hero speed since the player's previous accepted hero command.
+## Uses only journal data, so every client decides the same.
+@warning_ignore("integer_division")
+func _hero_position_ok(cmd: GameCommand) -> bool:
+	if not validate_hero:
+		return true
+	var x: int = cmd.args[0]
+	var z: int = cmd.args[1]
+	if not _bounds_mm.has_point(Vector2i(x, z)):
+		return false
+	var last: Array = _last_hero.get(cmd.player, [_start_mm.x, _start_mm.y, 0])
+	var elapsed: int = maxi(cmd.tick - int(last[2]), 0)
+	var walk_mm: int = roundi(hero.speed * 1000.0) * elapsed * speed_tolerance_percent
+	var allowed: int = walk_mm / (100 * Sim.TICK_RATE) + slack_mm
+	var dx: int = x - int(last[0])
+	var dz: int = z - int(last[1])
+	if dx * dx + dz * dz > allowed * allowed:
+		return false
+	_last_hero[cmd.player] = [x, z, cmd.tick]
+	return true
 
 
 func _slot(id: int) -> TowerSlot:

@@ -13,6 +13,7 @@ const LOG_PATH := "user://test_replay_journal.json"
 var fails := 0
 var _trace: Array[int] = []
 var _final: Array[int] = []
+var _start_gold: int = 0
 var _level: int = 1
 var _last_bot_tick: int = -1
 var _sold: bool = false
@@ -90,6 +91,7 @@ func _run() -> void:
 	var commands: GameCommands = main.get_node("GameCommands")
 	check(sim.running and sim.tick == 0, "level %d: clock ready at tick 0" % _level)
 	_collect(sim, main)
+	_start_gold = (main.get_node("GameState") as GameState).gold
 	while sim.tick < TOTAL_TICKS:
 		if sim.tick != _last_bot_tick and sim.tick % 5 == 0:
 			_last_bot_tick = sim.tick
@@ -180,8 +182,77 @@ func _run() -> void:
 			"%s replay: live commands are refused" % variant
 		)
 
+	await _negative_controls(loaded, recorded)
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
+
+
+## The test must be able to fail: replays of a doctored journal have to diverge
+## (a divergence here is the expected, passing outcome).
+func _negative_controls(original: CommandLog, recorded: Array[int]) -> void:
+	var first_build: int = -1
+	for i in original.commands.size():
+		if original.commands[i].type == GameCommand.Type.BUILD:
+			first_build = i
+			break
+	check(first_build >= 0, "control: the journal has a BUILD command")
+	var at: int = original.commands[first_build].tick
+	var checkpoint: int = ceili((at + 1) / float(HASH_EVERY)) * HASH_EVERY
+
+	var late := CommandLog.from_json(original.to_json())
+	late.commands[first_build].tick += 1
+	var result: Dictionary = await _replay_trace(late)
+	var diff: int = _first_diff(recorded, result["trace"])
+	check(
+		diff >= at + 1,
+		"control: a build one tick late diverges (tick %d, build at %d)" % [diff, at]
+	)
+
+	var other_tower := CommandLog.from_json(original.to_json())
+	var cmd: GameCommand = other_tower.commands[first_build]
+	cmd.args[1] = (cmd.args[1] + 1) % 4
+	result = await _replay_trace(other_tower)
+	diff = _first_diff(recorded, result["trace"])
+	check(
+		diff == checkpoint,
+		"control: another tower type diverges at tick %d (got %d)" % [checkpoint, diff]
+	)
+
+	var reseeded := CommandLog.from_json(original.to_json())
+	reseeded.header["seed"] = int(reseeded.header["seed"]) + 1
+	result = await _replay_trace(reseeded)
+	diff = _first_diff(recorded, result["trace"])
+	check(diff == HASH_EVERY, "control: another seed diverges at the first hash (got %d)" % diff)
+
+	# Perks of the header are applied by the replay (not the local save).
+	var perked := CommandLog.from_json(original.to_json())
+	perked.header["perks"]["gold_start"] = 50
+	result = await _replay_trace(perked)
+	check(
+		int(result["gold0"]) == _start_gold + 50,
+		"perks: header gold_start applied (%d)" % result["gold0"]
+	)
+	check(_first_diff(recorded, result["trace"]) == HASH_EVERY, "perks: other perks diverge")
+
+
+func _replay_trace(journal: CommandLog) -> Dictionary:
+	var other: Node = await _load_level()
+	var sim2: Sim = other.get_node("Sim")
+	_collect(sim2, other)
+	sim2.begin_replay(journal)
+	var gold0: int = (other.get_node("GameState") as GameState).gold
+	while sim2.tick < TOTAL_TICKS:
+		sim2.advance(0.1)
+		await process_frame
+	return {"trace": _trace.duplicate(), "gold0": gold0}
+
+
+## Tick of the first differing hash, or -1.
+func _first_diff(a: Array[int], b: Array[int]) -> int:
+	for i in mini(a.size(), b.size()):
+		if a[i] != b[i]:
+			return (i + 1) * HASH_EVERY
+	return -1
 
 
 ## The scripted player. Reads only simulation state, issues only commands.

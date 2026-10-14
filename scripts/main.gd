@@ -14,6 +14,10 @@ const DEFEAT_TIPS: Array[String] = [
 	"ставьте башни там, где тропа делает петлю: враги проходят их дважды",
 ]
 
+## Perks recorded in the journal header and applied by a replay.
+const PERK_KEYS: Array[StringName] = [
+	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls"
+]
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 const TUTORIAL_SCENE := preload("res://scenes/tutorial.tscn")
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
@@ -124,8 +128,7 @@ func _ready() -> void:
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
 	_build_level()
 	_endless = LevelCatalog.endless
-	_game_state.configure(_start_with_perks(level["start"]))
-	_game_state.reset()
+	_apply_perks(_current_perks())
 	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
 	_wave_manager.sim = _sim
 	_build_manager.sim = _sim
@@ -141,9 +144,7 @@ func _ready() -> void:
 	_sim.hero = _hero
 	_sim.villagers = villagers
 	_commands.journal.header = _journal_header()
-	_hero.damage_multiplier = 1.0 + Perks.value(&"sword")
-	_hero.wood_bonus = int(Perks.value(&"axe"))
-	_build_manager.damage_multiplier = 1.0 + Perks.value(&"towers")
+	_commands.set_hero_limits(_hero.global_position, _map_rect())
 	_wave_manager.wave_cleared.connect(
 		func(wave: int) -> void: _waves_cleared = maxi(_waves_cleared, wave)
 	)
@@ -169,6 +170,7 @@ func _ready() -> void:
 	_commands.applied.connect(_on_command_applied)
 	_sim.pause_changed.connect(_on_pause_changed)
 	_sim.speed_changed.connect(_on_speed_changed)
+	_sim.replay_begun.connect(_on_replay_begun)
 
 	_hud.command_pressed.connect(_on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
@@ -259,16 +261,41 @@ func _journal_header() -> Dictionary:
 		"level": int(level["id"]),
 		"endless": _endless,
 		"seed": _sim.seed_value,
-		"perks":
-		[
-			Perks.value(&"sword"),
-			Perks.value(&"axe"),
-			Perks.value(&"towers"),
-			Perks.value(&"gold_start"),
-			Perks.value(&"wood_start"),
-			Perks.value(&"walls"),
-		],
+		"perks": _current_perks(),
 	}
+
+
+## The player's permanent perks by name.
+func _current_perks() -> Dictionary:
+	var out := {}
+	for key: StringName in PERK_KEYS:
+		out[String(key)] = Perks.value(key)
+	return out
+
+
+## Starting resources, lives and damage bonuses from `perks`. A replay applies
+## the perks of its journal header (not the local save), so every client plays
+## the same battle; call it before the battle clock starts.
+func _apply_perks(perks: Dictionary) -> void:
+	var start: Dictionary = level["start"].duplicate()
+	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
+	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
+	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
+	_game_state.configure(start)
+	_game_state.reset()
+	_hero.damage_multiplier = 1.0 + float(perks.get("sword", 0.0))
+	_hero.wood_bonus = int(perks.get("axe", 0))
+	_build_manager.damage_multiplier = 1.0 + float(perks.get("towers", 0.0))
+
+
+func _on_replay_begun(header: Dictionary) -> void:
+	_apply_perks(header.get("perks", {}))
+
+
+## Playable area of the map (metres), for validating hero commands.
+func _map_rect() -> Rect2:
+	var b: Array = level["bounds"]
+	return Rect2(b[0], b[1], b[2], b[3])
 
 
 ## UI reaction to an executed command: effects of the forge, a fresh card.
@@ -282,15 +309,6 @@ func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 		GameCommand.Type.REPAIR:
 			_spawn_fx(BUILD_FX, _castle.global_position)
 			_refresh_card()
-
-
-## Level start values plus the permanent perks bought with stars.
-func _start_with_perks(start: Dictionary) -> Dictionary:
-	var out: Dictionary = start.duplicate()
-	out["gold"] = int(out["gold"]) + int(Perks.value(&"gold_start"))
-	out["wood"] = int(out["wood"]) + int(Perks.value(&"wood_start"))
-	out["lives"] = int(out["lives"]) + int(Perks.value(&"walls"))
-	return out
 
 
 func _count_kill(reward: int) -> void:

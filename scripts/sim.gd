@@ -15,6 +15,8 @@ extends Node
 signal ticked(tick: int)
 signal pause_changed(paused: bool)
 signal speed_changed(speed: int)
+## A replay is about to run: listeners adopt what its header says (perks).
+signal replay_begun(header: Dictionary)
 
 ## Bump on any change that alters battle results (replays of other versions are stale).
 const VERSION: int = 1
@@ -130,6 +132,7 @@ func begin_replay(journal: CommandLog) -> void:
 	_replay = journal
 	_replay_index = 0
 	set_seed(int(journal.header.get("seed", 0)))
+	replay_begun.emit(journal.header)
 
 
 func is_replaying() -> bool:

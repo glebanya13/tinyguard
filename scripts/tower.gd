@@ -85,7 +85,7 @@ func apply_level(tower_data: TowerData, new_level: int) -> void:
 
 ## Integers describing the simulated state (for Sim.state_hash).
 func state_ints() -> Array[int]:
-	return [id, level, roundi(_cooldown * 1000.0)]
+	return [id, level, roundi(damage * 1000.0), roundi(_cooldown * 1000.0)]
 
 
 ## Nearest living enemy in range (ties: the lowest id, as enemies are in id order).
