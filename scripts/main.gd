@@ -218,10 +218,7 @@ func _count_kill(reward: int) -> void:
 func _stats_summary() -> String:
 	var t: int = int(_stats["time"])
 	var line_1 := tr("END_STATS_1") % [_stats["kills"], _stats["gold"]]
-	var line_2 := (
-		tr("END_STATS_2")
-		% [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
-	)
+	var line_2 := tr("END_STATS_2") % [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
 	return line_1 + "\n" + line_2
 
 
@@ -606,11 +603,7 @@ func _trade_card() -> Dictionary:
 	var price: int = villagers.lot_price()
 	var info := {"title": tr("CARD_VILLAGER")}
 	info["stats"] = tr("CARD_TRADE_STATS") % [lot, price, _game_state.wood]
-	info["hint"] = (
-		tr("CARD_TRADE_HINT")
-		if lots > 0
-		else tr("CARD_NEED_WOOD_VILLAGER") % lot
-	)
+	info["hint"] = (tr("CARD_TRADE_HINT") if lots > 0 else tr("CARD_NEED_WOOD_VILLAGER") % lot)
 	info["buttons"] = [
 		{
 			"id": &"trade_lot",
@@ -946,11 +939,7 @@ func _on_defeated() -> void:
 		_end_game(title, record, 0, line + "\n")
 		return
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
-	tips.append(
-		(
-			tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood]
-		)
-	)
+	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
 	_end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
 
 

@@ -299,11 +299,7 @@ func _on_email_done(kind: String, result: Dictionary) -> void:
 			else:
 				_set_label(_info_label, tr("ACC_SIGNIN_OK"), OK_COLOR)
 		"reset":
-			_set_label(
-				_info_label,
-				tr("ACC_RESET_SENT"),
-				OK_COLOR
-			)
+			_set_label(_info_label, tr("ACC_RESET_SENT"), OK_COLOR)
 
 
 func _ask_sign_out() -> void:

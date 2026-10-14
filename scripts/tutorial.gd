@@ -296,13 +296,7 @@ func _ask_skip() -> void:
 	if _step == Step.DONE:
 		return
 	_before_skip = _step
-	_show_modal(
-		&"skip",
-		tr("TUT_SKIP_Q"),
-		tr("TUT_SKIP_BODY"),
-		tr("TUT_SKIP"),
-		tr("TUT_BACK")
-	)
+	_show_modal(&"skip", tr("TUT_SKIP_Q"), tr("TUT_SKIP_BODY"), tr("TUT_SKIP"), tr("TUT_BACK"))
 
 
 func _leave_to_map() -> void:

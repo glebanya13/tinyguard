@@ -5,9 +5,7 @@ extends SceneTree
 ## godot --headless --path . --script res://tests/test_i18n.gd
 
 const CSV_PATH := "res://translations/strings.csv"
-const SOURCE_DIRS: Array[String] = [
-	"res://scripts", "res://scenes", "res://ui", "res://resources"
-]
+const SOURCE_DIRS: Array[String] = ["res://scripts", "res://scenes", "res://ui", "res://resources"]
 
 var fails := 0
 
@@ -90,8 +88,8 @@ func _placeholders(regex: RegEx, text: String) -> Array[String]:
 
 ## tr("KEY"), translate("KEY") and key-looking constants in the sources exist in the CSV.
 func _check_used_keys(rows: Dictionary) -> void:
-	var call_regex := RegEx.create_from_string("(?:\\btr|translate)\\(\\s*\"([A-Z][A-Z0-9_]+)\"")
-	var key_regex := RegEx.create_from_string("\"([A-Z]{2,}[A-Z0-9]*(?:_[A-Z0-9]+)+)\"")
+	var call_regex := RegEx.create_from_string('(?:\\btr|translate)\\(\\s*"([A-Z][A-Z0-9_]+)"')
+	var key_regex := RegEx.create_from_string('"([A-Z]{2,}[A-Z0-9]*(?:_[A-Z0-9]+)+)"')
 	var used: Dictionary = {}
 	var maybe: Dictionary = {}
 	for dir: String in SOURCE_DIRS:
@@ -112,7 +110,10 @@ func _check_used_keys(rows: Dictionary) -> void:
 		var prefix: String = key.split("_")[0]
 		if key in ["EMAIL_EXISTS", "EMAIL_NOT_FOUND"]:  # Firebase error codes, not texts
 			continue
-		if prefix in ["ERR", "NICK", "SYNC", "EMAIL", "TOWER", "ENEMY", "PERK", "LEVEL", "TIP", "TUT"]:
+		if (
+			prefix
+			in ["ERR", "NICK", "SYNC", "EMAIL", "TOWER", "ENEMY", "PERK", "LEVEL", "TIP", "TUT"]
+		):
 			if not rows.has(key):
 				missing_const.append("%s (%s)" % [key, maybe[key]])
 	check(missing_const.is_empty(), "every key-like constant exists %s" % [missing_const])
@@ -162,7 +163,10 @@ func _check_runtime(rows: Dictionary) -> void:
 	for level: Dictionary in LevelCatalog.levels():
 		check(rows.has(str(level["name"])) and rows.has(str(level["subtitle"])), "level text keys")
 	TranslationServer.set_locale("en")
-	check(EmailRules.message("offline") == "No connection. Try again when you are online", "en: email error")
+	check(
+		EmailRules.message("offline") == "No connection. Try again when you are online",
+		"en: email error"
+	)
 	check(NicknameRules.message("too_short") == "At least 3 characters", "en: nickname too_short")
 	TranslationServer.set_locale("ru")
 	check(NicknameRules.message("too_short") == "Минимум 3 символа", "ru: nickname too_short")

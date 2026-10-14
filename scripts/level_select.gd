@@ -158,8 +158,7 @@ func _select(id: int) -> void:
 		_record_label.text = tr("MAP_NO_ENDLESS")
 	else:
 		_record_label.text = (
-			tr("MAP_ENDLESS_RECORD")
-			% [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
+			tr("MAP_ENDLESS_RECORD") % [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
 		)
 	for i in _site_buttons.size():
 		_site_buttons[i].modulate = Color(1.15, 1.1, 0.9) if _site_ids[i] == id else Color.WHITE
@@ -251,7 +250,9 @@ func _on_reset_pressed() -> void:
 func _open_records() -> void:
 	if _records == null:
 		_build_records_panel()
-	_records_title.text = tr("MAP_RECORDS_TITLE") % tr(str(LevelCatalog.get_level(_selected)["name"]))
+	_records_title.text = (
+		tr("MAP_RECORDS_TITLE") % tr(str(LevelCatalog.get_level(_selected)["name"]))
+	)
 	_records_status.text = tr("MAP_LOADING")
 	for child in _records_list.get_children():
 		child.queue_free()
@@ -314,9 +315,7 @@ func _on_leaderboard_loaded(level_id: int, entries: Array) -> void:
 		return
 	for child in _records_list.get_children():
 		child.queue_free()
-	_records_status.text = (
-		"" if not entries.is_empty() else tr("MAP_NO_RECORDS")
-	)
+	_records_status.text = ("" if not entries.is_empty() else tr("MAP_NO_RECORDS"))
 	for i in entries.size():
 		var row := Label.new()
 		row.text = tr("MAP_RECORD_ROW") % [i + 1, entries[i]["name"], entries[i]["wave"]]
@@ -401,9 +400,7 @@ func _build_settings_ui() -> void:
 func _on_sync_state(state: String) -> void:
 	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
 	_sync_label.visible = conflict or state in ["pending", "offline", "session_lost", "newer"]
-	_sync_label.text = (
-		tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state)
-	)
+	_sync_label.text = (tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state))
 	_sync_label.add_theme_color_override(
 		"font_color", Color(1.0, 0.62, 0.55) if conflict else Color(0.82, 0.86, 0.95)
 	)
