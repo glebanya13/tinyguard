@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/slime_healer.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Лекарь"
+model = ExtResource("2_model")
+health = 28.0
+speed = 1.15
+reward = 5
+base_damage = 1
+health_bar_height = 0.95
+health_bar_width = 0.6
+is_boss = false
+heal_fraction = 0.05
+heal_radius = 1.8
+heal_interval = 1.0

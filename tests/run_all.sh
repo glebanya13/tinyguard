@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 status=0
 run() {
 	local out
-	out=$("$@" 2>&1)
+	out=$(timeout 600 "$@" 2>&1)
 	echo "$out" | grep -E "FAIL|RESULT|SCRIPT ERROR"
 	echo "$out" | grep -q "RESULT: PASS" || status=1
 }

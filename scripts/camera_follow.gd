@@ -34,7 +34,9 @@ func snap() -> void:
 		global_position = _focus() + _offset
 
 
-func _process(delta: float) -> void:
+# Physics frames, like the hero: following him at render rate made the view
+# jitter when frame and physics ticks drift apart.
+func _physics_process(delta: float) -> void:
 	if target == null:
 		return
 	var goal: Vector3 = _focus() + _offset

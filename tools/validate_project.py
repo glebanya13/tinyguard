@@ -286,10 +286,41 @@ def check_levels() -> None:
                 errors.append(f"{tag}: {kind} {s} outside the play bounds")
             if abs(s[0] - cx) < 1.6 and abs(s[1] - cz) < 1.6:
                 errors.append(f"{tag}: {kind} {s} overlaps the castle")
+        # Every slot must reach the path with the shortest-ranged tower at level 1.
+        reach = _min_tower_range() - REACH_MARGIN
+        for sx, sz in lv["slots"]:
+            covered = 0.0
+            for a, b in segs:
+                length = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5
+                steps = max(1, int(length / 0.25))
+                for k in range(steps):
+                    t = (k + 0.5) / steps
+                    px, pz = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+                    if ((px - sx) ** 2 + (pz - sz) ** 2) ** 0.5 <= reach:
+                        covered += length / steps
+            if covered < MIN_SLOT_COVERAGE:
+                errors.append(f"{tag}: slot {[sx, sz]} covers only {covered:.1f} m of path within {reach:.1f} m"
+                              f" (needs {MIN_SLOT_COVERAGE})")
         for i, (k1, a, _) in enumerate(spots):
             for k2, b, _ in spots[i + 1:]:
                 if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.5:
                     errors.append(f"{tag}: {k1} {a} and {k2} {b} closer than 1.5 m")
+
+
+# Slots: path length (m) the weakest-ranged tower must see, and a safety margin
+# for enemies walking slightly off the centre line.
+MIN_SLOT_COVERAGE = 3.5
+REACH_MARGIN = 0.3
+
+
+def _min_tower_range() -> float:
+    import re
+    best = 99.0
+    for tres in (ROOT / "resources" / "towers").glob("*.tres"):
+        m = re.search(r"range_levels = Array\[float\]\(\[([0-9.]+)", tres.read_text(encoding="utf-8"))
+        if m:
+            best = min(best, float(m.group(1)))
+    return best
 
 
 def main() -> int:

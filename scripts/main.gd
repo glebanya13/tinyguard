@@ -105,7 +105,9 @@ func _ready() -> void:
 	_hero.damage_multiplier = 1.0 + Perks.value(&"sword")
 	_hero.wood_bonus = int(Perks.value(&"axe"))
 	_build_manager.damage_multiplier = 1.0 + Perks.value(&"towers")
-	_wave_manager.wave_cleared.connect(func(wave: int) -> void: _waves_cleared = wave)
+	_wave_manager.wave_cleared.connect(
+		func(wave: int) -> void: _waves_cleared = maxi(_waves_cleared, wave)
+	)
 
 	_game_state.gold_changed.connect(_on_resources_changed.unbind(1))
 	_game_state.wood_changed.connect(_on_resources_changed.unbind(1))
@@ -493,11 +495,12 @@ func _refresh_card() -> void:
 	_hud.update_card(info)
 
 
-## Attack radius of the tower on `slot` (hidden for a free slot).
+## Attack radius of the tower on `slot` (for a free slot: what a new tower reaches).
 func _show_range(slot: TowerSlot) -> void:
-	_range_ring.visible = slot != null and slot.tower != null
+	_range_ring.visible = slot != null
 	if _range_ring.visible:
-		var r: float = slot.tower.range_m
+		# A free slot previews the reach of the first tower type at level 1.
+		var r: float = slot.tower.range_m if slot.tower else _tower_types()[0].range_levels[0]
 		_range_ring.global_position = Vector3(slot.global_position.x, 0.07, slot.global_position.z)
 		_range_ring.scale = Vector3(r, 1.0, r)
 

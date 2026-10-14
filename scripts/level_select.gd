@@ -12,17 +12,12 @@ const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const GOLD := Color(0.98, 0.8, 0.4)
 const DIM_STAR := Color(0.22, 0.24, 0.34, 0.9)
-## Seconds for one slow sway of the camera.
-const ORBIT_PERIOD := 90.0
-const ORBIT_SWAY := 0.12
 
 var _site_buttons: Array[Button] = []
 var _sites: Array[Node3D] = []
 ## Level id of each site button (same order as _site_buttons).
 var _site_ids: Array[int] = []
 var _selected: int = 0
-var _time: float = 0.0
-var _camera_base: Transform3D
 var _records: Control = null
 var _records_list: VBoxContainer = null
 var _records_title: Label = null
@@ -49,7 +44,6 @@ var _records_status: Label = null
 
 
 func _ready() -> void:
-	_camera_base = _camera.transform
 	LevelCatalog.apply_sound()
 	LevelCatalog.endless = false
 	_build_sites()
@@ -69,16 +63,11 @@ func _ready() -> void:
 	_select(clampi(LevelCatalog.selected_id, 1, LevelCatalog.unlocked()))
 
 
-func _process(delta: float) -> void:
-	_time += delta
-	# Gentle sway so the map feels alive.
-	var angle: float = sin(_time * TAU / ORBIT_PERIOD) * ORBIT_SWAY
-	_camera.transform = Transform3D(Basis(Vector3.UP, angle), Vector3.ZERO) * _camera_base
+func _process(_delta: float) -> void:
+	# Buttons follow their sites; the camera stays still so the map does not jump.
 	for i in _site_buttons.size():
-		var button: Button = _site_buttons[i]
-		var bob: float = sin(_time * 2.4 + i) * 4.0 if _site_ids[i] == _selected else 0.0
 		var screen: Vector2 = _camera.unproject_position(_sites[i].global_position)
-		button.position = screen - button.size / 2.0 + Vector2(0.0, bob)
+		_site_buttons[i].position = (screen - _site_buttons[i].size / 2.0).round()
 
 
 func _notification(what: int) -> void:

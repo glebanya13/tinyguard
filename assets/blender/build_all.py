@@ -20,6 +20,7 @@ BUILDERS = {
     "hero": "build_hero",
     "tower": "build_tower",
     "slime": "build_slime",
+    "golem": "build_golem",
     "castle": "build_castle",
     "environment": "build_environment",
     "terrain": "build_terrain",

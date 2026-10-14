@@ -22,6 +22,11 @@ var _time: float = 0.0
 var _duration: float = 0.0
 
 
+func _ready() -> void:
+	for mesh: Node in find_children("*", "GeometryInstance3D", true, false):
+		(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 ## Call after the projectile is in the tree and positioned at the muzzle.
 func launch(
 	target: Enemy,

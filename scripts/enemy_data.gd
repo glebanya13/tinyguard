@@ -19,3 +19,13 @@ extends Resource
 @export var fly_height: float = 0.0
 ## Damage multiplier for arrows (a shield bearer takes less).
 @export var arrow_damage_mult: float = 1.0
+## On death, splits into `split_count` enemies of `split_into` (null = no split).
+@export var split_into: EnemyData
+@export var split_count: int = 0
+## Heals other enemies within heal_radius by heal_fraction of their max health
+## every heal_interval seconds (0 = not a healer).
+@export var heal_fraction: float = 0.0
+@export var heal_radius: float = 1.8
+@export var heal_interval: float = 1.0
+## Flat damage removed from every hit (at least 1 damage always goes through).
+@export var armor: float = 0.0

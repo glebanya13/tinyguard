@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/stone_golem.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Каменный голем"
+model = ExtResource("2_model")
+health = 120.0
+speed = 0.6
+reward = 10
+base_damage = 2
+health_bar_height = 1.45
+health_bar_width = 1.0
+is_boss = false
+armor = 3.0

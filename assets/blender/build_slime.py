@@ -17,6 +17,9 @@ VARIANTS = {
     "slime_king": dict(col="king", dark="king_dark", r=(0.48, 0.44, 0.4), brow=32, extra="crown", hop=0.04),
     "slime_bat": dict(col="portal_glow", dark="portal", r=(0.2, 0.19, 0.19), brow=28, extra="wings", hop=0.08),
     "slime_shield": dict(col="go", dark="go_dark", r=(0.27, 0.25, 0.22), brow=20, extra="shield", hop=0.03),
+    "slime_splitter": dict(col="ice", dark="ice_dark", r=(0.29, 0.27, 0.23), brow=26, extra="split", hop=0.05),
+    "slime_mini": dict(col="ice", dark="ice_dark", r=(0.15, 0.14, 0.13), brow=20, extra=None, hop=0.07),
+    "slime_healer": dict(col="cream", dark="stone", r=(0.24, 0.22, 0.21), brow=10, extra="healer", hop=0.04),
 }
 
 
@@ -119,6 +122,22 @@ def build_variant(name: str, v: dict):
     if v["extra"] == "wings":
         parts += [tg.sphere(f"ear{sx}", (0.07, 0.04, 0.12), (0.12 * sx, 0.02, 2 * R.z - 0.02), v["dark"], seg=10,
                             rings=5, rot=(0, -25 * sx, 0)) for sx in (-1, 1)]
+    if v["extra"] == "split":
+        # A second little blob budding off the side: this one will burst into two.
+        bud = tg.sphere("bud", (R.x * 1.1, R.y * 1.0, R.z * 1.0), (R.x * 0.95, 0.12, R.z * 0.55), v["col"], seg=18,
+                        rings=9)
+        bud_eye = [tg.sphere(f"bud_eye{k}", (0.05, 0.025, 0.07), (R.x * (0.95 + 0.22 * k), -0.06, R.z * 0.75), "eye",
+                             seg=8, rings=4) for k in (-0.5, 0.5)]
+        parts += [bud, *bud_eye]
+    if v["extra"] == "healer":
+        top = 2 * R.z
+        parts.append(tg.torus("halo", 0.13, 0.018, (0, 0.02, top + 0.12), "gold", seg=20, minor_seg=6))
+        sprout = tg.sphere("leaf", (0.06, 0.03, 0.1), (0.03, 0.0, top + 0.03), "leaf", seg=8, rings=4, rot=(0, 30, 0))
+        parts.append(sprout)
+        cz, cx = C.z - 0.12, 0.55 * R.x
+        cy = on_body(cx, cz, 0.012)
+        parts.append(tg.box("cross_v", (0.035, 0.02, 0.1), (cx, cy, cz), "ruby", rot=(0, 0, -25)))
+        parts.append(tg.box("cross_h", (0.1, 0.02, 0.035), (cx, cy, cz), "ruby", rot=(0, 0, -25)))
     if v["extra"] == "shield":
         # Round shield carried on the right side, turned half towards the front.
         sh = []

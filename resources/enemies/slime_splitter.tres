@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/slime_splitter.glb" id="2_model"]
+[ext_resource type="Resource" path="res://resources/enemies/slime_mini.tres" id="3_mini"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Делящийся слизень"
+model = ExtResource("2_model")
+health = 34.0
+speed = 1.1
+reward = 3
+base_damage = 1
+health_bar_height = 0.85
+health_bar_width = 0.65
+is_boss = false
+split_into = ExtResource("3_mini")
+split_count = 2

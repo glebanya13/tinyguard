@@ -2,13 +2,23 @@ extends Node3D
 ## One-shot effect: starts every particle emitter and sound below it, then frees
 ## itself. Spawned at a world position by gameplay code (hits, deaths, building).
 
+static var _alive: int = 0
+
 ## Seconds before the node frees itself (longest particle lifetime + sound).
 @export var lifetime: float = 1.2
 ## Random pitch range so repeated sounds do not feel mechanical.
 @export var pitch_jitter: float = 0.08
+## Effects alive at once; extra ones are dropped (big waves: dozens of hits
+## per second would cost particles, sounds and draw calls for little gain).
+@export var max_alive: int = 16
 
 
 func _ready() -> void:
+	if _alive >= max_alive:
+		queue_free()
+		return
+	_alive += 1
+	tree_exiting.connect(func() -> void: _alive -= 1)
 	# Spawners set global_position right after add_child(): start at the end of
 	# the frame, otherwise the burst is emitted at the world origin.
 	_start.call_deferred()
