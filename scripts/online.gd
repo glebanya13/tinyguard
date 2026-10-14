@@ -28,6 +28,10 @@ const NAME_MAX := 16
 const ANONYMOUS_NAME := "Рыцарь"
 ## Rounds of read-merge-write when another device writes in between.
 const MAX_SYNC_ROUNDS := 3
+## Local save section of the endless record queue (run start + unsent record).
+const RECORD_SECTION := "record_queue"
+const RETRY_MAX := 300.0
+const MAX_RETRIES := 8
 ## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
 const NICKNAME_CHANGE_SECONDS := 86400
 const _PROFILE_TIMES: Array[String] = ["createdAt", "nicknameChangedAt"]
@@ -51,6 +55,11 @@ var startup_done: bool = false
 
 var _transport: HttpTransport = null
 var _started: bool = false
+## First retry delay of an unsent record, seconds (tests shorten it).
+var retry_base: float = 5.0
+var _retry_delay: float = 5.0
+var _retries: int = 0
+var _record_busy: bool = false
 var _sync_busy: bool = false
 var _reserve_busy: bool = false
 ## A link / sign-in / sign-out request is running (one at a time).
@@ -115,6 +124,7 @@ func start() -> void:
 	_remember_uid()
 	if is_configured():
 		await sync_now()
+		flush_records()
 	startup_done = true
 	sync_state_changed.emit(sync_state())
 
@@ -379,6 +389,9 @@ func set_player_name(value: String) -> void:
 ## rules accept a record of wave N only (N-1)*15 s after this moment, so call it
 ## when the run begins. Fire and forget; without a connection the run simply
 ## has no online record. Returns true if the start was stored.
+## A run that did not start online can never reach the table later: the rules
+## accept only startedAt == request.time, so it cannot be written back-dated. Its
+## record stays a local record (LevelCatalog.save_endless) and is not queued.
 func start_run(level_id: int) -> bool:
 	if not is_configured():
 		return false
@@ -388,24 +401,101 @@ func start_run(level_id: int) -> bool:
 	var data := {"level": "level_%d" % level_id}
 	var write: Dictionary = firestore.write_set("runs/" + auth.uid, data, ["startedAt"])
 	var reply: Dictionary = await firestore.commit([write])
+	if reply["ok"]:
+		# The new startedAt replaces the old one on the server, so a still queued
+		# record of the previous run would be judged against it: drop it.
+		var cfg: ConfigFile = LevelCatalog.data()
+		if cfg.has_section(RECORD_SECTION):
+			cfg.erase_section(RECORD_SECTION)
+		cfg.set_value(RECORD_SECTION, "run_level", level_id)
+		cfg.set_value(RECORD_SECTION, "run_uid", auth.uid)
+		LevelCatalog.commit()
+		_retry_delay = retry_base
 	return reply["ok"]
 
 
 ## Sends the endless record of a level (the rules keep only higher records, stamp
 ## the time with the server clock and check it against start_run()).
 ## The name is the reserved nickname, else ANONYMOUS_NAME.
+## The record is queued in the local save when the run did start online, and sent
+## with retries (exponential delay) if the network fails meanwhile.
 func submit_record(level_id: int, wave: int) -> void:
 	if not is_configured() or wave <= 0:
 		return
+	var cfg: ConfigFile = LevelCatalog.data()
+	var run_ok: bool = (
+		int(cfg.get_value(RECORD_SECTION, "run_level", -1)) == level_id
+		and str(cfg.get_value(RECORD_SECTION, "run_uid", "")) == auth.uid
+		and auth.uid != ""
+	)
+	if not run_ok:
+		return  # no server-side run start: the rules would refuse it (see start_run)
+	if wave > int(cfg.get_value(RECORD_SECTION, "wave", 0)):
+		cfg.set_value(RECORD_SECTION, "wave", wave)
+		LevelCatalog.commit()
+	await flush_records()
+
+
+## True while a record waits for the network.
+func has_pending_record() -> bool:
+	return int(LevelCatalog.data().get_value(RECORD_SECTION, "wave", 0)) > 0
+
+
+## Sends the queued record once. Network/server failures keep it and schedule a
+## retry (delay doubles up to RETRY_MAX, at most MAX_RETRIES in a row); a refusal by
+## the rules (4xx) drops it. Never sends twice at the same time.
+func flush_records() -> void:
+	if _record_busy or not is_configured() or not has_pending_record():
+		return
+	_record_busy = true
+	var cfg: ConfigFile = LevelCatalog.data()
+	var level_id: int = int(cfg.get_value(RECORD_SECTION, "run_level", -1))
+	var wave: int = int(cfg.get_value(RECORD_SECTION, "wave", 0))
+	var owner_uid: String = str(cfg.get_value(RECORD_SECTION, "run_uid", ""))
+	var result: String = await _send_record(level_id, wave, owner_uid)
+	_record_busy = false
+	match result:
+		"sent":
+			cfg.set_value(RECORD_SECTION, "wave", null)
+			LevelCatalog.commit()
+			_retry_delay = retry_base
+			_retries = 0
+			status_changed.emit("Рекорд отправлен")
+		"refused":
+			cfg.set_value(RECORD_SECTION, "wave", null)
+			LevelCatalog.commit()
+			status_changed.emit("Не удалось отправить рекорд")
+		_:
+			_schedule_record_retry()
+
+
+func _send_record(level_id: int, wave: int, owner_uid: String) -> String:
 	var signed: Dictionary = await auth.ensure_token(true)
 	if not signed["ok"]:
-		return
+		return "retry"
+	if auth.uid != owner_uid:
+		return "refused"  # another account is signed in now
 	var p: Dictionary = PlayerProfile.local()
 	var nick: String = str(p["nickname"]) if bool(p["nicknameVerified"]) else ANONYMOUS_NAME
 	var path: String = "leaderboards/level_%d/scores/%s" % [level_id, auth.uid]
 	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
 	var reply: Dictionary = await firestore.commit([write])
-	status_changed.emit("Рекорд отправлен" if reply["ok"] else "Не удалось отправить рекорд")
+	if reply["ok"]:
+		return "sent"
+	var code: int = int(reply.get("code", 0))
+	if reply.get("network", false) or code >= 500 or code == 429:
+		return "retry"
+	return "refused"
+
+
+func _schedule_record_retry() -> void:
+	if _retries >= MAX_RETRIES or not is_inside_tree():
+		_retries = 0
+		return  # the next start() tries again
+	_retries += 1
+	var delay: float = _retry_delay
+	_retry_delay = minf(_retry_delay * 2.0, RETRY_MAX)
+	get_tree().create_timer(delay).timeout.connect(flush_records)
 
 
 func fetch_leaderboard(level_id: int) -> void:
