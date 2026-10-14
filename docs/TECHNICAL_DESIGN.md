@@ -58,11 +58,34 @@ Main (Node3D, main.gd)               — строит уровень из дан
 - Продажа — `BuildManager.sell()` → `TowerData.sell_value()` (70 %), `WalkGrid.unblock()`.
 - «Вихрь» — `Hero.try_spin()`, эффект `scenes/fx/spin_fx.tscn`.
 
+## Прогресс, улучшения, осада
+
+- `Perks` (`scripts/perks.gd`, статический) — звёзды и улучшения: `earned_stars`,
+  `free_stars`, `buy`, `reset`, `value(id)`. Улучшения — `PerkData` в
+  `resources/perks/`; загружаются лениво (`Perks.all()`): `preload` в константе
+  ломал ресурсы, пока компилируются скрипты с типом `PerkData`.
+- `main.gd` применяет улучшения при старте: `GameState.configure` (золото, дерево,
+  жизни), `Hero.damage_multiplier` / `wood_bonus`, `BuildManager.damage_multiplier`
+  (умножается после каждого `apply_level`).
+- Осада: `LevelCatalog.endless` → `WavePlan(waves, true)` (`ENDLESS_WAVES`, без
+  финального босса); рекорд — `LevelCatalog.save_endless()`.
+
+## Иконки, иконка приложения, заставка
+
+- `assets/blender/build_icons.py` → `icon_*.glb` (палитра, без текстур).
+- `tools/render_icons.gd` → `ui/icons/*.png` 256 px: ортокамера по силуэту, небо для
+  бликов металла, обводка и тень (дилатация альфы через `blit_rect_mask`).
+  Импорт с мипмапами, `default_texture_filter` = Linear Mipmap.
+- `tools/render_app_icon.gd` → `icon.png` (192), `ui/app/icon_foreground.png` и
+  `icon_background.png` (адаптивная 432), `ui/app/splash.png` (заставка
+  `application/boot_splash`). Пути прописаны в `export_presets.cfg`.
+
 ## Тесты и баланс
 
 `tests/run_all.sh <godot>` — headless-тесты: `test_gameplay.gd` (рубка, постройка,
 улучшение, продажа, кузница, вихрь, боссы; на каждом уровне), `test_walk.gd` (рыцарь
-доходит до всех площадок), `test_pause.gd` (пауза, «Назад», ×2, звёзды, звук).
+доходит до всех площадок), `test_pause.gd` (пауза, «Назад», ×2, звёзды, звук),
+`test_meta.gd` (звёзды, покупка и сброс улучшений, старт с бонусом, осада и рекорд).
 `tools/balance_sim.py` — дискретная симуляция волн с жадным игроком и героем у замка.
 
 ## Камера
