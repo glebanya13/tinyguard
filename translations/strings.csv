@@ -324,3 +324,56 @@ SET_DELETION,Удаление данных,Delete my data
 SET_VERSION,Версия %s,Version %s
 SET_TOOLTIP,Настройки,Settings
 HUD_SETTINGS,Настройки,Settings
+COOP_BUTTON,Кооператив,Co-op
+COOP_TITLE,Кооператив: двое против слаймов,Co-op: two against the slimes
+COOP_INTRO,"Играйте вдвоём: общие казна и жизни, у каждого свой рыцарь. Один создаёт комнату, второй входит по коду.","Play together: shared gold, wood and lives, a knight each. One of you creates a room, the other joins with its code."
+COOP_CREATE,Создать комнату,Create a room
+COOP_JOIN,Войти по коду,Join with a code
+COOP_BACK,Назад,Back
+COOP_ENTER_CODE,Введи код комнаты (5 символов),Enter the room code (5 characters)
+COOP_JOIN_GO,Войти,Join
+COOP_ROOM_CODE,Код комнаты: назови его партнёру,Room code: tell it to your partner
+COOP_READY,Готов,Ready
+COOP_NOT_READY,Не готов,Not ready
+COOP_START,Старт,Start
+COOP_LEAVE,Выйти,Leave
+COOP_HOST,Хозяин,Host
+COOP_GUEST,Гость,Guest
+COOP_EMPTY_SLOT,ждём партнёра…,waiting for a partner…
+COOP_UNNAMED,Рыцарь,Knight
+COOP_STATE_READY,готов,ready
+COOP_WAIT_PARTNER,Ждём партнёра. Назови ему код комнаты.,Waiting for a partner. Tell them the room code.
+COOP_WAIT_READY,"Партнёр вошёл. Ждём, пока он нажмёт «Готов».",The partner is in. Waiting for them to press Ready.
+COOP_CAN_START,Всё готово: можно начинать!,All set: you can start!
+COOP_WAIT_START,"Ждём, когда хозяин нажмёт «Старт».",Waiting for the host to press Start.
+COOP_PRESS_READY,"Нажми «Готов», когда будешь готов к бою.",Press Ready when you are ready to fight.
+COOP_CONNECTING,Соединяемся…,Connecting…
+COOP_STARTING,Запускаем бой…,Starting the battle…
+COOP_ERR_OFFLINE,Нет связи с сервером. Проверь интернет.,No connection to the server. Check the internet.
+COOP_ERR_DENIED,Сервер отклонил запрос. Попробуй ещё раз позже.,The server refused the request. Try again later.
+COOP_ERR_BUSY,Не удалось создать комнату: попробуй ещё раз.,Could not create a room: try again.
+COOP_ERR_INVALID,Код неверный: нужно 5 символов (буквы и цифры 2–9).,Invalid code: 5 characters are needed (letters and digits 2-9).
+COOP_ERR_NOT_FOUND,Комната не найдена. Проверь код.,Room not found. Check the code.
+COOP_ERR_EXPIRED,Комната просрочена. Попроси партнёра создать новую.,The room has expired. Ask your partner to create a new one.
+COOP_ERR_STARTED,В этой комнате бой уже начался.,The battle in this room has already started.
+COOP_ERR_FULL,Комната занята: партнёр уже есть.,The room is full: a partner is already there.
+COOP_ERR_VERSION,У партнёра другая версия игры. Обновите обе.,Your partner has another version of the game. Update both.
+COOP_ERR_OWN_ROOM,Это твоя собственная комната.,This is your own room.
+COOP_ERR_NOT_READY,Оба игрока должны быть готовы.,Both players must be ready.
+COOP_CLOSED_HOST_LEFT,Хозяин закрыл комнату.,The host closed the room.
+COOP_CLOSED_GUEST_LEFT,Тебя убрали из комнаты.,You were removed from the room.
+COOP_CLOSED_TIMEOUT,Никто не вошёл за 10 минут: комната закрыта.,Nobody joined in 10 minutes: the room is closed.
+COOP_CLOSED_CLOSED,Комната закрыта.,The room is closed.
+COOP_WAITING_PARTNER,Ждём партнёра…,Waiting for the partner…
+COOP_LEAVE_MATCH,Выйти из матча,Leave the match
+COOP_END_LEFT,Партнёр вышел,The partner left
+COOP_END_LEFT_TEXT,"Партнёр покинул матч, бой окончен.","The partner left the match, the battle is over."
+COOP_END_LOST,Связь потеряна,Connection lost
+COOP_END_LOST_TEXT,"Партнёр молчит дольше 30 секунд, бой окончен.","The partner has been silent for over 30 seconds, the battle is over."
+COOP_END_DESYNC,Рассинхрон,Out of sync
+COOP_END_DESYNC_TEXT,"У вас с партнёром бой пошёл по-разному, поэтому матч остановлен. Это ошибка игры или читерство.","Your battle and your partner's went different ways, so the match was stopped. It is a game bug or cheating."
+COOP_END_PROTOCOL,Ошибка обмена,Protocol error
+COOP_END_PROTOCOL_TEXT,"Партнёр прислал непонятные данные, бой окончен.","The partner sent data that could not be understood, the battle is over."
+COOP_END_DENIED,Доступ закрыт,Access denied
+COOP_END_DENIED_TEXT,"Сервер закрыл комнату (время вышло или вход потерян), бой окончен.","The server closed the room (time ran out or the sign-in was lost), the battle is over."
+COOP_END_NOT_SAVED,Звёзды и рекорды за этот матч не записаны.,Stars and records for this match were not saved.
