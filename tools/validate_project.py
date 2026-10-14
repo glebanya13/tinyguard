@@ -461,11 +461,84 @@ def check_release_constants() -> None:
             warnings.append(f"{name} must be an https:// URL, got: {m.group(1)}")
 
 
+CYRILLIC = re.compile(r"[А-Яа-яЁё]")
+PLACEHOLDER = re.compile(r"%[-+ 0#]*\d*(?:\.\d+)?[sdfxXc%]")
+# Cyrillic is allowed in English texts only for a language named in its own script.
+EN_CYRILLIC_OK = {"SET_LANG_RU"}
+# Russian rows without Cyrillic letters (format-only text, a language name).
+RU_LATIN_OK = {"CARD_TOWER_TIP", "SET_LANG_EN"}
+
+
+def _strip_comment(line: str) -> str:
+    """The line without a trailing # comment (a # inside a string is kept)."""
+    in_string = False
+    for i, ch in enumerate(line):
+        if ch == '"' and (i == 0 or line[i - 1] != "\\"):
+            in_string = not in_string
+        elif ch == "#" and not in_string:
+            return line[:i]
+    return line
+
+
+def check_translations() -> None:
+    """translations/strings.csv is complete (ru + en), registered, and the UI
+    sources hold no untranslated Cyrillic text. Mark data that must stay
+    Cyrillic (reserved names, server-side names) with `# i18n:keep`."""
+    import csv
+
+    csv_path = ROOT / "translations" / "strings.csv"
+    if not csv_path.is_file():
+        errors.append("translations/strings.csv is missing")
+        return
+    with csv_path.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    if not rows or rows[0] != ["keys", "ru", "en"]:
+        errors.append("translations/strings.csv: header must be keys,ru,en")
+        return
+    keys: set[str] = set()
+    for row in rows[1:]:
+        if len(row) != 3:
+            errors.append(f"strings.csv: bad row {row[:1]}")
+            continue
+        key, ru, en = row
+        if key in keys:
+            errors.append(f"strings.csv: duplicate key {key}")
+        keys.add(key)
+        if not ru.strip() or not en.strip():
+            errors.append(f"strings.csv: {key} has an empty translation")
+        if key not in EN_CYRILLIC_OK and CYRILLIC.search(en):
+            errors.append(f"strings.csv: {key}: Cyrillic in the English text")
+        if key not in RU_LATIN_OK and not CYRILLIC.search(ru):
+            errors.append(f"strings.csv: {key}: the Russian text has no Cyrillic")
+        if PLACEHOLDER.findall(ru) != PLACEHOLDER.findall(en):
+            errors.append(f"strings.csv: {key}: format placeholders differ between ru and en")
+    project = (ROOT / "project.godot").read_text(encoding="utf-8")
+    for lang in ("ru", "en"):
+        if f"res://translations/strings.{lang}.translation" not in project:
+            errors.append(f"project.godot: strings.{lang}.translation is not registered")
+    for sub in ("scripts", "scenes", "ui", "resources"):
+        for path in sorted((ROOT / sub).rglob("*")):
+            if path.suffix not in (".gd", ".tscn", ".tres", ".json") or _hidden(path):
+                continue
+            rel = path.relative_to(ROOT)
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if "i18n:keep" in line:
+                    continue
+                code = _strip_comment(line) if path.suffix == ".gd" else line
+                if CYRILLIC.search(code):
+                    errors.append(f"{rel}:{n}: untranslated Cyrillic text, move it to strings.csv: {code.strip()[:60]}")
+                if path.suffix == ".gd":
+                    for m in re.finditer(r'\b(?:tr|translate)\(\s*"([A-Z][A-Z0-9_]+)"', code):
+                        if m.group(1) not in keys:
+                            errors.append(f"{rel}:{n}: translation key {m.group(1)} is not in strings.csv")
+
+
 def main() -> int:
     check_layout()
     check_export_presets()
     check_privacy_url()
     check_release_constants()
+    check_translations()
     check_levels()
     check_rules_lists()
     check_project_settings()

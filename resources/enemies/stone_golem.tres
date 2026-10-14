@@ -5,7 +5,7 @@
 
 [resource]
 script = ExtResource("1_data")
-display_name = "Каменный голем"
+display_name = "ENEMY_STONE_GOLEM_NAME"
 model = ExtResource("2_model")
 health = 120.0
 speed = 0.6

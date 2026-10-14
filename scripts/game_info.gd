@@ -24,4 +24,4 @@ const SUPPORT_EMAIL := ""
 static func web_deletion_line() -> String:
 	if DELETION_URL == "":
 		return ""
-	return "Удалить данные без приложения: " + DELETION_URL
+	return TranslationServer.translate("INFO_DELETION_WEB") % DELETION_URL

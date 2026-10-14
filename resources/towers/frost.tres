@@ -6,8 +6,8 @@
 
 [resource]
 script = ExtResource("1_data")
-display_name = "Мороз"
-role = "замедляет врагов"
+display_name = "TOWER_FROST_NAME"
+role = "TOWER_FROST_ROLE"
 icon = ExtResource("3_icon")
 scene = ExtResource("2_scene")
 cost_gold = 30

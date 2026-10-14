@@ -140,7 +140,9 @@ func _run() -> void:
 	gs.add_wood(200)
 	await tap_key(KEY_2)
 	await wait_until(func() -> bool: return not slot.is_free(), 600)
-	check(not slot.is_free() and slot.tower.data.display_name == "Пушка", "cannon built")
+	check(
+		not slot.is_free() and slot.tower.data.display_name == "TOWER_CANNON_NAME", "cannon built"
+	)
 	check(gs.gold == 160 and gs.wood >= 170, "paid 40 gold + 30 wood (%d/%d)" % [gs.gold, gs.wood])
 	await frames(30)
 	await tap_key(KEY_U)

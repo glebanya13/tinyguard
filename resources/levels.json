@@ -3,8 +3,8 @@
   "levels": [
     {
       "id": 1,
-      "name": "Зелёная долина",
-      "subtitle": "15 волн · босс на 10-й и 15-й",
+      "name": "LEVEL_1_NAME",
+      "subtitle": "LEVEL_1_SUB",
       "biome": "meadow",
       "bounds": [-22, -15, 44, 30],
       "start": {"gold": 0, "wood": 0, "lives": 20},
@@ -20,8 +20,8 @@
     },
     {
       "id": 2,
-      "name": "Тёмная чаща",
-      "subtitle": "25 волн · боссы на 10, 20 и 25-й",
+      "name": "LEVEL_2_NAME",
+      "subtitle": "LEVEL_2_SUB",
       "biome": "meadow",
       "bounds": [-22, -15, 44, 30],
       "start": {"gold": 0, "wood": 0, "lives": 15},
@@ -38,8 +38,8 @@
     },
     {
       "id": 3,
-      "name": "Королевский тракт",
-      "subtitle": "40 волн · босс каждые 10 волн, с 30-й — два",
+      "name": "LEVEL_3_NAME",
+      "subtitle": "LEVEL_3_SUB",
       "biome": "meadow",
       "bounds": [-22, -15, 44, 30],
       "start": {"gold": 0, "wood": 0, "lives": 10},
@@ -56,8 +56,8 @@
     },
     {
       "id": 4,
-      "name": "Снежный перевал",
-      "subtitle": "30 волн · летуны и щитовики · боссы каждые 10 волн",
+      "name": "LEVEL_4_NAME",
+      "subtitle": "LEVEL_4_SUB",
       "biome": "winter",
       "bounds": [-22, -15, 44, 30],
       "start": {"gold": 0, "wood": 0, "lives": 12},
@@ -74,8 +74,8 @@
     },
     {
       "id": 5,
-      "name": "Осенняя роща",
-      "subtitle": "35 волн · все враги · боссы каждые 10 волн",
+      "name": "LEVEL_5_NAME",
+      "subtitle": "LEVEL_5_SUB",
       "biome": "autumn",
       "bounds": [-22, -15, 44, 30],
       "start": {"gold": 0, "wood": 0, "lives": 12},
@@ -92,8 +92,8 @@
     },
     {
       "id": 6,
-      "name": "Песчаная крепость",
-      "subtitle": "40 волн · финальная битва · два короля с 30-й волны",
+      "name": "LEVEL_6_NAME",
+      "subtitle": "LEVEL_6_SUB",
       "biome": "desert",
       "bounds": [-22, -15, 44, 30],
       "start": {"gold": 0, "wood": 0, "lives": 10},

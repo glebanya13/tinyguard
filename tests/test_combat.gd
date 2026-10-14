@@ -109,7 +109,7 @@ func _run() -> void:
 	await process_frame
 	var minis: int = 0
 	for node: Node in get_nodes_in_group(Enemy.GROUP):
-		if (node as Enemy).data.display_name == "Слизнёнок":
+		if (node as Enemy).data.display_name == "ENEMY_SLIME_MINI_NAME":
 			minis += 1
 	check(minis == 2, "splitter leaves two minis (%d)" % minis)
 

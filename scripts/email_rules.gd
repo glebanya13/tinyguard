@@ -12,28 +12,27 @@ const PASSWORD_MAX := 128
 const EMAIL_MAX := 254
 
 const MESSAGES := {
-	"empty_email": "Введи почту",
-	"invalid_email": "Проверь почту: нужен адрес вида name@example.com",
-	"empty_password": "Введи пароль",
-	"weak_password": "Пароль слишком простой: минимум 6 символов, лучше с цифрами",
-	"password_too_long": "Пароль слишком длинный: не больше 128 символов",
-	"credential_in_use":
-	"Эта почта уже занята. Если аккаунт твой — нажми «Войти по почте» вместо привязки",
-	"invalid_credentials": "Неверная почта или пароль",
-	"too_many_attempts": "Слишком много попыток. Подожди немного и попробуй снова",
-	"reauth_required": "Нужен свежий вход: войди по почте и повтори действие",
-	"already_linked": "К этому аккаунту почта уже привязана",
-	"disabled": "Этот аккаунт заблокирован",
-	"not_available": "Вход по почте сейчас недоступен",
-	"offline": "Нет связи. Попробуй, когда появится интернет",
-	"server": "Сервер не отвечает. Попробуй позже",
-	"other_account": "Ты уже вошёл в другой аккаунт. Сначала выйди из него в Профиле",
-	"session_lost": "Вход на устройстве потерян. Войди по почте, если она уже привязана",
-	"no_session": "Вход на устройстве потерян. Войди по почте, если она уже привязана",
-	"not_configured": "Онлайн недоступен в этой сборке",
-	"busy": "Подожди, предыдущий запрос ещё выполняется",
-	"guest_cannot_sign_out": "Гость не может выйти: прогресс пропадёт. Сначала привяжи почту",
-	"unsynced": "Нужен интернет, чтобы сохранить прогресс в облаке перед выходом",
+	"empty_email": "ERR_EMAIL_EMPTY",
+	"invalid_email": "ERR_EMAIL_INVALID",
+	"empty_password": "ERR_PASSWORD_EMPTY",
+	"weak_password": "ERR_PASSWORD_WEAK",
+	"password_too_long": "ERR_PASSWORD_LONG",
+	"invalid_credentials": "ERR_INVALID_CREDENTIALS",
+	"too_many_attempts": "ERR_TOO_MANY_ATTEMPTS",
+	"reauth_required": "ERR_REAUTH_REQUIRED",
+	"already_linked": "ERR_ALREADY_LINKED",
+	"disabled": "ERR_DISABLED",
+	"not_available": "ERR_NOT_AVAILABLE",
+	"offline": "ERR_OFFLINE",
+	"server": "ERR_SERVER",
+	"other_account": "ERR_OTHER_ACCOUNT",
+	"session_lost": "ERR_SESSION_LOST",
+	"no_session": "ERR_SESSION_LOST",
+	"not_configured": "ERR_NOT_CONFIGURED",
+	"busy": "ERR_BUSY",
+	"guest_cannot_sign_out": "ERR_GUEST_CANNOT_SIGN_OUT",
+	"unsynced": "ERR_UNSYNCED",
+	"credential_in_use": "ERR_CREDENTIAL_IN_USE",
 }
 
 
@@ -69,7 +68,7 @@ static func check_password(password: String) -> Dictionary:
 
 ## Player-facing text of an error key; a generic line for unknown keys.
 static func message(error: String) -> String:
-	return str(MESSAGES.get(error, "Не получилось. Попробуй ещё раз"))
+	return TranslationServer.translate(str(MESSAGES.get(error, "ERR_GENERIC")))
 
 
 static func _email_regex() -> RegEx:

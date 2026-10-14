@@ -126,7 +126,7 @@ custom_minimum_size = Vector2(170, 60)
 layout_mode = 2
 focus_mode = 0
 theme_override_constants/icon_max_width = 44
-text = "Казна"
+text = "MAP_TREASURY"
 icon = ExtResource("i_chest")
 
 [node name="Badge" type="Label" parent="UI/Root/TopRight/TreasuryButton"]
@@ -147,7 +147,7 @@ custom_minimum_size = Vector2(170, 60)
 layout_mode = 2
 focus_mode = 0
 theme_override_constants/icon_max_width = 40
-text = "Рекорды"
+text = "MAP_RECORDS"
 icon = ExtResource("i_crown")
 
 [node name="SoundButton" type="Button" parent="UI/Root/TopRight"]
@@ -190,7 +190,7 @@ alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_font_sizes/font_size = 30
-text = "1. Зелёная долина"
+text = "MAP_BOSS_NOTE_PLACEHOLDER"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="UI/Root/Info/Content"]
@@ -224,7 +224,7 @@ alignment = 1
 custom_minimum_size = Vector2(240, 64)
 layout_mode = 2
 focus_mode = 0
-text = "Играть"
+text = "MAP_PLAY"
 icon = ExtResource("i_play")
 
 [node name="EndlessButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
@@ -232,7 +232,7 @@ custom_minimum_size = Vector2(300, 64)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
-text = "Бесконечная осада"
+text = "MAP_ENDLESS"
 icon = ExtResource("i_crown")
 
 [node name="Treasury" type="Control" parent="UI/Root"]
@@ -288,7 +288,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
 theme_override_font_sizes/font_size = 36
-text = "Королевская казна"
+text = "MAP_TREASURY_TITLE"
 
 [node name="FreePill" type="PanelContainer" parent="UI/Root/Treasury/Panel/Content/Header"]
 layout_mode = 2
@@ -311,13 +311,13 @@ stretch_mode = 5
 
 [node name="Label" type="Label" parent="UI/Root/Treasury/Panel/Content/Header/FreePill/Row"]
 layout_mode = 2
-text = "Свободно: 0"
+text = "MAP_FREE_PLACEHOLDER"
 
 [node name="Hint" type="Label" parent="UI/Root/Treasury/Panel/Content"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
 theme_override_font_sizes/font_size = 18
-text = "Звёзды дают уровни (до 3 за уровень) и бесконечная осада (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях."
+text = "MAP_TREASURY_HINT"
 autowrap_mode = 3
 
 [node name="Cards" type="GridContainer" parent="UI/Root/Treasury/Panel/Content"]
@@ -338,10 +338,10 @@ layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
 theme_override_font_sizes/font_size = 22
-text = "Вернуть звёзды"
+text = "MAP_REFUND"
 
 [node name="CloseButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
 custom_minimum_size = Vector2(220, 58)
 layout_mode = 2
 focus_mode = 0
-text = "Готово"
+text = "MAP_DONE"

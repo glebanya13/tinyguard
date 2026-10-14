@@ -12,14 +12,14 @@ const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 
 ## Forge card: sword upgrade and castle repair.
 static func forge(hero: Hero, game_state: GameState) -> Dictionary:
-	var info := {"title": "Кузница"}
+	var info := {"title": TranslationServer.translate("CARD_FORGE_TITLE")}
 	var sword: Vector2i = hero.sword_upgrade_cost()
 	var next_damage: String = ""
 	if sword.x >= 0:
 		var next_index: int = mini(hero.sword_level + 1, hero.sword_damage_levels.size() - 1)
 		next_damage = (" → %d" % (hero.sword_damage_levels[next_index] * hero.damage_multiplier))
 	info["stats"] = (
-		"Меч %d%s · стены %d/%d"
+		TranslationServer.translate("CARD_FORGE_STATS")
 		% [
 			hero.attack_damage * hero.damage_multiplier,
 			next_damage,
@@ -31,10 +31,10 @@ static func forge(hero: Hero, game_state: GameState) -> Dictionary:
 		"id": &"sword",
 		"icon": SWORD_ICON,
 		"enabled": game_state.can_afford(sword),
-		"tooltip": "Закалить меч (U)"
+		"tooltip": TranslationServer.translate("CARD_SWORD_TIP")
 	}
 	if sword.x < 0:
-		upgrade["label"] = "макс."
+		upgrade["label"] = TranslationServer.translate("CARD_MAX")
 	else:
 		upgrade["gold"] = sword.x
 		upgrade["wood"] = sword.y
@@ -43,7 +43,7 @@ static func forge(hero: Hero, game_state: GameState) -> Dictionary:
 		"icon": HEART_ICON,
 		"wood": game_state.repair_wood,
 		"enabled": game_state.can_repair(),
-		"tooltip": "Починить стены: +%d жизни" % game_state.repair_lives
+		"tooltip": TranslationServer.translate("CARD_REPAIR_TIP") % game_state.repair_lives
 	}
 	info["buttons"] = [
 		upgrade,
@@ -53,7 +53,7 @@ static func forge(hero: Hero, game_state: GameState) -> Dictionary:
 			"icon": CANCEL_ICON,
 			"label": "Esc",
 			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
+			"tooltip": TranslationServer.translate("CARD_CLOSE_TIP")
 		}
 	]
 	return info
@@ -64,14 +64,14 @@ static func trade(villagers: Villagers, game_state: GameState) -> Dictionary:
 	var lot: int = villagers.trade.wood_per_lot
 	var lots: int = villagers.lots_affordable()
 	var price: int = villagers.lot_price()
-	var info := {"title": "Житель"}
+	var info := {"title": TranslationServer.translate("CARD_VILLAGER")}
 	info["stats"] = (
-		"Курс: %d дерева → %d золота · дерева у вас: %d" % [lot, price, game_state.wood]
+		TranslationServer.translate("CARD_TRADE_STATS") % [lot, price, game_state.wood]
 	)
 	info["hint"] = (
-		"Чем больше продаёте, тем ниже цена"
+		TranslationServer.translate("CARD_TRADE_HINT")
 		if lots > 0
-		else "Не хватает дерева: житель берёт по %d" % lot
+		else TranslationServer.translate("CARD_NEED_WOOD_VILLAGER") % lot
 	)
 	info["buttons"] = [
 		{
@@ -80,7 +80,7 @@ static func trade(villagers: Villagers, game_state: GameState) -> Dictionary:
 			"gold": price,
 			"gain": true,
 			"enabled": lots > 0,
-			"tooltip": "Продать %d дерева → +%d золота" % [lot, price]
+			"tooltip": TranslationServer.translate("CARD_TRADE_LOT_TIP") % [lot, price]
 		},
 		{
 			"id": &"trade_all",
@@ -88,14 +88,15 @@ static func trade(villagers: Villagers, game_state: GameState) -> Dictionary:
 			"gold": villagers.quote(lots),
 			"gain": true,
 			"enabled": lots > 0,
-			"tooltip": "Продать всё: %d дерева → +%d золота" % [lots * lot, villagers.quote(lots)]
+			"tooltip":
+			TranslationServer.translate("CARD_TRADE_ALL_TIP") % [lots * lot, villagers.quote(lots)]
 		},
 		{
 			"id": &"cancel",
 			"icon": CANCEL_ICON,
 			"label": "Esc",
 			"enabled": true,
-			"tooltip": "Закрыть (Esc)"
+			"tooltip": TranslationServer.translate("CARD_CLOSE_TIP")
 		}
 	]
 	return info
