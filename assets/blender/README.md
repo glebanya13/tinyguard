@@ -6,7 +6,7 @@
 | Скрипт | Что строит (`assets/models/`) |
 |---|---|
 | `build_hero.py` | `hero_knight.glb` — рыцарь, анимация `idle` |
-| `build_tower.py` | `tower_archer.glb` (анимация `attack`), `arrow.glb`, `slot_ring.glb` |
+| `build_tower.py` | `tower_archer.glb` (анимация `attack`), `arrow.glb` (кольцо площадки запекается в террейн) |
 | `build_slime.py` | `slime.glb` — враг, анимация `idle` |
 | `build_villager.py` | `villager.glb` — житель (покупает дерево), анимации `idle`, `walk`, `wave` |
 | `build_castle.py` | `castle.glb`, `spawn_portal.glb` |
