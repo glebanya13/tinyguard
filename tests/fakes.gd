@@ -213,12 +213,21 @@ class FakeFirebase:
 					return [404, {"error": {"status": "NOT_FOUND"}}]
 				if path.begins_with("nicknameTrace/") and exists(path) and trace_recent(path):
 					return denied  # rules: rewritten at most every 24 hours
+				if path.begins_with("leaderboards/") and not run_allows(path):
+					return denied  # rules: runs/{uid} must exist with the same level
 			if write.has("delete"):
 				var gone_path: String = path_of(write["delete"])
 				var is_trace: bool = gone_path.begins_with("nicknameTrace/")
 				if is_trace and exists(gone_path) and trace_recent(gone_path):
 					return denied
 		return []
+
+	## firestore.rules runAllows (the time bound is not modelled): a record needs runs/{uid}
+	## of the same level.
+	func run_allows(path: String) -> bool:
+		var parts: PackedStringArray = path.split("/")  # leaderboards/level_N/scores/uid
+		var run: String = "runs/" + parts[3]
+		return docs.has(run) and docs[run].get("level", "") == parts[1]
 
 	## firestore.rules: nicknameTrace/{uid} may only be rewritten or deleted after 24 hours.
 	func trace_recent(path: String) -> bool:
