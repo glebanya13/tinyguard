@@ -84,7 +84,15 @@ func _run() -> void:
 	print(
 		(
 			"LEVEL %s empty=%.0f built=%.0f battle_mean=%.0f battle_peak=%d peak_enemies=%d tris_k=%.0f"
-			% [LevelCatalog.selected_id, empty, built, sum / n, peak, peak_enemies, prims / n / 1000.0]
+			% [
+				LevelCatalog.selected_id,
+				empty,
+				built,
+				sum / n,
+				peak,
+				peak_enemies,
+				prims / n / 1000.0
+			]
 		)
 	)
 	# Cost of each part: hide it, count, show it again.
@@ -110,5 +118,10 @@ func _run() -> void:
 		var m: float = await _mean(4)
 		child.visible = was
 		if base - m >= 1.0:
-			print("  part %s: %.0f of %.0f" % [child.get_path() if child is Control else child.name, base - m, base])
+			print(
+				(
+					"  part %s: %.0f of %.0f"
+					% [child.get_path() if child is Control else child.name, base - m, base]
+				)
+			)
 	quit()
