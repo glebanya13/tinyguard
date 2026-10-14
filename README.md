@@ -54,7 +54,7 @@
 ```
 tinyguard/
 ├── project.godot          # настройки проекта (Compatibility, landscape)
-├── icon.svg               # временная иконка
+├── icon.png               # иконка приложения (tools/render_app_icon.gd)
 ├── assets/
 │   ├── blender/           # Python-скрипты, генерирующие все модели (см. README там)
 │   ├── models/            # GLB + .glb.import (общий материал)

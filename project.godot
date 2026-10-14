@@ -12,10 +12,14 @@ config_version=5
 
 config/name="Tinyguard"
 config/description="Lightweight low-poly 3D tower defense for Android."
-config/version="0.1.0"
+config/version="0.3.0"
 run/main_scene="res://scenes/level_select.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
+boot_splash/bg_color=Color(0.2, 0.36, 0.78, 1)
+boot_splash/image="res://ui/app/splash.png"
+boot_splash/fullsize=true
+boot_splash/use_filter=true
 config/quit_on_go_back=false
 
 [display]
@@ -136,5 +140,6 @@ pointing/emulate_mouse_from_touch=true
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=3
 textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_3d=1
