@@ -11,6 +11,9 @@ const SESSION := "user://shot_store_session.dat"
 const MAIN_SCENE := "res://scenes/main.tscn"
 ## Tower types by BuildManager.tower_types index, in slot order.
 const PLAN := [0, 1, 2, 3, 1, 0, 2, 3, 1]
+## Enemy kinds (resources/enemies/*.tres) that walk in the battle shots.
+const CROWD := ["slime", "slime_fast", "slime_tank", "slime_bat", "slime", "slime_shield"]
+const CAMERA_SIZE := 11.5
 
 var _dir: String = ""
 var _prefix: String = "shot"
@@ -106,16 +109,9 @@ func _load_level(id: int) -> Node:
 	return main
 
 
-## Enemy kinds (resources/enemies/*.tres) that walk in the battle shots.
-const CROWD := ["slime", "slime_fast", "slime_tank", "slime_bat", "slime", "slime_shield"]
-const CAMERA_SIZE := 11.5
-
-
 ## Towers on the slots nearest to the fight, enemies strung along the route past
 ## them, the hero beside the towers. Returns the slots, nearest first.
-func _stage(
-	main: Node, towers: int, upgrades: int, crowd: int, progress_ratio: float
-) -> Array:
+func _stage(main: Node, towers: int, upgrades: int, crowd: int, progress_ratio: float) -> Array:
 	var gs: GameState = main.get_node("GameState")
 	var wm: WaveManager = main.get_node("WaveManager")
 	var bm: BuildManager = main.get_node("BuildManager")
