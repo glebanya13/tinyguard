@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="VillagerTrade" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/villager_trade.gd" id="1_trade"]
+
+[resource]
+script = ExtResource("1_trade")
+wood_per_lot = 10
+start_gold = 6.0
+price_decay = 0.93
+min_gold = 2

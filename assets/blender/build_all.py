@@ -21,6 +21,7 @@ BUILDERS = {
     "tower": "build_tower",
     "slime": "build_slime",
     "golem": "build_golem",
+    "villager": "build_villager",
     "castle": "build_castle",
     "environment": "build_environment",
     "terrain": "build_terrain",

@@ -8,6 +8,7 @@
 | `build_hero.py` | `hero_knight.glb` — рыцарь, анимация `idle` |
 | `build_tower.py` | `tower_archer.glb` (анимация `attack`), `arrow.glb`, `slot_ring.glb` |
 | `build_slime.py` | `slime.glb` — враг, анимация `idle` |
+| `build_villager.py` | `villager.glb` — житель (покупает дерево), анимации `idle`, `walk`, `wave` |
 | `build_castle.py` | `castle.glb`, `spawn_portal.glb` |
 | `build_environment.py` | `tree_round`, `tree_pine`, `rock_a`, `rock_b`, `bush`, `flowers` |
 | `build_terrain.py` | `level_01_terrain.glb` (земля, тропа, мелкий декор), `level_01_decor.glb` (деревья, кусты) |
@@ -32,7 +33,7 @@ cd ~/путь/к/tinyguard
   --python assets/blender/build_all.py
 ```
 
-Имена наборов: `hero`, `tower`, `slime`, `castle`, `environment`, `terrain`.
+Имена наборов: `hero`, `tower`, `slime`, `villager`, `castle`, `environment`, `terrain`.
 `--blend` сохраняет сцены для осмотра в `assets/blender/out/` (в `.gitignore`).
 
 После сборки откройте проект в Godot: он переимпортирует изменённые `.glb`.
