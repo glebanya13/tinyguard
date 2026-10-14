@@ -188,26 +188,10 @@ func delete_account() -> Dictionary:
 	var signed: Dictionary = await auth.ensure_token(false)
 	if not signed["ok"]:
 		return {"ok": false, "reason": signed["error"], "scope": ""}
-	var uid: String = auth.uid
-	var writes: Array = []
-	var profile_path: String = "publicProfiles/" + uid
-	var public_doc: Dictionary = await firestore.get_doc(profile_path)
-	if not public_doc["ok"] and not public_doc["missing"]:
-		return {"ok": false, "reason": _reply_error(public_doc), "scope": ""}
-	if public_doc["ok"]:
-		var key: String = str(public_doc["fields"].get("nicknameNormalized", ""))
-		var name_doc: Dictionary = await firestore.get_doc("nicknames/" + key)
-		if not name_doc["ok"] and not name_doc["missing"]:
-			return {"ok": false, "reason": _reply_error(name_doc), "scope": ""}
-		# The rules only let the owner delete an existing index document.
-		if name_doc["ok"] and str(name_doc["fields"].get("uid", "")) == uid:
-			writes.append(firestore.write_delete("nicknames/" + key))
-		writes.append(firestore.write_delete(profile_path))
-	writes.append(firestore.write_delete("users/" + uid))
-	writes.append(firestore.write_delete("saves/" + uid))
-	for level: Dictionary in LevelCatalog.levels():
-		var scores: String = "leaderboards/level_%d/scores/%s" % [int(level["id"]), uid]
-		writes.append(firestore.write_delete(scores))
+	var plan: Dictionary = await _deletion_writes(auth.uid)
+	if not plan["ok"]:
+		return {"ok": false, "reason": plan["reason"], "scope": ""}
+	var writes: Array = plan["writes"]
 	var deleted: Dictionary = await firestore.commit(writes)
 	if not deleted["ok"]:
 		return {"ok": false, "reason": _reply_error(deleted), "scope": ""}
@@ -216,6 +200,31 @@ func delete_account() -> Dictionary:
 		return {"ok": false, "reason": removed["error"], "scope": ""}
 	_wipe_local()
 	return {"ok": true, "reason": "", "scope": "cloud"}
+
+
+## The deletes that remove everything stored under `uid`. The rules only let
+## the owner delete an existing nickname index document, so it is looked up first.
+## {"ok", "reason", "writes"}.
+func _deletion_writes(uid: String) -> Dictionary:
+	var writes: Array = []
+	var profile_path: String = "publicProfiles/" + uid
+	var public_doc: Dictionary = await firestore.get_doc(profile_path)
+	if not public_doc["ok"] and not public_doc["missing"]:
+		return {"ok": false, "reason": _reply_error(public_doc), "writes": writes}
+	if public_doc["ok"]:
+		var key: String = str(public_doc["fields"].get("nicknameNormalized", ""))
+		var name_doc: Dictionary = await firestore.get_doc("nicknames/" + key)
+		if not name_doc["ok"] and not name_doc["missing"]:
+			return {"ok": false, "reason": _reply_error(name_doc), "writes": writes}
+		if name_doc["ok"] and str(name_doc["fields"].get("uid", "")) == uid:
+			writes.append(firestore.write_delete("nicknames/" + key))
+		writes.append(firestore.write_delete(profile_path))
+	writes.append(firestore.write_delete("users/" + uid))
+	writes.append(firestore.write_delete("saves/" + uid))
+	for level: Dictionary in LevelCatalog.levels():
+		var scores: String = "leaderboards/level_%d/scores/%s" % [int(level["id"]), uid]
+		writes.append(firestore.write_delete(scores))
+	return {"ok": true, "reason": "", "writes": writes}
 
 
 ## Erases only this device's data (profile, progress, session).

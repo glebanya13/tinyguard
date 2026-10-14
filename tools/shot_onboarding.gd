@@ -20,8 +20,14 @@ class FakeTransport:
 			return {"ok": false, "code": 0, "json": null, "network": true}
 		if "signUp" in url or "securetoken" in url:
 			var auth := {
-				"idToken": "I", "refreshToken": "R", "localId": "u", "expiresIn": "3600",
-				"id_token": "I", "refresh_token": "R", "user_id": "u", "expires_in": "3600",
+				"idToken": "I",
+				"refreshToken": "R",
+				"localId": "u",
+				"expiresIn": "3600",
+				"id_token": "I",
+				"refresh_token": "R",
+				"user_id": "u",
+				"expires_in": "3600",
 			}
 			return {"ok": true, "code": 200, "json": auth, "network": false}
 		if url.ends_with(":commit"):  # the rules refuse a taken nickname with 403

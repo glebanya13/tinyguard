@@ -371,6 +371,13 @@ class FakeFirebase:
 	func handle(method: int, url: String, body: String) -> Array:
 		if offline:
 			return [0, null]
+		if "signUp" in url or "securetoken" in url or "accounts:delete" in url:
+			return auth_reply(url)
+		if url.ends_with(":commit"):
+			return commit(body)
+		return document(method, url)
+
+	func auth_reply(url: String) -> Array:
 		if "signUp" in url:
 			return [
 				200, {"idToken": "ID", "refreshToken": "RT", "localId": "uid1", "expiresIn": "3600"}
@@ -380,14 +387,10 @@ class FakeFirebase:
 				200,
 				{"id_token": "ID", "refresh_token": "RT", "user_id": "uid1", "expires_in": "3600"}
 			]
-		if "accounts:delete" in url:
-			if auth_delete_error != "":
-				return [400, {"error": {"message": auth_delete_error}}]
-			auth_deleted = true
-			return [200, {}]
-		if url.ends_with(":commit"):
-			return commit(body)
-		return document(method, url)
+		if auth_delete_error != "":
+			return [400, {"error": {"message": auth_delete_error}}]
+		auth_deleted = true
+		return [200, {}]
 
 	func path_of(name: String) -> String:
 		return name.get_slice("/documents/", 1)
@@ -410,7 +413,9 @@ class FakeFirebase:
 			return [403, {"error": {"status": "PERMISSION_DENIED"}}]
 		var touches_users := false
 		for write: Dictionary in writes:
-			var name: String = str(write["update"]["name"] if write.has("update") else write["delete"])
+			var name: String = str(
+				write["update"]["name"] if write.has("update") else write["delete"]
+			)
 			if path_of(name).begins_with("users/"):
 				touches_users = true
 		if touches_users and writes.size() == 1 and writes[0].has("update"):
@@ -461,17 +466,20 @@ class FakeFirebase:
 			return [
 				200, {"fields": FirestoreClient.encode_fields(users_doc), "updateTime": update_time}
 			]
-		if "/saves/" in url and method == HTTPClient.METHOD_GET:
-			if legacy_text == "":
-				return missing
-			return [200, {"fields": {"progress": {"stringValue": legacy_text}}}]
-		if "/saves/" in url and method == HTTPClient.METHOD_DELETE:
-			legacy_text = ""
-			return [200, {}]
+		if "/saves/" in url:
+			return saves(method)
 		var path: String = url.get_slice("/documents/", 1)
 		if method == HTTPClient.METHOD_GET and exists(path):
 			return [200, {"fields": FirestoreClient.encode_fields(fields_of(path))}]
 		return missing
+
+	func saves(method: int) -> Array:
+		if method == HTTPClient.METHOD_DELETE:
+			legacy_text = ""
+			return [200, {}]
+		if legacy_text == "":
+			return [404, {"error": {"status": "NOT_FOUND"}}]
+		return [200, {"fields": {"progress": {"stringValue": legacy_text}}}]
 
 
 func _configured_online(fake: FakeFirebase) -> Node:
@@ -578,9 +586,8 @@ func _test_nickname_and_delete() -> void:
 	check(fake.docs.has("publicProfiles/uid1"), "public profile written")
 	check(fake.docs["nicknames/ежик"]["uid"] == "uid1", "index document owned by this uid")
 	check(fake.docs["publicProfiles/uid1"]["nicknameNormalized"] == "ежик", "profile key")
-	var first_commit: Array = fake.all_commits.filter(
-		func(w: Array) -> bool: return w.size() == 2 and "nicknames/" in str(w[0])
-	)[0]
+	var is_reserve := func(w: Array) -> bool: return w.size() == 2 and "nicknames/" in str(w[0])
+	var first_commit: Array = fake.all_commits.filter(is_reserve)[0]
 	check(
 		first_commit[0]["currentDocument"] == {"exists": false},
 		"nickname index is create-only (exists=false)"
@@ -628,7 +635,9 @@ func _test_nickname_and_delete() -> void:
 	fake.docs["leaderboards/level_1/scores/uid1"] = {"name": "x", "wave": 3}
 	fake.refuse_commits = 1
 	r = await online.delete_account()
-	check(not r["ok"] and not fake.auth_deleted, "documents refused -> Auth user kept, retry possible")
+	check(
+		not r["ok"] and not fake.auth_deleted, "documents refused -> Auth user kept, retry possible"
+	)
 	fake.auth_delete_error = "CREDENTIAL_TOO_OLD_LOGIN_AGAIN"
 	r = await online.delete_account()
 	check(not r["ok"] and r["reason"] == "reauth_required", "old login -> reauth_required")
@@ -646,8 +655,7 @@ func _test_nickname_and_delete() -> void:
 	var last: Array = fake.all_commits[-1]
 	var paths := last.map(func(w: Dictionary) -> String: return str(w.get("delete", "")))
 	check(
-		paths.any(func(x: String) -> bool: return x.ends_with("/users/uid1"))
-		and last.size() >= 4,
+		paths.any(func(x: String) -> bool: return x.ends_with("/users/uid1")) and last.size() >= 4,
 		"deletion commit covers users, profile, nickname, saves, records"
 	)
 	check(
