@@ -25,3 +25,12 @@ static func take() -> Dictionary:
 static func clear() -> void:
 	config = {}
 	lobby = null
+
+
+## Tells the partner, closes the stream and removes this player from the room.
+static func leave_match(session: CoopSession, room: CoopLobby) -> void:
+	if session != null:
+		await session.finish()
+	if room != null:
+		await room.leave()
+	clear()

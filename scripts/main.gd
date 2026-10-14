@@ -1,3 +1,4 @@
+# gdlint:disable=max-file-lines
 extends Node3D
 ## Root of a level: builds the selected level from resources/levels.json
 ## (terrain, castle, portals and paths, slots, trees, hero spot), wires the game
@@ -12,13 +13,7 @@ const DEFEAT_TIPS: Array[String] = ["TIP_FROST", "TIP_SWORD", "TIP_STARS", "TIP_
 const PERK_KEYS: Array[StringName] = [
 	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls"
 ]
-const HERO_SCENE: PackedScene = preload("res://scenes/hero.tscn")
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
-## Co-op: the second knight stands this far (metres) from the start spot, and the
-## ended side waits this long before leaving the room, so a partner that is a
-## few ticks behind still reaches the same victory or defeat (seconds).
-const COOP_GUEST_OFFSET := 0.8
-const COOP_END_GRACE := 4.0
 const TUTORIAL_SCENE := preload("res://scenes/tutorial.tscn")
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
@@ -68,8 +63,7 @@ var level: Dictionary = {}
 var coop_config: Dictionary = {}
 var coop_transport: CoopTransport = null
 var coop_lobby: CoopLobby = null
-var coop_session: CoopSession = null
-var coop_ghost: Hero = null
+var coop: CoopBattle = null
 var walk_grid := WalkGrid.new()
 var villagers := Villagers.new()
 
@@ -96,7 +90,6 @@ var _ended: bool = false
 ## Onboarding tutorial overlay (only on its level in tutorial mode).
 var _tutorial: Tutorial = null
 var _coop_menu_open: bool = false
-var _coop_left: bool = false
 
 ## Command to run when the hero reaches the selected slot, or &"".
 var _pending_command: StringName = &""
@@ -203,8 +196,8 @@ func _ready() -> void:
 	_hero.order_cancelled.connect(_on_hero_order_ended)
 	_hero.order_finished.connect(_on_hero_order_ended)
 	_hero.wood_gathered.connect(_on_wood_gathered)
-	if coop_ghost != null:
-		coop_ghost.wood_gathered.connect(_on_wood_gathered)
+	if coop != null:
+		coop.ghost.wood_gathered.connect(_on_wood_gathered)
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
 	villagers.seed_value = _sim.seed_value
@@ -226,8 +219,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
-	if coop_session != null and not _coop_left:
-		_coop_leave()
+	if coop != null:
+		coop.leave()
 
 
 func _notification(what: int) -> void:
@@ -729,7 +722,12 @@ func _toggle_forge() -> void:
 ## Tutorial mode: the Tutorial node (its own overlay) replaces the built-in
 ## hints and guide arrow; it only observes the systems passed to it.
 func _start_tutorial() -> void:
-	if _coop_on() or not LevelCatalog.tutorial or _endless or int(level["id"]) != Onboarding.TUTORIAL_LEVEL:
+	if (
+		_coop_on()
+		or not LevelCatalog.tutorial
+		or _endless
+		or int(level["id"]) != Onboarding.TUTORIAL_LEVEL
+	):
 		return
 	_tutorial = TUTORIAL_SCENE.instantiate()
 	add_child(_tutorial)
@@ -1005,7 +1003,7 @@ func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = 
 	_ended = true
 	if _coop_on():
 		_hud.hide_coop_notice()
-		_coop_leave_later()
+		coop.leave_later()
 	Engine.time_scale = 1.0
 	_hero.cancel_order()
 	_build_manager.clear_selection()
@@ -1029,12 +1027,12 @@ func _on_restart_pressed() -> void:
 
 func _on_map_pressed() -> void:
 	if _coop_on():
-		_coop_leave()
+		coop.leave()
 	get_tree().paused = false
 	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
 
 
-# --- Co-op (docs/MULTIPLAYER.md, "Co-op in the game") ---------------------------
+# --- Co-op (docs/MULTIPLAYER.md, "Co-op in the game"; the work is in CoopBattle) ---
 
 
 func _coop_on() -> bool:
@@ -1046,92 +1044,30 @@ func _knight_of(player: int) -> Hero:
 	return _commands.heroes[player] if _commands.heroes.size() > player else _hero
 
 
-## Session, partner's ghost knight and the lockstep driver of the battle clock.
 func _setup_coop() -> void:
-	var slot: int = 0 if str(coop_config["role"]) == "host" else 1
+	coop = CoopBattle.new()
+	coop.name = "CoopBattle"
+	add_child(coop)
 	var transport: CoopTransport = coop_transport if coop_transport != null else Online.rtdb
-	coop_session = CoopSession.new(
-		transport, str(coop_config["code"]), str(coop_config["role"]), int(coop_config["delay"])
-	)
-	var start: Vector3 = _hero.global_position
-	var second: Vector3 = start + Vector3(COOP_GUEST_OFFSET, 0.0, 0.0)
-	coop_ghost = HERO_SCENE.instantiate() as Hero
-	coop_ghost.name = "PartnerHero"
-	coop_ghost.is_ghost = true
-	coop_ghost.sim = _sim
-	coop_ghost.commands = _commands
-	coop_ghost.collision_layer = 0
-	coop_ghost.collision_mask = 0
-	_level_root.add_child(coop_ghost)
-	coop_ghost.position = start if slot == 1 else second
-	coop_ghost.ghost_goto(coop_ghost.position)
-	if slot == 1:
-		_hero.position = second
-	var tag := Label3D.new()
-	tag.text = str(coop_config.get("partner", ""))
-	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.no_depth_test = true
-	tag.fixed_size = true
-	tag.pixel_size = 0.0007
-	tag.font_size = 28
-	tag.outline_size = 8
-	tag.position = Vector3(0.0, 2.2, 0.0)
-	coop_ghost.add_child(tag)
-	var knights: Array[Hero] = [_hero, coop_ghost] if slot == 0 else [coop_ghost, _hero]
-	_commands.heroes = knights
-	_sim.heroes = knights
-	_commands.local_player = slot
-	_commands.validate_hero = true
-	_commands.coop = coop_session
-	_sim.coop = CoopDriver.new(coop_session, _sim, _commands)
-	coop_session.partner_state_changed.connect(_on_coop_partner_state)
-	coop_session.ended.connect(_on_coop_ended)
+	coop.setup(coop_config, transport, coop_lobby, _sim, _commands, _hero, _level_root)
+	coop.partner_waiting.connect(_on_coop_partner_waiting)
+	coop.match_over.connect(_on_coop_match_over)
 	_hud.set_coop_mode(true)
-	coop_session.start()
 
 
-func _on_coop_partner_state(state: String) -> void:
+func _on_coop_partner_waiting(waiting: bool) -> void:
 	if _ended:
 		return
-	if state == "ok":
-		_hud.hide_coop_notice()
-	else:
+	if waiting:
 		_hud.show_coop_notice(tr("COOP_WAITING_PARTNER"))
+	else:
+		_hud.hide_coop_notice()
 
 
 ## The match is over for another reason than the battle's own victory or defeat.
-func _on_coop_ended(reason: String) -> void:
-	if _ended or reason == "left":
+func _on_coop_match_over(reason: String) -> void:
+	if _ended:
 		return
-	var texts := {
-		"partner_left": ["COOP_END_LEFT", "COOP_END_LEFT_TEXT"],
-		"lost": ["COOP_END_LOST", "COOP_END_LOST_TEXT"],
-		"desync": ["COOP_END_DESYNC", "COOP_END_DESYNC_TEXT"],
-		"protocol": ["COOP_END_PROTOCOL", "COOP_END_PROTOCOL_TEXT"],
-		"denied": ["COOP_END_DENIED", "COOP_END_DENIED_TEXT"],
-	}
-	var pair: Array = texts.get(reason, texts["lost"])
+	var pair: Array = CoopBattle.end_texts(reason)
 	_wave_manager.stop()
 	_end_game(tr(pair[0]), false, 0, tr(pair[1]) + "\n" + tr("COOP_END_NOT_SAVED") + "\n")
-
-
-## After the end of the battle: wait a moment (a partner a few steps behind must
-## still see the same ending), then leave the room.
-func _coop_leave_later() -> void:
-	if COOP_END_GRACE <= 0.0 or not is_inside_tree():
-		_coop_leave()
-		return
-	await get_tree().create_timer(COOP_END_GRACE, true, false, true).timeout
-	_coop_leave()
-
-
-func _coop_leave() -> void:
-	if _coop_left or coop_session == null:
-		return
-	_coop_left = true
-	var session: CoopSession = coop_session
-	var lobby: CoopLobby = coop_lobby
-	await session.finish()
-	if lobby != null:
-		await lobby.leave()
-	CoopRun.clear()

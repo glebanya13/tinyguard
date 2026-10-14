@@ -7,6 +7,10 @@ extends RefCounted
 ## tick are the same number (both start at 0 and count whole steps).
 ## See docs/MULTIPLAYER.md, "Co-op in the game".
 
+## The wire carries numbers as JSON: 48 bits survive a trip through a double exactly
+## (the full 64-bit state hash would not).
+const HASH_MASK: int = 0xFFFFFFFFFFFF
+
 var session: CoopSession = null
 var sim: Sim = null
 var commands: GameCommands = null
@@ -36,7 +40,7 @@ func can_step() -> bool:
 func before_step() -> void:
 	var lockstep: CoopLockstep = session.lockstep
 	if lockstep.wants_hash():
-		lockstep.report_hash(sim.state_hash())
+		lockstep.report_hash(sim.state_hash() & HASH_MASK)
 		if lockstep.desynced:
 			return  # the match ends; the step still runs once, harmlessly
 	for cmd: Dictionary in lockstep.take_commands():

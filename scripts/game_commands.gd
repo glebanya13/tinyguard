@@ -146,7 +146,9 @@ func _hero_position_ok(cmd: GameCommand) -> bool:
 		return false
 	var last: Array = _last_hero.get(cmd.player, [_start_mm.x, _start_mm.y, 0])
 	var elapsed: int = maxi(cmd.tick - int(last[2]), 0)
-	var walk_mm: int = roundi(_hero_of(cmd.player).speed * 1000.0) * elapsed * speed_tolerance_percent
+	var walk_mm: int = (
+		roundi(_hero_of(cmd.player).speed * 1000.0) * elapsed * speed_tolerance_percent
+	)
 	var allowed: int = walk_mm / (100 * Sim.TICK_RATE) + slack_mm
 	var dx: int = x - int(last[0])
 	var dz: int = z - int(last[1])

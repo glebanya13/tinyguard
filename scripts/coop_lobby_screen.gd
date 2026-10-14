@@ -39,6 +39,8 @@ var transport: CoopTransport = null
 ## Nickname shown to the partner (empty: the profile's).
 var nickname: String = ""
 var lobby: CoopLobby = null
+## Load the battle scene when the match starts (tests and screenshots turn it off).
+var auto_load: bool = true
 
 var _code_input: String = ""
 var _level: int = 1
@@ -483,4 +485,5 @@ func _on_started(config: Dictionary) -> void:
 	lobby.room_changed.disconnect(_refresh_room)
 	lobby.closed.disconnect(_on_closed)
 	lobby = null
-	get_tree().change_scene_to_file(GAME_SCENE)
+	if auto_load:
+		get_tree().change_scene_to_file(GAME_SCENE)
