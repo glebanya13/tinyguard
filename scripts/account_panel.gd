@@ -44,6 +44,7 @@ var _sync_button: Button
 var _new_guest_button: Button
 var _info_label: Label
 var _id_label: Label
+var _web_label: Label
 var _confirm: Control
 var _confirm_title: Label
 var _confirm_body: Label
@@ -114,6 +115,8 @@ func refresh() -> void:
 	_delete_button.text = "Удалить аккаунт" if configured else "Удалить данные"
 	var uid: String = Online.auth.uid if configured else ""
 	_id_label.text = "ID игрока (для поддержки): " + uid if uid != "" else ""
+	_web_label.text = GameInfo.web_deletion_line()
+	_web_label.visible = _web_label.text != ""
 
 
 ## True when the email buttons are shown (tests: hidden without Firebase).
@@ -236,6 +239,10 @@ func _build() -> void:
 	box.add_child(_info_label)
 	_id_label = _label("", 15, Color(SOFT_COLOR, 0.75))
 	box.add_child(_id_label)
+	_web_label = _label("", 15, Color(SOFT_COLOR, 0.75))
+	_web_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_web_label.custom_minimum_size = Vector2(740, 0)
+	box.add_child(_web_label)
 
 	_build_confirm()
 	_dialog = EmailAuthDialog.new()

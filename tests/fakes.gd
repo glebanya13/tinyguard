@@ -253,7 +253,7 @@ class FakeFirebase:
 			return [200, {"fields": FirestoreClient.encode_fields(doc), "updateTime": update_time}]
 		if "/saves/" in url:
 			return saves(method)
-		var path: String = url.get_slice("/documents/", 1)
+		var path: String = url.get_slice("/documents/", 1).uri_decode()  # segments are encoded
 		if method == HTTPClient.METHOD_GET and exists(path):
 			return [200, {"fields": FirestoreClient.encode_fields(fields_of(path))}]
 		return missing

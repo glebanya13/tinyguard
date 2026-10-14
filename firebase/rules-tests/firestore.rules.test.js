@@ -357,8 +357,10 @@ test("nickname: every character the client accepts gets the same key in the rule
   const mismatches = [];
   for (const [ch, lower] of letters) {
     await env.clearFirestore();
-    const name = `x${ch}x`;
-    const key = `x${lower}x`;
+    // Pad with a letter of the same alphabet (a nickname may not mix Latin and Cyrillic).
+    const pad = /[\u0400-\u045f]/.test(ch) ? "\u0436" : "x";
+    const name = `${pad}${ch}${pad}`;
+    const key = `${pad}${lower}${pad}`;
     const batch = writeBatch(db);
     batch.set(doc(db, `nicknames/${key}`), { uid: "alice", nickname: name, createdAt: serverTimestamp() });
     batch.set(doc(db, "nicknameTrace/alice"), { changedAt: serverTimestamp() });

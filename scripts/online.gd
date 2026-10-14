@@ -449,16 +449,15 @@ static func parse_leaderboard(json: Variant) -> Array:
 	for row: Variant in json:
 		if not row is Dictionary or not (row as Dictionary).has("document"):
 			continue
-		var fields: Dictionary = row["document"].get("fields", {})
-		(
-			out
-			. append(
-				{
-					"name": str(fields.get("name", {}).get("stringValue", "?")),
-					"wave": int(fields.get("wave", {}).get("integerValue", "0")),
-				}
-			)
+		var document: Variant = row["document"]
+		if not document is Dictionary:
+			continue
+		var fields: Dictionary = FirestoreClient.decode_fields(
+			(document as Dictionary).get("fields", {})
 		)
+		var name: String = clean_name(str(fields.get("name", "")))
+		var wave: Variant = fields.get("wave", 0)
+		out.append({"name": name if name != "" else "?", "wave": int(wave) if wave is int else 0})
 	return out
 
 
@@ -466,7 +465,8 @@ static func parse_leaderboard(json: Variant) -> Array:
 static func parse_save(json: Variant) -> String:
 	if not json is Dictionary:
 		return ""
-	return str(json.get("fields", {}).get("progress", {}).get("stringValue", ""))
+	var fields: Dictionary = FirestoreClient.decode_fields((json as Dictionary).get("fields", {}))
+	return str(fields.get("progress", ""))
 
 
 ## Legacy free-form name cleanup (control characters dropped, cut to NAME_MAX).
@@ -474,7 +474,17 @@ static func parse_save(json: Variant) -> String:
 static func clean_name(value: String) -> String:
 	var out := ""
 	for ch in value.strip_edges():
-		if ch.unicode_at(0) >= 32:
+		var code: int = ch.unicode_at(0)
+		# Controls, zero-width and bidi override characters from a server reply.
+		var invisible: bool = (
+			code < 32
+			or (code >= 0x7F and code <= 0x9F)
+			or (code >= 0x200B and code <= 0x200F)
+			or (code >= 0x2028 and code <= 0x202E)
+			or (code >= 0x2060 and code <= 0x206F)
+			or code == 0xFEFF
+		)
+		if not invisible:
 			out += ch
 	return out.substr(0, NAME_MAX)
 

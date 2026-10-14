@@ -23,12 +23,29 @@ func doc_name(path: String) -> String:
 	return (ROOT % project_id) + "/" + path
 
 
+## URL of a document: every path segment is percent-encoded, so a name or uid
+## cannot add "/", "?" or "#" to the request.
 func doc_url(path: String) -> String:
-	return HOST + "/" + doc_name(path)
+	var segments: PackedStringArray = []
+	for segment in path.split("/"):
+		segments.append(segment.uri_encode())
+	return HOST + "/" + (ROOT % project_id) + "/" + "/".join(segments)
+
+
+## False for a path that is empty, has an empty segment or a "." / ".." segment.
+static func is_safe_path(path: String) -> bool:
+	if path == "":
+		return false
+	for segment in path.split("/"):
+		if segment == "" or segment == "." or segment == "..":
+			return false
+	return true
 
 
 ## {"ok", "code", "missing" (404), "fields" (decoded Dictionary), "update_time", "network"}.
 func get_doc(path: String) -> Dictionary:
+	if not is_safe_path(path):
+		return _refused()
 	var reply: Dictionary = await request(HTTPClient.METHOD_GET, doc_url(path), null, true)
 	var json: Dictionary = reply["json"] if reply["json"] is Dictionary else {}
 	reply["missing"] = int(reply["code"]) == 404
@@ -38,6 +55,8 @@ func get_doc(path: String) -> Dictionary:
 
 
 func delete_doc(path: String) -> Dictionary:
+	if not is_safe_path(path):
+		return _refused()
 	return await request(HTTPClient.METHOD_DELETE, doc_url(path), null, true)
 
 
@@ -116,6 +135,18 @@ func request(method: int, url: String, body: Variant, signed: bool) -> Dictionar
 	return reply
 
 
+static func _refused() -> Dictionary:
+	return {
+		"ok": false,
+		"code": 0,
+		"json": null,
+		"network": false,
+		"missing": false,
+		"fields": {},
+		"update_time": "",
+	}
+
+
 static func encode_value(value: Variant) -> Dictionary:
 	match typeof(value):
 		TYPE_BOOL:
@@ -153,17 +184,21 @@ static func decode_value(value: Variant) -> Variant:
 	if v.has("integerValue"):
 		return int(str(v["integerValue"]))
 	if v.has("doubleValue"):
-		return float(v["doubleValue"])
+		return float(str(v["doubleValue"]))
 	if v.has("stringValue"):
 		return str(v["stringValue"])
 	if v.has("timestampValue"):
 		return parse_timestamp(str(v["timestampValue"]))
 	if v.has("mapValue"):
-		return decode_fields((v["mapValue"] as Dictionary).get("fields", {}))
+		var map: Variant = v["mapValue"]
+		return decode_fields((map as Dictionary).get("fields", {}) if map is Dictionary else {})
 	if v.has("arrayValue"):
 		var out: Array = []
-		for item: Variant in (v["arrayValue"] as Dictionary).get("values", []):
-			out.append(decode_value(item))
+		var list: Variant = v["arrayValue"]
+		var items: Variant = (list as Dictionary).get("values", []) if list is Dictionary else []
+		if items is Array:
+			for item: Variant in items:
+				out.append(decode_value(item))
 		return out
 	return null
 
