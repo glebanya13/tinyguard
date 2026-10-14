@@ -1,0 +1,27 @@
+rules_version = '2';
+// Tinyguard: endless-siege leaderboards and cloud saves.
+// Players sign in anonymously; each one may only write their own documents.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leaderboards/{level}/scores/{uid} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'wave', 'updated'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 16
+        && request.resource.data.wave is int
+        && request.resource.data.wave > 0
+        && request.resource.data.wave < 5000
+        // A record can only go up.
+        && (resource == null || request.resource.data.wave > resource.data.wave);
+    }
+    match /saves/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['progress'])
+        && request.resource.data.progress.size() < 20000;
+    }
+  }
+}

@@ -130,6 +130,37 @@ def swatch(name: str) -> bpy.types.Material:
     return mat
 
 
+# Biome palettes: swatch name -> replacement, applied by recolor().
+BIOMES = {
+    "meadow": {},
+    "winter": {"grass": "snow", "grass_dark": "ice_light", "leaf": "snow", "leaf_light": "snow",
+               "leaf_dark": "pine", "pine_light": "snow", "dirt": "rock", "dirt_dark": "rock_dark",
+               "path": "stone_light", "path_dark": "stone", "flower_yellow": "ice", "flower_pink": "ice_light",
+               "flower_white": "snow", "berry": "ruby"},
+    "autumn": {"leaf": "slime_fast", "leaf_light": "flower_yellow", "leaf_dark": "berry",
+               "flower_pink": "slime_fast", "flower_white": "flower_yellow", "grass_dark": "dirt"},
+    "desert": {"grass": "sand", "grass_dark": "path", "leaf": "leaf_dark", "leaf_light": "leaf",
+               "pine": "leaf_dark", "pine_light": "leaf", "dirt": "path_dark", "path": "dirt",
+               "path_dark": "dirt_dark", "flower_pink": "berry", "flower_white": "flower_yellow"},
+}
+
+
+def recolor(roots, biome: str) -> None:
+    """Swap swatch materials on every mesh under roots according to BIOMES[biome]."""
+    mapping = BIOMES[biome]
+    if not mapping:
+        return
+    roots = roots if isinstance(roots, (list, tuple)) else [roots]
+    for root in roots:
+        for obj in [root, *root.children_recursive]:
+            if obj.type != "MESH":
+                continue
+            for slot in obj.material_slots:
+                name = slot.material.name[3:] if slot.material and slot.material.name.startswith("sw_") else None
+                if name in mapping:
+                    slot.material = swatch(mapping[name])
+
+
 def hex_to_srgb(h: str) -> tuple[float, float, float]:
     return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
 

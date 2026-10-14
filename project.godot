@@ -22,6 +22,10 @@ boot_splash/fullsize=true
 boot_splash/use_filter=true
 config/quit_on_go_back=false
 
+[autoload]
+
+Online="*res://scripts/online.gd"
+
 [display]
 
 window/size/viewport_width=1280

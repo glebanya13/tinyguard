@@ -131,3 +131,16 @@ static func commit() -> void:
 	if FileAccess.file_exists(save_path):
 		DirAccess.copy_absolute(real, real + ".bak")
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real)
+
+
+## Replaces the whole progress with a saved text (cloud restore). False if the
+## text does not parse; the current progress is kept then.
+static func replace_with(text: String) -> bool:
+	var incoming := ConfigFile.new()
+	if incoming.parse(text) != OK:
+		return false
+	data()
+	_save = incoming
+	_save_broken = false
+	commit()
+	return true

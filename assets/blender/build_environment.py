@@ -155,4 +155,11 @@ def build() -> list:
         _clear()
         obj = fn(rng)
         out.append(tg.finish_asset(name, obj, ao_distance=ao, ao_strength=0.7))
+    # Choppable tree models for the other biomes (same shapes, recoloured).
+    for biome in ("winter", "autumn", "desert"):
+        for name, fn in (("tree_round", tree_round), ("tree_pine", tree_pine)):
+            _clear()
+            obj = fn(random.Random(21))
+            tg.recolor(obj, biome)
+            out.append(tg.finish_asset(f"{name}_{biome}", obj, ao_distance=0.3, ao_strength=0.7))
     return out

@@ -90,7 +90,7 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -520.0
+offset_left = -700.0
 offset_top = 14.0
 offset_right = -20.0
 offset_bottom = 74.0
@@ -140,6 +140,15 @@ theme_override_constants/outline_size = 8
 theme_override_font_sizes/font_size = 30
 text = "!"
 horizontal_alignment = 1
+
+[node name="RecordsButton" type="Button" parent="UI/Root/TopRight"]
+visible = false
+custom_minimum_size = Vector2(170, 60)
+layout_mode = 2
+focus_mode = 0
+theme_override_constants/icon_max_width = 40
+text = "Рекорды"
+icon = ExtResource("i_crown")
 
 [node name="SoundButton" type="Button" parent="UI/Root/TopRight"]
 custom_minimum_size = Vector2(64, 60)

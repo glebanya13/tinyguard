@@ -7,10 +7,10 @@ extends StaticBody3D
 ## node's own model is shown only while it animates.
 
 const GROUP := &"wood_trees"
-const MODELS := {
-	&"round": preload("res://assets/models/tree_round.glb"),
-	&"pine": preload("res://assets/models/tree_pine.glb"),
-}
+## Model per variant: res://assets/models/tree_<variant>.glb, e.g. "pine" or
+## "pine_winter" (biome colours). Loaded once per variant.
+const MODEL_PATH := "res://assets/models/tree_%s.glb"
+const FALLBACK := &"round"
 const CHOP_FX: PackedScene = preload("res://scenes/fx/chop_fx.tscn")
 const HIGHLIGHT: Material = preload("res://assets/materials/highlight.tres")
 
@@ -48,7 +48,10 @@ func _ready() -> void:
 
 
 static func model_scene(kind: StringName) -> PackedScene:
-	return MODELS.get(kind, MODELS[&"round"])
+	var path: String = MODEL_PATH % kind
+	if not ResourceLoader.exists(path):
+		path = MODEL_PATH % FALLBACK
+	return load(path)  # ResourceLoader caches: every tree of a kind shares one scene
 
 
 ## Glow on the tree the hero is about to chop.

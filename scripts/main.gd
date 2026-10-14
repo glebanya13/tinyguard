@@ -297,7 +297,9 @@ func _plant_trees(decor: Node3D) -> void:
 	for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
 		var spot := marker as Node3D
 		var tree := TREE_SCENE.instantiate() as WoodTree
-		tree.variant = StringName(String(spot.name).get_slice("_", 1))
+		var kind: String = String(spot.name).get_slice("_", 1)
+		var biome: String = level.get("biome", "meadow")
+		tree.variant = StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
 		tree.model_scale = spot.scale.x
 		tree.grove = grove
 		tree.position = spot.global_position
@@ -773,6 +775,8 @@ func _on_defeated() -> void:
 		var id: int = int(level["id"])
 		var old_record: int = LevelCatalog.endless_record(id)
 		var record: bool = LevelCatalog.save_endless(id, _waves_cleared)
+		if record:
+			Online.submit_record(id, _waves_cleared)
 		var title := "Новый рекорд: %d волн!" % _waves_cleared if record else "Осада окончена"
 		var line := (
 			"Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d"

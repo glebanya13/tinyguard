@@ -23,6 +23,10 @@ var _site_ids: Array[int] = []
 var _selected: int = 0
 var _time: float = 0.0
 var _camera_base: Transform3D
+var _records: Control = null
+var _records_list: VBoxContainer = null
+var _records_title: Label = null
+var _records_status: Label = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
@@ -40,6 +44,8 @@ var _camera_base: Transform3D
 @onready var _treasury: Control = $UI/Root/Treasury
 @onready var _free_label: Label = $UI/Root/Treasury/Panel/Content/Header/FreePill/Row/Label
 @onready var _cards: GridContainer = $UI/Root/Treasury/Panel/Content/Cards
+@onready var _records_button: Button = $UI/Root/TopRight/RecordsButton
+@onready var _ui_root: Control = $UI/Root
 
 
 func _ready() -> void:
@@ -55,6 +61,11 @@ func _ready() -> void:
 	$UI/Root/Treasury/Panel/Content/Footer/ResetButton.pressed.connect(_on_reset_pressed)
 	_update_sound_icon()
 	_refresh_stars()
+	_records_button.visible = Online.is_configured()
+	_records_button.pressed.connect(_open_records)
+	Online.leaderboard_loaded.connect(_on_leaderboard_loaded)
+	Online.status_changed.connect(_on_online_status)
+	Online.cloud_loaded.connect(_on_cloud_loaded)
 	_select(clampi(LevelCatalog.selected_id, 1, LevelCatalog.unlocked()))
 
 
@@ -74,6 +85,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _treasury.visible:
 			_treasury.hide()
+		elif _records and _records.visible:
+			_records.hide()
 		else:
 			get_tree().quit()  # Android back on the map leaves the game
 
@@ -232,6 +245,104 @@ func _on_buy_pressed(perk: PerkData) -> void:
 func _on_reset_pressed() -> void:
 	Perks.reset()
 	_fill_cards()
+
+
+func _open_records() -> void:
+	if _records == null:
+		_build_records_panel()
+	_records_title.text = "Рекорды осады: " + str(LevelCatalog.get_level(_selected)["name"])
+	_records_status.text = "Загрузка…"
+	for child in _records_list.get_children():
+		child.queue_free()
+	_records.show()
+	Online.fetch_leaderboard(_selected)
+
+
+## Online panel (only when Firebase is configured): nickname, top 10 of the
+## selected level's endless siege, cloud save / load.
+func _build_records_panel() -> void:
+	_records = Control.new()
+	_records.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ui_root.add_child(_records)
+	var dim := ColorRect.new()
+	dim.color = Color(0.04, 0.06, 0.14, 0.6)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_records.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(640, 560)
+	panel.position = Vector2(-320, -280)
+	_records.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	panel.add_child(box)
+	_records_title = Label.new()
+	_records_title.add_theme_color_override("font_color", GOLD)
+	_records_title.add_theme_font_size_override("font_size", 30)
+	box.add_child(_records_title)
+	var name_row := HBoxContainer.new()
+	box.add_child(name_row)
+	var name_label := Label.new()
+	name_label.text = "Ваше имя:"
+	name_row.add_child(name_label)
+	var name_edit := LineEdit.new()
+	name_edit.text = Online.player_name()
+	name_edit.max_length = Online.NAME_MAX
+	name_edit.placeholder_text = "Рыцарь"
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_edit.text_submitted.connect(Online.set_player_name)
+	name_edit.focus_exited.connect(func() -> void: Online.set_player_name(name_edit.text))
+	name_row.add_child(name_edit)
+	_records_list = VBoxContainer.new()
+	_records_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(_records_list)
+	_records_status = Label.new()
+	_records_status.add_theme_font_size_override("font_size", 18)
+	box.add_child(_records_status)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 10)
+	box.add_child(buttons)
+	for spec: Array in [
+		["В облако", Online.cloud_save, true],
+		["Из облака", Online.cloud_load, true],
+		["Закрыть", _records.hide, false]
+	]:
+		var button := Button.new()
+		button.text = spec[0]
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(180, 56)
+		if spec[2]:
+			button.theme_type_variation = &"SecondaryButton"
+		button.pressed.connect(spec[1])
+		buttons.add_child(button)
+
+
+func _on_leaderboard_loaded(level_id: int, entries: Array) -> void:
+	if _records == null or level_id != _selected:
+		return
+	for child in _records_list.get_children():
+		child.queue_free()
+	_records_status.text = (
+		"" if not entries.is_empty() else "Пока никто не играл в осаду на этом уровне"
+	)
+	for i in entries.size():
+		var row := Label.new()
+		row.text = "%d. %s — %d волн" % [i + 1, entries[i]["name"], entries[i]["wave"]]
+		row.add_theme_font_size_override("font_size", 21)
+		if i == 0:
+			row.add_theme_color_override("font_color", GOLD)
+		_records_list.add_child(row)
+
+
+func _on_online_status(text: String) -> void:
+	if _records_status:
+		_records_status.text = text
+
+
+func _on_cloud_loaded(ok: bool) -> void:
+	if ok:
+		get_tree().reload_current_scene()  # show the restored stars and levels
 
 
 func _on_sound_pressed() -> void:

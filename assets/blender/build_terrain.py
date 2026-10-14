@@ -356,6 +356,7 @@ def build_level(lv: dict) -> list:
     def tint(co):
         # Soft colour variation on the grass (AO channel).
         return 0.9 + 0.12 * noise.noise(Vector((co.x * 0.45, co.y * 0.45, 3.0)))
+    tg.recolor([terrain, decor, forest], lv.get("biome", "meadow"))
     name = f"level_{lv['id']}"
     out = [tg.finish_asset(f"{name}_terrain", terrain, ao_distance=0.3, ao_strength=0.6, ground=False, tint=tint,
                            occluders=chunks)]
