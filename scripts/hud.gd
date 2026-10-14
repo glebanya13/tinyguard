@@ -101,6 +101,7 @@ var _touch: bool = OS.has_feature("mobile")
 
 
 func _ready() -> void:
+	_drop_outlines()
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
 	_continue_button.pressed.connect(continue_pressed.emit)
@@ -429,6 +430,14 @@ func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:
 	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
+
+
+## Text on the dark panels needs no outline (it matches the panel colour), and an
+## outline doubles the draw calls of every label: it is a separate glyph batch.
+func _drop_outlines() -> void:
+	for panel: Control in [$Root/TopBar, $Root/TopRight, _card, _hint_pill]:
+		for label: Node in panel.find_children("*", "Label", true, false):
+			label.add_theme_constant_override("outline_size", 0)
 
 
 func _cost_label(text: String, color: Color = COST_COLOR) -> Label:

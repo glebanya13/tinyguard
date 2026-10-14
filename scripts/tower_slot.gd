@@ -76,4 +76,6 @@ func _update_visuals() -> void:
 			_pad.material_override = selected_material
 		State.OCCUPIED:
 			_pad.material_override = occupied_material
+	# The tower stands on the pad: no need to draw it.
+	_pad.visible = state != State.OCCUPIED
 	_selection_ring.visible = is_selected

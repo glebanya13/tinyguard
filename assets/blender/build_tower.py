@@ -324,7 +324,11 @@ def build_tower_kind(kind: str, rng) -> dict:
     base = tg.join([base, flag], "Base")  # static parts share one mesh (one draw call)
     lv2, lv3 = build_levels()
     collider = tg.collider_cylinder("TowerBody", 0.43, 1.0)
-    for obj in (lv2, lv3, collider, base, turret):
+    # Upgrade decorations are baked into body variants (Base2 = Base + Lv2, Base3 = Base + Lv2 +
+    # Lv3); the game swaps the mesh of "Base" per level, so a tower is one body mesh at any level.
+    base2 = tg.join([tg.duplicate(base, "Base2_src"), tg.duplicate(lv2, "Lv2_src")], "Base2")
+    base3 = tg.join([tg.duplicate(base, "Base3_src"), lv2, lv3], "Base3")
+    for obj in (collider, base, base2, base3, turret):
         tg.parent(obj, root)
     tg.parent(part, turret)
     tower_track(kind, part)
