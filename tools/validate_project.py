@@ -314,6 +314,12 @@ def check_levels() -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     for lv in data["levels"]:
         tag = f"levels.json level {lv['id']}"
+        # firestore.rules (leaderboards): a record of wave N needs >= (N-1)*15 s of real
+        # time = N*30 game seconds at the x2 maximum speed. Faster waves break that bound.
+        waves = lv.get("waves", {})
+        if waves.get("first_delay", 0) < 30 or waves.get("wave_duration", 0) < 30:
+            errors.append(f"{tag}: first_delay and wave_duration must be >= 30 "
+                          "(the record time check in firestore.rules assumes it)")
         if "path" in lv or not lv.get("paths"):
             errors.append(f'{tag}: expected "paths": [[...], ...] instead of "path"')
             continue

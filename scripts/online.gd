@@ -193,6 +193,11 @@ func delete_account() -> Dictionary:
 		return {"ok": false, "reason": plan["reason"], "scope": ""}
 	var writes: Array = plan["writes"]
 	var deleted: Dictionary = await firestore.commit(writes)
+	if not deleted["ok"] and int(deleted.get("code", 0)) == 403 and plan["trace_included"]:
+		# The server thinks the nickname trace is younger than 24 hours (clock skew):
+		# delete everything else; the trace is inert once the Auth user is gone.
+		writes = writes.filter(func(w: Dictionary) -> bool: return not _is_trace_delete(w))
+		deleted = await firestore.commit(writes)
 	if not deleted["ok"]:
 		return {"ok": false, "reason": _reply_error(deleted), "scope": ""}
 	var removed: Dictionary = await auth.delete_account()
@@ -204,27 +209,49 @@ func delete_account() -> Dictionary:
 
 ## The deletes that remove everything stored under `uid`. The rules only let
 ## the owner delete an existing nickname index document, so it is looked up first.
-## {"ok", "reason", "writes"}.
+## nicknameTrace/{uid} (the 24 hour nickname clock) may only be deleted once 24 hours
+## have passed since the last change, so it is included only then.
+## {"ok", "reason", "writes", "trace_included"}.
 func _deletion_writes(uid: String) -> Dictionary:
 	var writes: Array = []
+	var trace_included := false
 	var profile_path: String = "publicProfiles/" + uid
 	var public_doc: Dictionary = await firestore.get_doc(profile_path)
 	if not public_doc["ok"] and not public_doc["missing"]:
-		return {"ok": false, "reason": _reply_error(public_doc), "writes": writes}
+		return {
+			"ok": false,
+			"reason": _reply_error(public_doc),
+			"writes": writes,
+			"trace_included": false
+		}
 	if public_doc["ok"]:
 		var key: String = str(public_doc["fields"].get("nicknameNormalized", ""))
 		var name_doc: Dictionary = await firestore.get_doc("nicknames/" + key)
 		if not name_doc["ok"] and not name_doc["missing"]:
-			return {"ok": false, "reason": _reply_error(name_doc), "writes": writes}
+			return {
+				"ok": false,
+				"reason": _reply_error(name_doc),
+				"writes": writes,
+				"trace_included": false
+			}
 		if name_doc["ok"] and str(name_doc["fields"].get("uid", "")) == uid:
 			writes.append(firestore.write_delete("nicknames/" + key))
 		writes.append(firestore.write_delete(profile_path))
+	var trace: Dictionary = await firestore.get_doc("nicknameTrace/" + uid)
+	if not trace["ok"] and not trace["missing"]:
+		return {
+			"ok": false, "reason": _reply_error(trace), "writes": writes, "trace_included": false
+		}
+	if trace["ok"] and _nickname_clock_expired(int(trace["fields"].get("changedAt", 0))):
+		writes.append(firestore.write_delete("nicknameTrace/" + uid))
+		trace_included = true
+	writes.append(firestore.write_delete("runs/" + uid))
 	writes.append(firestore.write_delete("users/" + uid))
 	writes.append(firestore.write_delete("saves/" + uid))
 	for level: Dictionary in LevelCatalog.levels():
 		var scores: String = "leaderboards/level_%d/scores/%s" % [int(level["id"]), uid]
 		writes.append(firestore.write_delete(scores))
-	return {"ok": true, "reason": "", "writes": writes}
+	return {"ok": true, "reason": "", "writes": writes, "trace_included": trace_included}
 
 
 ## Erases only this device's data (profile, progress, session).
@@ -261,7 +288,24 @@ func set_player_name(value: String) -> void:
 		sync_now()
 
 
-## Sends the endless record of a level (the rules keep only higher records).
+## Marks the start of an endless run on the server (runs/{uid}, server time). The
+## rules accept a record of wave N only (N-1)*15 s after this moment, so call it
+## when the run begins. Fire and forget; without a connection the run simply
+## has no online record. Returns true if the start was stored.
+func start_run(level_id: int) -> bool:
+	if not is_configured():
+		return false
+	var signed: Dictionary = await auth.ensure_token(true)
+	if not signed["ok"]:
+		return false
+	var data := {"level": "level_%d" % level_id}
+	var write: Dictionary = firestore.write_set("runs/" + auth.uid, data, ["startedAt"])
+	var reply: Dictionary = await firestore.commit([write])
+	return reply["ok"]
+
+
+## Sends the endless record of a level (the rules keep only higher records, stamp
+## the time with the server clock and check it against start_run()).
 ## The name is the reserved nickname, else ANONYMOUS_NAME.
 func submit_record(level_id: int, wave: int) -> void:
 	if not is_configured() or wave <= 0:
@@ -271,16 +315,9 @@ func submit_record(level_id: int, wave: int) -> void:
 		return
 	var p: Dictionary = PlayerProfile.local()
 	var nick: String = str(p["nickname"]) if bool(p["nicknameVerified"]) else ANONYMOUS_NAME
-	var body := {
-		"fields":
-		{
-			"name": {"stringValue": nick},
-			"wave": {"integerValue": str(wave)},
-			"updated": {"timestampValue": Time.get_datetime_string_from_system(true) + "Z"},
-		}
-	}
-	var url: String = firestore.doc_url("leaderboards/level_%d/scores/%s" % [level_id, auth.uid])
-	var reply: Dictionary = await firestore.request(HTTPClient.METHOD_PATCH, url, body, true)
+	var path: String = "leaderboards/level_%d/scores/%s" % [level_id, auth.uid]
+	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
+	var reply: Dictionary = await firestore.commit([write])
 	status_changed.emit("Рекорд отправлен" if reply["ok"] else "Не удалось отправить рекорд")
 
 
@@ -473,15 +510,17 @@ func _reserve(nickname: String) -> Dictionary:
 			var stored: String = str(current["fields"].get("nickname", nickname))
 			Onboarding.set_local_nickname(stored, key, true)
 			return {"ok": true, "reason": ""}
-		var changed_at: int = int(current["fields"].get("nicknameChangedAt", 0))
-		if Time.get_unix_time_from_system() < changed_at + NICKNAME_CHANGE_SECONDS:
-			return {"ok": false, "reason": "rate_limited"}
+	var blocked: String = await _nickname_clock_block(current, uid)
+	if blocked != "":
+		return {"ok": false, "reason": blocked}
 	var writes: Array = []
 	if old_key != "":
 		writes.append(firestore.write_delete("nicknames/" + old_key))
 	var index := {"uid": uid, "nickname": check["nickname"]}
 	writes.append(firestore.write_create("nicknames/" + key, index, ["createdAt"]))
 	var profile := {"nickname": check["nickname"], "nicknameNormalized": key}
+	# The trace keeps the 24 hour clock when the profile is deleted (firestore.rules).
+	writes.append(firestore.write_set("nicknameTrace/" + uid, {}, ["changedAt"]))
 	if old_key == "":
 		writes.append(firestore.write_create("publicProfiles/" + uid, profile, _PROFILE_TIMES))
 	else:
@@ -507,6 +546,29 @@ func _reserve_failure(reply: Dictionary, key: String, uid: String) -> String:
 	if owner["ok"] and str(owner["fields"].get("uid", "")) != uid:
 		return "taken"
 	return "denied"
+
+
+## "" if the 24 hour nickname clock allows a (re)reservation now, else "rate_limited" or an
+## error reason. With a profile its nicknameChangedAt counts; without one (deleted and
+## recreated?) the nicknameTrace document does.
+func _nickname_clock_block(current: Dictionary, uid: String) -> String:
+	if current["ok"]:
+		var changed_at: int = int(current["fields"].get("nicknameChangedAt", 0))
+		return "" if _nickname_clock_expired(changed_at) else "rate_limited"
+	var trace: Dictionary = await firestore.get_doc("nicknameTrace/" + uid)
+	if not trace["ok"] and not trace["missing"]:
+		return _reply_error(trace)
+	if trace["ok"] and not _nickname_clock_expired(int(trace["fields"].get("changedAt", 0))):
+		return "rate_limited"
+	return ""
+
+
+func _nickname_clock_expired(changed_at: int) -> bool:
+	return Time.get_unix_time_from_system() >= changed_at + NICKNAME_CHANGE_SECONDS
+
+
+func _is_trace_delete(write: Dictionary) -> bool:
+	return str(write.get("delete", "")).contains("/nicknameTrace/")
 
 
 ## Best effort: the player's old endless records show the new nickname.

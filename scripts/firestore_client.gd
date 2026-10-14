@@ -60,6 +60,14 @@ func write_create(path: String, data: Dictionary, time_fields: Array[String]) ->
 	}
 
 
+## Commit write: creates or replaces `path` without a precondition (the rules
+## decide whether it is a valid create or update).
+func write_set(path: String, data: Dictionary, time_fields: Array[String]) -> Dictionary:
+	var write: Dictionary = write_create(path, data, time_fields)
+	write.erase("currentDocument")
+	return write
+
+
 ## Commit write: changes only `data`'s fields of an existing document.
 func write_update(path: String, data: Dictionary, time_fields: Array[String]) -> Dictionary:
 	var write: Dictionary = write_create(path, data, time_fields)

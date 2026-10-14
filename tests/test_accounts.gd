@@ -73,6 +73,7 @@ func _run() -> void:
 	await _test_auth()
 	await _test_online_sync()
 	await _test_nickname_and_delete()
+	await _test_trace_and_records()
 	_clean()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_accounts_other.cfg"))
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
@@ -421,14 +422,9 @@ class FakeFirebase:
 		if touches_users and writes.size() == 1 and writes[0].has("update"):
 			return commit_users(writes[0])
 		# Generic documents: validate every write first (all or nothing).
-		for write: Dictionary in writes:
-			if write.has("update"):
-				var path: String = path_of(write["update"]["name"])
-				var precondition: Dictionary = write.get("currentDocument", {})
-				if precondition.get("exists", true) == false and exists(path):
-					return [403, {"error": {"status": "PERMISSION_DENIED"}}]
-				if precondition.get("exists", false) == true and not exists(path):
-					return [404, {"error": {"status": "NOT_FOUND"}}]
+		var refusal: Array = validate_writes(writes)
+		if not refusal.is_empty():
+			return refusal
 		for write: Dictionary in writes:
 			if write.has("delete"):
 				var gone: String = path_of(write["delete"])
@@ -444,6 +440,30 @@ class FakeFirebase:
 				merged.merge(fields, true)
 				docs[path] = merged
 		return [200, {"writeResults": [{}]}]
+
+	## [] if every write passes the preconditions and the trace rules, else the error reply.
+	func validate_writes(writes: Array) -> Array:
+		var denied := [403, {"error": {"status": "PERMISSION_DENIED"}}]
+		for write: Dictionary in writes:
+			if write.has("update"):
+				var path: String = path_of(write["update"]["name"])
+				var precondition: Dictionary = write.get("currentDocument", {})
+				if precondition.get("exists", true) == false and exists(path):
+					return denied
+				if precondition.get("exists", false) == true and not exists(path):
+					return [404, {"error": {"status": "NOT_FOUND"}}]
+				if path.begins_with("nicknameTrace/") and exists(path) and trace_recent(path):
+					return denied  # rules: rewritten at most every 24 hours
+			if write.has("delete"):
+				var gone_path: String = path_of(write["delete"])
+				var is_trace: bool = gone_path.begins_with("nicknameTrace/")
+				if is_trace and exists(gone_path) and trace_recent(gone_path):
+					return denied
+		return []
+
+	## firestore.rules: nicknameTrace/{uid} may only be rewritten or deleted after 24 hours.
+	func trace_recent(path: String) -> bool:
+		return Time.get_unix_time_from_system() < int(docs[path]["changedAt"]) + 86400
 
 	func commit_users(write: Dictionary) -> Array:
 		if fail_commits > 0:
@@ -586,7 +606,7 @@ func _test_nickname_and_delete() -> void:
 	check(fake.docs.has("publicProfiles/uid1"), "public profile written")
 	check(fake.docs["nicknames/ежик"]["uid"] == "uid1", "index document owned by this uid")
 	check(fake.docs["publicProfiles/uid1"]["nicknameNormalized"] == "ежик", "profile key")
-	var is_reserve := func(w: Array) -> bool: return w.size() == 2 and "nicknames/" in str(w[0])
+	var is_reserve := func(w: Array) -> bool: return w.size() == 3 and "nicknames/" in str(w[0])
 	var first_commit: Array = fake.all_commits.filter(is_reserve)[0]
 	check(
 		first_commit[0]["currentDocument"] == {"exists": false},
@@ -596,6 +616,7 @@ func _test_nickname_and_delete() -> void:
 	r = await online.reserve_nickname("Ёжик Новый")
 	check(r["reason"] == "rate_limited" and not r["ok"], "second change within 24 hours refused")
 	fake.docs["publicProfiles/uid1"]["nicknameChangedAt"] = 1000
+	fake.docs["nicknameTrace/uid1"]["changedAt"] = 1000
 	r = await online.reserve_nickname("Ёжик Новый")
 	check(r["ok"] and r["reason"] == "reserved", "name changed after 24 hours")
 	check(
@@ -607,9 +628,16 @@ func _test_nickname_and_delete() -> void:
 		change[0].has("delete") and change[1]["currentDocument"] == {"exists": false},
 		"change = delete old + create new (one commit)"
 	)
+	var stamps_trace := false
+	for w: Dictionary in change:
+		stamps_trace = (
+			stamps_trace or "/nicknameTrace/uid1" in str(w.get("update", {}).get("name", ""))
+		)
+	check(stamps_trace, "the same commit stamps nicknameTrace (24 hour clock)")
 	# The rules refuse (403) a name that appeared in between: reported as taken.
 	fake.taken.append("опоздавший")
 	fake.docs["publicProfiles/uid1"]["nicknameChangedAt"] = 1000
+	fake.docs["nicknameTrace/uid1"]["changedAt"] = 1000
 	r = await online.reserve_nickname("Опоздавший")
 	check(r["reason"] == "taken", "403 on a taken index document -> taken")
 	fake.offline = true
@@ -633,7 +661,7 @@ func _test_nickname_and_delete() -> void:
 
 	# Deleting the account: documents first, then the Auth user, then local data.
 	fake.docs["leaderboards/level_1/scores/uid1"] = {"name": "x", "wave": 3}
-	fake.refuse_commits = 1
+	fake.refuse_commits = 2
 	r = await online.delete_account()
 	check(
 		not r["ok"] and not fake.auth_deleted, "documents refused -> Auth user kept, retry possible"
@@ -659,6 +687,17 @@ func _test_nickname_and_delete() -> void:
 		"deletion commit covers users, profile, nickname, saves, records"
 	)
 	check(
+		paths.any(func(x: String) -> bool: return x.ends_with("/runs/uid1")),
+		"deletion commit covers the run document"
+	)
+	var trace_deleted := false
+	for commit_writes: Array in fake.all_commits:
+		for w: Dictionary in commit_writes:
+			trace_deleted = (
+				trace_deleted or str(w.get("delete", "")).ends_with("/nicknameTrace/uid1")
+			)
+	check(trace_deleted, "an expired nickname trace is deleted with the account")
+	check(
 		not FileAccess.file_exists(SAVE) and not FileAccess.file_exists(SESSION), "local data wiped"
 	)
 	check(
@@ -666,3 +705,86 @@ func _test_nickname_and_delete() -> void:
 		"after deletion: fresh start"
 	)
 	online.setup("", "", HttpTransport.new())
+
+
+## Anti-cheat client side: the 24 hour nickname clock survives deleting the profile,
+## account deletion still works, and records go through runs/{uid} + server time.
+func _test_trace_and_records() -> void:
+	_clean()
+	var fake := FakeFirebase.new()
+	var online: Node = _configured_online(fake)
+	await online.start()
+	var r: Dictionary = await online.reserve_nickname("Лев")
+	check(r["ok"], "first nickname reserved")
+	check(fake.docs.has("nicknameTrace/uid1"), "nicknameTrace written with the reservation")
+	# Delete-and-recreate: the profile and index disappear, the trace stays.
+	fake.docs.erase("publicProfiles/uid1")
+	fake.docs.erase("nicknames/лев")
+	r = await online.reserve_nickname("Тигр")
+	check(not r["ok"] and r["reason"] == "rate_limited", "recreate within 24 hours refused (trace)")
+	check(not fake.docs.has("publicProfiles/uid1"), "nothing written on a refused recreate")
+	fake.docs["nicknameTrace/uid1"]["changedAt"] = 1000
+	r = await online.reserve_nickname("Тигр")
+	check(r["ok"], "recreate after 24 hours works")
+	# Account deletion within 24 hours of a change: the trace delete is left out.
+	var calls_before: int = fake.all_commits.size()
+	r = await online.delete_account()
+	check(r["ok"] and fake.auth_deleted, "account deletion works with a recent trace")
+	var last: Array = fake.all_commits[-1]
+	check(fake.all_commits.size() == calls_before + 1, "one deletion commit, no retry")
+	check(
+		not last.any(
+			func(w: Dictionary) -> bool: return "nicknameTrace" in str(w.get("delete", ""))
+		),
+		"recent trace not in the deletion commit (the rules would refuse it)"
+	)
+	check(fake.docs.has("nicknameTrace/uid1"), "the inert trace remains (documented)")
+	# The server refuses the trace delete (clock skew): retried without it.
+	await online.start()
+	r = await online.reserve_nickname("Волк")
+	fake.docs["nicknameTrace/uid1"]["changedAt"] = 1000  # the client believes it expired...
+	fake.refuse_commits = 1  # ...the server does not
+	r = await online.delete_account()
+	var retried: Array = fake.all_commits[-1]
+	check(
+		r["ok"] and fake.all_commits[-2].size() == retried.size() + 1,
+		"refused trace delete -> second commit without it, account deleted anyway"
+	)
+	# Records: the run start and the record are separate server-timed writes.
+	_clean()
+	fake = FakeFirebase.new()
+	online = _configured_online(fake)
+	await online.start()
+	check(await online.start_run(3), "run start stored")
+	check(
+		fake.docs["runs/uid1"]["level"] == "level_3" and fake.docs["runs/uid1"].has("startedAt"),
+		"runs/{uid} = {level, startedAt (server time)}"
+	)
+	var run_write: Dictionary = fake.all_commits[-1][0]
+	check(
+		(
+			not run_write.has("currentDocument")
+			and run_write["updateTransforms"][0]["setToServerValue"] == "REQUEST_TIME"
+		),
+		"run start: no precondition, startedAt is REQUEST_TIME"
+	)
+	await online.submit_record(3, 12)
+	var record: Dictionary = fake.docs["leaderboards/level_3/scores/uid1"]
+	check(
+		record["wave"] == 12 and record["name"] == online.ANONYMOUS_NAME,
+		"record written (anonymous name)"
+	)
+	var score_write: Dictionary = fake.all_commits[-1][0]
+	check(
+		(
+			score_write["updateTransforms"][0]["fieldPath"] == "updated"
+			and score_write["updateTransforms"][0]["setToServerValue"] == "REQUEST_TIME"
+			and not score_write["update"]["fields"].has("updated")
+		),
+		"record time comes from the server, not the device clock"
+	)
+	fake.offline = true
+	check(not await online.start_run(3), "offline: no run start, the game goes on")
+	fake.offline = false
+	online.setup("", "", HttpTransport.new())
+	check(not await online.start_run(1), "without Firebase start_run does nothing")

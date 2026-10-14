@@ -164,6 +164,8 @@ func _ready() -> void:
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
+	if _endless:
+		Online.start_run(int(level["id"]))  # server-side start time for the record check
 	_hud.show_banner("Первая волна через " + _seconds_text(_wave_manager.plan.first_delay))
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
