@@ -180,8 +180,12 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			# Android back button: pause menu (and back out of it).
-			_toggle_pause()
+			# Android back button: pause menu (and back out of it); on the end screen
+			# it works like "To the map".
+			if _ended:
+				_on_map_pressed()
+			else:
+				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Phone call, home button: never let waves run unattended.
 			if OS.has_feature("mobile") and not _paused and not _ended:

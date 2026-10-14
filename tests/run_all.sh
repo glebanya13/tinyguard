@@ -71,6 +71,8 @@ run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_meta.g
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_combat.gd
 run "$GODOT" --headless --path . --script res://tests/test_online.gd
 run "$GODOT" --headless --path . --script res://tests/test_records.gd
+run "$GODOT" --headless --path . --script res://tests/test_waves.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_units.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd
