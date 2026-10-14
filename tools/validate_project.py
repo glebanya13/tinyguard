@@ -423,10 +423,30 @@ def check_privacy_url() -> None:
         warnings.append(f"PRIVACY_URL must be an https:// URL, got: {url}")
 
 
+def check_release_constants() -> None:
+    """Warns while the other store-release constants of GameInfo are unset."""
+    path = ROOT / "scripts" / "game_info.gd"
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    for name, hint in (
+        ("DELETION_URL", "web account-deletion page (Play policy), see docs/RELEASE_READINESS.md"),
+        ("SUPPORT_EMAIL", "support e-mail for the policy and store listing"),
+    ):
+        m = re.search(rf'^const\s+{name}\s*(?::[^=]+)?:?=\s*"([^"]*)"', text, re.M)
+        if m is None:
+            errors.append(f"scripts/game_info.gd: const {name} is missing")
+        elif not m.group(1).strip():
+            warnings.append(f"{name} is empty (required before store release): {hint}")
+        elif name == "DELETION_URL" and not m.group(1).startswith("https://"):
+            warnings.append(f"{name} must be an https:// URL, got: {m.group(1)}")
+
+
 def main() -> int:
     check_layout()
     check_export_presets()
     check_privacy_url()
+    check_release_constants()
     check_levels()
     check_project_settings()
     collect_class_names()
