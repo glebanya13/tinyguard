@@ -1,12 +1,12 @@
 class_name NicknameRules
 extends RefCounted
-## Nickname policy. The server applies the same rules in
-## firebase/functions/src/nickname.ts (both are checked against
-## tests/nickname_cases.json); change them together.
+## Nickname policy. firestore.rules apply the same policy (the server side;
+## both are checked against
+## tests/nickname_cases.json and firebase/rules-tests); change them together.
 ##
 ## - Spaces at the ends are dropped and runs of whitespace become one space.
 ## - 3..16 characters after that.
-## - Letters of the Latin alphabet (with accents: U+00C0..U+017F) and of the
+## - Letters of the Latin alphabet (with accents: U+00C0..U+017E) and of the
 ##   Cyrillic one (U+0401..U+045F without U+040D), digits 0-9; a single space or
 ##   underscore only between two letters/digits. Nothing else: no control or
 ##   invisible characters, emoji, symbols or combining marks.
@@ -90,7 +90,7 @@ static func is_letter_or_digit(code: int) -> bool:
 		(code >= 0x30 and code <= 0x39)
 		or (code >= 0x41 and code <= 0x5A)
 		or (code >= 0x61 and code <= 0x7A)
-		or (code >= 0xC0 and code <= 0x17F and code != 0xD7 and code != 0xF7 and code != 0x130)
+		or (code >= 0xC0 and code <= 0x17E and code != 0xD7 and code != 0xF7 and code != 0x130)
 		or (code >= 0x401 and code <= 0x45F and code != 0x40D)
 	)
 

@@ -1,10 +1,22 @@
 rules_version = '2';
-// Tinyguard: player profiles, nicknames, endless-siege leaderboards, cloud saves.
-// Players sign in anonymously (guest) through Firebase Auth; each one may only
-// touch their own private documents. Nicknames and public profiles are written
-// only by Cloud Functions (Admin SDK, bypasses these rules): reserveNickname,
-// deleteAccount (firebase/functions). Client checks are not a security
-// boundary; these rules are. See docs/ACCOUNTS.md.
+// Tinyguard on the Firebase Spark plan: NO Cloud Functions. Everything the server
+// must guarantee is enforced here; the client is not a security boundary.
+//
+// Players sign in anonymously (guest) through Firebase Auth and may only touch
+// their own documents:
+//   users/{uid}            private profile: progression, settings, onboarding flags
+//   publicProfiles/{uid}   public nickname (readable by signed-in players)
+//   nicknames/{normalized} uniqueness index {uid, nickname, createdAt}; create-only
+//   leaderboards/level_N/scores/{uid}   endless-siege records, only upwards
+//   saves/{uid}            legacy cloud save of older app versions
+//
+// Nickname reservation and change are ONE atomic commit from the client
+// (documents:commit): create nicknames/{new} (fails if it exists, a taken name
+// cannot be overwritten), delete nicknames/{old}, write publicProfiles/{uid}.
+// The rules read the state after the commit (existsAfter/getAfter), so a player
+// can hold exactly one name and the three documents always agree.
+// Policy twin: scripts/nickname_rules.gd (checked against tests/nickname_cases.json
+// in firebase/rules-tests). See docs/ACCOUNTS.md.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -16,11 +28,47 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // Fields the client owns in users/{uid}; the rest is server-only.
-    function clientKeys() {
-      return ['schemaVersion', 'onboardingCompleted', 'tutorialVersionCompleted',
-              'progression', 'settings', 'updatedAt'];
+    // ---- nickname policy -------------------------------------------------
+
+    // Latin letters (incl. U+00C0..U+017E without U+00D7, U+00F7, U+0130),
+    // Cyrillic (U+0401..U+045F without U+040D) and digits.
+    function nickChars() {
+      return '0-9A-Za-z\\x{C0}-\\x{D6}\\x{D8}-\\x{F6}\\x{F8}-\\x{12F}\\x{131}-\\x{17E}\\x{401}-\\x{40C}\\x{40E}-\\x{45F}';
     }
+
+    // 3..16 characters; one space or underscore only between letters/digits.
+    function validNickname(n) {
+      return n is string
+        && n.size() >= 3 && n.size() <= 16
+        && n.matches('^[' + nickChars() + ']+([ _][' + nickChars() + ']+)*$');
+    }
+
+    // The uniqueness key (lower case, "ё" -> "е", space -> "_"). Rules' lower()
+    // only knows ASCII, so the key is not computed but VERIFIED: it has no upper
+    // case letters (\\p{Lu}) and equals the nickname case-insensitively (RE2 (?i)).
+    // The client computes the same key in NicknameRules.normalize().
+    function keyMatches(n, key) {
+      return key.matches('^[' + nickChars() + ']+(_[' + nickChars() + ']+)*$')
+        && !key.matches('.*\\p{Lu}.*')
+        && n.replace('Ё', 'Е').replace('ё', 'е').replace(' ', '_')
+            .matches('(?i)^' + key + '$');
+    }
+
+    function reservedNick(key) {
+      return key in ['admin', 'administrator', 'moderator', 'support', 'system',
+                     'tinyguard', 'bimbleguard', 'рыцарь', 'админ', 'администратор',
+                     'модератор', 'поддержка'];
+    }
+
+    function nameDocAfter(key) {
+      return /databases/$(database)/documents/nicknames/$(key);
+    }
+
+    function profileDocAfter(uid) {
+      return /databases/$(database)/documents/publicProfiles/$(uid);
+    }
+
+    // ---- users/{uid}: private profile ------------------------------------
 
     function validProgression(p) {
       return p is map
@@ -34,8 +82,7 @@ service cloud.firestore {
     function validUser(d) {
       return d.keys().hasOnly(['schemaVersion', 'createdAt', 'updatedAt',
                                'onboardingCompleted', 'tutorialVersionCompleted',
-                               'progression', 'settings',
-                               'nickname', 'nicknameNormalized', 'lastNicknameChangeAt'])
+                               'progression', 'settings'])
         && d.schemaVersion is int && d.schemaVersion >= 1 && d.schemaVersion <= 1000
         && d.updatedAt == request.time
         && d.onboardingCompleted is bool
@@ -46,54 +93,84 @@ service cloud.firestore {
         && d.settings.get('sound', true) is bool;
     }
 
-    // Private profile: progression, settings, onboarding flags.
     match /users/{uid} {
       allow get: if isOwner(uid);
       allow list: if false;
       allow create: if isOwner(uid)
         && validUser(request.resource.data)
-        && request.resource.data.createdAt == request.time
-        && !request.resource.data.keys().hasAny(['nickname', 'nicknameNormalized',
-                                                 'lastNicknameChangeAt']);
+        && request.resource.data.createdAt == request.time;
       allow update: if isOwner(uid)
         && validUser(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(clientKeys())
+        && request.resource.data.createdAt == resource.data.createdAt
         // A newer app's document is never rewritten by an older schema.
         && request.resource.data.schemaVersion >= resource.data.get('schemaVersion', 0);
-      allow delete: if false; // deleteAccount (Admin SDK)
+      allow delete: if isOwner(uid); // account deletion
     }
 
-    // Public profile: the nickname only (+ createdAt, moderation flags).
-    // Written by reserveNickname / deleteAccount only. Hidden profiles are not readable.
+    // ---- publicProfiles/{uid}: the public nickname -----------------------
+
+    function validPublicProfile(d, uid) {
+      return d.keys().hasOnly(['nickname', 'nicknameNormalized', 'createdAt',
+                               'nicknameChangedAt'])
+        && validNickname(d.nickname)
+        && keyMatches(d.nickname, d.nicknameNormalized)
+        && !reservedNick(d.nicknameNormalized)
+        && d.nicknameChangedAt == request.time
+        // The same commit creates the matching index document for this player.
+        && existsAfter(nameDocAfter(d.nicknameNormalized))
+        && getAfter(nameDocAfter(d.nicknameNormalized)).data.uid == uid;
+    }
+
     match /publicProfiles/{uid} {
-      allow get: if signedIn()
-        && (resource == null
-            || resource.data.get('moderation', {}).get('hidden', false) == false);
-      allow list, write: if false;
-    }
-
-    // nicknames/{normalized} -> {uid}: uniqueness index, server-only.
-    match /nicknames/{name} {
-      allow read, write: if false;
-    }
-
-    // Reports for moderation: create-only by signed-in players, read by nobody
-    // (reviewed in the console / by a future admin tool).
-    match /reports/{reportId} {
-      allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['reporter', 'target', 'reason', 'createdAt'])
-        && request.resource.data.reporter == request.auth.uid
-        && request.resource.data.target is string
-        && request.resource.data.target.size() > 0 && request.resource.data.target.size() <= 128
-        && request.resource.data.target != request.auth.uid
-        && request.resource.data.reason in ['name', 'cheating', 'other']
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if isOwner(uid)
+        && validPublicProfile(request.resource.data, uid)
         && request.resource.data.createdAt == request.time;
-      allow read, update, delete: if false;
+      allow update: if isOwner(uid)
+        && validPublicProfile(request.resource.data, uid)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.nicknameNormalized != resource.data.nicknameNormalized
+        // One change per 24 hours (the first reservation is free).
+        && request.time >= resource.data.nicknameChangedAt + duration.value(24, 'h')
+        // The old name is released in the same commit.
+        && !existsAfter(nameDocAfter(resource.data.nicknameNormalized));
+      // Only together with deleting the index document.
+      allow delete: if isOwner(uid)
+        && !existsAfter(nameDocAfter(resource.data.nicknameNormalized));
     }
+
+    // ---- nicknames/{normalized}: uniqueness index, create-only -----------
+
+    match /nicknames/{key} {
+      // Lets the client tell "taken" from other refusals (the uid is public anyway).
+      allow get: if signedIn();
+      allow list: if false;
+      // Creating over an existing document is an update, which is never allowed:
+      // a taken name cannot be created again and cannot be taken over.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'nickname', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && validNickname(request.resource.data.nickname)
+        && keyMatches(request.resource.data.nickname, key)
+        && !reservedNick(key)
+        && request.resource.data.createdAt == request.time
+        // The same commit points this player's public profile at the name...
+        && getAfter(profileDocAfter(request.auth.uid)).data.nicknameNormalized == key;
+      allow update: if false;
+      // Only the owner, and only while the profile no longer uses the name.
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && (!existsAfter(profileDocAfter(request.auth.uid))
+            || getAfter(profileDocAfter(request.auth.uid)).data.nicknameNormalized != key);
+    }
+
+    // ---- leaderboards -----------------------------------------------------
 
     match /leaderboards/{level}/scores/{uid} {
       allow read: if true;
       allow create, update: if isOwner(uid)
+        && level.matches('^level_[0-9]{1,3}$')
         && request.resource.data.keys().hasOnly(['name', 'wave', 'updated'])
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 16
@@ -104,9 +181,10 @@ service cloud.firestore {
         && request.resource.data.wave is int
         && request.resource.data.wave > 0
         && request.resource.data.wave < 5000
-        // A record can only go up.
-        && (resource == null || request.resource.data.wave > resource.data.wave);
-      allow delete: if false; // deleteAccount (Admin SDK)
+        && request.resource.data.updated is timestamp
+        // A record can only go up (the same wave allows renaming the entry).
+        && (resource == null || request.resource.data.wave >= resource.data.wave);
+      allow delete: if isOwner(uid); // account deletion
     }
 
     // Cloud saves of older app versions (whole progress file as text). Kept
