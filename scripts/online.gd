@@ -84,7 +84,9 @@ func _ready() -> void:
 	var key := ""
 	var project := ""
 	var db_url := ""
-	if cfg.load(CONFIG_PATH) == OK:
+	# BIMBLEGUARD_OFFLINE=1 (tests/run_all.sh) ignores firebase.cfg: tests never touch a real project.
+	var offline: bool = OS.get_environment("BIMBLEGUARD_OFFLINE") == "1"
+	if not offline and cfg.load(CONFIG_PATH) == OK:
 		key = str(cfg.get_value("firebase", "api_key", ""))
 		project = str(cfg.get_value("firebase", "project_id", ""))
 		db_url = str(cfg.get_value("firebase", "database_url", ""))

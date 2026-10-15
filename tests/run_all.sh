@@ -4,6 +4,8 @@
 # Env: TEST_TIMEOUT (seconds per test, default 600).
 set -u
 GODOT="${1:-godot}"
+# Tests must never use a local firebase.cfg (it points at the real Firebase project).
+export BIMBLEGUARD_OFFLINE=1
 TIMEOUT_SEC="${TEST_TIMEOUT:-600}"
 cd "$(dirname "$0")/.."
 
