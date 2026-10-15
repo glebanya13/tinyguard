@@ -103,6 +103,8 @@ export function About({ locale }: { locale: Locale }) {
       <section className="sky-gradient section-y" aria-labelledby="shots-h">
         <div className="container-site">
           <SectionHead id="shots-h" title={a.gallery.title} lead={a.gallery.lead} />
+        </div>
+        <div className="mx-auto max-w-[1280px]">
           <ScreenshotSlider locale={locale} />
         </div>
       </section>

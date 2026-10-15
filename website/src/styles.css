@@ -201,3 +201,21 @@ code {
     animation: none;
   }
 }
+
+.slider-track {
+  --w: 92vw;
+  padding-inline: max(0px, calc(50% - var(--w) / 2));
+}
+.slider-item {
+  width: var(--w);
+}
+@media (min-width: 640px) {
+  .slider-track {
+    --w: 80vw;
+  }
+}
+@media (min-width: 1024px) {
+  .slider-track {
+    --w: min(1000px, 86vw);
+  }
+}

@@ -47,7 +47,7 @@ export function Home({ locale }: { locale: Locale }) {
               alt={c.home.artAlt}
               width={720}
               height={720}
-              className="absolute -bottom-6 -left-2 w-[46%] rotate-6 rounded-[2rem] border-[3px] border-navy shadow-[0_8px_0_#2a3263] sm:-left-6 lg:-bottom-10 lg:-left-10"
+              className="absolute -bottom-6 -left-2 w-[46%] rotate-6 rounded-[2rem] border-[3px] border-navy sm:-left-6 lg:-bottom-10 lg:-left-10"
             />
             <div className="hero-phone relative ml-[14%] sm:ml-[18%]">
               <PhoneFrame>
@@ -72,6 +72,8 @@ export function Home({ locale }: { locale: Locale }) {
             <h2 className="text-h2">{c.home.introTitle}</h2>
             <p className="mt-6 text-lg leading-relaxed text-body md:text-xl">{c.home.introText}</p>
           </div>
+        </div>
+        <div className="mx-auto max-w-[1280px]">
           <ScreenshotSlider locale={locale} />
         </div>
       </section>

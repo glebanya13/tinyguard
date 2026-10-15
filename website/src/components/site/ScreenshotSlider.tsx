@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { PhoneFrame } from "./PhoneFrame";
 
 const arrow =
-  "grid size-14 shrink-0 place-items-center rounded-full border-[3px] border-navy bg-white text-navy shadow-[0_4px_0_#1b2250] transition-transform active:translate-y-1 active:shadow-none disabled:opacity-40";
+  "grid size-14 shrink-0 place-items-center rounded-full border-[3px] border-navy bg-white text-navy disabled:opacity-40";
 
 /** Scroll-snap carousel of screenshots in phone frames. Works without JS (plain horizontal scroll). */
 export function ScreenshotSlider({ locale }: { locale: Locale }) {
@@ -63,6 +63,24 @@ export function ScreenshotSlider({ locale }: { locale: Locale }) {
   return (
     <section role="region" aria-roledescription="carousel" aria-label={c.ui.carousel}>
       <div className="relative">
+        <button
+          type="button"
+          className={cn(arrow, "absolute left-2 top-1/2 z-10 -translate-y-1/2")}
+          aria-label={c.ui.prev}
+          disabled={active === 0}
+          onClick={() => goTo(active - 1)}
+        >
+          <ChevronLeft className="size-7" aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={cn(arrow, "absolute right-2 top-1/2 z-10 -translate-y-1/2")}
+          aria-label={c.ui.next}
+          disabled={active === shots.length - 1}
+          onClick={() => goTo(active + 1)}
+        >
+          <ChevronRight className="size-7" aria-hidden />
+        </button>
         <ul
           ref={track}
           tabIndex={0}
@@ -76,7 +94,7 @@ export function ScreenshotSlider({ locale }: { locale: Locale }) {
               goTo(Math.max(active - 1, 0));
             }
           }}
-          className="flex snap-x snap-mandatory items-center gap-4 overflow-x-auto px-[9%] py-8 [scrollbar-width:none] sm:px-[22%] lg:px-[29%] [&::-webkit-scrollbar]:hidden"
+          className="slider-track flex snap-x snap-mandatory items-center gap-3 overflow-x-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {shots.map((s, i) => (
             <li
@@ -85,8 +103,8 @@ export function ScreenshotSlider({ locale }: { locale: Locale }) {
               aria-roledescription="slide"
               aria-label={`${i + 1} / ${shots.length}`}
               className={cn(
-                "w-[82%] shrink-0 snap-center transition-[transform,opacity] duration-300 sm:w-[56%] lg:w-[42%]",
-                i === active ? "scale-100 opacity-100" : "scale-[0.85] opacity-60",
+                "slider-item shrink-0 snap-center transition-[transform,opacity] duration-300",
+                i === active ? "scale-100 opacity-100" : "scale-[0.8] opacity-60",
               )}
             >
               <button
@@ -111,31 +129,11 @@ export function ScreenshotSlider({ locale }: { locale: Locale }) {
           ))}
         </ul>
       </div>
-      <div className="mt-2 flex items-center justify-center gap-5">
-        <button
-          type="button"
-          className={arrow}
-          aria-label={c.ui.prev}
-          disabled={active === 0}
-          onClick={() => goTo(active - 1)}
-        >
-          <ChevronLeft className="size-7" aria-hidden />
-        </button>
-        <div className="min-w-40 text-center">
-          <p className="font-display text-xl font-semibold">{cur.caption}</p>
-          <p aria-live="polite" className="mt-1 text-sm font-bold text-body">
-            {active + 1} / {shots.length}
-          </p>
-        </div>
-        <button
-          type="button"
-          className={arrow}
-          aria-label={c.ui.next}
-          disabled={active === shots.length - 1}
-          onClick={() => goTo(active + 1)}
-        >
-          <ChevronRight className="size-7" aria-hidden />
-        </button>
+      <div className="mt-2 min-w-40 text-center">
+        <p className="font-display text-xl font-semibold">{cur.caption}</p>
+        <p aria-live="polite" className="mt-1 text-sm font-bold text-body">
+          {active + 1} / {shots.length}
+        </p>
       </div>
       <div className="mt-5 flex justify-center gap-2">
         {shots.map((s, i) => (
