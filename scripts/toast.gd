@@ -5,7 +5,7 @@ extends PanelContainer
 
 const GROUP := &"toasts"
 const GOLD := Color(0.98, 0.8, 0.4)
-const TOP := 74.0
+const TOP := 176.0
 const STEP := 84.0
 const WIDTH := 460.0
 const HOLD_SECONDS := 2.6
