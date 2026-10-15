@@ -13,6 +13,8 @@ extends Node
 
 signal leaderboard_loaded(level_id: int, entries: Array)
 signal status_changed(text: String)
+## The board of a daily challenge day arrived (best first; empty when offline).
+signal daily_loaded(day: String, entries: Array)
 signal cloud_loaded(ok: bool)
 ## See sync_state().
 signal sync_state_changed(state: String)
@@ -30,6 +32,8 @@ const ANONYMOUS_NAME := "Рыцарь"  # i18n:keep (server-side name)
 const MAX_SYNC_ROUNDS := 3
 ## Local save section of the endless record queue (run start + unsent record).
 const RECORD_SECTION := "record_queue"
+## Local save section of the unsent daily result (day + wave + account).
+const DAILY_SECTION := "daily_queue"
 const RETRY_MAX := 300.0
 const MAX_RETRIES := 8
 ## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
@@ -64,6 +68,7 @@ var _started: bool = false
 var _retry_delay: float = 5.0
 var _retries: int = 0
 var _record_busy: bool = false
+var _daily_busy: bool = false
 var _sync_busy: bool = false
 var _reserve_busy: bool = false
 ## A link / sign-in / sign-out request is running (one at a time).
@@ -79,7 +84,9 @@ func _ready() -> void:
 	var key := ""
 	var project := ""
 	var db_url := ""
-	if cfg.load(CONFIG_PATH) == OK:
+	# BIMBLEGUARD_OFFLINE=1 (tests/run_all.sh) ignores firebase.cfg: tests never touch a real project.
+	var offline: bool = OS.get_environment("BIMBLEGUARD_OFFLINE") == "1"
+	if not offline and cfg.load(CONFIG_PATH) == OK:
 		key = str(cfg.get_value("firebase", "api_key", ""))
 		project = str(cfg.get_value("firebase", "project_id", ""))
 		db_url = str(cfg.get_value("firebase", "database_url", ""))
@@ -141,6 +148,7 @@ func start() -> void:
 	if is_configured():
 		await sync_now()
 		flush_records()
+		flush_daily()
 	startup_done = true
 	sync_state_changed.emit(sync_state())
 
@@ -291,6 +299,10 @@ func _deletion_writes(uid: String) -> Dictionary:
 	for level: Dictionary in LevelCatalog.levels():
 		var scores: String = "leaderboards/level_%d/scores/%s" % [int(level["id"]), uid]
 		writes.append(firestore.write_delete(scores))
+	# The daily board only takes today's (or, just after midnight, yesterday's) result.
+	var today: String = Daily.today_key()
+	for day: String in [today, Daily.yesterday_key(today)]:
+		writes.append(firestore.write_delete("daily/%s/scores/%s" % [day, uid]))
 	return {"ok": true, "reason": "", "writes": writes, "trace_included": trace_included}
 
 
@@ -517,6 +529,82 @@ func _schedule_record_retry() -> void:
 	var delay: float = _retry_delay
 	_retry_delay = minf(_retry_delay * 2.0, RETRY_MAX)
 	get_tree().create_timer(delay).timeout.connect(flush_records)
+
+
+## Queues the daily challenge result of `day` (UTC date) and sends it. The rules accept
+## it only on that very day (server clock, one hour of grace after midnight) and only
+## above the earlier result; a result that misses the day is dropped, not retried
+## forever. One attempt per call: the queue is tried again at the next launch and the
+## next result (no timers, so the record queue's retries are not touched).
+func submit_daily(day: String, wave: int) -> void:
+	if not is_configured() or wave <= 0 or not Daily.is_valid_key(day) or auth.uid == "":
+		return
+	var cfg: ConfigFile = LevelCatalog.data()
+	var same_day: bool = str(cfg.get_value(DAILY_SECTION, "day", "")) == day
+	if not same_day or wave > int(cfg.get_value(DAILY_SECTION, "wave", 0)):
+		cfg.set_value(DAILY_SECTION, "day", day)
+		cfg.set_value(DAILY_SECTION, "wave", wave)
+		cfg.set_value(DAILY_SECTION, "uid", auth.uid)
+		LevelCatalog.commit()
+	await flush_daily()
+
+
+func has_pending_daily() -> bool:
+	return int(LevelCatalog.data().get_value(DAILY_SECTION, "wave", 0)) > 0
+
+
+## Sends the queued daily result once. Kept on network / server failures, dropped when
+## the rules refuse it (wrong day, not higher) or another account is signed in.
+func flush_daily() -> void:
+	if _daily_busy or not is_configured() or not has_pending_daily():
+		return
+	_daily_busy = true
+	var cfg: ConfigFile = LevelCatalog.data()
+	var day: String = str(cfg.get_value(DAILY_SECTION, "day", ""))
+	var wave: int = int(cfg.get_value(DAILY_SECTION, "wave", 0))
+	var owner_uid: String = str(cfg.get_value(DAILY_SECTION, "uid", ""))
+	var result: String = await _send_daily(day, wave, owner_uid)
+	_daily_busy = false
+	if result == "retry":
+		return
+	if cfg.has_section(DAILY_SECTION):
+		cfg.erase_section(DAILY_SECTION)
+	LevelCatalog.commit()
+	if result == "sent":
+		status_changed.emit(tr("ONLINE_DAILY_SENT"))
+
+
+func _send_daily(day: String, wave: int, owner_uid: String) -> String:
+	var signed: Dictionary = await auth.ensure_token(true)
+	if not signed["ok"]:
+		return "retry"
+	if auth.uid != owner_uid:
+		return "refused"
+	var p: Dictionary = PlayerProfile.local()
+	var nick: String = str(p["nickname"]) if bool(p["nicknameVerified"]) else ANONYMOUS_NAME
+	var path: String = "daily/%s/scores/%s" % [day, auth.uid]
+	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
+	var reply: Dictionary = await firestore.commit([write])
+	if reply["ok"]:
+		return "sent"
+	var code: int = int(reply.get("code", 0))
+	if reply.get("network", false) or code >= 500 or code == 429:
+		return "retry"
+	return "refused"
+
+
+## Top of the board of `day` (daily_loaded).
+func fetch_daily(day: String) -> void:
+	if not is_configured() or not Daily.is_valid_key(day):
+		daily_loaded.emit(day, [])
+		return
+	var query := {
+		"from": [{"collectionId": "scores"}],
+		"orderBy": [{"field": {"fieldPath": "wave"}, "direction": "DESCENDING"}],
+		"limit": LEADERBOARD_SIZE,
+	}
+	var reply: Dictionary = await firestore.run_query("daily/" + day, query, false)
+	daily_loaded.emit(day, parse_leaderboard(reply["json"]) if reply["ok"] else [])
 
 
 func fetch_leaderboard(level_id: int) -> void:

@@ -1,0 +1,21 @@
+{
+	"_comment": "Achievements (scripts/achievements.gd). id: stable name (also in firestore.rules docs); bit: its place in the cloud bit mask users/{uid}.achievements (never reuse, at most 31); key: translation key of the name (the description is key + _DESC); metric: what is measured (Achievements.METRICS); threshold: unlocked when metric >= threshold.",
+	"achievements": [
+		{"id": "first_win", "bit": 0, "key": "ACH_FIRST_WIN", "metric": "levels_won", "threshold": 1},
+		{"id": "campaign_done", "bit": 1, "key": "ACH_CAMPAIGN_DONE", "metric": "levels_won", "threshold": 6},
+		{"id": "perfect", "bit": 2, "key": "ACH_PERFECT", "metric": "three_star_levels", "threshold": 1},
+		{"id": "star_collector", "bit": 3, "key": "ACH_STAR_COLLECTOR", "metric": "stars_total", "threshold": 10},
+		{"id": "star_master", "bit": 4, "key": "ACH_STAR_MASTER", "metric": "stars_total", "threshold": 30},
+		{"id": "hunter", "bit": 5, "key": "ACH_HUNTER", "metric": "kills_total", "threshold": 100},
+		{"id": "slayer", "bit": 6, "key": "ACH_SLAYER", "metric": "kills_total", "threshold": 1500},
+		{"id": "builder", "bit": 7, "key": "ACH_BUILDER", "metric": "towers_built_total", "threshold": 25},
+		{"id": "upgrader", "bit": 8, "key": "ACH_UPGRADER", "metric": "upgrades_total", "threshold": 15},
+		{"id": "lumberjack", "bit": 9, "key": "ACH_LUMBERJACK", "metric": "wood_total", "threshold": 300},
+		{"id": "siege_10", "bit": 10, "key": "ACH_SIEGE_10", "metric": "best_endless", "threshold": 10},
+		{"id": "siege_30", "bit": 11, "key": "ACH_SIEGE_30", "metric": "best_endless", "threshold": 30},
+		{"id": "daily_first", "bit": 12, "key": "ACH_DAILY_FIRST", "metric": "daily_played", "threshold": 1},
+		{"id": "daily_streak_3", "bit": 13, "key": "ACH_DAILY_STREAK_3", "metric": "daily_streak_best", "threshold": 3},
+		{"id": "daily_wave_15", "bit": 14, "key": "ACH_DAILY_WAVE_15", "metric": "daily_best_wave", "threshold": 15},
+		{"id": "perk_buyer", "bit": 15, "key": "ACH_PERK_BUYER", "metric": "perks_bought", "threshold": 1}
+	]
+}

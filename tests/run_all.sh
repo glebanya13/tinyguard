@@ -4,6 +4,8 @@
 # Env: TEST_TIMEOUT (seconds per test, default 600).
 set -u
 GODOT="${1:-godot}"
+# Tests must never use a local firebase.cfg (it points at the real Firebase project).
+export BIMBLEGUARD_OFFLINE=1
 TIMEOUT_SEC="${TEST_TIMEOUT:-600}"
 cd "$(dirname "$0")/.."
 
@@ -81,6 +83,11 @@ echo "== co-op network (fake transport)"
 run "$GODOT" --headless --path . --script res://tests/test_coop_net.gd
 run "$GODOT" --headless --path . --script res://tests/test_coop_lobby_ui.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_coop_flow.gd
+echo "== daily challenge / achievements"
+run "$GODOT" --headless --path . --script res://tests/test_daily.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_daily_replay.gd
+run "$GODOT" --headless --path . --script res://tests/test_daily_online.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_achievements.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd

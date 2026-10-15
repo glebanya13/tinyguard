@@ -21,12 +21,15 @@ const ENDLESS_WAVES := 9999
 var wave_count: int = 1
 var endless: bool = false
 var first_delay: float = 30.0
+## Daily challenge: multiplies every wave's health (see set_time_scale for the clock).
+var hp_scale: float = 1.0
 ## Every wave lasts this long; then the next one starts.
 var wave_duration: float = 30.0
 ## Its enemies come out evenly during the first spawn_window seconds.
 var spawn_window: float = 24.0
 
 var _w: Dictionary = {}
+var _base_times: Array[float] = []
 ## "lanes" block: weights per path and wave, scout and boss paths (may be empty).
 var _lanes: Dictionary = {}
 ## "elite" block: rare tougher enemies (may be empty).
@@ -64,6 +67,15 @@ func _init(waves: Dictionary, endless_siege: bool = false) -> void:
 	first_delay = float(waves["first_delay"])
 	wave_duration = float(waves.get("wave_duration", wave_duration))
 	spawn_window = float(waves.get("spawn_window", spawn_window))
+	_base_times = [first_delay, wave_duration, spawn_window]
+
+
+## Daily challenge: all waves faster (< 1) or slower (> 1) than the level says. Absolute,
+## measured from the level's own numbers.
+func set_time_scale(scale: float) -> void:
+	first_delay = _base_times[0] * scale
+	wave_duration = _base_times[1] * scale
+	spawn_window = _base_times[2] * scale
 
 
 func is_boss_wave(wave: int) -> bool:
@@ -72,7 +84,7 @@ func is_boss_wave(wave: int) -> bool:
 
 
 func health_factor(wave: int) -> float:
-	return float(_w["hp_mult"]) * pow(float(_w["hp_growth"]), wave - 1)
+	return hp_scale * float(_w["hp_mult"]) * pow(float(_w["hp_growth"]), wave - 1)
 
 
 ## Number of paths the "lanes" block plans for (0 = no lane plan: the wave

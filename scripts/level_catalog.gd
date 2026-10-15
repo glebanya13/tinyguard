@@ -23,6 +23,9 @@ static var selected_id: int = 1
 static var endless: bool = false
 ## True when the selected level is played as the onboarding tutorial.
 static var tutorial: bool = false
+## Date ("yyyy-mm-dd") of the daily challenge being played, "" otherwise. Daily runs
+## are endless sieges with the day's seed and modifiers (see DailyRun).
+static var daily_key: String = ""
 static var _levels: Array = []
 static var _save: ConfigFile = null
 static var _save_loaded_from: String = ""

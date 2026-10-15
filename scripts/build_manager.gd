@@ -25,6 +25,8 @@ signal ground_tapped(point: Vector3)
 
 ## Towers built here join this simulation (set by the level).
 var sim: Sim = null
+## Daily challenge: resource names of the towers that may be built (empty = all).
+var allowed_towers: Array[String] = []
 var selected_slot: TowerSlot = null
 ## Permanent tower damage bonus (perk), applied after every level change.
 var damage_multiplier: float = 1.0
@@ -87,7 +89,16 @@ func can_build(slot: TowerSlot, data: TowerData) -> bool:
 		slot != null
 		and slot.is_free()
 		and data != null
+		and is_allowed(data)
 		and game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+	)
+
+
+## False for a tower the day's modifiers forbid.
+func is_allowed(data: TowerData) -> bool:
+	return (
+		allowed_towers.is_empty()
+		or allowed_towers.has(data.resource_path.get_file().get_basename())
 	)
 
 

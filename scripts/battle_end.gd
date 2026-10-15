@@ -18,6 +18,10 @@ var stats := {"kills": 0, "gold": 0, "wood": 0, "towers": 0, "time": 0.0}
 var coop: CoopBattle = null
 
 var _tree: SceneTree = null
+var _sim: Sim = null
+var _commands: GameCommands = null
+## Date of the daily challenge being played ("" = a normal battle).
+var _daily_key: String = ""
 var _level: Dictionary = {}
 var _endless: bool = false
 var _game_state: GameState = null
@@ -29,25 +33,28 @@ var _victory_sound: AudioStreamPlayer = null
 var _defeat_sound: AudioStreamPlayer = null
 
 
+## `commands` already knows the game state, build manager, hero and sim (wired by Main).
 func setup(
 	tree: SceneTree,
 	level: Dictionary,
 	endless: bool,
-	game_state: GameState,
+	commands: GameCommands,
 	wave_manager: WaveManager,
-	build_manager: BuildManager,
-	hero: Hero,
 	hud: Hud,
 	victory_sound: AudioStreamPlayer,
-	defeat_sound: AudioStreamPlayer
+	defeat_sound: AudioStreamPlayer,
+	daily_key: String
 ) -> void:
 	_tree = tree
+	_sim = commands.sim
+	_commands = commands
+	_daily_key = daily_key
 	_level = level
 	_endless = endless
-	_game_state = game_state
+	_game_state = commands.game_state
 	_wave_manager = wave_manager
-	_build_manager = build_manager
-	_hero = hero
+	_build_manager = commands.build_manager
+	_hero = commands.hero
 	_hud = hud
 	_victory_sound = victory_sound
 	_defeat_sound = defeat_sound
@@ -58,7 +65,7 @@ func setup(
 	# Deferred: the last enemy may leak in the same emission chain (it still has to
 	# take its lives), so the stars are counted after the lives are final.
 	wave_manager.all_waves_cleared.connect(on_all_waves_cleared, CONNECT_DEFERRED)
-	game_state.defeated.connect(on_defeated)
+	_game_state.defeated.connect(on_defeated)
 
 
 func count_kill(reward: int) -> void:
@@ -100,6 +107,9 @@ func on_defeated() -> void:
 		return
 	_wave_manager.stop()
 	_defeat_sound.play()
+	if _daily_key != "":
+		_end_daily()
+		return
 	if _endless:
 		var id: int = int(_level["id"])
 		var old_record: int = LevelCatalog.endless_record(id)
@@ -121,6 +131,20 @@ func on_defeated() -> void:
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
 	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
 	end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
+
+
+## Daily challenge over: files the result, shows the day's summary.
+func _end_daily() -> void:
+	var result: Dictionary = DailyRun.finish(
+		_daily_key, waves_cleared, _sim.tick, _commands.journal
+	)
+	Online.submit_daily(_daily_key, waves_cleared)
+	var title: String = tr("DAILY_END_BEST") if result["new_best"] else tr("DAILY_END_OVER")
+	var line: String = tr("DAILY_END_STATS") % [waves_cleared, Daily.best_wave(_daily_key)]
+	line += "\n" + tr("DAILY_END_STREAK") % result["streak"]
+	if result["star"]:
+		line += "\n" + tr("DAILY_END_STAR")
+	end_game(title, bool(result["new_best"]), 0, line + "\n")
 
 
 ## The co-op match is over for another reason than the battle's own victory or defeat.

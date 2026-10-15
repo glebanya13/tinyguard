@@ -11,6 +11,8 @@ rules_version = '2';
 //   runs/{uid}             start of the current endless run (server time)
 //   leaderboards/level_N/scores/{uid}   endless-siege records, only upwards and
 //                          not faster than the wave clock allows (see below)
+//   daily/{yyyy-mm-dd}/scores/{uid}   board of the daily challenge (the day's trial):
+//                          one entry per player and UTC day, only for today, only upwards
 //   saves/{uid}            legacy cloud save of older app versions
 //
 // Nickname reservation and change are ONE atomic commit from the client
@@ -133,9 +135,18 @@ service cloud.firestore {
         && smallInt(m, 'wood_start', 9);
     }
 
+    // Unlocked achievements as a bit mask (bit numbers: resources/achievements.json, never
+    // reused). A map with a check per id would exceed the rules' 1000-expression limit.
+    // 16 achievements now; the mask may grow to 31 bits.
+    function achievementsOk(m) {
+      return m is int && m >= 0 && m < 2147483648;
+    }
+
     function validProgression(p) {
       return p is map
-        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks'])
+        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks', 'dailyStars'])
+        // Bonus stars of the daily challenge (Daily.max_stars()); optional for older clients.
+        && (!('dailyStars' in p) || (p.dailyStars is int && p.dailyStars >= 0 && p.dailyStars <= 10))
         && p.unlocked is int && p.unlocked >= 1 && p.unlocked <= 100
         && p.stars is map && starsOk(p.stars)
         && p.endless is map && endlessOk(p.endless)
@@ -145,13 +156,14 @@ service cloud.firestore {
     function validUser(d) {
       return d.keys().hasOnly(['schemaVersion', 'createdAt', 'updatedAt',
                                'onboardingCompleted', 'tutorialVersionCompleted',
-                               'progression', 'settings'])
+                               'progression', 'settings', 'achievements'])
         && d.schemaVersion is int && d.schemaVersion >= 1 && d.schemaVersion <= 1000
         && d.updatedAt == request.time
         && d.onboardingCompleted is bool
         && d.tutorialVersionCompleted is int
         && d.tutorialVersionCompleted >= 0 && d.tutorialVersionCompleted <= 1000
         && validProgression(d.progression)
+        && (!('achievements' in d) || achievementsOk(d.achievements))
         && d.settings is map && d.settings.keys().hasOnly(['sound'])
         && d.settings.get('sound', true) is bool;
     }
@@ -325,6 +337,52 @@ service cloud.firestore {
           || (request.resource.data.wave == resource.data.wave
               && request.resource.data.updated == resource.data.updated));
       allow delete: if isOwner(uid); // account deletion
+    }
+
+    // ---- daily/{yyyy-mm-dd}/scores/{uid}: the daily challenge board ---------
+    // Everybody plays the same level and modifiers on one UTC day (scripts/daily.gd),
+    // the result is the wave reached. The day in the path must be TODAY by the server
+    // clock (request.time, never the client's), with a grace of one hour after midnight
+    // for a run that began before it. A player has one entry per day, only upwards.
+    // There is no run clock here (unlike leaderboards): the wave is bounded (below 500)
+    // but not proven; the replay journal of the run is the planned proof (stage 2).
+
+    function pad2(n) {
+      return (n < 10 ? '0' : '') + string(n);
+    }
+
+    function dayKey(t) {
+      return string(t.year()) + '-' + pad2(t.month()) + '-' + pad2(t.day());
+    }
+
+    function dayAllowed(day) {
+      return day == dayKey(request.time)
+        || day == dayKey(request.time - duration.value(1, 'h'));
+    }
+
+    function validDailyBase(day, uid) {
+      return isOwner(uid)
+        && dayAllowed(day)
+        && request.resource.data.keys().hasOnly(['name', 'wave', 'updated'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 16
+        && (request.resource.data.name == 'Рыцарь'
+            || request.resource.data.name
+               == get(/databases/$(database)/documents/publicProfiles/$(uid)).data.nickname)
+        && request.resource.data.wave is int
+        && request.resource.data.wave > 0
+        && request.resource.data.wave < 500
+        && request.resource.data.updated == request.time;
+    }
+
+    match /daily/{day}/scores/{uid} {
+      allow get: if true;
+      allow list: if request.query.limit <= 100;
+      allow create: if validDailyBase(day, uid);
+      allow update: if validDailyBase(day, uid)
+        && request.resource.data.wave > resource.data.wave;
+      // Deleting is allowed on any day (account deletion removes the recent entries).
+      allow delete: if isOwner(uid);
     }
 
     // Cloud saves of older app versions (whole progress file as text). Kept

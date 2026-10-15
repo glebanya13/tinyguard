@@ -231,6 +231,11 @@ func show_banner(title: String, subtitle: String = "", boss: bool = false) -> vo
 	_banner_tween.tween_callback(_banner.hide)
 
 
+## "Achievement!" pill at the top (see Toast).
+func show_toast(title: String, text: String) -> void:
+	Toast.show_on($Root, title, text)
+
+
 ## Floating text that rises from `screen_pos` and fades out.
 func popup(text: String, screen_pos: Vector2, color: Color, icon: Texture2D = null) -> void:
 	var label := HBoxContainer.new()

@@ -11,9 +11,14 @@ const {
 } = require("@firebase/rules-unit-testing");
 const {
   Timestamp,
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -620,4 +625,110 @@ test("everything else is denied by default", async () => {
   await assertFails(setDoc(doc(db, "reports/r1"), { reporter: "alice" }));
   await assertFails(setDoc(doc(db, "anything/alice"), { a: 1 }));
   await assertFails(getDoc(doc(db, "anything/alice")));
+});
+
+// ---- daily challenge board ---------------------------------------------------
+
+const dayKey = (offsetDays = 0) =>
+  new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+const dailyScore = (extra = {}) => ({ name: "Рыцарь", wave: 5, updated: serverTimestamp(), ...extra });
+const dailyPath = (day = dayKey(), uid = "alice") => `daily/${day}/scores/${uid}`;
+
+test("daily: own entry for today, reserved or anonymous name, only upwards", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  const ref = doc(db, dailyPath());
+  await assertFails(setDoc(ref, dailyScore({ name: "Самозванец" })));
+  await assertSucceeds(setDoc(ref, dailyScore()));
+  await seedNickname("alice", "Alice");
+  await assertSucceeds(setDoc(ref, dailyScore({ name: "Alice", wave: 7 })));
+  await assertFails(setDoc(ref, dailyScore({ name: "Alice", wave: 6 })));
+  await assertFails(setDoc(ref, dailyScore({ name: "Alice", wave: 7 }))); // not higher
+  await assertFails(setDoc(doc(db, dailyPath(dayKey(), "bob")), dailyScore())); // not yours
+  const anon = env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(anon, dailyPath())));
+  await assertFails(setDoc(doc(anon, dailyPath()), dailyScore({ wave: 9 })));
+});
+
+test("daily: only today's date by the server clock (no past or future boards)", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  await assertFails(setDoc(doc(db, dailyPath(dayKey(-2))), dailyScore()));
+  await assertFails(setDoc(doc(db, dailyPath(dayKey(1))), dailyScore()));
+  await assertFails(setDoc(doc(db, dailyPath(dayKey(-400))), dailyScore()));
+  await assertFails(setDoc(doc(db, dailyPath("2026-1-5")), dailyScore())); // not zero padded
+  await assertFails(setDoc(doc(db, dailyPath("today")), dailyScore()));
+  // Yesterday is open only in the first hour after midnight (grace for a run in progress).
+  const justAfterMidnight = new Date().getUTCHours() < 1;
+  const yesterday = setDoc(doc(db, dailyPath(dayKey(-1))), dailyScore());
+  await (justAfterMidnight ? assertSucceeds(yesterday) : assertFails(yesterday));
+  await assertSucceeds(setDoc(doc(db, dailyPath(dayKey())), dailyScore()));
+});
+
+test("daily: time must be the server's, wave and name and keys are validated", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  const ref = doc(db, dailyPath());
+  await assertFails(setDoc(ref, dailyScore({ updated: new Date() }))); // client clock
+  await assertFails(setDoc(ref, dailyScore({ updated: Timestamp.fromMillis(0) })));
+  await assertFails(setDoc(ref, { name: "Рыцарь", wave: 5 }));
+  await assertFails(setDoc(ref, dailyScore({ wave: 0 })));
+  await assertFails(setDoc(ref, dailyScore({ wave: 500 })));
+  await assertFails(setDoc(ref, dailyScore({ wave: 5.5 })));
+  await assertFails(setDoc(ref, dailyScore({ wave: "5" })));
+  await assertFails(setDoc(ref, dailyScore({ extra: 1 })));
+  await assertFails(setDoc(ref, dailyScore({ name: "x".repeat(17) })));
+  await assertSucceeds(setDoc(ref, dailyScore({ wave: 499 })));
+});
+
+test("daily: a rename-only write is refused (wave must grow), delete is owner only", async () => {
+  const db = env.authenticatedContext("alice").firestore();
+  const ref = doc(db, dailyPath());
+  await assertSucceeds(setDoc(ref, dailyScore({ wave: 8 })));
+  await assertFails(updateDoc(ref, { name: "Рыцарь", updated: serverTimestamp() }));
+  await assertFails(deleteDoc(doc(env.authenticatedContext("bob").firestore(), dailyPath())));
+  await assertFails(deleteDoc(doc(env.unauthenticatedContext().firestore(), dailyPath())));
+  await assertSucceeds(deleteDoc(ref));
+  // Account deletion removes entries of earlier days too (missing ones are fine).
+  await assertSucceeds(deleteDoc(doc(db, dailyPath(dayKey(-3)))));
+});
+
+test("daily: a list is capped at 100 and ordered queries work for everybody", async () => {
+  const anon = env.unauthenticatedContext().firestore();
+  const col = collection(anon, `daily/${dayKey()}/scores`);
+  await assertSucceeds(getDocs(query(col, orderBy("wave", "desc"), limit(100))));
+  await assertFails(getDocs(query(col, limit(101))));
+  await assertFails(getDocs(col)); // unbounded
+});
+
+test("users: achievements are a bit mask integer (optional, bounded)", async () => {
+  let n = 0; // a fresh user each time: a second setDoc on one would be an update
+  const create = (achievements) => {
+    const uid = `ach${n++}`;
+    const db = env.authenticatedContext(uid).firestore();
+    return setDoc(doc(db, `users/${uid}`), { ...profile(), createdAt: serverTimestamp(), achievements });
+  };
+  await assertSucceeds(create(0));
+  await assertSucceeds(create(65535));
+  await assertFails(create(-1));
+  await assertFails(create(2147483648));
+  await assertFails(create(1.5));
+  await assertFails(create("all"));
+  await assertFails(create({ first_win: 1 }));
+  await assertFails(create(true));
+  // Bonus stars of the daily challenge ride in progression.
+  const withStars = (dailyStars) => {
+    const uid = `ach${n++}`;
+    const db = env.authenticatedContext(uid).firestore();
+    return setDoc(doc(db, `users/${uid}`), {
+      ...profile(),
+      createdAt: serverTimestamp(),
+      progression: { ...profile().progression, dailyStars },
+    });
+  };
+  await assertSucceeds(withStars(0));
+  await assertSucceeds(withStars(10));
+  await assertFails(withStars(11));
+  await assertFails(withStars(-1));
+  await assertFails(withStars("3"));
+  // An older client does not know the field: a document without it stays valid.
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(setDoc(doc(bob, "users/bob"), { ...profile(), createdAt: serverTimestamp() }));
 });
