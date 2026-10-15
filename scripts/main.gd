@@ -1,3 +1,4 @@
+# gdlint:disable=max-file-lines
 extends Node3D
 ## Root of a level: builds the selected level from resources/levels.json
 ## (terrain, castle, portals and paths, slots, trees, hero spot), wires the game
@@ -60,6 +61,12 @@ const VILLAGER_TAP_REACH := 1.0
 const TRADE_KEEP_SLACK := 0.6
 
 var level: Dictionary = {}
+## Co-op match (docs/MULTIPLAYER.md): empty in single player. Set before the node
+## enters the tree (tests), else taken from CoopRun. `coop_transport` null = Online.rtdb.
+var coop_config: Dictionary = {}
+var coop_transport: CoopTransport = null
+var coop_lobby: CoopLobby = null
+var coop: CoopBattle = null
 var walk_grid := WalkGrid.new()
 var villagers := Villagers.new()
 
@@ -85,6 +92,7 @@ var _castle: Node3D = null
 var _ended: bool = false
 ## Onboarding tutorial overlay (only on its level in tutorial mode).
 var _tutorial: Tutorial = null
+var _coop_menu_open: bool = false
 
 ## Command to run when the hero reaches the selected slot, or &"".
 var _pending_command: StringName = &""
@@ -122,14 +130,19 @@ func _ready() -> void:
 	_sim = Sim.new()
 	_sim.name = "Sim"
 	add_child(_sim)
+	if coop_config.is_empty() and CoopRun.is_pending():
+		coop_config = CoopRun.take()
+		coop_lobby = CoopRun.lobby
 	_sim.set_seed(randi())  # a replay overrides it (Sim.begin_replay)
+	if _coop_on():
+		_sim.set_seed(int(coop_config["seed"]))  # both players: the same battle
 	_commands = GameCommands.new()
 	_commands.name = "GameCommands"
 	_commands.sim = _sim
 	add_child(_commands)
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
 	_build_level()
-	_endless = LevelCatalog.endless
+	_endless = LevelCatalog.endless and not _coop_on()
 	_apply_perks(_current_perks())
 	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
 	_wave_manager.sim = _sim
@@ -147,6 +160,8 @@ func _ready() -> void:
 	_sim.villagers = villagers
 	_commands.journal.header = _journal_header()
 	_commands.set_hero_limits(_hero.global_position, _map_rect())
+	if _coop_on():
+		_setup_coop()
 	_wave_manager.wave_cleared.connect(
 		func(wave: int) -> void: _waves_cleared = maxi(_waves_cleared, wave)
 	)
@@ -190,6 +205,8 @@ func _ready() -> void:
 	_hero.order_cancelled.connect(_on_hero_order_ended)
 	_hero.order_finished.connect(_on_hero_order_ended)
 	_hero.wood_gathered.connect(_on_wood_gathered)
+	if coop != null:
+		coop.ghost.wood_gathered.connect(_on_wood_gathered)
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
 	villagers.seed_value = _sim.seed_value
@@ -216,6 +233,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
+	if coop != null:
+		coop.leave()
 
 
 func _notification(what: int) -> void:
@@ -229,12 +248,20 @@ func _notification(what: int) -> void:
 				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Phone call, home button: never let waves run unattended.
-			if OS.has_feature("mobile") and not _paused and not _ended:
+			if OS.has_feature("mobile") and not _paused and not _ended and not _coop_on():
 				_toggle_pause()
 
 
 func _toggle_pause() -> void:
 	if _ended:
+		return
+	if _coop_on():
+		# The battle is shared: nobody can stop it. The menu only covers the screen.
+		_coop_menu_open = not _coop_menu_open
+		if _coop_menu_open:
+			_hud.show_pause_menu()
+		else:
+			_hud.hide_pause_menu()
 		return
 	_commands.submit(GameCommand.set_pause(not _paused))
 
@@ -255,6 +282,8 @@ func _on_pause_changed(on: bool) -> void:
 
 
 func _toggle_speed() -> void:
+	if _coop_on():
+		return
 	_commands.submit(GameCommand.set_speed(1 if Engine.time_scale > 1.0 else 2))
 
 
@@ -267,7 +296,7 @@ func _on_speed_changed(speed: int) -> void:
 
 ## What a replay needs to know about the battle it reproduces.
 func _journal_header() -> Dictionary:
-	return {
+	var header := {
 		"sim_version": Sim.VERSION,
 		"tick_rate": Sim.TICK_RATE,
 		"level": int(level["id"]),
@@ -275,13 +304,18 @@ func _journal_header() -> Dictionary:
 		"seed": _sim.seed_value,
 		"perks": _current_perks(),
 	}
+	if _coop_on():
+		header["coop"] = 1
+		header["delay"] = int(coop_config["delay"])
+	return header
 
 
 ## The player's permanent perks by name.
 func _current_perks() -> Dictionary:
 	var out := {}
 	for key: StringName in PERK_KEYS:
-		out[String(key)] = Perks.value(key)
+		# Co-op is an even start: nobody brings perks to the match.
+		out[String(key)] = 0 if _coop_on() else Perks.value(key)
 	return out
 
 
@@ -316,7 +350,7 @@ func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 		return
 	match cmd.type:
 		GameCommand.Type.SWORD:
-			_spawn_fx(UPGRADE_FX, _hero.global_position)
+			_spawn_fx(UPGRADE_FX, _knight_of(cmd.player).global_position)
 			_refresh_card()
 		GameCommand.Type.REPAIR:
 			_spawn_fx(BUILD_FX, _castle.global_position)
@@ -714,7 +748,12 @@ func _toggle_forge() -> void:
 ## Tutorial mode: the Tutorial node (its own overlay) replaces the built-in
 ## hints and guide arrow; it only observes the systems passed to it.
 func _start_tutorial() -> void:
-	if not LevelCatalog.tutorial or _endless or int(level["id"]) != Onboarding.TUTORIAL_LEVEL:
+	if (
+		_coop_on()
+		or not LevelCatalog.tutorial
+		or _endless
+		or int(level["id"]) != Onboarding.TUTORIAL_LEVEL
+	):
 		return
 	_tutorial = TUTORIAL_SCENE.instantiate()
 	add_child(_tutorial)
@@ -969,6 +1008,9 @@ func _on_defeated() -> void:
 
 func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:
 	_ended = true
+	if _coop_on():
+		_hud.hide_coop_notice()
+		coop.leave_later()
 	Engine.time_scale = 1.0
 	_hero.cancel_order()
 	_build_manager.clear_selection()
@@ -980,6 +1022,8 @@ func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = 
 ## starting resources, lives and wave and frees old enemies and towers.
 ## SceneTree.paused is the only state that survives a reload: clear it first.
 func _on_restart_pressed() -> void:
+	if _coop_on():
+		return  # one player cannot restart a shared battle
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	var error: Error = get_tree().reload_current_scene()
@@ -989,5 +1033,48 @@ func _on_restart_pressed() -> void:
 
 
 func _on_map_pressed() -> void:
+	if _coop_on():
+		coop.leave()
 	get_tree().paused = false
 	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
+
+
+# --- Co-op (docs/MULTIPLAYER.md, "Co-op in the game"; the work is in CoopBattle) ---
+
+
+func _coop_on() -> bool:
+	return not coop_config.is_empty()
+
+
+## The knight of a player slot (the local one in single player).
+func _knight_of(player: int) -> Hero:
+	return _commands.heroes[player] if _commands.heroes.size() > player else _hero
+
+
+func _setup_coop() -> void:
+	coop = CoopBattle.new()
+	coop.name = "CoopBattle"
+	add_child(coop)
+	var transport: CoopTransport = coop_transport if coop_transport != null else Online.rtdb
+	coop.setup(coop_config, transport, coop_lobby, _sim, _commands, _hero, _level_root)
+	coop.partner_waiting.connect(_on_coop_partner_waiting)
+	coop.match_over.connect(_on_coop_match_over)
+	_hud.set_coop_mode(true)
+
+
+func _on_coop_partner_waiting(waiting: bool) -> void:
+	if _ended:
+		return
+	if waiting:
+		_hud.show_coop_notice(tr("COOP_WAITING_PARTNER"))
+	else:
+		_hud.hide_coop_notice()
+
+
+## The match is over for another reason than the battle's own victory or defeat.
+func _on_coop_match_over(reason: String) -> void:
+	if _ended:
+		return
+	var pair: Array = CoopBattle.end_texts(reason)
+	_wave_manager.stop()
+	_end_game(tr(pair[0]), false, 0, tr(pair[1]) + "\n" + tr("COOP_END_NOT_SAVED") + "\n")

@@ -43,6 +43,7 @@ const COMMAND_TYPES: Array[String] = [
 	"joystick",
 	"attack",
 	"spin",
+	"priority",
 	"speed",
 	"pause",
 ]

@@ -17,6 +17,11 @@ var sim: Sim = null
 var game_state: GameState = null
 var build_manager: BuildManager = null
 var hero: Hero = null
+## Co-op: the heroes by player slot (0 host, 1 guest); empty in single player.
+var heroes: Array[Hero] = []
+## Co-op: commands go through the session and run after the input delay (apply_coop).
+var coop: CoopSession = null
+var local_player: int = 0
 var villagers: Villagers = null
 ## Tower slots by id (their index in the level's "slots").
 var slots: Array[TowerSlot] = []
@@ -39,9 +44,25 @@ var _start_mm: Vector2i = Vector2i.ZERO
 func submit(cmd: GameCommand) -> bool:
 	if sim.is_replaying():
 		return false
+	if coop != null:
+		# Pause and speed are not shared (see docs/MULTIPLAYER.md, co-op); everything
+		# else is queued and executes at tick + delay on BOTH sides, also on ours.
+		return cmd.wire_name() != "" and coop.submit(cmd.wire_name(), cmd.args)
 	if sim.is_in_step():
 		push_warning("GameCommands: command issued inside a simulation step")
 	cmd.tick = sim.tick
+	var ok: bool = apply(cmd)
+	if ok:
+		journal.add(cmd)
+	return ok
+
+
+## Co-op: executes what the lockstep delivers for the current tick (both players'
+## commands, in the same order everywhere). `ok` false: refused, same on both sides.
+func apply_coop(wire: String, wire_args: Array, slot: int) -> bool:
+	var cmd: GameCommand = GameCommand.from_wire(wire, wire_args, slot, sim.tick)
+	if cmd == null:
+		return false
 	var ok: bool = apply(cmd)
 	if ok:
 		journal.add(cmd)
@@ -67,8 +88,9 @@ func apply(cmd: GameCommand) -> bool:
 		GameCommand.Type.SELL:
 			ok = build_manager.sell(_slot(cmd.args[0]))
 		GameCommand.Type.SWORD:
-			if game_state.spend(hero.sword_upgrade_cost()):
-				hero.upgrade_sword()
+			var smith: Hero = _hero_of(cmd.player)
+			if game_state.spend(smith.sword_upgrade_cost()):
+				smith.upgrade_sword()
 				ok = true
 		GameCommand.Type.REPAIR:
 			ok = game_state.repair()
@@ -76,10 +98,16 @@ func apply(cmd: GameCommand) -> bool:
 			ok = villagers.sell(cmd.args[0]) > 0
 		GameCommand.Type.HERO_ATTACK:
 			var origin: Vector3 = GameCommand.point_from_mm(cmd.args[0], cmd.args[1])
-			ok = _hero_position_ok(cmd) and hero.apply_attack(origin, cmd.args[2] / 1000.0)
+			var striker: Hero = _hero_of(cmd.player)
+			ok = _hero_position_ok(cmd) and striker.apply_attack(origin, cmd.args[2] / 1000.0)
+			if ok:
+				striker.ghost_goto(origin)
 		GameCommand.Type.HERO_SPIN:
 			var spot: Vector3 = GameCommand.point_from_mm(cmd.args[0], cmd.args[1])
-			ok = _hero_position_ok(cmd) and hero.apply_spin(spot)
+			var whirler: Hero = _hero_of(cmd.player)
+			ok = _hero_position_ok(cmd) and whirler.apply_spin(spot)
+			if ok:
+				whirler.ghost_goto(spot)
 		GameCommand.Type.SET_PRIORITY:
 			var target: TowerSlot = _slot(cmd.args[0])
 			var wanted: int = cmd.args[1]
@@ -92,9 +120,13 @@ func apply(cmd: GameCommand) -> bool:
 			if ok:
 				target.tower.set_priority(wanted)
 		GameCommand.Type.SET_PAUSE:
+			if coop != null:
+				return false  # never shared in co-op
 			sim.set_paused(cmd.args[0] != 0)
 			ok = true
 		GameCommand.Type.SET_SPEED:
+			if coop != null:
+				return false
 			sim.set_speed(cmd.args[0])
 			ok = true
 	applied.emit(cmd, ok)
@@ -125,7 +157,9 @@ func _hero_position_ok(cmd: GameCommand) -> bool:
 		return false
 	var last: Array = _last_hero.get(cmd.player, [_start_mm.x, _start_mm.y, 0])
 	var elapsed: int = maxi(cmd.tick - int(last[2]), 0)
-	var walk_mm: int = roundi(hero.speed * 1000.0) * elapsed * speed_tolerance_percent
+	var walk_mm: int = (
+		roundi(_hero_of(cmd.player).speed * 1000.0) * elapsed * speed_tolerance_percent
+	)
 	var allowed: int = walk_mm / (100 * Sim.TICK_RATE) + slack_mm
 	var dx: int = x - int(last[0])
 	var dz: int = z - int(last[1])
@@ -133,6 +167,10 @@ func _hero_position_ok(cmd: GameCommand) -> bool:
 		return false
 	_last_hero[cmd.player] = [x, z, cmd.tick]
 	return true
+
+
+func _hero_of(player: int) -> Hero:
+	return heroes[player] if player >= 0 and player < heroes.size() else hero
 
 
 func _slot(id: int) -> TowerSlot:

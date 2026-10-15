@@ -64,6 +64,9 @@ var _card_hash: int = 0
 var _settings_button: Button = null
 var _settings_panel: SettingsPanel = null
 var _spin_shown: int = -1
+## Co-op: "waiting for the partner" notice (built when the mode is switched on).
+var _coop_notice: PanelContainer = null
+var _coop_label: Label = null
 ## Touch build: no keyboard hints or hover tooltips.
 var _touch: bool = OS.has_feature("mobile")
 
@@ -323,6 +326,47 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 	_pause_button.hide()
 	_speed_button.hide()
 	_forge_button.hide()
+
+
+## Co-op: the battle is shared, so there is no speed button and no restart; the
+## menu leaves the match instead of going "to the map".
+func set_coop_mode(on: bool) -> void:
+	_speed_button.visible = not on
+	_restart_button.visible = not on
+	_map_button.text = tr("COOP_LEAVE_MATCH") if on else tr("HUD_TO_MAP")
+	if not on or _coop_notice != null:
+		return
+	_coop_notice = PanelContainer.new()
+	_coop_notice.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_coop_notice.offset_top = 96.0
+	_coop_notice.offset_left = -260.0
+	_coop_notice.offset_right = 260.0
+	_coop_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_coop_label = Label.new()
+	_coop_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_coop_label.add_theme_font_size_override("font_size", 26)
+	_coop_label.add_theme_color_override("font_color", WARN_COLOR)
+	_coop_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_coop_notice.add_child(_coop_label)
+	_coop_notice.hide()
+	_root.add_child(_coop_notice)
+
+
+## Co-op: a message over the battle (the partner is silent).
+func show_coop_notice(text: String) -> void:
+	if _coop_notice == null:
+		return
+	_coop_label.text = text
+	_coop_notice.show()
+
+
+func hide_coop_notice() -> void:
+	if _coop_notice != null:
+		_coop_notice.hide()
+
+
+func is_coop_notice_visible() -> bool:
+	return _coop_notice != null and _coop_notice.visible
 
 
 ## Pause menu: continue, restart, back to the map.

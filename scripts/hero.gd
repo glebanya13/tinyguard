@@ -59,6 +59,10 @@ signal wood_gathered(amount: int, at: Vector3)
 ## Where swings are submitted and what clock times them (set by the level).
 var commands: GameCommands = null
 var sim: Sim = null
+## Co-op: the partner's knight. Takes no input and no physics: he is shown at the
+## last position his commands carried and glides there (drawing only; what he does
+## to the battle happens in Sim steps like any swing).
+var is_ghost: bool = false
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
 ## Walkable grid for orders; without it the hero walks in a straight line.
@@ -82,6 +86,12 @@ var _last_distance: float = INF
 ## Simulation steps before which the next swing / whirlwind is refused.
 var _attack_ready_tick: int = 0
 var _spin_ready_tick: int = 0
+## Co-op: a command takes the input delay to come back, so own commands wait until
+## their effect (and cooldown) is due instead of flooding the network every frame.
+var _attack_gate_tick: int = 0
+var _spin_gate_tick: int = 0
+var _ghost_goal: Vector3 = Vector3.ZERO
+var _ghost_set: bool = false
 ## Seconds of swing animation left (the feet are planted meanwhile; drawing only).
 var _attack_left: float = 0.0
 
@@ -103,6 +113,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_attack_left = maxf(_attack_left - delta, 0.0)
+	if is_ghost:
+		_glide(delta)
+		return
 	if Input.is_action_just_pressed(&"attack"):
 		try_attack()
 	if Input.is_action_just_pressed(&"spin"):
@@ -169,14 +182,34 @@ func try_attack() -> bool:
 	if target != null:
 		var offset: Vector3 = target.global_position - global_position
 		yaw = atan2(offset.x, offset.z)
-	return commands.submit(GameCommand.hero_attack(global_position, yaw))
+	if _gated(_attack_gate_tick):
+		return false
+	var sent: bool = commands.submit(GameCommand.hero_attack(global_position, yaw))
+	if sent and commands.coop != null:
+		_attack_gate_tick = sim.tick + commands.coop.lockstep.delay + Sim.ticks(attack_cooldown)
+	return sent
 
 
 ## Whirlwind: one turn of the sword that hits every enemy within spin_radius.
 func try_spin() -> bool:
 	if commands == null or not sim.running or spin_cooldown_left() > 0.0:
 		return false
-	return commands.submit(GameCommand.hero_spin(global_position))
+	if _gated(_spin_gate_tick):
+		return false
+	var sent: bool = commands.submit(GameCommand.hero_spin(global_position))
+	if sent and commands.coop != null:
+		_spin_gate_tick = sim.tick + commands.coop.lockstep.delay + Sim.ticks(attack_cooldown)
+	return sent
+
+
+## Co-op: the partner's knight shows up where his command says he is.
+func ghost_goto(point: Vector3) -> void:
+	if not is_ghost:
+		return
+	_ghost_goal = Vector3(point.x, 0.0, point.z)
+	if not _ghost_set:
+		_ghost_set = true
+		position = _ghost_goal
 
 
 func can_attack() -> bool:
@@ -281,6 +314,21 @@ func is_near(point: Vector3, reach: float) -> bool:
 	var offset: Vector3 = point - global_position
 	offset.y = 0.0
 	return offset.length() <= reach
+
+
+func _gated(gate_tick: int) -> bool:
+	return commands.coop != null and sim.tick < gate_tick
+
+
+## Ghost: glides to the last known position at a bit more than walking speed.
+func _glide(delta: float) -> void:
+	var offset: Vector3 = _ghost_goal - position
+	offset.y = 0.0
+	var moving: bool = _ghost_set and offset.length() > 0.05 and _attack_left <= 0.0
+	if moving:
+		var step: Vector3 = offset.limit_length(speed * 1.6 * delta)
+		position += step
+	_animate(offset.normalized() if moving else Vector3.ZERO, delta)
 
 
 func _strike(origin: Vector3, yaw: float) -> void:
