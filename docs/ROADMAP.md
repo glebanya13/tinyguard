@@ -78,7 +78,7 @@ RU + EN (`translations/strings.csv`), экран настроек.
       `GuideHints`, `BattleEnd`, `CoopHooks`; правило gdlint `max-file-lines` включено.
 - [x] Числа баланса из кода в данные (ревью M3).
 - [x] Туториал, подсказки, тап по деревьям — без `get_nodes_in_group` (реестры `Sim`).
-- [x] Утечки при выходе: проигрыватели останавливаются при выходе из дерева (итог — в `HANDOFF.md`).
+- [ ] Утечки при выходе тестов (`AudioStreamPlaybackWAV`): причина — headless-аудио, в игре не воспроизводится; см. `docs/CODE_REVIEW.md` (M2).
 - [x] Размер репозитория: меры и варианты — `docs/REPO_SIZE.md`.
 - [ ] Лимиты звёзд/уровней перков в `firestore.rules` (ревью M5).
 - [ ] Остальные пункты `docs/CODE_REVIEW.md`.
