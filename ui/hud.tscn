@@ -1,8 +1,9 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/virtual_joystick.gd" id="3_joystick"]
+[ext_resource type="Texture2D" path="res://ui/theme_atlas.png" id="atlas"]
 [ext_resource type="Texture2D" path="res://ui/icons/flag.png" id="i_flag"]
 [ext_resource type="Texture2D" path="res://ui/icons/coin.png" id="i_coin"]
 [ext_resource type="Texture2D" path="res://ui/icons/wood.png" id="i_wood"]
@@ -19,59 +20,41 @@
 [ext_resource type="Texture2D" path="res://ui/icons/pause.png" id="i_pause"]
 [ext_resource type="Texture2D" path="res://ui/icons/hammer.png" id="i_hammer"]
 
-[sub_resource type="StyleBoxFlat" id="atk_normal"]
+[sub_resource type="StyleBoxTexture" id="atk_normal"]
 content_margin_left = 14.0
 content_margin_top = 12.0
 content_margin_right = 14.0
 content_margin_bottom = 16.0
-bg_color = Color(0.95, 0.73, 0.29, 1)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 9
-border_color = Color(0.66, 0.45, 0.12, 1)
-corner_radius_top_left = 66
-corner_radius_top_right = 66
-corner_radius_bottom_right = 66
-corner_radius_bottom_left = 66
-corner_detail = 16
-shadow_color = Color(0, 0, 0, 0.25)
-shadow_size = 6
-shadow_offset = Vector2(0, 3)
+texture = ExtResource("atlas")
+texture_margin_left = 44.0
+texture_margin_top = 44.0
+texture_margin_right = 44.0
+texture_margin_bottom = 50.0
+region_rect = Rect2(0, 0, 128, 128)
 
-[sub_resource type="StyleBoxFlat" id="atk_pressed"]
+[sub_resource type="StyleBoxTexture" id="atk_pressed"]
 content_margin_left = 14.0
 content_margin_top = 16.0
 content_margin_right = 14.0
 content_margin_bottom = 12.0
-bg_color = Color(0.86, 0.63, 0.22, 1)
-border_width_left = 4
-border_width_top = 6
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.6, 0.4, 0.1, 1)
-corner_radius_top_left = 66
-corner_radius_top_right = 66
-corner_radius_bottom_right = 66
-corner_radius_bottom_left = 66
-corner_detail = 16
+texture = ExtResource("atlas")
+texture_margin_left = 44.0
+texture_margin_top = 44.0
+texture_margin_right = 44.0
+texture_margin_bottom = 50.0
+region_rect = Rect2(260, 0, 128, 128)
 
-[sub_resource type="StyleBoxFlat" id="atk_hover"]
+[sub_resource type="StyleBoxTexture" id="atk_hover"]
 content_margin_left = 14.0
 content_margin_top = 12.0
 content_margin_right = 14.0
 content_margin_bottom = 16.0
-bg_color = Color(0.98, 0.79, 0.36, 1)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 9
-border_color = Color(0.66, 0.45, 0.12, 1)
-corner_radius_top_left = 66
-corner_radius_top_right = 66
-corner_radius_bottom_right = 66
-corner_radius_bottom_left = 66
-corner_detail = 16
+texture = ExtResource("atlas")
+texture_margin_left = 44.0
+texture_margin_top = 44.0
+texture_margin_right = 44.0
+texture_margin_bottom = 50.0
+region_rect = Rect2(130, 0, 128, 128)
 
 [sub_resource type="StyleBoxFlat" id="card"]
 content_margin_left = 12.0
