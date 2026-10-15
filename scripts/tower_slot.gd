@@ -61,6 +61,10 @@ func place_tower(scene: PackedScene) -> Tower:
 func remove_tower() -> void:
 	if tower == null:
 		return
+	# Leave the simulation now: queue_free() lands at the end of the frame, and extra
+	# steps of that frame must not let a sold tower shoot (replays differ in steps per frame).
+	if tower.sim != null:
+		tower.sim.remove_tower(tower)
 	tower.queue_free()
 	tower = null
 	_update_visuals()

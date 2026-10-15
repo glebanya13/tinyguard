@@ -310,7 +310,7 @@ func _bot(main: Node, sim: Sim, commands: GameCommands) -> void:
 		for slot in commands.slots:
 			if not slot.is_free():
 				commands.submit(
-					GameCommand.set_priority(slot.slot_id, (t / 150 + slot.slot_id) % 4)
+					GameCommand.set_priority(slot.slot_id, (slot.tower.priority + 1) % 4)
 				)
 				break
 	if t == 1500 and not _sold and not commands.slots[0].is_free():
