@@ -148,13 +148,11 @@ func _run() -> void:
 	shooter.set_priority(shooter.priority + 1)
 	check(shooter.priority == TowerData.Priority.STRONGEST, "switch -> Strongest")
 	check(shooter.find_target() == behind, "Strongest picks the tank")
-	shooter.set_priority(shooter.priority + 1)
-	shooter.set_priority(shooter.priority + 1)
-	check(shooter.priority == TowerData.Priority.FIRST, "the switch wraps around")
-	check(
-		ahead.distance_to_goal() < behind.distance_to_goal(),
-		"distance to goal shrinks along the path"
-	)
+	shooter.set_priority(99)
+	check(shooter.priority == TowerData.Priority.NEAREST, "an out-of-range priority is clamped")
+	shooter.set_priority(TowerData.Priority.FIRST)
+	check(shooter.priority == TowerData.Priority.FIRST, "back to First")
+	check(ahead.goal_mm() < behind.goal_mm(), "distance to goal shrinks along the path")
 
 	# Frost + lightning: a chilled enemy takes the shock harder.
 	var chilled := spawn("res://resources/enemies/slime_tank.tres", 18.0)

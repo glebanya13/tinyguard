@@ -43,7 +43,10 @@ func _check_level(level: Dictionary) -> void:
 		var list: Array[Dictionary] = plan.spawns(w)
 		var base: float = float(waves["count_base"]) + float(waves["count_step"]) * (w - 1)
 		var bosses: int = _bosses(list)
-		if list.size() - bosses != roundi(base):
+		var elites: int = 0
+		for entry in list:
+			elites += 1 if entry.get("elite", false) else 0
+		if list.size() - bosses - elites != roundi(base):
 			ok_counts = false
 		var hp: float = plan.health_factor(w)
 		if hp <= last_hp:
@@ -59,7 +62,8 @@ func _check_level(level: Dictionary) -> void:
 			var is_boss: bool = (list[i]["data"] as EnemyData).is_boss
 			if is_boss and i < list.size() - bosses:
 				ok_order = false  # bosses close the wave
-			if is_boss and float(list[i]["hp"]) > hp + 0.0001:
+			# (below factor 1 the boss exponent works the other way round: no check there)
+			if is_boss and hp >= 1.0 and float(list[i]["hp"]) > hp + 0.0001:
 				ok_boss = false  # bosses grow slower than the crowd
 	check(ok_counts, "level %d: enemies per wave follow count_base + step" % id)
 	check(ok_hp, "level %d: health factor grows every wave" % id)
