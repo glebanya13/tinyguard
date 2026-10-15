@@ -79,6 +79,7 @@ run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_units.
 run "$GODOT" --headless --path . --script res://tests/test_i18n.gd
 echo "== co-op network (fake transport)"
 run "$GODOT" --headless --path . --script res://tests/test_coop_net.gd
+run "$GODOT" --headless --path . --script res://tests/test_coop_lobby_ui.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd
