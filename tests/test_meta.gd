@@ -45,7 +45,7 @@ func _run() -> void:
 	check(
 		wm.plan.is_boss_wave(10) and not wm.plan.is_boss_wave(15), "endless bosses every 10 waves"
 	)
-	main._waves_cleared = 31
+	main.battle_end.waves_cleared = 31
 	gs.lose_lives(999)
 	await process_frame
 	check(LevelCatalog.endless_record(1) == 31, "endless record saved")

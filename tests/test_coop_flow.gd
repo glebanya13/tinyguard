@@ -216,7 +216,7 @@ func _test_full_match() -> void:
 	(host_main.get_node("GameState") as GameState).lose_lives(9999)
 	(nodes["guest"].get_node("GameState") as GameState).lose_lives(9999)
 	await process_frame
-	check(bool(host_main.get("_ended")) and bool(nodes["guest"].get("_ended")), "both see the end")
+	check(bool(host_main.battle_end.ended) and nodes["guest"].battle_end.ended, "both see the end")
 	check(host_main.get_node("HUD/Root/EndScreen").visible, "the host sees the end screen")
 	# Back to the map: the real button of the end screen.
 	host_main.get_node("HUD/Root/EndScreen/EndPanel/Content/MapButton").pressed.emit()
@@ -277,7 +277,7 @@ func _test_partner_leaves_match() -> void:
 	for i in 20:
 		hs.advance(1.0 / 30.0)
 		await process_frame
-	check(bool(host_main.get("_ended")), "the host's battle ended")
+	check(bool(host_main.battle_end.ended), "the host's battle ended")
 	var message: Label = host_main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
 	check(message.text == "The partner left", "message: %s" % message.text)
 	host_main.get_node("HUD/Root/EndScreen/EndPanel/Content/MapButton").pressed.emit()

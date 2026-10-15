@@ -32,7 +32,9 @@ WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
 HERO = {"damage_levels": [14.0], "range_levels": [1.4], "interval_levels": [0.5],
         "splash_levels": [0.0], "slow_levels": [1.0]}
 HERO_FROM_CASTLE = 3.0  # metres before the castle gate (on path 0) where the hero stands
-BOSS_GROWTH_EXPONENT = 0.75  # scripts/wave_plan.gd
+_RULES = json.loads((ROOT / "resources/balance.json").read_text())["waves"]  # same file as the game
+BOSS_GROWTH_EXPONENT = _RULES["boss_growth_exponent"]
+BOSS_PER_WAVES = _RULES["boss_per_waves"]
 INTERVAL_DECAY = 0.97
 
 
@@ -55,10 +57,8 @@ TOWERS = {k: tres(f"resources/towers/{k}.tres") for k in ("archer", "cannon", "f
 ENEMIES = {k: tres(f"resources/enemies/{k}.tres")
            for k in ("slime", "slime_fast", "slime_tank", "slime_king", "slime_bat", "slime_shield",
                      "slime_splitter", "slime_mini", "slime_healer", "stone_golem")}
-# scripts/wave_plan.gd MIX, same order: [level key, enemy, every Nth, offset]
-MIX = [("golem_from", "stone_golem", 9, 8), ("tank_from", "slime_tank", 4, 3), ("shield_from", "slime_shield", 6, 5),
-       ("healer_from", "slime_healer", 8, 4), ("splitter_from", "slime_splitter", 7, 6), ("bat_from", "slime_bat", 5, 2),
-       ("fast_from", "slime_fast", 3, 1)]
+# [level key, enemy, every Nth, offset] from resources/balance.json
+MIX = [tuple(row) for row in _RULES["mix"]]
 BUILD_ORDER = ["archer", "archer", "cannon", "frost", "lightning", "archer", "cannon", "lightning", "frost",
                "archer", "cannon", "lightning"]
 NEVER = 100000
@@ -111,7 +111,7 @@ def wave_spawns(w: dict, n: int) -> list:
             idx = round(len(out) * (e + 1.0) / (elites + 1.0))
             out.insert(idx, (elite["kind"], hp * elite["hp"], lane, {"elite": elite["reward"]}))
     if n % w["boss_every"] == 0 or (w["boss_last"] and n == w["count"]):
-        for i in range(1 + n // 30):
+        for i in range(1 + n // BOSS_PER_WAVES):
             lane = lanes["boss_paths"][(n + i) % len(lanes["boss_paths"])] if weights else None
             out.append(("slime_king", hp ** BOSS_GROWTH_EXPONENT, lane, {}))
     return out

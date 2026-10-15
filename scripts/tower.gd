@@ -24,6 +24,8 @@ signal level_changed(level: int)
 @export var retarget_interval: float = 0.15
 ## Bolt effect for chain towers.
 @export var chain_fx: PackedScene
+## Chain lightning: share of the damage kept by every next jump.
+@export var chain_falloff: float = 0.8
 
 ## Stable id (set by Sim.add_tower).
 var id: int = 0
@@ -157,7 +159,7 @@ func _shoot(target: Enemy) -> void:
 
 
 ## Lightning: hits the target, then jumps to the nearest unhit enemy within
-## chain_range, chain_targets times; each jump deals 80% of the previous.
+## chain_range, chain_targets times; each jump deals `chain_falloff` of the previous.
 func _shoot_chain(target: Enemy) -> void:
 	var points := PackedVector3Array([global_position + Vector3.UP * muzzle_height])
 	var hit: Array[Enemy] = []
@@ -171,7 +173,7 @@ func _shoot_chain(target: Enemy) -> void:
 		var next: Enemy = _nearest_unhit(current.sim_position(), hit)
 		var shock: float = chilled_bonus if current.is_slowed() else 1.0
 		current.take_damage(amount * shock, damage_kind)
-		amount *= 0.8
+		amount *= chain_falloff
 		current = next
 	if chain_fx:
 		var fx: Node3D = chain_fx.instantiate()

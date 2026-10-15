@@ -474,7 +474,7 @@ func _test_silence() -> void:
 		host.sim.advance(1.0 / 30.0)
 		seconds += 1.0 / 30.0
 	check(host.ends == ["lost"], "after 30 s the match ends: %s" % [host.ends])
-	check(bool(host.main.get("_ended")), "battle screen shows the end")
+	check(bool(host.main.battle_end.ended), "battle screen shows the end")
 	var message: Label = host.main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
 	check(message.text == TranslationServer.translate("COOP_END_LOST"), "message: connection lost")
 	check(LevelCatalog.stars(_level) == 0, "nothing was saved for the cut match")
@@ -492,7 +492,7 @@ func _test_partner_leaves() -> void:
 		host.sim.advance(1.0 / 30.0)
 		await process_frame
 	check(host.ends == ["partner_left"], "host heard the farewell: %s" % [host.ends])
-	check(bool(host.main.get("_ended")), "host sees the end screen")
+	check(bool(host.main.battle_end.ended), "host sees the end screen")
 	var message: Label = host.main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
 	check(message.text == TranslationServer.translate("COOP_END_LEFT"), "message: partner left")
 	var left: Variant = server_value(
