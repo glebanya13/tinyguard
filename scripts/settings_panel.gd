@@ -12,6 +12,7 @@ signal closed
 const GOLD := Color(0.98, 0.8, 0.4)
 const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const BUTTON_HEIGHT := 58.0
+const FX_KEYS: Array[String] = ["SET_FX_OFF", "SET_FX_MIN", "SET_FX_FULL"]
 const LANGUAGE_KEYS: Dictionary = {
 	"auto": "SET_LANG_AUTO",
 	"ru": "SET_LANG_RU",
@@ -20,6 +21,7 @@ const LANGUAGE_KEYS: Dictionary = {
 
 var _box: VBoxContainer
 var _sound_button: Button
+var _fx_button: Button
 
 
 func _ready() -> void:
@@ -91,6 +93,11 @@ func _build() -> void:
 	_box.add_child(_sound_button)
 	_update_sound_text()
 
+	_fx_button = _button("", _on_fx_pressed, true, 0)
+	_fx_button.name = "EffectsToggle"
+	_box.add_child(_fx_button)
+	_update_fx_text()
+
 	if GameInfo.PRIVACY_URL != "":
 		var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
 		privacy.name = "Link_privacy"
@@ -120,6 +127,15 @@ func _on_sound_pressed() -> void:
 
 func _update_sound_text() -> void:
 	_sound_button.text = tr("SET_SOUND_ON") if LevelCatalog.sound_on() else tr("SET_SOUND_OFF")
+
+
+func _on_fx_pressed() -> void:
+	GameSettings.set_effects((GameSettings.effects() + 1) % FX_KEYS.size())
+	_update_fx_text()
+
+
+func _update_fx_text() -> void:
+	_fx_button.text = tr("SET_FX") % tr(FX_KEYS[GameSettings.effects()])
 
 
 func _open_link(url: String) -> void:

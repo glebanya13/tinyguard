@@ -7,12 +7,22 @@ extends RefCounted
 
 const LANG_AUTO := "auto"
 const LANGUAGES: Array[String] = ["auto", "ru", "en"]
+## Visual effects (hit flashes, damage numbers, particles, screen shake): off /
+## minimum / full. They never touch the battle simulation.
+const FX_OFF := 0
+const FX_MIN := 1
+const FX_FULL := 2
+const FX_NAMES: Array[String] = ["off", "min", "full"]
 ## Locale used when the system language has no translation.
 const FALLBACK_LOCALE := "en"
 const SUPPORTED_LOCALES: Array[String] = ["ru", "en"]
 
 ## Tests point this at a scratch file.
 static var config_path: String = "user://settings.cfg"
+## Cached effects level (FX_*); -1 = not read from the file yet.
+static var _effects: int = -1
+## Level forced by BIMBLEGUARD_FX (-1 = none); -2 = environment not read yet.
+static var _forced: int = -2
 
 
 ## Saved choice: "auto", "ru" or "en".
@@ -33,6 +43,31 @@ static func set_language(code: String) -> void:
 	cfg.set_value("ui", "language", code)
 	cfg.save(config_path)
 	apply_language()
+
+
+## Effects level: FX_OFF / FX_MIN / FX_FULL. BIMBLEGUARD_FX=off|min|full overrides
+## the saved choice (tests, screenshots).
+static func effects() -> int:
+	if _forced == -2:
+		_forced = FX_NAMES.find(OS.get_environment("BIMBLEGUARD_FX"))
+	if _forced >= 0:
+		return _forced
+	if _effects < 0:
+		var cfg := ConfigFile.new()
+		var name: String = "full"
+		if cfg.load(config_path) == OK:
+			name = str(cfg.get_value("ui", "effects", "full"))
+		_effects = maxi(FX_NAMES.find(name), 0) if name in FX_NAMES else FX_FULL
+	return _effects
+
+
+static func set_effects(level: int) -> void:
+	level = clampi(level, FX_OFF, FX_FULL)
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("ui", "effects", FX_NAMES[level])
+	cfg.save(config_path)
+	_effects = level
 
 
 ## The locale for a choice: "ru"/"en" as is; "auto" follows the system language
