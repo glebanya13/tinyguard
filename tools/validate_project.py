@@ -434,7 +434,8 @@ REACH_MARGIN = 0.3
 
 def _hidden(path) -> bool:
     """Files under dot-directories (.godot cache, .claude worktrees) are not the project."""
-    return any(part.startswith(".") for part in path.relative_to(ROOT).parts[:-1])
+    parts = path.relative_to(ROOT).parts[:-1]
+    return any(part.startswith(".") or part in ("node_modules", "website") for part in parts)
 
 
 def _min_tower_range() -> float:

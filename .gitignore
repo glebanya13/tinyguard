@@ -61,3 +61,8 @@ node_modules
 
 # Local archives / extracted copies for manual testing
 /out/
+
+# Website sub-project build output
+website/node_modules
+website/dist
+website/dist-ssr
