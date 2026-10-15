@@ -98,7 +98,7 @@ func _notification(what: int) -> void:
 ## "Кооператив": only with a configured Realtime Database (Online.rtdb); otherwise
 ## the map is exactly the single-player map.
 func _build_coop_button() -> void:
-	if Online.rtdb == null:
+	if CoopRun.transport() == null:
 		return
 	_coop_button = Button.new()
 	_coop_button.name = "CoopButton"

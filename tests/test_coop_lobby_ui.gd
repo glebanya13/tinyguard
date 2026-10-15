@@ -172,8 +172,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	await process_frame
-	check(CoopRun.is_pending(), "the battle settings are handed over")
-	var config: Dictionary = CoopRun.config
+	check(_run_class().is_pending(), "the battle settings are handed over")
+	var config: Dictionary = _run_class().config
 	check(
 		config["level"] == before + 1 and config["partner"] != "" and config["name"] != "",
 		(
@@ -189,7 +189,7 @@ func _run() -> void:
 		LevelCatalog.selected_id == before + 1 and not LevelCatalog.endless,
 		"level selected for the battle"
 	)
-	CoopRun.clear()
+	_run_class().clear()
 
 	# Closing: a host that leaves closes the room for the guest.
 	await _closing_checks(server)
@@ -225,6 +225,11 @@ func _run() -> void:
 	Fake.FakeTransport.all.clear()
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
+
+
+## CoopRun mentions the Online autoload: load it at run time.
+func _run_class() -> GDScript:
+	return load("res://scripts/coop_run.gd") as GDScript
 
 
 func _script() -> GDScript:
