@@ -50,17 +50,23 @@ def soften(img: Image.Image) -> Image.Image:
 	px = img.load()
 	w, h = img.size
 	cx = w // 2
-	pale = px[cx, 8][:3]
-	body = px[cx, 42][:3]
-	for y in range(3, 33):
-		t = min(1.0, max(0.0, (y - 3) / 26.0))
+	top = 3 * h // 64
+	pale = px[cx, top + 5][:3]
+	split = top + 5
+	while split < h - 2 and sum(abs(px[cx, split][i] - pale[i]) for i in range(3)) < 30:
+		split += 1
+	body = px[cx, split + 3][:3]
+	span = float(split + 2 - top)
+	for y in range(top, split + 3):
+		t = min(1.0, max(0.0, (y - top) / span))
 		t = t * t * (3 - 2 * t)
 		col = tuple(int(pale[i] * (1 - t) + body[i] * t) for i in range(3))
 		for x in range(w):
 			r, g, b, a = px[x, y]
-			if a and all(abs((r, g, b)[i] - pale[i]) < 10 for i in range(3)):
-				px[x, y] = col + (a,)
-			elif a and all(abs((r, g, b)[i] - body[i]) < 10 for i in range(3)):
+			if a and (
+				all(abs((r, g, b)[i] - pale[i]) < 10 for i in range(3))
+				or all(abs((r, g, b)[i] - body[i]) < 10 for i in range(3))
+			):
 				px[x, y] = col + (a,)
 	return img
 
@@ -69,6 +75,7 @@ def round_button(src: str) -> dict:
 	base = os.path.join(src, "uipack", "PNG", "Yellow", "Double")
 	up = load(os.path.join(base, "button_round_depth_gloss.png"))
 	down = load(os.path.join(base, "button_round_gloss.png"))
+	up, down = soften(up), soften(down)
 	return {"up": up, "hover": ImageEnhance.Brightness(up).enhance(1.1), "down": down}
 
 
