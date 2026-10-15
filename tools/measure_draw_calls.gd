@@ -61,6 +61,7 @@ func _run() -> void:
 	var peak := 0
 	var peak_enemies := 0
 	var prims := 0.0
+	var proc_ms := 0.0
 	var elapsed := 0.0
 	var next_wave := 0.0
 	var last := Time.get_ticks_msec()
@@ -78,12 +79,19 @@ func _run() -> void:
 		prims += RenderingServer.get_rendering_info(
 			RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME
 		)
+		proc_ms += (
+			(
+				Performance.get_monitor(Performance.TIME_PROCESS)
+				+ Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+			)
+			* 1000.0
+		)
 		n += 1
 		peak = maxi(peak, c)
 		peak_enemies = maxi(peak_enemies, get_nodes_in_group(Enemy.GROUP).size())
 	print(
 		(
-			"LEVEL %s empty=%.0f built=%.0f battle_mean=%.0f battle_peak=%d peak_enemies=%d tris_k=%.0f"
+			"LEVEL %s empty=%.0f built=%.0f battle_mean=%.0f battle_peak=%d peak_enemies=%d tris_k=%.0f script_ms=%.2f"
 			% [
 				LevelCatalog.selected_id,
 				empty,
@@ -91,7 +99,8 @@ func _run() -> void:
 				sum / n,
 				peak,
 				peak_enemies,
-				prims / n / 1000.0
+				prims / n / 1000.0,
+				proc_ms / n
 			]
 		)
 	)

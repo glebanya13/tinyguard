@@ -579,6 +579,6 @@ func _hook_button(button: BaseButton) -> void:
 
 
 func _play_click() -> void:
-	if _click:
+	if _click and _click.is_inside_tree():
 		_click.pitch_scale = _rng.randf_range(0.95, 1.05)
 		_click.play()
