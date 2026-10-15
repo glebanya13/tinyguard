@@ -9,6 +9,8 @@ extends PathFollow3D
 
 signal died(reward: int)
 signal reached_base(damage: int)
+## Every hit that landed, with the damage after armor (visual effects listen).
+signal damaged(amount: float)
 ## A splitting enemy died: spawn its halves (WaveManager listens).
 signal split(data: EnemyData, health_mult: float, progress: float, wave: int)
 
@@ -47,6 +49,11 @@ var visual_scale: Vector3 = Vector3.ONE
 ## Rare tougher enemy of the wave plan: drawn bigger, always shows its bar.
 var elite: bool = false
 var elite_scale: float = 1.0
+## Visual only: 1 right after a hit, fading to 0 (the crowd renderer tints by it).
+var hit_flash: float = 0.0
+## EnemyCrowd bookkeeping for the tint (last written slot and value).
+var crowd_slot: int = -1
+var crowd_flash: float = -1.0
 
 var _is_dead: bool = false
 var _prev_progress: float = 0.0
@@ -143,6 +150,8 @@ func take_damage(amount: float, kind: StringName = &"") -> void:
 	if data and data.armor > 0.0:
 		amount = maxf(amount - data.armor, 1.0)
 	health = maxf(health - amount, 0.0)
+	hit_flash = 1.0
+	damaged.emit(amount)
 	_update_own_bar()
 	if health <= 0.0:
 		_spawn_death_fx()

@@ -14,14 +14,20 @@ const HOP := 0.04
 const WING_FLAP := 0.6
 const ARM_SWING := 0.45
 const BODY_SWAY := 0.07
+## Hit flash (full effects only): how fast it fades and how much it brightens.
+const FLASH_FADE := 7.0
+const FLASH_GAIN := Vector3(2.2, 2.4, 2.4)
 
 ## model path -> {"parts": Array[Dictionary], "members": Array[Enemy], "mms": Array[MultiMesh]}
 var _kinds: Dictionary = {}
 var _bars: MultiMesh
 var _time: float = 0.0
+## Per-instance colour is used for the hit flash; decided when the battle starts.
+var _flash_on: bool = false
 
 
 func _ready() -> void:
+	_flash_on = GameSettings.effects() == GameSettings.FX_FULL
 	_bars = _new_multimesh(BAR_MESH)
 
 
@@ -33,6 +39,9 @@ func add(enemy: Enemy) -> void:
 	var members: Array[Enemy] = kind["members"]
 	members.append(enemy)
 	for mm: MultiMesh in kind["mms"]:
+		if members.size() > mm.instance_count:
+			for other: Enemy in members:
+				other.crowd_slot = -1  # a resize drops the colours: write them again
 		_ensure_capacity(mm, members.size())
 
 
@@ -68,6 +77,8 @@ func _process(delta: float) -> void:
 				var part: Dictionary = parts[p]
 				var mm: MultiMesh = mms[p]
 				mm.set_instance_transform(i, base * part["rest"] * _animate(part["anim"], phase))
+			if _flash_on:
+				_tint(enemy, i, mms, delta)
 			if enemy.shows_health_bar():
 				var ratio: float = enemy.health_ratio()
 				var thick: float = 1.8 if enemy.is_boss() else 1.0
@@ -80,6 +91,21 @@ func _process(delta: float) -> void:
 		for mm: MultiMesh in mms:
 			mm.visible_instance_count = members.size()
 	_bars.visible_instance_count = bar_count
+
+
+## Hit flash: brightens the enemy's instance colour right after a hit. The colour
+## is written only when it changed or the enemy moved to another slot.
+func _tint(enemy: Enemy, slot: int, mms: Array, delta: float) -> void:
+	if enemy.hit_flash > 0.0:
+		enemy.hit_flash = maxf(enemy.hit_flash - delta * FLASH_FADE, 0.0)
+	if enemy.crowd_slot == slot and enemy.crowd_flash == enemy.hit_flash:
+		return
+	enemy.crowd_slot = slot
+	enemy.crowd_flash = enemy.hit_flash
+	var f: float = enemy.hit_flash
+	var color := Color(1.0 + FLASH_GAIN.x * f, 1.0 + FLASH_GAIN.y * f, 1.0 + FLASH_GAIN.z * f)
+	for mm: MultiMesh in mms:
+		mm.set_instance_color(slot, color)
 
 
 ## Visible enemy draw calls (for tests and profiling).
@@ -144,6 +170,7 @@ func _new_multimesh(mesh: Mesh) -> MultiMesh:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = mesh
+	mm.use_colors = _flash_on and mesh != BAR_MESH
 	mm.instance_count = 16
 	mm.visible_instance_count = 0
 	# Fixed bounds: no per-frame AABB recompute over all instances.

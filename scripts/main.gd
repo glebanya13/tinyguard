@@ -228,6 +228,7 @@ func _ready() -> void:
 	_lane_hint.camera = _camera
 	_hud.add_child(_lane_hint)
 	_refresh_card()
+	_start_fx()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_start_tracker()
 	if _endless and _daily_key == "":
@@ -855,6 +856,17 @@ func _nearest_in_group(group: StringName, accept: Callable) -> Node3D:
 			best_distance = d
 			best = node as Node3D
 	return best
+
+
+## Game-feel layer (scripts/fx/fx.gd): listens to the signals above, changes nothing.
+func _start_fx() -> void:
+	var heroes: Array[Hero] = [_hero]
+	if coop != null:
+		heroes.append(coop.ghost)
+	var fx := Fx.new()
+	fx.name = "Fx"
+	add_child(fx)
+	fx.setup(_camera, _wave_manager, _build_manager, _game_state, heroes, _castle, _hud)
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:

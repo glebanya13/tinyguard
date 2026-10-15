@@ -16,6 +16,9 @@ extends CharacterBody3D
 signal order_finished
 ## Emitted when an order is dropped (player took control or the way is blocked).
 signal order_cancelled
+## The sword swing / whirlwind started (visual effects listen; the hit is a Sim step).
+signal swung(origin: Vector3, yaw: float)
+signal spun(origin: Vector3)
 ## Emitted when a sword hit chops wood off a tree.
 signal wood_gathered(amount: int, at: Vector3)
 
@@ -236,6 +239,7 @@ func apply_attack(origin: Vector3, yaw: float) -> bool:
 	_anim.play(&"attack", 0.05)
 	_anim.speed_scale = 1.0
 	_swing_sound.play()
+	swung.emit(origin, yaw)
 	sim.schedule_in(Sim.ticks(attack_hit_delay), _strike.bind(origin, yaw))
 	return true
 
@@ -253,6 +257,7 @@ func apply_spin(origin: Vector3) -> bool:
 	var tween := create_tween()
 	tween.tween_property(_model, "rotation:y", _model.rotation.y + TAU, spin_duration)
 	_swing_sound.play()
+	spun.emit(origin)
 	if spin_fx:
 		var fx := spin_fx.instantiate() as Node3D
 		add_sibling(fx)

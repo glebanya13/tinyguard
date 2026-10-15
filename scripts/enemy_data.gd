@@ -10,6 +10,8 @@ extends Resource
 @export var reward: int = 3
 ## Lives the castle loses when this enemy reaches it.
 @export var base_damage: int = 1
+## Colour of the puff when it dies (visual effects only).
+@export var fx_color: Color = Color(0.9, 0.4, 0.35)
 @export var health_bar_height: float = 0.8
 @export var health_bar_width: float = 0.6
 @export var is_boss: bool = false
