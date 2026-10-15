@@ -13,6 +13,8 @@ const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
+const DAILY_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
+const ACHIEVEMENTS_ICON: Texture2D = preload("res://ui/icons/crown.png")
 const GOLD := Color(0.98, 0.8, 0.4)
 const DIM_STAR := Color(0.22, 0.24, 0.34, 0.9)
 
@@ -29,6 +31,8 @@ var _account: AccountPanel = null
 var _settings: SettingsPanel = null
 var _sync_label: Label = null
 var _coop_button: Button = null
+var _daily: DailyPanel = null
+var _achievements: AchievementsPanel = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
@@ -55,11 +59,13 @@ func _ready() -> void:
 	LevelCatalog.apply_sound()
 	LevelCatalog.endless = false
 	LevelCatalog.tutorial = false
+	LevelCatalog.daily_key = ""
 	_build_sites()
 	_build_account_ui()
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
 	_build_coop_button()
+	_build_extras()
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_treasury_button.pressed.connect(_open_treasury)
 	$UI/Root/Treasury/Panel/Content/Footer/CloseButton.pressed.connect(_treasury.hide)
@@ -83,7 +89,11 @@ func _process(_delta: float) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if _treasury.visible:
+		if _daily.visible:
+			_daily.close()
+		elif _achievements.visible:
+			_achievements.close()
+		elif _treasury.visible:
 			_treasury.hide()
 		elif _records and _records.visible:
 			_records.hide()
@@ -113,6 +123,47 @@ func _build_coop_button() -> void:
 	var info: Control = $UI/Root/Info
 	info.offset_left = -450.0
 	info.offset_right = 450.0
+
+
+## "Испытание дня" and "Достижения": two buttons at the top left and their panels
+## (scripts/daily_panel.gd, scripts/achievements_panel.gd). Offline they work as well.
+func _build_extras() -> void:
+	var row := HBoxContainer.new()
+	row.name = "Extras"
+	row.add_theme_constant_override("separation", 8)
+	row.position = Vector2(20, 14)
+	_ui_root.add_child(row)
+	_daily = DailyPanel.new()
+	_ui_root.add_child(_daily)
+	_daily.start_requested.connect(_start_daily)
+	_achievements = AchievementsPanel.new()
+	_ui_root.add_child(_achievements)
+	var daily_button := _extra_button(tr("DAILY_BUTTON"), DAILY_ICON, 250)
+	daily_button.name = "DailyButton"
+	daily_button.pressed.connect(_daily.open)
+	row.add_child(daily_button)
+	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, 84)
+	ach_button.name = "AchievementsButton"
+	ach_button.tooltip_text = tr("ACH_BUTTON")
+	ach_button.text = ""
+	ach_button.pressed.connect(_achievements.open)
+	row.add_child(ach_button)
+
+
+func _extra_button(text: String, icon: Texture2D, width: float) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.icon = icon
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(width, 84)
+	button.add_theme_constant_override("icon_max_width", 40)
+	button.theme_type_variation = &"SecondaryButton"
+	return button
+
+
+func _start_daily(day: String) -> void:
+	DailyRun.select(day)
+	get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _open_coop() -> void:

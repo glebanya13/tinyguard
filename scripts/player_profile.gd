@@ -8,7 +8,9 @@ extends RefCounted
 ## Shape (schemaVersion 1):
 ## {schemaVersion, nickname, nicknameNormalized, createdAt, updatedAt (unix s),
 ##  onboardingCompleted, tutorialVersionCompleted,
-##  progression: {unlocked, stars: {"1": 3}, endless: {"1": 23}, perks: {"axe": 1}},
+##  progression: {unlocked, stars: {"1": 3}, endless: {"1": 23}, perks: {"axe": 1},
+##                dailyStars: 2 (bonus stars of the daily challenge)},
+##  achievements: bit mask of unlocked achievements (resources/achievements.json),
 ##  settings: {sound},
 ##  local only: nicknameVerified (reserved on the server), nicknameConflict
 ##  (the server said the name is taken), newer (cloud written by a newer app)}
@@ -22,7 +24,12 @@ const MAX_CLOUD_VALUE := 5000
 ## is treated as having seen (they skip the tutorial).
 const LEGACY_TUTORIAL_VERSION := 1
 const SYNC_KEYS: Array[String] = [
-	"schemaVersion", "onboardingCompleted", "tutorialVersionCompleted", "progression", "settings"
+	"schemaVersion",
+	"onboardingCompleted",
+	"tutorialVersionCompleted",
+	"progression",
+	"settings",
+	"achievements"
 ]
 
 
@@ -37,8 +44,9 @@ static func empty() -> Dictionary:
 		"updatedAt": 0,
 		"onboardingCompleted": false,
 		"tutorialVersionCompleted": 0,
-		"progression": {"unlocked": 1, "stars": {}, "endless": {}, "perks": {}},
+		"progression": {"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 0},
 		"settings": {"sound": true},
+		"achievements": 0,
 	}
 
 
@@ -63,6 +71,8 @@ static func from_save(cfg: ConfigFile) -> Dictionary:
 		for key: String in cfg.get_section_keys("perks"):
 			prog["perks"][key] = maxi(int(cfg.get_value("perks", key, 0)), 0)
 	p["settings"]["sound"] = bool(cfg.get_value("settings", "sound", true))
+	prog["dailyStars"] = clampi(int(cfg.get_value(Daily.SECTION, "bonus_stars", 0)), 0, Daily.max_stars())
+	p["achievements"] = maxi(int(cfg.get_value(SECTION, "achievements", 0)), 0)
 	if not cfg.has_section(SECTION):
 		p["schemaVersion"] = 0
 		p["legacyName"] = str(cfg.get_value("online", "name", ""))
@@ -93,6 +103,9 @@ static func write_to_save(p: Dictionary, cfg: ConfigFile) -> void:
 	for id: String in prog["perks"]:
 		cfg.set_value("perks", id, int(prog["perks"][id]))
 	cfg.set_value("settings", "sound", bool(p["settings"]["sound"]))
+	if int(prog.get("dailyStars", 0)) > 0:
+		cfg.set_value(Daily.SECTION, "bonus_stars", int(prog["dailyStars"]))
+	cfg.set_value(SECTION, "achievements", int(p["achievements"]))
 	cfg.set_value(SECTION, "schema", int(p["schemaVersion"]))
 	cfg.set_value(SECTION, "nickname", str(p["nickname"]))
 	cfg.set_value(SECTION, "nickname_normalized", str(p["nicknameNormalized"]))
@@ -138,6 +151,8 @@ static func merge(local: Dictionary, cloud: Dictionary) -> Dictionary:
 		for id: String in other:
 			merged[id] = maxi(int(merged.get(id, 0)), int(other[id]))
 		prog[key] = merged
+	prog["dailyStars"] = maxi(int(a.get("dailyStars", 0)), int(b.get("dailyStars", 0)))
+	out["achievements"] = int(local.get("achievements", 0)) | int(cloud.get("achievements", 0))
 	var local_spent: int = spent_stars(a["perks"])
 	var cloud_spent: int = spent_stars(b.get("perks", {}))
 	if cloud_spent > local_spent or (cloud_spent == local_spent and cloud_newer):
@@ -204,6 +219,11 @@ static func from_cloud(fields: Dictionary) -> Dictionary:
 	)
 	var out_prog: Dictionary = p["progression"]
 	out_prog["unlocked"] = maxi(int(prog.get("unlocked", 1)), 1)
+	if prog.get("dailyStars") is int:
+		out_prog["dailyStars"] = clampi(int(prog["dailyStars"]), 0, Daily.max_stars())
+	if fields.get("achievements") is int:
+		# Only bits of achievements this app knows (the cloud is not trusted).
+		p["achievements"] = int(fields["achievements"]) & Achievements.known_mask()
 	for key in ["stars", "endless", "perks"]:
 		var source: Variant = prog.get(key, {})
 		if source is Dictionary:

@@ -398,3 +398,68 @@ COOP_END_PROTOCOL_TEXT,"Партнёр прислал непонятные да�
 COOP_END_DENIED,Доступ закрыт,Access denied
 COOP_END_DENIED_TEXT,"Сервер закрыл комнату (время вышло или вход потерян), бой окончен.","The server closed the room (time ran out or the sign-in was lost), the battle is over."
 COOP_END_NOT_SAVED,Звёзды и рекорды за этот матч не записаны.,Stars and records for this match were not saved.
+DAILY_BUTTON,Испытание дня,Daily trial
+DAILY_TITLE,Испытание дня,Daily trial
+DAILY_TODAY,%s · уровень: %s,%s · level: %s
+DAILY_GOAL,Цель: продержаться как можно больше волн. Сегодня одинаково для всех игроков.,Goal: survive as many waves as you can. The same for every player today.
+DAILY_BEST,"Лучший результат: %d волн, %d:%02d","Best result: %d waves, %d:%02d"
+DAILY_NOT_PLAYED,Сегодня ты ещё не играл,You have not played today
+DAILY_STREAK,Дней подряд: %d,Days in a row: %d
+DAILY_BONUS,"Бонус: звезда за %d волн (раз в день), получено %d из %d","Bonus: a star for %d waves (once a day), earned %d of %d"
+DAILY_BOARD,Таблица дня,Today's board
+DAILY_NO_BOARD,Таблица пока пуста или недоступна,The board is empty or unavailable
+DAILY_PLAY,В бой,Play
+DAILY_END_BEST,Новый лучший результат дня!,New best of the day!
+DAILY_END_OVER,Испытание дня окончено,Daily trial over
+DAILY_END_STATS,Пройдено волн: %d · лучший за день: %d,Waves cleared: %d · best of the day: %d
+DAILY_END_STREAK,Дней подряд: %d,Days in a row: %d
+DAILY_END_STAR,Бонусная звезда получена!,Bonus star earned!
+DAILY_MOD_ARCHERS_FROST,Только лучники и мороз,Only archers and frost
+DAILY_MOD_ARCHERS_FROST_DESC,Можно строить только лучников и ледяные башни.,Only archer and frost towers can be built.
+DAILY_MOD_TOUGH_RICH,"Крепкие, но щедрые",Tough but generous
+DAILY_MOD_TOUGH_RICH_DESC,"Враги: здоровье +30%, награда за убийство ×1,5.","Enemies: health +30%, gold per kill ×1.5."
+DAILY_MOD_FAST_WAVES,Быстрые волны,Fast waves
+DAILY_MOD_FAST_WAVES_DESC,Волны идут на 30% чаще.,Waves come faster by 30%.
+DAILY_MOD_CANNONS_ONLY,Пушки и молнии,Cannons and lightning
+DAILY_MOD_CANNONS_ONLY_DESC,Только пушки и башни молний; здоровье врагов −10%.,Only cannon and lightning towers; enemy health −10%.
+DAILY_MOD_SWARM_RUSH,Натиск роя,Swarm rush
+DAILY_MOD_SWARM_RUSH_DESC,"Волны на 20% чаще, враги слабее (−20% здоровья), награда ×1,2.","Waves faster by 20%, weaker enemies (−20% health), gold ×1.2."
+DAILY_MOD_IRON_HIDE,Железная шкура,Iron hide
+DAILY_MOD_IRON_HIDE_DESC,"Без лучников; здоровье врагов +20%, награда ×1,3.","No archers; enemy health +20%, gold ×1.3."
+ONLINE_DAILY_SENT,Результат дня отправлен,Daily result sent
+ACH_TOAST,Достижение!,Achievement!
+ACH_TITLE,Достижения: %d из %d,Achievements: %d of %d
+ACH_EARNED,Получено,Earned
+ACH_BUTTON,Достижения,Achievements
+ACH_FIRST_WIN,Первая победа,First victory
+ACH_FIRST_WIN_DESC,Выиграй любой уровень.,Win any level.
+ACH_CAMPAIGN_DONE,Хозяин королевства,Master of the realm
+ACH_CAMPAIGN_DONE_DESC,Выиграй все 6 уровней.,Win all 6 levels.
+ACH_PERFECT,Без потерь,Flawless
+ACH_PERFECT_DESC,Выиграй уровень на 3 звезды.,Win a level with 3 stars.
+ACH_STAR_COLLECTOR,Собиратель звёзд,Star collector
+ACH_STAR_COLLECTOR_DESC,Собери 10 звёзд.,Earn 10 stars.
+ACH_STAR_MASTER,Мастер звёзд,Star master
+ACH_STAR_MASTER_DESC,Собери 30 звёзд.,Earn 30 stars.
+ACH_HUNTER,Охотник,Hunter
+ACH_HUNTER_DESC,Победи 100 врагов.,Defeat 100 enemies.
+ACH_SLAYER,Истребитель,Slayer
+ACH_SLAYER_DESC,Победи 1500 врагов.,Defeat 1500 enemies.
+ACH_BUILDER,Строитель,Builder
+ACH_BUILDER_DESC,Построй 25 башен.,Build 25 towers.
+ACH_UPGRADER,Мастер улучшений,Upgrade master
+ACH_UPGRADER_DESC,Улучши башни 15 раз.,Upgrade towers 15 times.
+ACH_LUMBERJACK,Дровосек,Lumberjack
+ACH_LUMBERJACK_DESC,Добудь 300 дерева.,Gather 300 wood.
+ACH_SIEGE_10,Стойкий,Stalwart
+ACH_SIEGE_10_DESC,Продержись 10 волн в бесконечной осаде.,Hold out 10 waves in the endless siege.
+ACH_SIEGE_30,Несокрушимый,Unbreakable
+ACH_SIEGE_30_DESC,Продержись 30 волн в бесконечной осаде.,Hold out 30 waves in the endless siege.
+ACH_DAILY_FIRST,Испытатель,Challenger
+ACH_DAILY_FIRST_DESC,Сыграй в испытание дня.,Play a daily trial.
+ACH_DAILY_STREAK_3,Три дня подряд,Three days in a row
+ACH_DAILY_STREAK_3_DESC,Играй в испытание дня 3 дня подряд.,Play the daily trial 3 days in a row.
+ACH_DAILY_WAVE_15,Герой дня,Hero of the day
+ACH_DAILY_WAVE_15_DESC,Продержись 15 волн в испытании дня.,Survive 15 waves in a daily trial.
+ACH_PERK_BUYER,Первое усиление,First upgrade
+ACH_PERK_BUYER_DESC,Купи любое усиление в казне.,Buy any perk in the treasury.

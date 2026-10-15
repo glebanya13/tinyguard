@@ -29,6 +29,8 @@ signal enemy_reached_base(damage: int)
 var sim: Sim = null
 
 var current_wave: int = 0
+## Daily challenge: multiplies the gold of every kill (1 = the level's own rewards).
+var reward_scale: float = 1.0
 var plan: WavePlan = null
 ## Every route from a portal to the castle (set by the level).
 var enemy_paths: Array[Path3D] = []
@@ -213,6 +215,8 @@ func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
 		enemy.elite = true
 		enemy.elite_scale = float(entry["scale"])
 		enemy.reward = roundi(enemy.reward * float(entry["reward_mult"]))
+	if reward_scale != 1.0:
+		enemy.reward = roundi(enemy.reward * reward_scale)
 	enemy.wave = wave
 	enemy.crowd = crowd
 	enemy.sim = sim

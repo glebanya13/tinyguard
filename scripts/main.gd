@@ -84,6 +84,9 @@ var _guide_wait: int = 0
 var _guide_done: bool = false
 var _paused: bool = false
 var _endless: bool = false
+## Date of the daily challenge being played ("" = a normal battle).
+var _daily_key: String = ""
+var _tracker: AchievementTracker = null
 var _waves_cleared: int = 0
 ## Battle summary for the end screen.
 var _stats := {"kills": 0, "gold": 0, "wood": 0, "towers": 0, "time": 0.0}
@@ -142,11 +145,15 @@ func _ready() -> void:
 	add_child(_commands)
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
 	_build_level()
-	_endless = LevelCatalog.endless and not _coop_on()
+	_daily_key = LevelCatalog.daily_key if not _coop_on() else ""
+	_endless = (LevelCatalog.endless or _daily_key != "") and not _coop_on()
 	_apply_perks(_current_perks())
 	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
 	_wave_manager.sim = _sim
 	_build_manager.sim = _sim
+	if _daily_key != "":
+		_sim.set_seed(DailyRun.seed_of(_daily_key))
+		DailyRun.apply(_daily_key, _wave_manager.plan, _wave_manager, _build_manager)
 	_hero.sim = _sim
 	_hero.commands = _commands
 	_commands.game_state = _game_state
@@ -222,7 +229,8 @@ func _ready() -> void:
 	_hud.add_child(_lane_hint)
 	_refresh_card()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
-	if _endless:
+	_start_tracker()
+	if _endless and _daily_key == "":
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
 	_hud.show_banner(
 		tr("WAVE_FIRST_IN") % LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
@@ -304,6 +312,8 @@ func _journal_header() -> Dictionary:
 		"seed": _sim.seed_value,
 		"perks": _current_perks(),
 	}
+	if _daily_key != "":
+		header["daily"] = _daily_key
 	if _coop_on():
 		header["coop"] = 1
 		header["delay"] = int(coop_config["delay"])
@@ -336,6 +346,8 @@ func _apply_perks(perks: Dictionary) -> void:
 
 func _on_replay_begun(header: Dictionary) -> void:
 	_apply_perks(header.get("perks", {}))
+	if header.has("daily"):
+		DailyRun.apply(str(header["daily"]), _wave_manager.plan, _wave_manager, _build_manager)
 
 
 ## Playable area of the map (metres), for validating hero commands.
@@ -983,6 +995,9 @@ func _on_defeated() -> void:
 		return
 	_wave_manager.stop()
 	_defeat_sound.play()
+	if _daily_key != "":
+		_end_daily()
+		return
 	if _endless:
 		var id: int = int(level["id"])
 		var old_record: int = LevelCatalog.endless_record(id)
@@ -1004,6 +1019,32 @@ func _on_defeated() -> void:
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
 	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
 	_end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
+
+
+## Daily challenge over: files the result, shows the day's summary.
+func _end_daily() -> void:
+	var result: Dictionary = DailyRun.finish(
+		_daily_key, _waves_cleared, _sim.tick, _commands.journal
+	)
+	var title: String = tr("DAILY_END_BEST") if result["new_best"] else tr("DAILY_END_OVER")
+	var line: String = tr("DAILY_END_STATS") % [_waves_cleared, Daily.best_wave(_daily_key)]
+	line += "\n" + tr("DAILY_END_STREAK") % result["streak"]
+	if result["star"]:
+		line += "\n" + tr("DAILY_END_STAR")
+	_end_game(title, bool(result["new_best"]), 0, line + "\n")
+
+
+## Achievement counters and the "Achievement!" toast (not in co-op).
+func _start_tracker() -> void:
+	if _coop_on() or LevelCatalog.tutorial:
+		return
+	_tracker = AchievementTracker.new()
+	_tracker.name = "AchievementTracker"
+	add_child(_tracker)
+	_tracker.attach(_wave_manager, _build_manager, _game_state, _hero)
+	_tracker.unlocked.connect(
+		func(def: Dictionary) -> void: _hud.show_toast(tr("ACH_TOAST"), tr(str(def["key"])))
+	)
 
 
 func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:

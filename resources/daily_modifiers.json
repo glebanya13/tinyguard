@@ -1,0 +1,16 @@
+{
+	"_comment": "Daily challenge data (scripts/daily.gd). The level and the preset of a UTC day come from its date: level = levels[hash(date) % size], preset = presets[day_index % size]. Add presets at the END only (reordering changes past days). towers: build whitelist by resource name (empty = all). Multipliers: hp_mult on enemy health, reward_mult on gold per kill, wave_duration_mult on the wave clock.",
+	"levels": [1, 2, 3, 4, 5, 6],
+	"reward": {
+		"star_wave": 10,
+		"max_stars": 10
+	},
+	"presets": [
+		{"id": "archers_frost", "key": "DAILY_MOD_ARCHERS_FROST", "towers": ["archer", "frost"], "hp_mult": 1.0, "reward_mult": 1.0, "wave_duration_mult": 1.0},
+		{"id": "tough_rich", "key": "DAILY_MOD_TOUGH_RICH", "towers": [], "hp_mult": 1.3, "reward_mult": 1.5, "wave_duration_mult": 1.0},
+		{"id": "fast_waves", "key": "DAILY_MOD_FAST_WAVES", "towers": [], "hp_mult": 1.0, "reward_mult": 1.0, "wave_duration_mult": 0.7},
+		{"id": "cannons_only", "key": "DAILY_MOD_CANNONS_ONLY", "towers": ["cannon", "lightning"], "hp_mult": 0.9, "reward_mult": 1.0, "wave_duration_mult": 1.0},
+		{"id": "swarm_rush", "key": "DAILY_MOD_SWARM_RUSH", "towers": [], "hp_mult": 0.8, "reward_mult": 1.2, "wave_duration_mult": 0.8},
+		{"id": "iron_hide", "key": "DAILY_MOD_IRON_HIDE", "towers": ["cannon", "frost", "lightning"], "hp_mult": 1.2, "reward_mult": 1.3, "wave_duration_mult": 1.0}
+	]
+}
