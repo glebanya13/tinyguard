@@ -66,3 +66,6 @@ node_modules
 website/node_modules
 website/dist
 website/dist-ssr
+
+# Firebase CLI cache
+/.firebase/
