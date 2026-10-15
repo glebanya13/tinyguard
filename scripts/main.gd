@@ -1,64 +1,26 @@
-# gdlint:disable=max-file-lines
 extends Node3D
-## Root of a level: builds the selected level from resources/levels.json
-## (terrain, castle, portals and paths, slots, trees, hero spot), wires the game
-## systems together through their signals and turns the hero's command card
-## into orders (walk to the slot, then build).
+## Root of a level: wires the game systems together through their signals. The work
+## is split by responsibility: LevelBuilder (terrain, paths, slots, trees),
+## CardController (the hero's command card, trade, taps), GuideHints (hints, arrow,
+## tutorial hook), BattleEnd (statistics, victory / defeat) and CoopHooks (co-op match).
 
-enum GuideStep { NONE, CHOP, GOLD, BUILD }
-
-const DEFEAT_TIPS: Array[String] = [
-	"TIP_FROST", "TIP_SWORD", "TIP_STARS", "TIP_WOOD", "TIP_LOOP", "TIP_LANES"
-]
-
+const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 ## Perks recorded in the journal header and applied by a replay.
 const PERK_KEYS: Array[StringName] = [
 	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls"
 ]
-const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
-const TUTORIAL_SCENE := preload("res://scenes/tutorial.tscn")
-const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
-const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
-const CASTLE_SCENE: PackedScene = preload("res://assets/models/castle.glb")
-const PORTAL_SCENE: PackedScene = preload("res://assets/models/spawn_portal.glb")
-const NO_SHADOW := preload("res://scripts/no_shadow.gd")
 const BUILD_FX := preload("res://scenes/fx/build_fx.tscn")
 const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
-const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
-const SELL_ICON: Texture2D = preload("res://ui/icons/sell.png")
-const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
-const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
-const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
-const TARGET_ICON: Texture2D = preload("res://ui/icons/flag.png")
-const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
 const RING_ENEMY_COLOR := Color(1.0, 0.38, 0.32, 0.85)
-## A tap this close to a tree sends the hero to chop it.
-const TREE_TAP_REACH := 1.0
-## Hints are shown until this many towers stand on the map.
-const HINT_TOWERS := 2
 const GOLD_COLOR := Color(1.0, 0.85, 0.35)
 const WOOD_COLOR := Color(0.85, 0.65, 0.42)
-## The hero builds when this close to a slot centre (metres).
-const BUILD_REACH := 1.25
-## Walking this close to a slot selects it automatically.
-const AUTO_SELECT_REACH := 1.1
-## Height of the path curve above the ground.
-const PATH_HEIGHT := 0.05
-## Camera look-at area is the level bounds shrunk by this margin.
-const CAMERA_MARGIN := 4.0
-## The guide arrow looks for a new target this often (it scans groups).
-const GUIDE_REFRESH_FRAMES := 12
 ## Physics layers that block walking: level colliders (1) and trees (3).
 const WALK_OBSTACLE_MASK := 1 | 4
 ## Radius a built tower blocks on the walk grid.
 const TOWER_BLOCK_RADIUS := 0.6
-## A tap this close to a villager sends the hero to trade with it.
-const VILLAGER_TAP_REACH := 1.0
-## The trade card stays open until the hero is this much further than the trade reach.
-const TRADE_KEEP_SLACK := 0.6
 
 var level: Dictionary = {}
 ## Co-op match (docs/MULTIPLAYER.md): empty in single player. Set before the node
@@ -69,6 +31,11 @@ var coop_lobby: CoopLobby = null
 var coop: CoopBattle = null
 var walk_grid := WalkGrid.new()
 var villagers := Villagers.new()
+## Responsibilities split out of this scene (see the header).
+var builder := LevelBuilder.new()
+var cards := CardController.new()
+var guide := GuideHints.new()
+var battle_end := BattleEnd.new()
 
 ## Battle simulation (fixed-step clock, entity registry) and the single entry
 ## for player actions (journal of the battle).
@@ -78,31 +45,10 @@ var _commands: GameCommands = null
 var _focused_tree: WoodTree = null
 ## What the hero's next swing hits, computed once per frame.
 var _focus: Node3D = null
-var _guide_target: Node3D = null
-var _pending_slot: TowerSlot = null
-var _guide_wait: int = 0
-var _guide_done: bool = false
 var _paused: bool = false
 var _endless: bool = false
-var _waves_cleared: int = 0
-## Battle summary for the end screen.
-var _stats := {"kills": 0, "gold": 0, "wood": 0, "towers": 0, "time": 0.0}
-var _forge_open: bool = false
-var _castle: Node3D = null
-var _ended: bool = false
-## Onboarding tutorial overlay (only on its level in tutorial mode).
-var _tutorial: Tutorial = null
 var _coop_menu_open: bool = false
-
-## Command to run when the hero reaches the selected slot, or &"".
-var _pending_command: StringName = &""
-## Villager whose trade card is open, one the player closed it for (until the
-## hero walks away), and whether the hero walks to it after a tap.
-var _trade_with: Villager = null
-var _trade_dismissed: Villager = null
-var _trade_walking: bool = false
-## Portals in path order (pulse when a wave comes out of them).
-var _portals: Array[Node3D] = []
+var _coop_hooks := CoopHooks.new()
 var _lane_hint: LaneHint = null
 ## "С севера!" for the wave that is starting.
 var _wave_direction: String = ""
@@ -141,7 +87,7 @@ func _ready() -> void:
 	_commands.sim = _sim
 	add_child(_commands)
 	level = LevelCatalog.get_level(LevelCatalog.selected_id)
-	_build_level()
+	builder.build(level, _level_root, _enemy_path, _wave_manager, _commands, _sim, _hero, _camera)
 	_endless = LevelCatalog.endless and not _coop_on()
 	_apply_perks(_current_perks())
 	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
@@ -159,38 +105,63 @@ func _ready() -> void:
 	_sim.hero = _hero
 	_sim.villagers = villagers
 	_commands.journal.header = _journal_header()
-	_commands.set_hero_limits(_hero.global_position, _map_rect())
-	if _coop_on():
-		_setup_coop()
-	_wave_manager.wave_cleared.connect(
-		func(wave: int) -> void: _waves_cleared = maxi(_waves_cleared, wave)
+	_commands.set_hero_limits(_hero.global_position, LevelBuilder.map_rect(level))
+	battle_end.setup(
+		get_tree(),
+		level,
+		_endless,
+		_game_state,
+		_wave_manager,
+		_build_manager,
+		_hero,
+		_hud,
+		_victory_sound,
+		_defeat_sound
 	)
+	if _coop_on():
+		coop = _coop_hooks.attach(
+			self,
+			coop_config,
+			coop_transport if coop_transport != null else CoopRun.transport(),
+			coop_lobby,
+			_sim,
+			_commands,
+			_hero,
+			_level_root,
+			_hud,
+			battle_end
+		)
 
 	_game_state.gold_changed.connect(_on_resources_changed.unbind(1))
 	_game_state.wood_changed.connect(_on_resources_changed.unbind(1))
 	_game_state.lives_changed.connect(_hud.set_lives)
-	_game_state.defeated.connect(_on_defeated)
 
 	_wave_manager.enemy_killed.connect(_game_state.add_gold)
-	_wave_manager.enemy_killed.connect(_count_kill)
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
 	_wave_manager.wave_lanes.connect(_on_wave_lanes)
 	_wave_manager.wave_started.connect(_on_wave_started)
-	# Deferred: the last enemy may leak in the same emission chain (it still has to
-	# take its lives), so the stars are counted after the lives are final.
-	_wave_manager.all_waves_cleared.connect(_on_all_waves_cleared, CONNECT_DEFERRED)
 
-	_build_manager.slot_selected.connect(_on_slot_selected)
-	_build_manager.selection_cleared.connect(_refresh_card)
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
-	_build_manager.ground_tapped.connect(_on_ground_tapped)
+	_build_manager.tower_sold.connect(_on_tower_sold)
 	_commands.applied.connect(_on_command_applied)
 	_sim.pause_changed.connect(_on_pause_changed)
 	_sim.speed_changed.connect(_on_speed_changed)
 	_sim.replay_begun.connect(_on_replay_begun)
 
-	_hud.command_pressed.connect(_on_command_pressed)
+	guide.setup(_guide_arrow, _game_state, _build_manager, _commands, _sim, _hero)
+	cards.setup(
+		_hero,
+		_hud,
+		_build_manager,
+		_commands,
+		villagers,
+		_game_state,
+		_sim,
+		_range_ring,
+		guide.hint_text
+	)
+	_hud.command_pressed.connect(cards.on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
 	_hud.spin_pressed.connect(_hero.try_spin)
 	_hud.restart_pressed.connect(_on_restart_pressed)
@@ -198,12 +169,8 @@ func _ready() -> void:
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
-	_hud.forge_pressed.connect(_toggle_forge)
-	_build_manager.tower_sold.connect(_on_tower_sold)
-	_game_state.lives_changed.connect(_refresh_card.unbind(1))
+	_hud.forge_pressed.connect(cards.toggle_forge)
 	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
-	_hero.order_cancelled.connect(_on_hero_order_ended)
-	_hero.order_finished.connect(_on_hero_order_ended)
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	if coop != null:
 		coop.ghost.wood_gathered.connect(_on_wood_gathered)
@@ -220,7 +187,7 @@ func _ready() -> void:
 	_lane_hint = LaneHint.new()
 	_lane_hint.camera = _camera
 	_hud.add_child(_lane_hint)
-	_refresh_card()
+	cards.refresh()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	if _endless:
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
@@ -242,18 +209,27 @@ func _notification(what: int) -> void:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			# Android back button: pause menu (and back out of it); on the end screen
 			# it works like "To the map".
-			if _ended:
+			if battle_end.ended:
 				_on_map_pressed()
 			else:
 				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Phone call, home button: never let waves run unattended.
-			if OS.has_feature("mobile") and not _paused and not _ended and not _coop_on():
+			if OS.has_feature("mobile") and not _paused and not battle_end.ended and not _coop_on():
 				_toggle_pause()
 
 
+func _process(delta: float) -> void:
+	battle_end.add_time(delta)
+	cards.update()
+	_focus = _hero.get_focus_target()
+	_update_target_ring()
+	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
+	guide.update_arrow(_focus, _build_manager.selected_slot == null and not cards.forge_open)
+
+
 func _toggle_pause() -> void:
-	if _ended:
+	if battle_end.ended:
 		return
 	if _coop_on():
 		# The battle is shared: nobody can stop it. The menu only covers the screen.
@@ -268,7 +244,7 @@ func _toggle_pause() -> void:
 
 ## The pause command was applied: stop / resume the whole tree.
 func _on_pause_changed(on: bool) -> void:
-	if _ended:
+	if battle_end.ended:
 		return
 	_paused = on
 	get_tree().paused = _paused
@@ -338,12 +314,6 @@ func _on_replay_begun(header: Dictionary) -> void:
 	_apply_perks(header.get("perks", {}))
 
 
-## Playable area of the map (metres), for validating hero commands.
-func _map_rect() -> Rect2:
-	var b: Array = level["bounds"]
-	return Rect2(b[0], b[1], b[2], b[3])
-
-
 ## UI reaction to an executed command: effects of the forge, a fresh card.
 func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 	if not ok:
@@ -351,32 +321,10 @@ func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 	match cmd.type:
 		GameCommand.Type.SWORD:
 			_spawn_fx(UPGRADE_FX, _knight_of(cmd.player).global_position)
-			_refresh_card()
+			cards.refresh()
 		GameCommand.Type.REPAIR:
-			_spawn_fx(BUILD_FX, _castle.global_position)
-			_refresh_card()
-
-
-func _count_kill(reward: int) -> void:
-	_stats["kills"] += 1
-	_stats["gold"] += reward
-
-
-func _stats_summary() -> String:
-	var t: int = int(_stats["time"])
-	var line_1 := tr("END_STATS_1") % [_stats["kills"], _stats["gold"]]
-	var line_2 := tr("END_STATS_2") % [_stats["wood"], _stats["towers"], floori(t / 60.0), t % 60]
-	return line_1 + "\n" + line_2
-
-
-func _process(delta: float) -> void:
-	_stats["time"] += delta / Engine.time_scale  # real seconds, also at x2
-	_auto_select_near_hero()
-	_update_trade()
-	_focus = _hero.get_focus_target()
-	_update_target_ring()
-	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
-	_update_guide_arrow()
+			_spawn_fx(BUILD_FX, builder.castle.global_position)
+			cards.refresh()
 
 
 ## Ring under whatever the next swing hits; the attack button shows an axe
@@ -403,350 +351,27 @@ func _update_target_ring() -> void:
 	_ring_material.albedo_color = RING_TREE_COLOR if is_tree else RING_ENEMY_COLOR
 
 
-func _build_level() -> void:
-	var id: int = int(level["id"])
-	for part in ["terrain", "decor", "forest"]:
-		var scene: PackedScene = load("res://assets/models/level_%d_%s.glb" % [id, part])
-		var node: Node3D = scene.instantiate()
-		# Ground, small props and the far forest cast no shadows (half the triangles
-		# of the frame otherwise go to the shadow pass); trees and towers still do.
-		node.set_script(NO_SHADOW)
-		_level_root.add_child(node)
-		if part == "decor":
-			_plant_trees(node)
-
-	# One Path3D per entry: the scene's EnemyPath for the first, siblings for the rest.
-	var paths: Array[Path3D] = []
-	for route: PackedVector2Array in LevelCatalog.routes(level):
-		var path3d: Path3D = _enemy_path
-		if not paths.is_empty():
-			path3d = Path3D.new()
-			path3d.name = "EnemyPath%d" % (paths.size() + 1)
-			_level_root.add_child(path3d)
-		var curve := Curve3D.new()
-		for point: Vector2 in route:
-			curve.add_point(Vector3(point.x, PATH_HEIGHT, point.y))
-		path3d.curve = curve
-		paths.append(path3d)
-
-		var first_dir: Vector3 = Vector3(route[1].x - route[0].x, 0.0, route[1].y - route[0].y)
-		var portal: Node3D = PORTAL_SCENE.instantiate()
-		portal.position = Vector3(route[0].x, 0.0, route[0].y)
-		portal.rotation.y = atan2(first_dir.x, first_dir.z)
-		_level_root.add_child(portal)
-		_portals.append(portal)
-	_wave_manager.enemy_paths = paths
-
-	_wave_manager.build_air_paths(LevelCatalog.air_routes(level), _level_root, PATH_HEIGHT)
-
-	var path: Array = level["paths"][0]
-	var last_dir: Vector3 = (_ground(path[-1]) - _ground(path[-2])).normalized()
-	var castle: Node3D = CASTLE_SCENE.instantiate()
-	_castle = castle
-	castle.position = _ground(level["castle"])
-	castle.rotation.y = atan2(-last_dir.x, -last_dir.z)
-	_level_root.add_child(castle)
-
-	for point: Array in level["slots"]:
-		var slot := SLOT_SCENE.instantiate() as TowerSlot
-		slot.slot_id = _commands.slots.size()
-		_commands.slots.append(slot)
-		slot.position = _ground(point, PATH_HEIGHT)
-		_level_root.add_child(slot)
-
-	_hero.position = _ground(level["hero"])
-	var b: Array = level["bounds"]
-	_camera.bounds = Rect2(b[0], b[1], b[2], b[3]).grow(-CAMERA_MARGIN)
-	_camera.snap()
-
-
-## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees.
-## Standing trees are drawn by one Grove (MultiMesh) to save draw calls.
-func _plant_trees(decor: Node3D) -> void:
-	var grove := Grove.new()
-	grove.name = "Grove"
-	_level_root.add_child(grove)
-	var trees: Array[WoodTree] = []
-	for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
-		var spot := marker as Node3D
-		var tree := TREE_SCENE.instantiate() as WoodTree
-		var kind: String = String(spot.name).get_slice("_", 1)
-		var biome: String = level.get("biome", "meadow")
-		tree.variant = StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
-		tree.model_scale = spot.scale.x
-		tree.grove = grove
-		tree.sim = _sim
-		tree.position = spot.global_position
-		_level_root.add_child(tree)
-		trees.append(tree)
-		spot.queue_free()
-	grove.build(trees)
-
-
 ## Needs the level's bodies in the physics space: runs after a physics frame.
 func _build_walk_grid() -> void:
 	await get_tree().physics_frame
-	var b: Array = level["bounds"]
 	walk_grid.build(
-		get_world_3d().direct_space_state, Rect2(b[0], b[1], b[2], b[3]), WALK_OBSTACLE_MASK
+		get_world_3d().direct_space_state, LevelBuilder.map_rect(level), WALK_OBSTACLE_MASK
 	)
 	_hero.walk_grid = walk_grid
 	var slots := PackedVector3Array()
 	for point: Array in level["slots"]:
-		slots.append(_ground(point))
+		slots.append(LevelBuilder.ground(point))
 	villagers.spawn(
 		walk_grid,
 		_wave_manager.get_paths(),
-		_ground(level["castle"]),
-		_ground(level["hero"]),
+		LevelBuilder.ground(level["castle"]),
+		LevelBuilder.ground(level["hero"]),
 		slots
 	)
 	_sim.start()  # the level is complete: the battle clock may run
 
 
-func _ground(point: Array, height: float = 0.0) -> Vector3:
-	return Vector3(float(point[0]), height, float(point[1]))
-
-
-func _tower_types() -> Array[TowerData]:
-	return _build_manager.tower_types
-
-
-## Command card action: the hero walks to the selected slot and acts there.
-func _on_command_pressed(id: StringName) -> void:
-	if id == &"trade_lot" or id == &"trade_all":
-		var lots: int = 1 if id == &"trade_lot" else villagers.lots_affordable()
-		if lots > 0:
-			_commands.submit(GameCommand.trade(lots))
-		_refresh_card()
-		return
-	if id == &"cancel":
-		_trade_dismissed = _trade_with
-		_set_trade(null)
-		_forge_open = false
-		_hero.cancel_order()
-		_build_manager.clear_selection()
-		_refresh_card()
-		return
-	if id == &"sword":
-		_commands.submit(GameCommand.sword())
-		return
-	if id == &"repair":
-		_commands.submit(GameCommand.repair())
-		return
-	if id == &"sell" or id == &"priority":
-		var chosen: TowerSlot = _build_manager.selected_slot
-		if chosen != null and id == &"sell":
-			_commands.submit(GameCommand.sell(chosen.slot_id))
-		elif chosen != null and chosen.tower != null:
-			var next: int = (chosen.tower.priority + 1) % TowerData.Priority.size()
-			_commands.submit(GameCommand.set_priority(chosen.slot_id, next))
-		_refresh_card()
-		return
-	var slot: TowerSlot = _build_manager.selected_slot
-	if slot == null or not _command_available(id, slot):
-		return
-	if _hero.is_near(slot.global_position, BUILD_REACH):
-		_execute(id, slot)
-	else:
-		_hero.move_to(slot.global_position, BUILD_REACH, _execute.bind(id, slot))
-		_pending_command = id
-		_pending_slot = slot
-		_refresh_card()
-
-
-func _execute(id: StringName, slot: TowerSlot) -> void:
-	if id == &"upgrade":
-		_commands.submit(GameCommand.upgrade(slot.slot_id))
-	else:
-		_commands.submit(GameCommand.build(slot.slot_id, _tower_index(id)))
-	_refresh_card()
-
-
-func _tower_index(id: StringName) -> int:
-	return int(String(id).trim_prefix("build_"))
-
-
-func _tower_for(id: StringName) -> TowerData:
-	return _tower_types()[_tower_index(id)]
-
-
-func _command_available(id: StringName, slot: TowerSlot) -> bool:
-	if id == &"upgrade":
-		return _build_manager.can_upgrade(slot)
-	return _build_manager.can_build(slot, _tower_for(id))
-
-
-func _auto_select_near_hero() -> void:
-	# Walking (keys, joystick or a tap on the ground) selects the slot the hero
-	# reaches; a pending build/upgrade command keeps its own target.
-	if _hero.velocity.length() < 0.1 or _pending_command != &"":
-		return
-	var nearest: TowerSlot = null
-	var best: float = AUTO_SELECT_REACH
-	for slot in _commands.slots:
-		var offset: Vector3 = slot.global_position - _hero.global_position
-		offset.y = 0.0
-		if offset.length() < best:
-			best = offset.length()
-			nearest = slot
-	if nearest != null and nearest != _build_manager.selected_slot:
-		_build_manager.select_slot(nearest)
-
-
-func _refresh_card() -> void:
-	var slot: TowerSlot = _build_manager.selected_slot
-	var info := {}
-	var buttons: Array[Dictionary] = []
-	if slot == null:
-		_range_ring.hide()
-	if slot == null and _forge_open:
-		_hud.show_hint("")
-		_hud.update_card(CommandCards.forge(_hero, _game_state))
-		return
-	if slot == null and _trade_with != null:
-		_hud.show_hint("")
-		_hud.update_card(CommandCards.trade(villagers, _game_state))
-		return
-	if slot == null:
-		_hud.show_hint(_hint_text())
-		_hud.update_card({})
-		return
-	_forge_open = false
-	_hud.show_hint("")
-	if slot.is_free():
-		info["title"] = tr("CARD_PLOT")
-		var names: PackedStringArray = []
-		for data: TowerData in _tower_types():
-			names.append(tr(data.display_name))
-		info["stats"] = " · ".join(names)
-		var short := true
-		for i in _tower_types().size():
-			var data: TowerData = _tower_types()[i]
-			var ok: bool = _build_manager.can_build(slot, data)
-			short = short and not ok
-			(
-				buttons
-				. append(
-					{
-						"id": StringName("build_%d" % i),
-						"icon": data.icon,
-						"gold": data.cost_gold,
-						"wood": data.cost_wood,
-						"enabled": ok,
-						"tooltip":
-						(
-							tr("CARD_TOWER_TIP")
-							% [tr(data.display_name), i + 1, tr(data.role), data.stats_text(0)]
-						),
-					}
-				)
-			)
-		info["hint"] = tr("CARD_NEED_BOTH") if short else ""
-	else:
-		var data: TowerData = slot.tower.data
-		var level_index: int = slot.tower.level
-		var cost: Vector2i = data.upgrade_cost(level_index)
-		info["title"] = (
-			tr("CARD_TOWER_TITLE") % [tr(data.display_name), level_index + 1, data.max_level() + 1]
-		)
-		info["stats"] = data.stats_text(level_index)
-		var upgrade := {
-			"id": &"upgrade",
-			"icon": UPGRADE_ICON,
-			"enabled": _build_manager.can_upgrade(slot),
-			"tooltip": tr("CARD_UPGRADE_TIP")
-		}
-		if cost.x < 0:
-			upgrade["label"] = tr("CARD_MAX")
-		else:
-			upgrade["gold"] = cost.x
-			upgrade["wood"] = cost.y
-			upgrade["tooltip"] = tr("CARD_UPGRADE_TIP_NEXT") % data.stats_text(level_index + 1)
-			if not upgrade["enabled"]:
-				info["hint"] = tr("CARD_NEED_BOTH")
-		buttons.append(upgrade)
-		var tip: String = TowerData.priority_tooltip(slot.tower.priority)
-		var label: String = TowerData.priority_name(slot.tower.priority)
-		var spec := {"id": &"priority", "icon": TARGET_ICON, "label": label, "tooltip": tip}
-		spec["enabled"] = true
-		buttons.append(spec)
-		var refund: Vector2i = data.sell_value(level_index)
-		buttons.append(
-			{
-				"id": &"sell",
-				"icon": COIN_ICON,
-				"gold": refund.x,
-				"wood": refund.y,
-				"gain": true,
-				"enabled": true,
-				"tooltip": tr("CARD_SELL_TIP") % roundi(TowerData.SELL_REFUND * 100.0)
-			}
-		)
-	if slot != null:
-		buttons.append(
-			{
-				"id": &"cancel",
-				"icon": CANCEL_ICON,
-				"label": "Esc",
-				"enabled": true,
-				"tooltip": tr("CARD_DESELECT_TIP")
-			}
-		)
-	if _pending_command != &"":
-		info["hint"] = tr("CARD_KNIGHT_WALKS")
-	_show_range(slot)
-	info["buttons"] = buttons
-	_hud.update_card(info)
-
-
-## Attack radius of the tower on `slot` (for a free slot: what a new tower reaches).
-func _show_range(slot: TowerSlot) -> void:
-	_range_ring.visible = slot != null
-	if _range_ring.visible:
-		# A free slot previews the reach of the first tower type at level 1.
-		var r: float = slot.tower.range_m if slot.tower else _tower_types()[0].range_levels[0]
-		_range_ring.global_position = Vector3(slot.global_position.x, 0.07, slot.global_position.z)
-		_range_ring.scale = Vector3(r, 1.0, r)
-
-
-## Opens the trade card when the hero comes up to a villager and closes it
-## when he walks away (unless he is still on his way after a tap).
-func _update_trade() -> void:
-	var near: Villager = villagers.nearest(_hero.global_position, villagers.trade_reach)
-	if near != _trade_dismissed:
-		_trade_dismissed = null
-	if (
-		_trade_with != null
-		and (
-			_trade_walking
-			or _hero.is_near(_trade_with.global_position, villagers.trade_reach + TRADE_KEEP_SLACK)
-		)
-	):
-		return
-	_set_trade(null if near == _trade_dismissed else near)
-
-
-func _set_trade(villager: Villager) -> void:
-	if villager == _trade_with:
-		return
-	if _trade_with != null:
-		_trade_with.talk_to(null)
-	_trade_with = villager
-	if villager != null:
-		villager.talk_to(_hero)
-	_refresh_card()
-
-
-func _toggle_forge() -> void:
-	_forge_open = not _forge_open
-	if _forge_open:
-		_build_manager.clear_selection()
-	_refresh_card()
-
-
-## Tutorial mode: the Tutorial node (its own overlay) replaces the built-in
-## hints and guide arrow; it only observes the systems passed to it.
+## Tutorial mode: only on its level, never in co-op or the siege.
 func _start_tutorial() -> void:
 	if (
 		_coop_on()
@@ -755,94 +380,8 @@ func _start_tutorial() -> void:
 		or int(level["id"]) != Onboarding.TUTORIAL_LEVEL
 	):
 		return
-	_tutorial = TUTORIAL_SCENE.instantiate()
-	add_child(_tutorial)
-	_tutorial.setup(_game_state, _wave_manager, _build_manager, _hero, _camera, _hud)
-	_guide_done = true
-	_refresh_card()
-
-
-## Step-by-step hint for new players while nothing is selected.
-func _hint_text() -> String:
-	if _tutorial != null:
-		return ""
-	match _guide_step():
-		GuideStep.CHOP:
-			return tr("GUIDE_CHOP")
-		GuideStep.GOLD:
-			return tr("GUIDE_GOLD")
-		GuideStep.BUILD:
-			return tr("GUIDE_BUILD")
-	return ""
-
-
-## What a new player should do next (until HINT_TOWERS towers stand).
-func _guide_step() -> GuideStep:
-	var towers: int = 0
-	for node: Node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
-		if not (node as TowerSlot).is_free():
-			towers += 1
-	if towers >= HINT_TOWERS:
-		return GuideStep.NONE
-	var cheapest: TowerData = _tower_types()[0]
-	if _game_state.wood < cheapest.cost_wood:
-		return GuideStep.CHOP
-	if _game_state.gold < cheapest.cost_gold:
-		return GuideStep.GOLD
-	return GuideStep.BUILD
-
-
-## Bouncing arrow over the next thing to do: a tree, a slime, a free slot.
-func _update_guide_arrow() -> void:
-	var target: Node3D = null
-	_guide_wait -= 1
-	if _guide_done or _guide_wait > 0:
-		if _guide_done:
-			_guide_arrow.hide()
-		elif _guide_target and is_instance_valid(_guide_target) and _guide_target.is_inside_tree():
-			_place_guide_arrow(_guide_target)
-		else:
-			_guide_arrow.hide()
-		return
-	_guide_wait = GUIDE_REFRESH_FRAMES
-	if _guide_step() == GuideStep.NONE:
-		_guide_done = true  # hints end for good once the first towers stand
-	if _build_manager.selected_slot == null and not _forge_open:
-		match _guide_step():
-			GuideStep.CHOP:
-				target = _nearest_in_group(
-					WoodTree.GROUP, func(n: Node) -> bool: return (n as WoodTree).is_choppable()
-				)
-			GuideStep.GOLD:
-				target = _nearest_in_group(
-					Enemy.GROUP, func(n: Node) -> bool: return (n as Enemy).is_alive()
-				)
-			GuideStep.BUILD:
-				target = _nearest_in_group(
-					TowerSlot.GROUP, func(n: Node) -> bool: return (n as TowerSlot).is_free()
-				)
-	_guide_target = target
-	_place_guide_arrow(target)
-
-
-func _place_guide_arrow(target: Node3D) -> void:
-	_guide_arrow.visible = target != null and target != _focus
-	if _guide_arrow.visible:
-		var bob: float = 0.18 * sin(Time.get_ticks_msec() * 0.006)
-		var height: float = 2.6 if target is WoodTree else 1.0
-		_guide_arrow.global_position = target.global_position + Vector3(0.0, height + bob, 0.0)
-		_guide_arrow.rotation.y = Time.get_ticks_msec() * 0.002
-
-
-func _nearest_in_group(group: StringName, accept: Callable) -> Node3D:
-	var best: Node3D = null
-	var best_distance: float = INF
-	for node: Node in get_tree().get_nodes_in_group(group):
-		var d: float = (node as Node3D).global_position.distance_squared_to(_hero.global_position)
-		if d < best_distance and accept.call(node):
-			best_distance = d
-			best = node as Node3D
-	return best
+	guide.start_tutorial(self, _wave_manager, _camera, _hud)
+	cards.refresh()
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
@@ -856,34 +395,28 @@ func _popup(text: String, at: Vector3, color: Color, icon: Texture2D = null) -> 
 		_hud.popup(text, _camera.unproject_position(at), color, icon)
 
 
-func _on_slot_selected(slot: TowerSlot) -> void:
-	# Picking another slot drops a build/upgrade the hero was walking to do.
-	if _pending_command != &"" and slot != _pending_slot:
-		_hero.cancel_order()
-	_refresh_card()
-
-
 func _on_resources_changed() -> void:
 	_hud.set_gold(_game_state.gold)
 	_hud.set_wood(_game_state.wood)
-	_refresh_card()
+	cards.refresh()
 
 
 func _on_wood_gathered(amount: int, at: Vector3) -> void:
 	_game_state.add_wood(amount)
-	_stats["wood"] += amount
+	battle_end.count_wood(amount)
 	_popup("+%d" % amount, at + Vector3.UP * 1.6, WOOD_COLOR, WOOD_ICON)
 
 
 func _on_wood_sold(_wood: int, gold: int) -> void:
-	var at: Vector3 = _trade_with.global_position if _trade_with else _hero.global_position
+	var talking: Villager = cards.trade_with
+	var at: Vector3 = talking.global_position if talking else _hero.global_position
 	_popup("+%d" % gold, at + Vector3.UP * 1.4, GOLD_COLOR, COIN_ICON)
-	if _trade_with != null:
-		_trade_with.cheer()
+	if talking != null:
+		talking.cheer()
 
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
-	_stats["towers"] += 1
+	battle_end.count_tower()
 	walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
 	_spawn_fx(BUILD_FX, slot.global_position)
 	# Rise out of the dust.
@@ -891,49 +424,19 @@ func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 	tower.create_tween().tween_property(tower, "scale", Vector3.ONE, 0.45).set_trans(
 		Tween.TRANS_BACK
 	)
-	_refresh_card()
+	cards.refresh()
 
 
 func _on_tower_sold(slot: TowerSlot, refund: Vector2i) -> void:
 	walk_grid.unblock(slot.global_position)
 	_spawn_fx(BUILD_FX, slot.global_position)
 	_popup("+%d" % refund.x, slot.global_position + Vector3.UP * 1.2, GOLD_COLOR, COIN_ICON)
-	_refresh_card()
+	cards.refresh()
 
 
 func _on_tower_upgraded(slot: TowerSlot, _tower: Tower) -> void:
 	_spawn_fx(UPGRADE_FX, slot.global_position)
-	_refresh_card()
-
-
-func _on_hero_order_ended() -> void:
-	_pending_command = &""
-	_trade_walking = false
-	_refresh_card()
-
-
-func _on_ground_tapped(point: Vector3) -> void:
-	# A tap on a villager: open the trade card, the hero walks up to it.
-	var villager: Villager = villagers.nearest(point, VILLAGER_TAP_REACH)
-	if villager != null:
-		_trade_dismissed = null
-		_hero.move_to(villager.global_position, villagers.trade_reach * 0.7)
-		_trade_walking = true
-		_set_trade(villager)
-		return
-	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
-	var best: WoodTree = null
-	var best_distance: float = TREE_TAP_REACH
-	for tree in _sim.trees:
-		var offset: Vector3 = tree.global_position - point
-		offset.y = 0.0
-		if tree.is_choppable() and offset.length() < best_distance:
-			best_distance = offset.length()
-			best = tree
-	if best != null:
-		_hero.move_to(best.global_position, _hero.chop_range * 0.8)
-	else:
-		_hero.move_to(point, 0.15)
+	cards.refresh()
 
 
 func _on_enemy_reached_base(damage: int) -> void:
@@ -945,7 +448,7 @@ func _on_enemy_reached_base(damage: int) -> void:
 ## mark the portals on screen (rings / edge arrows) and make them pulse.
 func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 	_wave_direction = LevelCatalog.direction_text(level, lanes)
-	_lane_hint.announce(_portals, lanes)
+	_lane_hint.announce(builder.portals, lanes)
 
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
@@ -960,62 +463,6 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	if not last:
 		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
 	_hud.show_banner(title, next, boss)
-
-
-func _on_all_waves_cleared() -> void:
-	if _game_state.is_defeated or _ended:
-		return
-	var stars: int = LevelCatalog.stars_for(_game_state.lives, _game_state.starting_lives)
-	var before: int = Perks.earned_stars()
-	LevelCatalog.complete(int(level["id"]), stars)
-	var gained: int = Perks.earned_stars() - before
-	_victory_sound.play()
-	var line: String = tr("END_STARS_TOTAL") % [Perks.earned_stars(), Perks.max_stars()]
-	if gained > 0:
-		line = tr("END_STARS_NEW") % [gained, line]
-	elif stars < 3:
-		line += tr("END_STARS_HINT")
-	_end_game(tr("HUD_VICTORY"), true, stars, line + "\n")
-
-
-func _on_defeated() -> void:
-	if _ended:
-		return
-	_wave_manager.stop()
-	_defeat_sound.play()
-	if _endless:
-		var id: int = int(level["id"])
-		var old_record: int = LevelCatalog.endless_record(id)
-		var record: bool = LevelCatalog.save_endless(id, _waves_cleared)
-		if record:
-			Online.submit_record(id, _waves_cleared)
-		var title := tr("END_NEW_RECORD") % _waves_cleared if record else tr("END_SIEGE_OVER")
-		var line := (
-			tr("END_SIEGE_STATS")
-			% [
-				_waves_cleared,
-				maxi(old_record, _waves_cleared),
-				Perks.endless_stars(id),
-				Perks.ENDLESS_MAX_STARS
-			]
-		)
-		_end_game(title, record, 0, line + "\n")
-		return
-	var tips: Array[String] = DEFEAT_TIPS.duplicate()
-	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
-	_end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
-
-
-func _end_game(message: String, victory: bool, stars: int = 0, prefix: String = "") -> void:
-	_ended = true
-	if _coop_on():
-		_hud.hide_coop_notice()
-		coop.leave_later()
-	Engine.time_scale = 1.0
-	_hero.cancel_order()
-	_build_manager.clear_selection()
-	_hud.show_end_screen(message, victory, stars, prefix + _stats_summary())
-	get_tree().paused = true
 
 
 ## All level state lives in this scene's nodes, so reloading it restores the
@@ -1039,9 +486,6 @@ func _on_map_pressed() -> void:
 	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
 
 
-# --- Co-op (docs/MULTIPLAYER.md, "Co-op in the game"; the work is in CoopBattle) ---
-
-
 func _coop_on() -> bool:
 	return not coop_config.is_empty()
 
@@ -1049,32 +493,3 @@ func _coop_on() -> bool:
 ## The knight of a player slot (the local one in single player).
 func _knight_of(player: int) -> Hero:
 	return _commands.heroes[player] if _commands.heroes.size() > player else _hero
-
-
-func _setup_coop() -> void:
-	coop = CoopBattle.new()
-	coop.name = "CoopBattle"
-	add_child(coop)
-	var transport: CoopTransport = coop_transport if coop_transport != null else CoopRun.transport()
-	coop.setup(coop_config, transport, coop_lobby, _sim, _commands, _hero, _level_root)
-	coop.partner_waiting.connect(_on_coop_partner_waiting)
-	coop.match_over.connect(_on_coop_match_over)
-	_hud.set_coop_mode(true)
-
-
-func _on_coop_partner_waiting(waiting: bool) -> void:
-	if _ended:
-		return
-	if waiting:
-		_hud.show_coop_notice(tr("COOP_WAITING_PARTNER"))
-	else:
-		_hud.hide_coop_notice()
-
-
-## The match is over for another reason than the battle's own victory or defeat.
-func _on_coop_match_over(reason: String) -> void:
-	if _ended:
-		return
-	var pair: Array = CoopBattle.end_texts(reason)
-	_wave_manager.stop()
-	_end_game(tr(pair[0]), false, 0, tr(pair[1]) + "\n" + tr("COOP_END_NOT_SAVED") + "\n")

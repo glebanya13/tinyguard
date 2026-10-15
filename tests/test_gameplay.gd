@@ -130,7 +130,7 @@ func _run() -> void:
 			far = node
 			break
 	if far:
-		main._on_ground_tapped(far.global_position + Vector3(0.3, 0, 0))
+		main.cards.on_ground_tapped(far.global_position + Vector3(0.3, 0, 0))
 		await wait_until(func() -> bool: return far.hits_left() < far.hits, 600)
 		check(far.hits_left() < far.hits, "tap on tree: hero walked and chopped")
 	gs.wood = 0
@@ -168,15 +168,15 @@ func _run() -> void:
 	# Forge: sword upgrade and castle repair.
 	gs.add_gold(300)
 	gs.add_wood(300)
-	main._toggle_forge()
+	main.cards.toggle_forge()
 	await frames(2)
 	await tap_key(KEY_U)
 	check(hero.sword_level == 1 and is_equal_approx(hero.attack_damage, 22.0), "sword upgraded")
 	gs.lose_lives(5)
 	var lives: int = gs.lives
-	main._on_command_pressed(&"repair")
+	main.cards.on_command_pressed(&"repair")
 	check(gs.lives == lives + 2, "castle repaired (+2 lives)")
-	main._on_command_pressed(&"cancel")
+	main.cards.on_command_pressed(&"cancel")
 
 	# Bosses in the plan.
 	check(wm.plan.is_boss_wave(10) and wm.plan.spawns(10)[-1]["data"].is_boss, "boss on wave 10")

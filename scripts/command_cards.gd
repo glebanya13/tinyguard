@@ -1,13 +1,110 @@
 class_name CommandCards
 extends RefCounted
-## Contents of the HUD command card for the forge and for trading with a
-## villager (the build / upgrade card stays in main.gd).
+## Contents of the HUD command card: the build / upgrade card of a slot, the forge
+## and trading with a villager.
 
+const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
+const UPGRADE_ICON: Texture2D = preload("res://ui/icons/upgrade.png")
+const TARGET_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const SELL_ICON: Texture2D = preload("res://ui/icons/sell.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
 const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
+
+
+static func _t(key: String) -> String:
+	return TranslationServer.translate(key)
+
+
+## Card of the selected slot: build buttons on a free one, upgrade / priority / sell
+## on a tower. `walking` = the knight is on his way to carry out a pressed command.
+static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool) -> Dictionary:
+	var info := {}
+	var buttons: Array[Dictionary] = []
+	var tower_types: Array[TowerData] = build_manager.tower_types
+	if slot.is_free():
+		info["title"] = _t("CARD_PLOT")
+		var names: PackedStringArray = []
+		for data: TowerData in tower_types:
+			names.append(_t(data.display_name))
+		info["stats"] = " · ".join(names)
+		var short := true
+		for i in tower_types.size():
+			var data: TowerData = tower_types[i]
+			var ok: bool = build_manager.can_build(slot, data)
+			short = short and not ok
+			(
+				buttons
+				. append(
+					{
+						"id": StringName("build_%d" % i),
+						"icon": data.icon,
+						"gold": data.cost_gold,
+						"wood": data.cost_wood,
+						"enabled": ok,
+						"tooltip":
+						(
+							_t("CARD_TOWER_TIP")
+							% [_t(data.display_name), i + 1, _t(data.role), data.stats_text(0)]
+						),
+					}
+				)
+			)
+		info["hint"] = _t("CARD_NEED_BOTH") if short else ""
+	else:
+		var data: TowerData = slot.tower.data
+		var level_index: int = slot.tower.level
+		var cost: Vector2i = data.upgrade_cost(level_index)
+		info["title"] = (
+			_t("CARD_TOWER_TITLE") % [_t(data.display_name), level_index + 1, data.max_level() + 1]
+		)
+		info["stats"] = data.stats_text(level_index)
+		var upgrade := {
+			"id": &"upgrade",
+			"icon": UPGRADE_ICON,
+			"enabled": build_manager.can_upgrade(slot),
+			"tooltip": _t("CARD_UPGRADE_TIP")
+		}
+		if cost.x < 0:
+			upgrade["label"] = _t("CARD_MAX")
+		else:
+			upgrade["gold"] = cost.x
+			upgrade["wood"] = cost.y
+			upgrade["tooltip"] = _t("CARD_UPGRADE_TIP_NEXT") % data.stats_text(level_index + 1)
+			if not upgrade["enabled"]:
+				info["hint"] = _t("CARD_NEED_BOTH")
+		buttons.append(upgrade)
+		var tip: String = TowerData.priority_tooltip(slot.tower.priority)
+		var label: String = TowerData.priority_name(slot.tower.priority)
+		var spec := {"id": &"priority", "icon": TARGET_ICON, "label": label, "tooltip": tip}
+		spec["enabled"] = true
+		buttons.append(spec)
+		var refund: Vector2i = data.sell_value(level_index)
+		buttons.append(
+			{
+				"id": &"sell",
+				"icon": COIN_ICON,
+				"gold": refund.x,
+				"wood": refund.y,
+				"gain": true,
+				"enabled": true,
+				"tooltip": _t("CARD_SELL_TIP") % roundi(TowerData.SELL_REFUND * 100.0)
+			}
+		)
+	buttons.append(
+		{
+			"id": &"cancel",
+			"icon": CANCEL_ICON,
+			"label": "Esc",
+			"enabled": true,
+			"tooltip": _t("CARD_DESELECT_TIP")
+		}
+	)
+	if walking:
+		info["hint"] = _t("CARD_KNIGHT_WALKS")
+	info["buttons"] = buttons
+	return info
 
 
 ## Forge card: sword upgrade and castle repair.
