@@ -134,7 +134,7 @@ npm test        # поднимает эмулятор Firestore (порт 8189) 
 
 ## Кооператив: Realtime Database (необязательно)
 
-План, протокол и квоты: `docs/MULTIPLAYER.md` (раздел 12a). Включается владельцем:
+План, протокол и квоты: `docs/MULTIPLAYER.md` (разделы 12a, 12b). **Состояние на 2026-10-15:** Realtime Database в проекте `bimbleguard` включена (по сообщению владельца), правила `database.rules.json` задеплоены. Эта ветка живой проект не трогала (ни запросов, ни деплоя); всё проверено на эмуляторе. Включается владельцем:
 
 1. **Build → Realtime Database → Create database** (регион рядом с игроками; для `europe-west1`
    URL вида `https://<проект>-default-rtdb.europe-west1.firebasedatabase.app`), режим **locked**.
@@ -143,6 +143,7 @@ npm test        # поднимает эмулятор Firestore (порт 8189) 
    `[firebase]` (образец — `firebase.example.cfg`). Без ключа кооператива нет.
 3. Задеплоить правила (владелец, не агент): `firebase deploy --only database`
    (или вставить `database.rules.json` во вкладку **Realtime Database → Rules**).
-4. Тесты правил на эмуляторе (Java 21): `cd firebase/rules-tests && npm install && npm test`
+4. Ручная проверка клиента и боя на эмуляторе: `firebase emulators:start --only database --project demo-bimbleguard` (порт 9189), затем `godot --headless --path . --script res://tests/live_rtdb_emulator.gd`; на чистом эмуляторе (перезапустить его между прогонами).
+5. Тесты правил на эмуляторе (Java 21): `cd firebase/rules-tests && npm install && npm test`
    (запускает эмуляторы Firestore и Database; `firebase.json`: `singleProjectMode: false`
    нужен, иначе эмулятор RTDB не принимает пространство имён тестов).
