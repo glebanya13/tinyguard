@@ -58,3 +58,6 @@ firebase.cfg
 
 # npm packages of the rules tests
 node_modules
+
+# Local archives / extracted copies for manual testing
+/out/
