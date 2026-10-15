@@ -71,7 +71,9 @@ static func from_save(cfg: ConfigFile) -> Dictionary:
 		for key: String in cfg.get_section_keys("perks"):
 			prog["perks"][key] = maxi(int(cfg.get_value("perks", key, 0)), 0)
 	p["settings"]["sound"] = bool(cfg.get_value("settings", "sound", true))
-	prog["dailyStars"] = clampi(int(cfg.get_value(Daily.SECTION, "bonus_stars", 0)), 0, Daily.max_stars())
+	prog["dailyStars"] = clampi(
+		int(cfg.get_value(Daily.SECTION, "bonus_stars", 0)), 0, Daily.max_stars()
+	)
 	p["achievements"] = maxi(int(cfg.get_value(SECTION, "achievements", 0)), 0)
 	if not cfg.has_section(SECTION):
 		p["schemaVersion"] = 0

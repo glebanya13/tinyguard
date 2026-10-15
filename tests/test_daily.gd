@@ -35,13 +35,19 @@ func _run() -> void:
 
 
 func _check_dates() -> void:
-	check(Daily.key_for(_unix("2026-10-14T23:59:59")) == "2026-10-14", "23:59:59 UTC is still today")
-	check(Daily.key_for(_unix("2026-10-15T00:00:00")) == "2026-10-15", "00:00:00 UTC is the next day")
+	check(
+		Daily.key_for(_unix("2026-10-14T23:59:59")) == "2026-10-14", "23:59:59 UTC is still today"
+	)
+	check(
+		Daily.key_for(_unix("2026-10-15T00:00:00")) == "2026-10-15", "00:00:00 UTC is the next day"
+	)
 	check(Daily.key_for(_unix("2026-12-31T23:59:59") + 1) == "2027-01-01", "year change")
 	check(Daily.key_for(_unix("2028-02-28T23:59:59") + 1) == "2028-02-29", "leap day exists")
 	check(Daily.key_for(_unix("2027-02-28T23:59:59") + 1) == "2027-03-01", "no leap day in 2027")
 	check(Daily.is_valid_key("2026-10-15"), "valid key")
-	for bad in ["", "2026-10-5", "2027-02-29", "2026-13-01", "26-10-15", "abcd-ef-gh", "2026/10/15"]:
+	for bad in [
+		"", "2026-10-5", "2027-02-29", "2026-13-01", "26-10-15", "abcd-ef-gh", "2026/10/15"
+	]:
 		check(not Daily.is_valid_key(bad), "invalid key '%s'" % bad)
 	check(
 		Daily.day_index("2026-10-15") == Daily.day_index("2026-10-14") + 1, "day index counts days"
@@ -54,11 +60,10 @@ func _check_dates() -> void:
 func _check_determinism() -> void:
 	# The same date gives the same trial, however often it is asked.
 	for key in ["2026-10-15", "2026-11-02", "2027-01-01"]:
-		check(
-			Daily.level_for(key) == Daily.level_for(key) and Daily.seed_for(key) == Daily.seed_for(key),
-			"%s: level and seed are stable" % key
-		)
-		check(Daily.preset_for(key) == Daily.preset_for(key), "%s: preset is stable" % key)
+		var first := [Daily.level_for(key), Daily.seed_for(key), Daily.preset_for(key)["id"]]
+		Daily._data = {}  # reload the data file: the answer must not depend on a cache
+		var second := [Daily.level_for(key), Daily.seed_for(key), Daily.preset_for(key)["id"]]
+		check(first == second, "%s: level, seed and preset are stable %s" % [key, first])
 	# Golden values: they must never change (a change rewrites the past days).
 	var h: int = Daily.hash_text("seed:2026-10-15")
 	check(h == Daily.hash_text("seed:2026-10-15") and h > 0 and h <= 0xFFFFFFFF, "hash is 32 bit")
@@ -107,7 +112,10 @@ func _check_data() -> void:
 	var csv: String = FileAccess.get_file_as_string("res://translations/strings.csv")
 	for preset: Dictionary in Daily.data()["presets"]:
 		var id: String = str(preset["id"])
-		check(float(preset["hp_mult"]) > 0.0 and float(preset["reward_mult"]) > 0.0, "%s: multipliers" % id)
+		check(
+			float(preset["hp_mult"]) > 0.0 and float(preset["reward_mult"]) > 0.0,
+			"%s: multipliers" % id
+		)
 		check(float(preset["wave_duration_mult"]) >= 0.5, "%s: waves not absurdly fast" % id)
 		for name: Variant in preset["towers"]:
 			check(str(name) in tower_ids, "%s: tower '%s' exists" % [id, name])
@@ -122,15 +130,25 @@ func _check_record_book() -> void:
 	var d1 := "2026-10-15"
 	check(Daily.best_wave(d1) == 0 and Daily.streak() == 0, "empty book")
 	var r: Dictionary = Daily.record_result(d1, 4, 130)
-	check(r["new_best"] and r["streak"] == 1 and not r["star"], "first run: best, streak 1, no star")
+	check(
+		r["new_best"] and r["streak"] == 1 and not r["star"], "first run: best, streak 1, no star"
+	)
 	check(Daily.best_wave(d1) == 4 and Daily.best_time(d1) == 130, "best wave and time stored")
 	r = Daily.record_result(d1, 3, 100)
 	check(not r["new_best"] and Daily.best_wave(d1) == 4, "a worse run keeps the best")
-	check(r["streak"] == 1 and Daily.days_played() == 1, "a second run the same day is not a new day")
+	check(
+		r["streak"] == 1 and Daily.days_played() == 1, "a second run the same day is not a new day"
+	)
 	r = Daily.record_result(d1, 4, 90)
-	check(not r["new_best"] and Daily.best_time(d1) == 90, "the same wave faster improves the time only")
+	check(
+		not r["new_best"] and Daily.best_time(d1) == 90,
+		"the same wave faster improves the time only"
+	)
 	r = Daily.record_result(d1, Daily.star_wave(), 400)
-	check(r["new_best"] and r["star"] and Daily.bonus_stars() == 1, "reaching the star wave gives a star")
+	check(
+		r["new_best"] and r["star"] and Daily.bonus_stars() == 1,
+		"reaching the star wave gives a star"
+	)
 	r = Daily.record_result(d1, Daily.star_wave() + 5, 600)
 	check(not r["star"] and Daily.bonus_stars() == 1, "no second star the same day")
 	check(Daily.best_wave_ever() == Daily.star_wave() + 5, "best wave ever")
@@ -157,31 +175,54 @@ func _check_record_book() -> void:
 	var base: int = Daily.day_index("2027-02-01")
 	for i in 30:
 		Daily.record_result(Daily.key_of_day(base + i), Daily.star_wave(), 100)
-	check(Daily.bonus_stars() == Daily.max_stars(), "stars stop at the cap (%d)" % Daily.bonus_stars())
+	check(
+		Daily.bonus_stars() == Daily.max_stars(), "stars stop at the cap (%d)" % Daily.bonus_stars()
+	)
 	check(Perks.earned_stars() == Daily.max_stars(), "the stars count in the treasury")
-	check(Perks.max_stars() >= LevelCatalog.levels().size() * 8 + Daily.max_stars(), "maximum includes the cap")
+	check(
+		Perks.max_stars() >= LevelCatalog.levels().size() * 8 + Daily.max_stars(),
+		"maximum includes the cap"
+	)
 	# Old days are pruned, the lifetime numbers stay.
-	check(Daily.best_wave("2026-10-15") == 0, "results older than %d days are pruned" % Daily.KEEP_DAYS)
+	check(
+		Daily.best_wave("2026-10-15") == 0,
+		"results older than %d days are pruned" % Daily.KEEP_DAYS
+	)
 	check(Daily.best_wave_ever() >= Daily.star_wave() + 5, "lifetime best survives pruning")
 	# The save file survives a reload.
 	LevelCatalog._save = null
-	check(Daily.bonus_stars() == Daily.max_stars() and Daily.best_streak() >= 3, "persisted to disk")
+	check(
+		Daily.bonus_stars() == Daily.max_stars() and Daily.best_streak() >= 3, "persisted to disk"
+	)
 
 
 func _check_profile() -> void:
 	# The bonus stars and the achievements travel with the profile.
 	var p: Dictionary = PlayerProfile.local()
-	check(int(p["progression"]["dailyStars"]) == Daily.max_stars(), "profile carries the bonus stars")
+	check(
+		int(p["progression"]["dailyStars"]) == Daily.max_stars(), "profile carries the bonus stars"
+	)
 	var cloud: Dictionary = PlayerProfile.from_cloud(
 		{"schemaVersion": 1, "progression": {"dailyStars": 9999}, "achievements": 0x7FFFFFFF}
 	)
 	check(int(cloud["progression"]["dailyStars"]) == Daily.max_stars(), "cloud stars are clamped")
-	check(int(cloud["achievements"]) == Achievements.known_mask(), "cloud mask keeps known bits only")
+	check(
+		int(cloud["achievements"]) == Achievements.known_mask(), "cloud mask keeps known bits only"
+	)
 	var merged: Dictionary = PlayerProfile.merge(
-		{"progression": {"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 3},
-			"achievements": 1, "onboardingCompleted": false, "tutorialVersionCompleted": 0,
-			"nickname": "", "nicknameVerified": false, "nicknameNormalized": "", "createdAt": 0,
-			"updatedAt": 0, "settings": {"sound": true}},
+		{
+			"progression":
+			{"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 3},
+			"achievements": 1,
+			"onboardingCompleted": false,
+			"tutorialVersionCompleted": 0,
+			"nickname": "",
+			"nicknameVerified": false,
+			"nicknameNormalized": "",
+			"createdAt": 0,
+			"updatedAt": 0,
+			"settings": {"sound": true}
+		},
 		{"progression": {"dailyStars": 5}, "achievements": 4}
 	)
 	check(int(merged["progression"]["dailyStars"]) == 5, "merge keeps the larger star count")

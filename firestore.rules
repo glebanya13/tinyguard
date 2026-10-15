@@ -144,7 +144,9 @@ service cloud.firestore {
 
     function validProgression(p) {
       return p is map
-        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks'])
+        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks', 'dailyStars'])
+        // Bonus stars of the daily challenge (Daily.max_stars()); optional for older clients.
+        && (!('dailyStars' in p) || (p.dailyStars is int && p.dailyStars >= 0 && p.dailyStars <= 10))
         && p.unlocked is int && p.unlocked >= 1 && p.unlocked <= 100
         && p.stars is map && starsOk(p.stars)
         && p.endless is map && endlessOk(p.endless)

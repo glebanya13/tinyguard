@@ -1,3 +1,4 @@
+# gdlint:disable=max-public-methods,max-returns
 extends RefCounted
 ## Fake HTTP layer and fake Firebase project shared by the account tests
 ## (tests/test_accounts.gd, tests/test_email_accounts.gd). Never touches the network.
@@ -50,6 +51,9 @@ class FakeFirebase:
 	var auth_deleted: bool = false
 	var auth_delete_error: String = ""
 	var refuse_commits: int = 0
+	## Unix time the fake server believes it is (0 = the real clock): the daily board rules
+	## compare the day in the path with it.
+	var server_time: int = 0
 	## uid of the next anonymous sign-up (a second "device").
 	var guest_uid: String = "uid1"
 	## Email accounts (lower-case email -> {"password", "uid"}).
@@ -72,6 +76,8 @@ class FakeFirebase:
 			return auth_reply(url, body)
 		if url.ends_with(":commit"):
 			return commit(body)
+		if url.ends_with(":runQuery"):
+			return run_query(url)
 		return document(method, url)
 
 	func auth_reply(url: String, body: String) -> Array:
@@ -215,6 +221,8 @@ class FakeFirebase:
 					return denied  # rules: rewritten at most every 24 hours
 				if path.begins_with("leaderboards/") and not run_allows(path):
 					return denied  # rules: runs/{uid} must exist with the same level
+				if path.begins_with("daily/") and not daily_allows(path, write):
+					return denied
 			if write.has("delete"):
 				var gone_path: String = path_of(write["delete"])
 				var is_trace: bool = gone_path.begins_with("nicknameTrace/")
@@ -228,6 +236,35 @@ class FakeFirebase:
 		var parts: PackedStringArray = path.split("/")  # leaderboards/level_N/scores/uid
 		var run: String = "runs/" + parts[3]
 		return docs.has(run) and docs[run].get("level", "") == parts[1]
+
+	## firestore.rules daily/{day}/scores/{uid}: the day is today by the server clock (one hour
+	## of grace after midnight), the wave is 1..499 and above the stored one.
+	func daily_allows(path: String, write: Dictionary) -> bool:
+		var parts: PackedStringArray = path.split("/")  # daily/day/scores/uid
+		if parts.size() != 4 or parts[2] != "scores":
+			return false
+		var now: int = server_time if server_time > 0 else int(Time.get_unix_time_from_system())
+		var days: Array[String] = [Daily.key_for(now), Daily.key_for(now - 3600)]
+		if not parts[1] in days:
+			return false
+		var fields: Dictionary = FirestoreClient.decode_fields(write["update"]["fields"])
+		var wave: Variant = fields.get("wave", 0)
+		if not wave is int or wave < 1 or wave > 499:
+			return false
+		return not docs.has(path) or wave > int(docs[path].get("wave", 0))
+
+	## runQuery under "<parent>": the documents of the collection "scores" below it, best wave first.
+	func run_query(url: String) -> Array:
+		var parent: String = url.get_slice("/documents/", 1).trim_suffix(":runQuery").uri_decode()
+		var rows: Array = []
+		for path: String in docs:
+			if path.begins_with(parent + "/scores/"):
+				rows.append(docs[path])
+		rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["wave"] > b["wave"])
+		var out: Array = []
+		for fields: Dictionary in rows:
+			out.append({"document": {"fields": FirestoreClient.encode_fields(fields)}})
+		return [200, out if not out.is_empty() else [{}]]
 
 	## firestore.rules: nicknameTrace/{uid} may only be rewritten or deleted after 24 hours.
 	func trace_recent(path: String) -> bool:

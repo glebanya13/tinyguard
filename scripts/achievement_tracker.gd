@@ -13,15 +13,19 @@ var _dirty: bool = false
 
 
 ## Subscribes to the systems of a battle.
-func attach(
-	waves: WaveManager, builds: BuildManager, state: GameState, hero: Hero
-) -> void:
+func attach(waves: WaveManager, builds: BuildManager, state: GameState, hero: Hero) -> void:
 	waves.enemy_killed.connect(func(_reward: int) -> void: _count("kills_total"))
 	waves.wave_cleared.connect(func(_wave: int) -> void: flush())
 	waves.all_waves_cleared.connect(flush, CONNECT_DEFERRED)
-	builds.tower_built.connect(func(_slot: TowerSlot, _tower: Tower) -> void: _count("towers_built_total"))
-	builds.tower_upgraded.connect(func(_slot: TowerSlot, _tower: Tower) -> void: _count("upgrades_total"))
-	hero.wood_gathered.connect(func(amount: int, _at: Vector3) -> void: _count("wood_total", amount))
+	builds.tower_built.connect(
+		func(_slot: TowerSlot, _tower: Tower) -> void: _count("towers_built_total")
+	)
+	builds.tower_upgraded.connect(
+		func(_slot: TowerSlot, _tower: Tower) -> void: _count("upgrades_total")
+	)
+	hero.wood_gathered.connect(
+		func(amount: int, _at: Vector3) -> void: _count("wood_total", amount)
+	)
 	state.defeated.connect(flush, CONNECT_DEFERRED)
 
 

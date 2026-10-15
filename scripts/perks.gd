@@ -2,7 +2,8 @@ class_name Perks
 extends RefCounted
 ## Stars and the permanent upgrades they buy. Stars come from the campaign
 ## (best 1-3 per level), from endless siege records (1 per 10 waves, up to
-## 5 per level) and from the daily challenge (Daily: at most 10 in all). Bought levels are saved next to the progress.
+## 5 per level) and from the daily challenge (Daily: at most 10 in all). Bought levels
+## are saved next to the progress.
 
 ## Loaded on first use, not preloaded: a preload in a constant runs while
 ## scripts typed with PerkData are still compiling and breaks the resources.

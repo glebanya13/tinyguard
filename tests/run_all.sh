@@ -81,6 +81,11 @@ echo "== co-op network (fake transport)"
 run "$GODOT" --headless --path . --script res://tests/test_coop_net.gd
 run "$GODOT" --headless --path . --script res://tests/test_coop_lobby_ui.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_coop_flow.gd
+echo "== daily challenge / achievements"
+run "$GODOT" --headless --path . --script res://tests/test_daily.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_daily_replay.gd
+run "$GODOT" --headless --path . --script res://tests/test_daily_online.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_achievements.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd

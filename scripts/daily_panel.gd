@@ -13,6 +13,9 @@ const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const BUTTON_HEIGHT := 84.0
 const BOARD_ROWS := 5
 
+## The Online autoload (set by the map; null = offline, as in tests: a script that names
+## an autoload does not compile outside the running game).
+var online: Node = null
 ## Overridable in tests.
 var day: String = ""
 
@@ -31,10 +34,10 @@ func open() -> void:
 		day = Daily.today_key()
 	_build()
 	show()
-	if Online.is_configured():
-		if not Online.daily_loaded.is_connected(_on_board):
-			Online.daily_loaded.connect(_on_board)
-		Online.fetch_daily(day)
+	if _online_on():
+		if not online.daily_loaded.is_connected(_on_board):
+			online.daily_loaded.connect(_on_board)
+		online.fetch_daily(day)
 
 
 ## Back button: closes the panel.
@@ -87,17 +90,14 @@ func _build() -> void:
 	streak.name = "Streak"
 	box.add_child(streak)
 	var bonus := _label(
-		(
-			tr("DAILY_BONUS")
-			% [Daily.star_wave(), Daily.bonus_stars(), Daily.max_stars()]
-		),
+		tr("DAILY_BONUS") % [Daily.star_wave(), Daily.bonus_stars(), Daily.max_stars()],
 		19,
 		SOFT_COLOR
 	)
 	bonus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(bonus)
 
-	if Online.is_configured():
+	if _online_on():
 		box.add_child(_label(tr("DAILY_BOARD"), 22, GOLD))
 		_board = VBoxContainer.new()
 		_board.name = "Board"
@@ -118,6 +118,10 @@ func _build() -> void:
 	buttons.add_child(back)
 
 
+func _online_on() -> bool:
+	return online != null and online.is_configured()
+
+
 func _on_board(board_day: String, entries: Array) -> void:
 	if _board == null or not is_instance_valid(_board) or board_day != day:
 		return
@@ -125,7 +129,9 @@ func _on_board(board_day: String, entries: Array) -> void:
 		child.queue_free()
 	_status.text = "" if not entries.is_empty() else tr("DAILY_NO_BOARD")
 	for i in mini(entries.size(), BOARD_ROWS):
-		var row := _label(tr("MAP_RECORD_ROW") % [i + 1, entries[i]["name"], entries[i]["wave"]], 20)
+		var row := _label(
+			tr("MAP_RECORD_ROW") % [i + 1, entries[i]["name"], entries[i]["wave"]], 20
+		)
 		if i == 0:
 			row.add_theme_color_override("font_color", GOLD)
 		_board.add_child(row)

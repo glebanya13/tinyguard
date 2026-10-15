@@ -22,9 +22,7 @@ static func seed_of(key: String) -> int:
 
 
 ## Sets the modifiers of day `key` (absolute values: calling it twice is harmless).
-static func apply(
-	key: String, plan: WavePlan, waves: WaveManager, builds: BuildManager
-) -> void:
+static func apply(key: String, plan: WavePlan, waves: WaveManager, builds: BuildManager) -> void:
 	var preset: Dictionary = Daily.preset_for(key)
 	plan.hp_scale = float(preset["hp_mult"])
 	plan.set_time_scale(float(preset["wave_duration_mult"]))
@@ -40,12 +38,12 @@ static func allowed_names(preset: Dictionary) -> Array[String]:
 	return out
 
 
-## Files the result of a finished run (journal of a new best included).
+## Files the result of a finished run locally (journal of a new best included); the
+## caller sends it online (Online is an autoload, not visible to this script's tests).
 ## Returns Daily.record_result()'s dictionary.
 static func finish(key: String, waves_cleared: int, ticks: int, journal: CommandLog) -> Dictionary:
 	var seconds: int = int(ticks / float(Sim.TICK_RATE))
 	var result: Dictionary = Daily.record_result(key, waves_cleared, seconds)
 	if result["new_best"] and journal != null:
 		journal.save(JOURNAL_PATH)
-	Online.submit_daily(key, waves_cleared)
 	return result

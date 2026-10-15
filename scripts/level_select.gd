@@ -134,6 +134,7 @@ func _build_extras() -> void:
 	row.position = Vector2(20, 14)
 	_ui_root.add_child(row)
 	_daily = DailyPanel.new()
+	_daily.online = Online
 	_ui_root.add_child(_daily)
 	_daily.start_requested.connect(_start_daily)
 	_achievements = AchievementsPanel.new()

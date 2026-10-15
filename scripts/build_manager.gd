@@ -16,8 +16,6 @@ signal ground_tapped(point: Vector3)
 
 ## Buildable tower types, in command card order.
 @export var tower_types: Array[TowerData] = []
-## Daily challenge: resource names of the towers that may be built (empty = all).
-var allowed_towers: Array[String] = []
 @export var game_state: GameState
 @export var camera: CameraFollow
 @export_flags_3d_physics var slot_collision_mask: int = 1
@@ -27,6 +25,8 @@ var allowed_towers: Array[String] = []
 
 ## Towers built here join this simulation (set by the level).
 var sim: Sim = null
+## Daily challenge: resource names of the towers that may be built (empty = all).
+var allowed_towers: Array[String] = []
 var selected_slot: TowerSlot = null
 ## Permanent tower damage bonus (perk), applied after every level change.
 var damage_multiplier: float = 1.0
@@ -96,7 +96,10 @@ func can_build(slot: TowerSlot, data: TowerData) -> bool:
 
 ## False for a tower the day's modifiers forbid.
 func is_allowed(data: TowerData) -> bool:
-	return allowed_towers.is_empty() or allowed_towers.has(data.resource_path.get_file().get_basename())
+	return (
+		allowed_towers.is_empty()
+		or allowed_towers.has(data.resource_path.get_file().get_basename())
+	)
 
 
 ## Price of the next upgrade of the tower on `slot` as (gold, wood), or (-1, -1).

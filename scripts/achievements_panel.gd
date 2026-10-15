@@ -90,9 +90,11 @@ func _row(def: Dictionary, metrics: Dictionary, done: bool) -> Control:
 	var desc := _label(tr(key + "_DESC"), 18, SOFT_COLOR)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(desc)
-	var line: String = tr("ACH_EARNED") if done else "%d / %d" % [
-		Achievements.progress(def, metrics), int(def["threshold"])
-	]
+	var line: String = (
+		tr("ACH_EARNED")
+		if done
+		else "%d / %d" % [Achievements.progress(def, metrics), int(def["threshold"])]
+	)
 	col.add_child(_label(line, 17, Color(SOFT_COLOR, 0.8)))
 	return card
 

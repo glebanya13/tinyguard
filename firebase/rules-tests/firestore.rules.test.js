@@ -713,6 +713,21 @@ test("users: achievements are a bit mask integer (optional, bounded)", async () 
   await assertFails(create("all"));
   await assertFails(create({ first_win: 1 }));
   await assertFails(create(true));
+  // Bonus stars of the daily challenge ride in progression.
+  const withStars = (dailyStars) => {
+    const uid = `ach${n++}`;
+    const db = env.authenticatedContext(uid).firestore();
+    return setDoc(doc(db, `users/${uid}`), {
+      ...profile(),
+      createdAt: serverTimestamp(),
+      progression: { ...profile().progression, dailyStars },
+    });
+  };
+  await assertSucceeds(withStars(0));
+  await assertSucceeds(withStars(10));
+  await assertFails(withStars(11));
+  await assertFails(withStars(-1));
+  await assertFails(withStars("3"));
   // An older client does not know the field: a document without it stays valid.
   const bob = env.authenticatedContext("bob").firestore();
   await assertSucceeds(setDoc(doc(bob, "users/bob"), { ...profile(), createdAt: serverTimestamp() }));

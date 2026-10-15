@@ -1026,6 +1026,7 @@ func _end_daily() -> void:
 	var result: Dictionary = DailyRun.finish(
 		_daily_key, _waves_cleared, _sim.tick, _commands.journal
 	)
+	Online.submit_daily(_daily_key, _waves_cleared)
 	var title: String = tr("DAILY_END_BEST") if result["new_best"] else tr("DAILY_END_OVER")
 	var line: String = tr("DAILY_END_STATS") % [_waves_cleared, Daily.best_wave(_daily_key)]
 	line += "\n" + tr("DAILY_END_STREAK") % result["streak"]
