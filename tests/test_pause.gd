@@ -47,13 +47,13 @@ func _run() -> void:
 	await tap_key(KEY_P)
 	(main.get_node("HUD/Root/EndScreen/EndPanel/Content/ForgeButton") as Button).pressed.emit()
 	await process_frame
-	check(not paused and main._forge_open, "forge opened from the pause menu")
+	check(not paused and main.cards.forge_open, "forge opened from the pause menu")
 	check(main.get_node("HUD/Root/CommandCard").visible, "forge card shown")
 	await tap_key(KEY_K)
-	check(not main._forge_open, "K closes the forge")
+	check(not main.cards.forge_open, "K closes the forge")
 	await tap_key(KEY_K)
-	check(main._forge_open, "K opens the forge")
-	main._on_command_pressed(&"cancel")
+	check(main.cards.forge_open, "K opens the forge")
+	main.cards.on_command_pressed(&"cancel")
 	main.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	check(paused, "back button pauses")
 	main.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
@@ -66,7 +66,7 @@ func _run() -> void:
 		),
 		"stars rule"
 	)
-	main._on_all_waves_cleared()
+	main.battle_end.on_all_waves_cleared()
 	await process_frame
 	check(
 		(

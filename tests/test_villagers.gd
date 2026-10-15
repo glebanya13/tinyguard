@@ -81,25 +81,25 @@ func _run() -> void:
 	hero.global_position = v0.global_position + Vector3(0.8, 0.0, 0.0)
 	await process_frame
 	await process_frame
-	check(main._trade_with == v0, "trade card opens next to a villager")
+	check(main.cards.trade_with == v0, "trade card opens next to a villager")
 	check(not v0.is_walking(), "villager stops to trade")
 	gs.add_wood(trade.wood_per_lot * 3)
 	gold = gs.gold
-	main._on_command_pressed(&"trade_lot")
+	main.cards.on_command_pressed(&"trade_lot")
 	check(gs.wood == trade.wood_per_lot * 2 and gs.gold > gold, "card button sells one lot")
-	main._on_command_pressed(&"trade_all")
+	main.cards.on_command_pressed(&"trade_all")
 	check(gs.wood == 0, "card button sells everything")
-	main._on_command_pressed(&"cancel")
+	main.cards.on_command_pressed(&"cancel")
 	await process_frame
-	check(main._trade_with == null, "closed card stays closed while the hero stands there")
+	check(main.cards.trade_with == null, "closed card stays closed while the hero stands there")
 	hero.global_position = v0.global_position + Vector3(6.0, 0.0, 0.0)
 	await process_frame
 	hero.global_position = v0.global_position + Vector3(0.8, 0.0, 0.0)
 	await process_frame
-	check(main._trade_with == v0, "card opens again after walking away and back")
+	check(main.cards.trade_with == v0, "card opens again after walking away and back")
 	hero.global_position = v0.global_position + Vector3(6.0, 0.0, 0.0)
 	await process_frame
-	check(main._trade_with != v0, "card closes when the hero walks away")
+	check(main.cards.trade_with != v0, "card closes when the hero walks away")
 
 	# Enemies ignore villagers: the hero's targets never include them.
 	check(not v0.is_in_group(Enemy.GROUP), "villagers are not enemies")

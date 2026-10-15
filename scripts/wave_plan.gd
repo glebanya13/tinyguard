@@ -3,7 +3,8 @@ extends RefCounted
 ## Turns a level's "waves" block (resources/levels.json) into concrete spawn
 ## lists. Wave numbers are 1-based. Every wave adds enemies and multiplies
 ## their health; other kinds replace plain slimes from their "<kind>_from"
-## wave (see MIX), bosses close every boss_every-th wave and the last one.
+## wave (see "mix" in resources/balance.json), bosses close every boss_every-th wave
+## and the last one.
 
 ## Enemy data is loaded when a plan is made, not preloaded in constants: a
 ## preload here runs while EnemyData (which references itself for splitting
@@ -11,19 +12,6 @@ extends RefCounted
 const ENEMY_PATH := "res://resources/enemies/%s.tres"
 ## Wave number used when a level has no "<kind>_from" key (never).
 const NEVER := 100000
-## Bosses grow slower than the crowd (exponent on the wave health factor).
-const BOSS_GROWTH_EXPONENT := 0.75
-## Who replaces a plain slime in the line-up, checked in this order:
-## [level key, enemy file, every Nth slot, at offset]. Unlocked from wave "<key>".
-const MIX := [
-	["golem_from", "stone_golem", 9, 8],
-	["tank_from", "slime_tank", 4, 3],
-	["shield_from", "slime_shield", 6, 5],
-	["healer_from", "slime_healer", 8, 4],
-	["splitter_from", "slime_splitter", 7, 6],
-	["bat_from", "slime_bat", 5, 2],
-	["fast_from", "slime_fast", 3, 1],
-]
 
 ## Enemy file of the scouts that walk their own paths (see "scout_paths").
 const SCOUT := "slime_fast"
@@ -50,6 +38,14 @@ var _elite_data: EnemyData
 var _slime: EnemyData
 var _boss: EnemyData
 var _mix_data: Array[EnemyData] = []
+## Who replaces a plain slime in the line-up, checked in this order:
+## [level key, enemy file, every Nth slot, at offset]. Unlocked from wave "<key>".
+## Numbers come from resources/balance.json ("waves").
+var _mix: Array = []
+## Bosses grow slower than the crowd (exponent on the wave health factor).
+var _boss_growth_exponent: float = 1.0
+## One more boss per this many waves.
+var _boss_per_waves: int = 30
 
 
 func _init(waves: Dictionary, endless_siege: bool = false) -> void:
@@ -58,7 +54,11 @@ func _init(waves: Dictionary, endless_siege: bool = false) -> void:
 	wave_count = ENDLESS_WAVES if endless else int(waves["count"])
 	_slime = load(ENEMY_PATH % "slime")
 	_boss = load(ENEMY_PATH % "slime_king")
-	for mix: Array in MIX:
+	var rules: Dictionary = Balance.waves()
+	_mix = rules["mix"]
+	_boss_growth_exponent = float(rules["boss_growth_exponent"])
+	_boss_per_waves = int(rules["boss_per_waves"])
+	for mix: Array in _mix:
 		_mix_data.append(load(ENEMY_PATH % mix[1]))
 	_lanes = waves.get("lanes", {})
 	_elite = waves.get("elite", {})
@@ -118,8 +118,8 @@ func spawns(wave: int) -> Array[Dictionary]:
 	var dealt: Dictionary = {}  # kind -> enemies dealt to every lane so far
 	for i in count:
 		var data: EnemyData = _slime
-		for k in MIX.size():
-			var mix: Array = MIX[k]
+		for k in _mix.size():
+			var mix: Array = _mix[k]
 			if wave >= int(_w.get(mix[0], NEVER)) and i % int(mix[2]) == int(mix[3]):
 				data = _mix_data[k]
 				break
@@ -144,9 +144,9 @@ func spawns(wave: int) -> Array[Dictionary]:
 				entry["lane"] = _deal(dealt, _elite_data, weights, wave + e)
 			out.insert(roundi(out.size() * (e + 1.0) / (elites + 1.0)), entry)
 	if is_boss_wave(wave):
-		var bosses: int = 1 + floori(wave / 30.0)
+		var bosses: int = 1 + floori(float(wave) / _boss_per_waves)
 		for i in bosses:
-			var entry := {"data": _boss, "hp": pow(hp, BOSS_GROWTH_EXPONENT), "elite": false}
+			var entry := {"data": _boss, "hp": pow(hp, _boss_growth_exponent), "elite": false}
 			if not weights.is_empty():
 				var paths: Array = _lanes["boss_paths"]
 				entry["lane"] = int(paths[(wave + i) % paths.size()])

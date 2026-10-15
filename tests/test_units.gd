@@ -241,7 +241,7 @@ func _test_towers() -> void:
 	wood = gs.wood
 	var spent: Vector2i = Vector2i(data.cost_gold + up.x, data.cost_wood + up.y)
 	var refund := Vector2i(
-		floori(spent.x * TowerData.SELL_REFUND), floori(spent.y * TowerData.SELL_REFUND)
+		floori(spent.x * Balance.sell_refund()), floori(spent.y * Balance.sell_refund())
 	)
 	check(bm.sell(slot), "tower sold")
 	check(gs.gold == gold + refund.x and gs.wood == wood + refund.y, "refund = 70%% of the spent")
