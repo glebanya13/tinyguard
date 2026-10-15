@@ -154,7 +154,7 @@ icon = ExtResource("i_crown")
 custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 focus_mode = 0
-theme_override_constants/icon_max_width = 40
+theme_override_constants/icon_max_width = 52
 icon = ExtResource("i_sound_on")
 icon_alignment = 1
 

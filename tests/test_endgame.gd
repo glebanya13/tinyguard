@@ -49,7 +49,7 @@ func _run() -> void:
 	var run: Dictionary = await _leak_last_enemy(1)
 	var gs: GameState = run["gs"]
 	check(gs.lives == start - 1, "the last slime took a life (%d)" % gs.lives)
-	check(run["main"]._ended, "level ended")
+	check(run["main"].battle_end.ended, "level ended")
 	check(LevelCatalog.stars(1) == 2, "a leak at the very end costs the third star")
 	paused = false
 	run = await _leak_last_enemy(start)

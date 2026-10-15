@@ -360,13 +360,15 @@ func _find_target() -> Node3D:
 	match _step:
 		Step.CHOP:
 			return _nearest(
-				WoodTree.GROUP, func(n: Node) -> bool: return (n as WoodTree).is_choppable()
+				_hero.sim.trees, func(n: Node) -> bool: return (n as WoodTree).is_choppable()
 			)
 		Step.SLIMES, Step.WAVE:
-			return _nearest(Enemy.GROUP, func(n: Node) -> bool: return (n as Enemy).is_alive())
+			return _nearest(
+				_hero.sim.enemies, func(n: Node) -> bool: return (n as Enemy).is_alive()
+			)
 		Step.SELECT:
 			return _nearest(
-				TowerSlot.GROUP, func(n: Node) -> bool: return (n as TowerSlot).is_free()
+				_hero.commands.slots, func(n: Node) -> bool: return (n as TowerSlot).is_free()
 			)
 		Step.UPGRADE:
 			if _build.selected_slot != _tower_slot:
@@ -394,15 +396,15 @@ func _find_highlight() -> Control:
 	return found if found != null and found.is_visible_in_tree() else null
 
 
-func _nearest(group: StringName, accept: Callable) -> Node3D:
+## The nearest world object of `candidates` that `accept` takes (to the hero).
+func _nearest(candidates: Array, accept: Callable) -> Node3D:
 	var best: Node3D = null
 	var best_distance: float = INF
-	for node: Node in get_tree().get_nodes_in_group(group):
-		var spot := node as Node3D
-		var d: float = spot.global_position.distance_squared_to(_hero.global_position)
+	for node: Node3D in candidates:
+		var d: float = node.global_position.distance_squared_to(_hero.global_position)
 		if d < best_distance and accept.call(node):
 			best_distance = d
-			best = spot
+			best = node
 	return best
 
 

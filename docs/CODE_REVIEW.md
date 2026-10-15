@@ -38,7 +38,7 @@
 
 ## MAJOR
 
-### M1. `get_nodes_in_group()` в горячих путях (мобильная производительность)
+### M1. `get_nodes_in_group()` в горячих путях (мобильная производительность) — ИСПРАВЛЕНО (остатки: герой, башни, снаряды уже на реестрах Sim; туториал и подсказки переведены на `Sim.trees`/`Sim.enemies`/`GameCommands.slots`)
 Каждый вызов создаёт новый `Array`, а затем перебирает все узлы группы.
 - `scripts/hero.gd:201` `get_focus_target()` вызывается **каждый кадр** из `main._process` (нестрого) и ещё раз из `hero._physics_process` при `auto_action`; перебирает все `Enemy` и **все деревья леса** (`WoodTree.GROUP`).
 - `scripts/tower.gd:70` `find_nearest_enemy()` из `_process` каждой башни (раз в `retarget_interval`/`fire_interval`), `_nearest_unhit` — на каждый прыжок молнии.
@@ -49,16 +49,17 @@
 
 ### M2. Нет единой проверки «ошибок в выводе» в `run_all.sh` — ИСПРАВЛЕНО
 - Теперь `run_all.sh` проваливает тест при `SCRIPT ERROR`/`Parse Error`/`ERROR:`/`WARNING:`; намеренные ошибки — в `tests/expected_errors.txt` (регулярки). Утечки при выходе (`ObjectDB instances were leaked`, `resources still in use`) идут предупреждением в summary: источник — проигрываемые `AudioStreamPlaybackWAV` сцены `main` при `quit()`, устранить из тестов не удалось.
+- Путь D, проверено: остановка проигрывателей в `_exit_tree` main и освобождение сцены + 4 кадра перед `quit()` (проба в test_endgame) утечки НЕ убирают: остаются те же 4 `AudioStreamPlaybackWAV` + 4 ресурса wav. Вероятно, пустой (Dummy) аудиодрайвер headless не микширует и не освобождает воспроизведения до выхода; в игре это не проявляется, поэтому в код ничего не добавлено.
 - Исходное описание:
 - `tests/run_all.sh`: тест считается пройденным, если в выводе есть `RESULT: PASS`. `SCRIPT ERROR` печатается, но не проваливает тест; строки `ERROR:` (в т.ч. `Resumed function ... after await, but class instance is gone`) и `WARNING:` не ищутся вообще. CLAUDE.md требует «без ошибок и предупреждений».
 - Предложение: провалить тест при `SCRIPT ERROR`/`Parse Error` и ввести allowlist для известных шумов (`ConfigFile parse error`, `resources still in use`).
 
-### M3. Числа баланса в коде (CLAUDE.md: «в .tres или @export»)
+### M3. Числа баланса в коде (CLAUDE.md: «в .tres или @export») — ИСПРАВЛЕНО (`resources/balance.json`, `scripts/balance.gd`; `chain_falloff` — `@export` башни; радиусы колец — `@export` main)
 - `scripts/wave_plan.gd:18` таблица `MIX` (каждый N-й слот/смещение), `wave_plan.gd:81` `1 + floori(wave / 30.0)` боссов, `BOSS_GROWTH_EXPONENT` — вся форма волны в константах.
 - `scripts/tower_data.gd:7` `SELL_REFUND := 0.7`, `tower.gd` (`amount *= 0.8` в `_shoot_chain`), `main.gd:260` радиусы колец `0.8/1.1/0.5`, `villagers.gd` ок (`@export`).
 - Предложение: вынести `MIX`/боссов в `levels.json` или `.tres` (`balance_sim.py` читает тот же источник), `SELL_REFUND` и `chain_falloff` — `@export`.
 
-### M4. `main.gd` — «бог-объект» (983 строки)
+### M4. `main.gd` — «бог-объект» (983 строки) — ИСПРАВЛЕНО (`LevelBuilder`, `CardController`, `GuideHints`, `BattleEnd`, `CoopHooks`; main.gd ~500 строк)
 Строит уровень, карточку команд, магазин, кузницу, торговлю, подсказки, обработку конца игры, паузу. Тяжело тестировать (тесты зовут приватные `_on_all_waves_cleared`, `_on_command_pressed`, `_forge_open`).
 - Предложение: вынести `CommandCard` (сборка `info` для HUD, `_forge_card/_trade_card/_refresh_card`) и `LevelBuilder` (`_build_level/_plant_trees`) в отдельные скрипты по одному пункту ROADMAP.
 

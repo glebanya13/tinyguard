@@ -16,8 +16,6 @@ const PRIORITY_HINT_KEYS: Array[String] = [
 	"PRIORITY_STRONGEST_HINT",
 	"PRIORITY_NEAREST_HINT",
 ]
-## Share of everything spent on a tower that selling it returns.
-const SELL_REFUND := 0.7
 
 @export var display_name: String = ""
 ## One-line role for the build menu ("fast, single target").
@@ -66,7 +64,9 @@ func total_cost(level: int) -> Vector2i:
 ## What selling a tower of `level` gives back.
 func sell_value(level: int) -> Vector2i:
 	var total: Vector2i = total_cost(level)
-	return Vector2i(floori(total.x * SELL_REFUND), floori(total.y * SELL_REFUND))
+	return Vector2i(
+		floori(total.x * Balance.sell_refund()), floori(total.y * Balance.sell_refund())
+	)
 
 
 func max_level() -> int:

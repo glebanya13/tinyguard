@@ -8,6 +8,7 @@ const GAME_SCENE := "res://scenes/main.tscn"
 const COOP_SCENE := "res://scenes/coop_lobby.tscn"
 const LOCK_ICON: Texture2D = preload("res://ui/icons/lock.png")
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
+const STAR_EMPTY_ICON: Texture2D = preload("res://ui/icons/star_empty.png")
 const CASTLE_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
@@ -16,7 +17,6 @@ const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const DAILY_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
 const ACHIEVEMENTS_ICON: Texture2D = preload("res://ui/icons/crown.png")
 const GOLD := Color(0.98, 0.8, 0.4)
-const DIM_STAR := Color(0.22, 0.24, 0.34, 0.9)
 
 var _site_buttons: Array[Button] = []
 var _sites: Array[Node3D] = []
@@ -128,11 +128,12 @@ func _build_coop_button() -> void:
 ## "Испытание дня" and "Достижения": two buttons at the top left and their panels
 ## (scripts/daily_panel.gd, scripts/achievements_panel.gd). Offline they work as well.
 func _build_extras() -> void:
-	var row := HBoxContainer.new()
+	var row := VBoxContainer.new()
 	row.name = "Extras"
 	row.add_theme_constant_override("separation", 8)
-	row.position = Vector2(20, 14)
+	row.position = Vector2(16, 84)
 	_ui_root.add_child(row)
+	_ui_root.move_child(row, 0)  # below the dialogs
 	_daily = DailyPanel.new()
 	_daily.online = Online
 	_ui_root.add_child(_daily)
@@ -145,6 +146,7 @@ func _build_extras() -> void:
 	row.add_child(daily_button)
 	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, 84)
 	ach_button.name = "AchievementsButton"
+	ach_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ach_button.tooltip_text = tr("ACH_BUTTON")
 	ach_button.text = ""
 	ach_button.pressed.connect(_achievements.open)
@@ -157,7 +159,7 @@ func _extra_button(text: String, icon: Texture2D, width: float) -> Button:
 	button.icon = icon
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(width, 84)
-	button.add_theme_constant_override("icon_max_width", 40)
+	button.add_theme_constant_override("icon_max_width", 44)
 	button.theme_type_variation = &"SecondaryButton"
 	return button
 
@@ -214,12 +216,11 @@ func _star_row(earned: int, size: float) -> HBoxContainer:
 	row.add_theme_constant_override("separation", 0)
 	for i in 3:
 		var star := TextureRect.new()
-		star.texture = STAR_ICON
+		star.texture = STAR_ICON if i < earned else STAR_EMPTY_ICON
 		star.custom_minimum_size = Vector2(size, size)
 		star.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		star.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		star.modulate = Color.WHITE if i < earned else DIM_STAR
 		row.add_child(star)
 	return row
 
@@ -242,7 +243,10 @@ func _select(id: int) -> void:
 			tr("MAP_ENDLESS_RECORD") % [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
 		)
 	for i in _site_buttons.size():
-		_site_buttons[i].modulate = Color(1.15, 1.1, 0.9) if _site_ids[i] == id else Color.WHITE
+		var chosen: bool = _site_ids[i] == id
+		_site_buttons[i].modulate = Color(1.12, 1.08, 0.92) if chosen else Color.WHITE
+		_site_buttons[i].pivot_offset = _site_buttons[i].custom_minimum_size * 0.5
+		_site_buttons[i].scale = Vector2(1.16, 1.16) if chosen else Vector2.ONE
 
 
 func _refresh_stars() -> void:
@@ -423,7 +427,7 @@ func _build_account_ui() -> void:
 	button.focus_mode = Control.FOCUS_NONE
 	button.icon = PROFILE_ICON
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.add_theme_constant_override("icon_max_width", 40)
+	button.add_theme_constant_override("icon_max_width", 48)
 	button.tooltip_text = tr("MAP_PROFILE")
 	button.pressed.connect(func() -> void: _account.open())
 	_sound_button.add_sibling(button)
@@ -466,7 +470,7 @@ func _build_settings_ui() -> void:
 	gear.focus_mode = Control.FOCUS_NONE
 	gear.icon = GEAR_ICON
 	gear.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	gear.add_theme_constant_override("icon_max_width", 40)
+	gear.add_theme_constant_override("icon_max_width", 52)
 	gear.tooltip_text = tr("SET_TOOLTIP")
 	_sound_button.add_sibling(gear)
 	_settings = SettingsPanel.new()
