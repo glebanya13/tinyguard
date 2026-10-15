@@ -8,6 +8,7 @@ extends Control
 
 const MAP_SCENE := "res://scenes/level_select.tscn"
 const GAME_SCENE := "res://scenes/main.tscn"
+const BACKDROP: Texture2D = preload("res://ui/app/backdrop.jpg")
 const GOLD := Color(0.98, 0.8, 0.4)
 const OK_COLOR := Color(0.62, 0.95, 0.42)
 const INFO_COLOR := Color(0.62, 0.86, 1.0)
@@ -118,8 +119,11 @@ func status_text() -> String:
 
 
 func _build() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.2, 0.33, 0.76)
+	var bg := TextureRect.new()
+	bg.texture = BACKDROP
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var safe := MarginContainer.new()
