@@ -264,6 +264,24 @@ def music_loop():
     return lowpass(out, 0.5)
 
 
+def ui_click():
+    # Short soft "tick": a damped blip with a touch of noise.
+    blip = shaped(tone(lambda t: 1200 - 3500 * t, 0.06), 0.001, 0.012)
+    tick = shaped(lowpass(noise(0.03, 41), 0.5), 0.0005, 0.005, 0.3)
+    return mix(blip, tick)
+
+
+def confetti():
+    # Party popper: a pop followed by falling sparkles.
+    pop = shaped(tone(lambda t: 260 - 600 * t, 0.12), 0.001, 0.03)
+    air = shaped(lowpass(noise(0.2, 42), 0.35), 0.001, 0.05, 0.7)
+    layers = [mix(pop, air)]
+    for k, f in enumerate([1568.0, 2093.0, 1760.0, 2349.3]):
+        layers.append([0.0] * int((0.08 + k * 0.07) * RATE) + shaped(
+            tone(lambda t, f=f: f, 0.2, lambda p: math.sin(p) + 0.2 * math.sin(2 * p)), 0.002, 0.05, 0.35))
+    return mix(*layers)
+
+
 def main() -> None:
     write("bow_shot", bow_shot(), 0.6)
     write("slime_hit", slime_hit(), 0.7)
@@ -281,6 +299,8 @@ def main() -> None:
     write("boss_roar", boss_roar(), 0.8)
     write("zap", zap(), 0.6)
     write("wave_boom", wave_boom(), 0.9)
+    write("ui_click", ui_click(), 0.5)
+    write("confetti", confetti(), 0.6)
     write("music_loop", music_loop(), 0.55)
 
 
