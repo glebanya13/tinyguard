@@ -32,14 +32,11 @@ const CONFETTI: Array[Color] = [
 ]
 const TRANSPARENT := Color(1, 1, 1, 0)
 
-## Floating numbers alive at once (more are dropped).
-const MAX_TEXTS := 10
 ## At most one damage number per enemy this often, and overall (milliseconds).
 const DAMAGE_GAP_MS := 220
 const DAMAGE_GAP_ALL_MS := 70
 ## Hits from this much damage are drawn bigger and orange.
 const BIG_HIT := 20.0
-const TEXT_LIFE := 0.8
 const BURST_DRAG := 2.0
 const SHAKE_DECAY := 7.0
 const FOOTSTEP_GAP := 0.2
@@ -58,8 +55,7 @@ var _layer: CanvasLayer = null
 var _vignette: TextureRect = null
 var _click: AudioStreamPlayer = null
 var _celebrate_sound: AudioStreamPlayer = null
-var _texts: Array[Dictionary] = []
-var _text_free: Array[Label] = []
+var _numbers: FxNumbers = null
 var _damage_gate: Dictionary = {}
 var _next_damage_ms: int = 0
 var _shake: float = 0.0
@@ -141,7 +137,7 @@ func _process(delta: float) -> void:
 	if _dots == null:
 		return  # nothing has happened yet
 	_update_shake(delta)
-	_update_texts(delta)
+	_numbers.step(delta, _camera)
 	_update_confetti(delta)
 	if full():
 		_update_footsteps(delta)
@@ -336,28 +332,6 @@ func _update_shake(delta: float) -> void:
 		_vignette.visible = _vignette_alpha > 0.01
 
 
-func _update_texts(delta: float) -> void:
-	var i: int = 0
-	while i < _texts.size():
-		var entry: Dictionary = _texts[i]
-		var age: float = float(entry["age"]) + delta
-		var label: Label = entry["label"]
-		if age >= TEXT_LIFE:
-			label.hide()
-			_text_free.append(label)
-			_texts.remove_at(i)
-			continue
-		entry["age"] = age
-		var k: float = age / TEXT_LIFE
-		var world: Vector3 = entry["world"] + Vector3.UP * (0.9 * (1.0 - pow(1.0 - k, 2.0)))
-		if not _camera.is_position_behind(world):
-			label.position = _camera.unproject_position(world) - label.size * 0.5
-		var pop: float = 1.0 + 0.35 * maxf(1.0 - k * 6.0, 0.0)
-		label.scale = Vector2(pop, pop)
-		label.modulate.a = 1.0 - maxf((k - 0.7) / 0.3, 0.0)
-		i += 1
-
-
 func _update_confetti(delta: float) -> void:
 	if _confetti_left <= 0.0 or _dots == null:
 		return
@@ -429,10 +403,7 @@ func _switch_off() -> void:
 		return
 	_dots.clear()
 	_rings.clear()
-	for entry in _texts:
-		(entry["label"] as Label).hide()
-		_text_free.append(entry["label"])
-	_texts.clear()
+	_numbers.clear()
 	_shake = 0.0
 	_vignette_alpha = 0.0
 	_vignette.hide()
@@ -460,8 +431,8 @@ func _ensure_built() -> void:
 	add_child(_layer)
 	_vignette = _make_vignette()
 	_layer.add_child(_vignette)
-	for i in MAX_TEXTS:
-		_text_free.append(_make_label())
+	_numbers = FxNumbers.new()
+	_layer.add_child(_numbers)
 
 
 func _make_vignette() -> TextureRect:
@@ -485,31 +456,10 @@ func _make_vignette() -> TextureRect:
 	return rect
 
 
-func _make_label() -> Label:
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_color_override("font_outline_color", Color(0.1, 0.07, 0.05, 0.95))
-	label.add_theme_constant_override("outline_size", 6)
-	label.visible = false
-	_layer.add_child(label)
-	return label
-
-
 ## A number that rises from a world point and fades out.
 func _text(text: String, world: Vector3, color: Color, font_size: int) -> void:
 	_ensure_built()
-	if _text_free.is_empty() or _camera.is_position_behind(world):
-		return
-	var label: Label = _text_free.pop_back()
-	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.modulate.a = 1.0
-	label.show()
-	label.reset_size()
-	label.pivot_offset = label.size * 0.5
-	label.position = _camera.unproject_position(world) - label.size * 0.5
-	_texts.append({"label": label, "world": world, "age": 0.0})
+	_numbers.add(text, world, color, font_size)
 
 
 func _emit_dot(

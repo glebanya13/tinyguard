@@ -15,8 +15,8 @@ const WING_FLAP := 0.6
 const ARM_SWING := 0.45
 const BODY_SWAY := 0.07
 ## Hit flash (full effects only): how fast it fades and how much it brightens.
-const FLASH_FADE := 7.0
-const FLASH_GAIN := Vector3(2.2, 2.4, 2.4)
+const FLASH_FADE := 5.0
+const FLASH_GAIN := Vector3(1.2, 1.5, 1.5)
 
 ## model path -> {"parts": Array[Dictionary], "members": Array[Enemy], "mms": Array[MultiMesh]}
 var _kinds: Dictionary = {}
@@ -178,8 +178,20 @@ func _new_multimesh(mesh: Mesh) -> MultiMesh:
 	var instance := MultiMeshInstance3D.new()
 	instance.multimesh = mm
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if mm.use_colors:
+		instance.material_override = _tintable(mesh)
 	add_child(instance)
 	return mm
+
+
+## The mesh's material with vertex colours on, so the instance colour (hit flash) tints
+## it. One copy per mesh part, not per enemy.
+func _tintable(mesh: Mesh) -> Material:
+	var source: Material = mesh.surface_get_material(0)
+	var copy := (source.duplicate() if source else StandardMaterial3D.new()) as Material
+	if copy is BaseMaterial3D:
+		(copy as BaseMaterial3D).vertex_color_use_as_albedo = true
+	return copy
 
 
 ## MultiMesh buffers are resized in steps (doubling); resizing drops the

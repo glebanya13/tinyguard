@@ -61,9 +61,12 @@ func _run() -> void:
 		await _shot("fx_battle_%d" % i)
 	var victims: Array[Node] = get_nodes_in_group(Enemy.GROUP)
 	if not victims.is_empty():
-		(victims[0] as Enemy).take_damage(2.0)
-		await _frames(1)
+		for victim in victims:
+			(victim as Enemy).hit_flash = 1.0
+		Engine.time_scale = 0.05
+		await _frames(2)
 		await _shot("fx_flash")
+	Engine.time_scale = 3.0
 	bm.upgrade(slots[1])
 	await _frames(6)
 	await _shot("fx_upgrade")
