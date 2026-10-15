@@ -18,7 +18,7 @@ import {
 import type { Locale } from "@/config/site";
 import { getContent } from "@/content";
 import type { IconName } from "@/content/types";
-import { Gallery } from "@/components/site/Gallery";
+import { ScreenshotSlider } from "@/components/site/ScreenshotSlider";
 import { FaqList, PageHero, SectionHead } from "@/components/site/ui";
 
 const ICONS: Record<IconName, LucideIcon> = {
@@ -103,7 +103,7 @@ export function About({ locale }: { locale: Locale }) {
       <section className="sky-gradient section-y" aria-labelledby="shots-h">
         <div className="container-site">
           <SectionHead id="shots-h" title={a.gallery.title} lead={a.gallery.lead} />
-          <Gallery locale={locale} />
+          <ScreenshotSlider locale={locale} />
         </div>
       </section>
       <section className="section-y" aria-labelledby="faq-h">

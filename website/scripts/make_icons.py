@@ -10,7 +10,7 @@ Requires Pillow with WebP support.
 """
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[2]
 PUBLIC = Path(__file__).resolve().parents[1] / "public"
@@ -67,10 +67,21 @@ def main() -> None:
     og.save(PUBLIC / "og-image.png", optimize=True)
 
     # Hero background: replaceable. The owner may drop their own public/img/hero.jpg; it is never overwritten.
+    # Default: the game logo art, enlarged and heavily blurred, with soft light spots.
     hero = IMG / "hero.jpg"
     if not hero.exists():
-        valley = Image.open(ROOT / "assets/store/shot_02_level_1_valley.png").convert("RGB")
-        valley.save(hero, quality=80, optimize=True, progressive=True)
+        bg = cover(logo, 1920, 1080).filter(ImageFilter.GaussianBlur(34))
+        spots = Image.new("RGB", bg.size, (0, 0, 0))
+        draw = ImageDraw.Draw(spots)
+        draw.ellipse((1100, -150, 1900, 450), fill=(120, 170, 255))
+        draw.ellipse((1400, 600, 2100, 1200), fill=(255, 190, 80))
+        spots = spots.filter(ImageFilter.GaussianBlur(120))
+        bg = Image.blend(bg, ImageChops.add(bg, spots), 0.35)
+        # Navy gradient, opaque on the left (text side), light on the right.
+        grad = Image.linear_gradient("L").rotate(-90).resize(bg.size)  # white on the left -> black on the right
+        navy = Image.new("RGB", bg.size, (20, 27, 72))
+        bg = Image.composite(navy, bg, grad.point(lambda v: int(v * 0.92)))
+        bg.save(hero, quality=72, optimize=True, progressive=True)
 
     # Screenshots: 1280x720 WebP for the gallery.
     for name in SHOTS:

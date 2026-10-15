@@ -69,6 +69,10 @@ export interface Content {
     langSwitchLabel: string;
     close: string;
     openShot: string;
+    prev: string;
+    next: string;
+    goTo: string;
+    carousel: string;
     operator: string;
     contact: string;
     policyVersion: string;
@@ -83,7 +87,14 @@ export interface Content {
     "home" | "about" | "privacy" | "deleteAccount" | "support" | "contact" | "terms" | "notFound",
     { title: string; description: string }
   >;
-  home: { badge: string; title: string; lead: string; introTitle: string; introText: string };
+  home: {
+    artAlt: string;
+    badge: string;
+    title: string;
+    lead: string;
+    introTitle: string;
+    introText: string;
+  };
   about: {
     eyebrow: string;
     title: string;
@@ -99,7 +110,11 @@ export interface Content {
       costLabel: string;
       items: { name: string; role: string; cost: string }[];
     };
-    gallery: { title: string; lead: string; shots: { file: string; alt: string }[] };
+    gallery: {
+      title: string;
+      lead: string;
+      shots: { file: string; caption: string; alt: string }[];
+    };
     how: {
       title: string;
       lead: string;

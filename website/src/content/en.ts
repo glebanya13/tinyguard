@@ -31,6 +31,10 @@ export const en: Content = {
     langSwitchLabel: "Site language",
     close: "Close",
     openShot: "Open screenshot",
+    prev: "Previous screenshot",
+    next: "Next screenshot",
+    goTo: "Go to screenshot",
+    carousel: "Game screenshots",
     operator: "Operator",
     contact: "Contact",
     policyVersion: "Text version",
@@ -159,20 +163,46 @@ export const en: Content = {
       title: "Screenshots",
       lead: "Frames from the game: the kingdom map, levels and towers.",
       shots: [
-        { file: "shot_01_map", alt: "Kingdom map: islands with levels and stars" },
+        {
+          file: "shot_01_map",
+          caption: "Choose a level",
+          alt: "Kingdom map: islands with levels and stars",
+        },
         {
           file: "shot_02_level_1_valley",
+          caption: "Build towers",
           alt: "Green Valley level: towers by the path and a wave of slimes",
         },
-        { file: "shot_03_level_4_snow", alt: "Snowy Pass level: towers among snowy fir trees" },
+        {
+          file: "shot_03_level_4_snow",
+          caption: "Snowy Pass",
+          alt: "Snowy Pass level: towers among snowy fir trees",
+        },
         {
           file: "shot_04_level_5_autumn",
+          caption: "Autumn Grove",
           alt: "Autumn Grove level with towers and a wave of enemies",
         },
-        { file: "shot_05_level_6_desert", alt: "Sand Fortress level in the desert" },
-        { file: "shot_06_upgrade", alt: "Tower card with an upgrade and target selection" },
-        { file: "shot_07_tutorial", alt: "Tutorial: a hint on how to build the first tower" },
-        { file: "shot_08_treasury", alt: "Royal Treasury: permanent upgrades bought with stars" },
+        {
+          file: "shot_05_level_6_desert",
+          caption: "Sand Fortress",
+          alt: "Sand Fortress level in the desert",
+        },
+        {
+          file: "shot_06_upgrade",
+          caption: "Upgrade your towers",
+          alt: "Tower card with an upgrade and target selection",
+        },
+        {
+          file: "shot_07_tutorial",
+          caption: "Learn as you play",
+          alt: "Tutorial: a hint on how to build the first tower",
+        },
+        {
+          file: "shot_08_treasury",
+          caption: "Spend your stars",
+          alt: "Royal Treasury: permanent upgrades bought with stars",
+        },
       ],
     },
     how: {
@@ -236,6 +266,8 @@ export const en: Content = {
     },
   },
   home: {
+    artAlt:
+      "The Bimbleguard hero in a blue helmet with a sword and shield, a slime in a golden crown and the castle",
     badge: "A cartoon tower defense adventure",
     title: "Bimbleguard",
     lead: "Build powerful defenses, control your hero, and stop waves of enemies in a colorful fantasy world.",

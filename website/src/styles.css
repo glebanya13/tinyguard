@@ -182,3 +182,22 @@ code {
   padding: 0.1em 0.35em;
   border-radius: 0.3em;
 }
+
+@keyframes float-phone {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-4deg) translateY(-12px);
+  }
+}
+@utility hero-phone {
+  @media (min-width: 640px) {
+    transform: rotate(-4deg);
+    animation: float-phone 7s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}

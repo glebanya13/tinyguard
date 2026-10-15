@@ -45,8 +45,9 @@ and Google Play Console: privacy `https://<host>/privacy/`, deletion `https://<h
 
 ## Replaceable images (`public/img/`)
 
-- `hero.jpg` - hero background (1920x1080 recommended). The default is a game screenshot; your file is never
-  overwritten by `make_icons.py`. A dark gradient on the left keeps the text readable.
+- `hero.jpg` - hero background (1920x1080, up to ~250 KB). The default is the blurred game logo art with a navy
+  gradient. To replace it, just put your own file at `public/img/hero.jpg` (it is never overwritten by
+  `make_icons.py`; delete it and rerun the script to get the default back). A dark gradient on the left keeps the text readable.
 - `logo-96.webp`, `logo-720.webp`, `favicon.ico`, `apple-touch-icon.png`, `icon-*.png`, `og-image.png` come from
   `assets/brand/logo.png` and `assets/store/` via `scripts/make_icons.py`.
 - `shot_*.webp` - gallery (from `assets/store/shot_*.png`).

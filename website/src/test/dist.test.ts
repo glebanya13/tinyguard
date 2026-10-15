@@ -36,6 +36,15 @@ describe("static build", () => {
     expect(read("404.html")).toContain('content="noindex"');
   });
 
+  it("pre-renders the screenshot slider with phone frames", () => {
+    for (const f of ["index.html", "ru/index.html", "about/index.html"]) {
+      const html = read(f);
+      expect(html, f).toContain('aria-roledescription="carousel"');
+      expect(html.match(/aria-roledescription="slide"/g), f).toHaveLength(8);
+      expect(html, f).toContain("1 / 8");
+    }
+  });
+
   it("writes sitemap.xml, robots.txt and .nojekyll", () => {
     const sm = read("sitemap.xml");
     for (const r of allRoutes()) expect(sm).toContain(`<loc>https://example.test/g${r.path}</loc>`);
