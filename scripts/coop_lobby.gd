@@ -261,18 +261,15 @@ func purge_user() -> Dictionary:
 	var meta: Dictionary = await transport.read("rooms/%s/meta" % room)
 	if not meta["ok"]:
 		return meta
-	if meta["value"] is Dictionary and str(meta["value"].get("host", "")) == me:
-		return await _remove_room(room, true)
-	return await (
-		transport
-		. update(
-			{
-				"rooms/%s/players/guest" % room: null,
-				"rooms/%s/net/guest" % room: null,
-				"user_rooms/" + me: null,
-			}
-		)
-	)
+	if not meta["value"] is Dictionary:
+		# The room is gone (the host left): only the stale index is left to remove.
+		return await transport.write("user_rooms/" + me, null)
+	if str(meta["value"].get("host", "")) == me:
+		var guest: Dictionary = await transport.read("rooms/%s/players/guest" % room)
+		if not guest["ok"]:
+			return guest
+		return await _remove_room(room, true, guest["value"] != null)
+	return await _drop_guest(room)
 
 
 ## Leaves: the host removes the whole room, the guest only its own entries.
@@ -284,18 +281,11 @@ func leave() -> void:
 	_reset()
 	transport.stop_listen()
 	if was_host:
-		await _remove_room(room, true)
+		# The mirror is stale once a match began (the stream moved on): ask the server.
+		var guest: Dictionary = await transport.read("rooms/%s/players/guest" % room)
+		await _remove_room(room, true, not guest["ok"] or guest["value"] != null)
 	else:
-		await (
-			transport
-			. update(
-				{
-					"rooms/%s/players/guest" % room: null,
-					"rooms/%s/net/guest" % room: null,
-					"user_rooms/" + transport.uid(): null,
-				}
-			)
-		)
+		await _drop_guest(room)
 
 
 func _enter(room: String, as_role: String) -> void:
@@ -366,15 +356,27 @@ func _gone(reason: String) -> void:
 	closed.emit(reason)
 
 
+## A guest's own entries and index. Two requests: when the host has already removed
+## the room the first is refused by the rules, and the index must go anyway.
+func _drop_guest(room: String) -> Dictionary:
+	await transport.update(
+		{"rooms/%s/players/guest" % room: null, "rooms/%s/net/guest" % room: null}
+	)
+	return await transport.write("user_rooms/" + transport.uid(), null)
+
+
 ## Deletes a room's data (host only, rules allow it); also this user's index.
-func _remove_room(room: String, include_index: bool) -> Dictionary:
+## The rules refuse deleting a guest entry that does not exist, so it is listed
+## only when `guest_present`.
+func _remove_room(room: String, include_index: bool, guest_present: bool = true) -> Dictionary:
 	var changes := {
 		"rooms/%s/net/host" % room: null,
 		"rooms/%s/net/guest" % room: null,
-		"rooms/%s/players/guest" % room: null,
 		"rooms/%s/players/host" % room: null,
 		"rooms/%s/meta" % room: null,
 	}
+	if guest_present:
+		changes["rooms/%s/players/guest" % room] = null
 	if include_index:
 		changes["user_rooms/" + transport.uid()] = null
 	return await transport.update(changes)
