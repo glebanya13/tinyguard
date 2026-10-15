@@ -89,7 +89,7 @@ static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool
 				"wood": refund.y,
 				"gain": true,
 				"enabled": true,
-				"tooltip": _t("CARD_SELL_TIP") % roundi(TowerData.SELL_REFUND * 100.0)
+				"tooltip": _t("CARD_SELL_TIP") % roundi(Balance.sell_refund() * 100.0)
 			}
 		)
 	buttons.append(

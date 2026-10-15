@@ -1,0 +1,18 @@
+{
+	"waves": {
+		"boss_growth_exponent": 0.75,
+		"boss_per_waves": 30,
+		"mix": [
+			["golem_from", "stone_golem", 9, 8],
+			["tank_from", "slime_tank", 4, 3],
+			["shield_from", "slime_shield", 6, 5],
+			["healer_from", "slime_healer", 8, 4],
+			["splitter_from", "slime_splitter", 7, 6],
+			["bat_from", "slime_bat", 5, 2],
+			["fast_from", "slime_fast", 3, 1]
+		]
+	},
+	"economy": {
+		"sell_refund": 0.7
+	}
+}

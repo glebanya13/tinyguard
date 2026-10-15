@@ -22,6 +22,11 @@ const WALK_OBSTACLE_MASK := 1 | 4
 ## Radius a built tower blocks on the walk grid.
 const TOWER_BLOCK_RADIUS := 0.6
 
+## Radius of the ring under the hero's target (tree, enemy, boss), metres.
+@export var ring_radius_tree: float = 0.8
+@export var ring_radius_enemy: float = 0.5
+@export var ring_radius_boss: float = 1.1
+
 var level: Dictionary = {}
 ## Co-op match (docs/MULTIPLAYER.md): empty in single player. Set before the node
 ## enters the tree (tests), else taken from CoopRun. `coop_transport` null = Online.rtdb.
@@ -343,9 +348,9 @@ func _update_target_ring() -> void:
 	if target == null:
 		return
 	_target_ring.global_position = Vector3(target.global_position.x, 0.08, target.global_position.z)
-	var radius: float = 0.8
+	var radius: float = ring_radius_tree
 	if target is Enemy:
-		radius = 1.1 if (target as Enemy).is_boss() else 0.5
+		radius = ring_radius_boss if (target as Enemy).is_boss() else ring_radius_enemy
 	var pulse: float = 1.0 + 0.08 * sin(Time.get_ticks_msec() * 0.008)
 	_target_ring.scale = Vector3(radius * pulse, 0.5, radius * pulse)
 	_ring_material.albedo_color = RING_TREE_COLOR if is_tree else RING_ENEMY_COLOR
