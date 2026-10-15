@@ -108,7 +108,9 @@ func _run() -> void:
 	var off_trace: Array[int] = rec["trace"]
 	var journal: CommandLog = rec["journal"]
 	check(off_trace.size() == TOTAL_TICKS / HASH_EVERY, "recorded %d hashes" % off_trace.size())
-	check(journal.commands.size() >= 4, "the bot built towers (%d commands)" % journal.commands.size())
+	check(
+		journal.commands.size() >= 4, "the bot built towers (%d commands)" % journal.commands.size()
+	)
 	var fx_off: Fx = rec["main"].get_node("Fx")
 	check(fx_off._dots == null and fx_off._layer == null, "effects off: nothing was built")
 	for level in [GameSettings.FX_MIN, GameSettings.FX_FULL]:
