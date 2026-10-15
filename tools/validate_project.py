@@ -433,9 +433,10 @@ REACH_MARGIN = 0.3
 
 
 def _hidden(path) -> bool:
-    """Files under dot-directories (.godot cache, .claude worktrees) are not the project."""
+    """Not the project: dot-directories (.godot cache, .claude worktrees), the website, and the
+    git-ignored build outputs (android/ Gradle template, build/, out/)."""
     parts = path.relative_to(ROOT).parts[:-1]
-    return any(part.startswith(".") or part in ("node_modules", "website") for part in parts)
+    return any(part.startswith(".") or part in ("node_modules", "website", "android", "build", "out") for part in parts)
 
 
 def _min_tower_range() -> float:
