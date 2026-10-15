@@ -250,6 +250,14 @@ func _bot(side: Peer) -> void:
 			if not slot.is_free() and t % 60 == 0 and bm.can_upgrade(slot):
 				commands.submit(GameCommand.upgrade(slot.slot_id))
 				break
+	# Target priority is a command that travels between the players too.
+	if t >= 600 and t % 150 == 0:
+		for slot in commands.slots:
+			if slot.slot_id % 2 == side.slot and not slot.is_free():
+				commands.submit(
+					GameCommand.set_priority(slot.slot_id, (slot.tower.priority + 1) % 4)
+				)
+				break
 	if side.slot == 1 and t == 1500 and not side.sold and not commands.slots[1].is_free():
 		side.sold = true
 		commands.submit(GameCommand.sell(1))
