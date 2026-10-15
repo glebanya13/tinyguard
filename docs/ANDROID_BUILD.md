@@ -71,3 +71,33 @@
 - Перед публикацией: ссылка на политику конфиденциальности (`docs/PRIVACY_PUBLISH.md`),
   заполненная форма Data safety (см. `docs/PRIVACY.md`: ID гостя, имя, прогресс; без рекламы
   и аналитики).
+
+## AAB для Google Play (проверено 2026-10-15)
+
+Собрано и проверено `jarsigner`: пакет `com.bimbleguard.app`, версия 0.4.0 (код 4), target SDK 36,
+только arm64-v8a, разрешение только `INTERNET`, подпись — ключ загрузки (не отладочный).
+**На устройстве AAB не запускался**; в Play он тоже не загружался.
+
+Пресет `Android Play (AAB)` в `export_presets.cfg` (Gradle, `export_format=1`, `target_sdk=36`).
+Нужно один раз: шаблон Gradle (`unzip android_source.zip -d android/build`, файл
+`android/.build_version` = `4.7.2.stable`; каталог `android/` не коммитится), Android SDK
+Build-Tools и платформа 36 (Gradle докачивает сам), JDK 17.
+
+```bash
+K=~/.bimbleguard-keys   # upload.keystore + upload.pass, вне репозитория
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
+export GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$K/upload.keystore
+export GODOT_ANDROID_KEYSTORE_RELEASE_USER=bimbleguard-upload
+export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$(cat $K/upload.pass)"
+godot --headless --path . --export-release "Android Play (AAB)" build/bimbleguard.aab
+```
+
+В настройках редактора Godot (`editor_settings-4.7.tres`) должен быть задан
+`export/android/java_sdk_path`; открытый редактор может сбросить его при сохранении.
+Первая сборка долгая: Gradle скачивает свой дистрибутив (~130 МБ) и зависимости.
+
+**Ключ загрузки** (`~/.bimbleguard-keys/`): алиас `bimbleguard-upload`, RSA 2048, срок 10000 дней,
+SHA-256 отпечаток `CC:6E:CB:E8:BA:C1:CC:3B:95:FB:0A:D5:C8:B9:2A:8D:90:F7:4C:20:75:5F:49:B3:60:B5:82:02:91:40:63:51`.
+Храните копию хранилища и пароля отдельно: без них новый вариант подписи для Play придётся
+запрашивать у поддержки. Включите Play App Signing при первой загрузке.
+Перед каждой новой публикацией увеличьте `version/code` в обоих пресетах.
