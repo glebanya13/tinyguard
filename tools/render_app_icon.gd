@@ -1,4 +1,6 @@
 extends SceneTree
+## SUPERSEDED: since 2026-10-14 icon.png and ui/app/*.png come from assets/brand/logo.png via
+## tools/make_logo_assets.py; running this script would overwrite the logo.
 ## Renders the Android launcher icons and the boot splash from the game models:
 ##   icon.png (192, rounded square), ui/app/icon_foreground.png and
 ##   ui/app/icon_background.png (432, adaptive icon), ui/app/splash.png (1280x720).
