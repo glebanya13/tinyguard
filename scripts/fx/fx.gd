@@ -348,7 +348,7 @@ func _update_confetti(delta: float) -> void:
 		)
 		var vel := Vector3(_rng.randf_range(-0.8, 0.8), -_rng.randf_range(0.5, 2.0), 0.0)
 		var c: Color = CONFETTI[_rng.randi() % CONFETTI.size()]
-		_emit_dot(at, vel, _rng.randf_range(2.6, 3.4), 0.26, 0.2, c, c, 1.2, 0.4)
+		_emit_dot(at, vel, _rng.randf_range(2.6, 3.4), 0.4, 0.34, c, c, 1.2, 0.4)
 
 
 func _update_footsteps(delta: float) -> void:

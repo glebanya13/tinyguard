@@ -33,13 +33,9 @@ func _run() -> void:
 	var bm: BuildManager = main.get_node("BuildManager")
 	gs.add_gold(100000)
 	gs.add_wood(100000)
-	var kind := 0
 	var slots: Array[TowerSlot] = []
 	for node: Node in get_nodes_in_group(TowerSlot.GROUP):
 		slots.append(node as TowerSlot)
-	for slot in slots:
-		bm.build_on(slot, bm.tower_types[kind % bm.tower_types.size()])
-		kind += 1
 	gs.lives = 100000
 	gs.lives_changed.emit(gs.lives)
 	# Look at the slot farthest from the castle (where the enemies arrive first).
@@ -48,6 +44,12 @@ func _run() -> void:
 		func(a: TowerSlot, b: TowerSlot) -> bool:
 			return a.global_position.distance_to(castle) > b.global_position.distance_to(castle)
 	)
+	var kind := 0
+	for slot in slots:
+		bm.build_on(slot, bm.tower_types[kind % bm.tower_types.size()])
+		kind += 1
+	while bm.upgrade(slots[0]):
+		pass
 	var hero: Hero = main.get_node("Level/Hero")
 	hero.global_position = slots[0].global_position + Vector3(1.5, 0, 1.5)
 	(main.get_node("Camera") as CameraFollow).snap()
@@ -59,6 +61,11 @@ func _run() -> void:
 	for i in 12:
 		await _frames(8)
 		await _shot("fx_battle_%d" % i)
+	wm.start_next_wave()
+	for i in 600:
+		if get_nodes_in_group(Enemy.GROUP).size() >= 2:
+			break
+		await process_frame
 	var victims: Array[Node] = get_nodes_in_group(Enemy.GROUP)
 	if not victims.is_empty():
 		for victim in victims:

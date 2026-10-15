@@ -37,13 +37,24 @@ func _run() -> void:
 	var base: float = await _calls()
 	print("FXCOST baseline %.0f" % base)
 	for i in 10:
-		fx._text("%d" % (i * 7), centre + Vector3(i * 0.3 - 1.5, 1.0, 0.0), Color.WHITE, 22 if i % 2 == 0 else 28)
+		fx._text(
+			"%d" % (i * 7),
+			centre + Vector3(i * 0.3 - 1.5, 1.0, 0.0),
+			Color.WHITE,
+			22 if i % 2 == 0 else 28
+		)
 	var with_numbers: float = await _calls()
 	print("FXCOST 10 numbers: +%.0f" % (with_numbers - base))
 	fx._numbers.clear()
 	for i in 150:
 		fx._emit_dot(
-			centre + Vector3(i * 0.02, 0.5, 0.0), Vector3.ZERO, 5.0, 0.2, 0.2, Color.WHITE, Color.WHITE
+			centre + Vector3(i * 0.02, 0.5, 0.0),
+			Vector3.ZERO,
+			5.0,
+			0.2,
+			0.2,
+			Color.WHITE,
+			Color.WHITE
 		)
 	var with_dots: float = await _calls()
 	print("FXCOST 150 dots: +%.0f" % (with_dots - base))
