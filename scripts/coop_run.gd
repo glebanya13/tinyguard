@@ -10,6 +10,16 @@ static var config: Dictionary = {}
 ## The room object of this player (leaves the room when the match is over).
 static var lobby: CoopLobby = null
 
+## Tests put a fake database here; null = the real Online.rtdb.
+static var transport_override: CoopTransport = null
+
+
+## Where the co-op layer talks to (null: co-op is not available).
+static func transport() -> CoopTransport:
+	if transport_override != null:
+		return transport_override
+	return Online.rtdb
+
 
 static func is_pending() -> bool:
 	return not config.is_empty()

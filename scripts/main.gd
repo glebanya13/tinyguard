@@ -773,7 +773,7 @@ func _update_guide_arrow() -> void:
 	if _guide_done or _guide_wait > 0:
 		if _guide_done:
 			_guide_arrow.hide()
-		elif _guide_target and is_instance_valid(_guide_target):
+		elif _guide_target and is_instance_valid(_guide_target) and _guide_target.is_inside_tree():
 			_place_guide_arrow(_guide_target)
 		else:
 			_guide_arrow.hide()
@@ -1048,7 +1048,7 @@ func _setup_coop() -> void:
 	coop = CoopBattle.new()
 	coop.name = "CoopBattle"
 	add_child(coop)
-	var transport: CoopTransport = coop_transport if coop_transport != null else Online.rtdb
+	var transport: CoopTransport = coop_transport if coop_transport != null else CoopRun.transport()
 	coop.setup(coop_config, transport, coop_lobby, _sim, _commands, _hero, _level_root)
 	coop.partner_waiting.connect(_on_coop_partner_waiting)
 	coop.match_over.connect(_on_coop_match_over)

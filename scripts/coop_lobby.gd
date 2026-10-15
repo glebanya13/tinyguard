@@ -351,8 +351,11 @@ func _on_stream_error(reason: String) -> void:
 
 
 func _gone(reason: String) -> void:
+	var was_guest: bool = role == "guest"
 	_reset()
 	transport.stop_listen()
+	if was_guest:
+		transport.write("user_rooms/" + transport.uid(), null)  # the room is gone: drop the index
 	closed.emit(reason)
 
 

@@ -67,9 +67,11 @@ func _ready() -> void:
 	theme = load("res://ui/theme.tres")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if transport == null:
-		transport = Online.rtdb
+		transport = CoopRun.transport()
 	if nickname == "":
 		nickname = Online.player_name()
+	if nickname == "":
+		nickname = tr("COOP_UNNAMED")
 	_level = clampi(LevelCatalog.selected_id, 1, maxi(LevelCatalog.unlocked(), 1))
 	_build()
 	_show_view(_menu_view)
