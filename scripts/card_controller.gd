@@ -4,8 +4,11 @@ extends RefCounted
 ## trade), what its buttons do (the hero walks to the slot, then the command is
 ## submitted), the trade card next to a villager and taps on the ground.
 
-## Walking this close to a slot selects it automatically.
-const AUTO_SELECT_REACH := 1.1
+## Walking this close to a slot selects it automatically (a little more than BUILD_REACH:
+## stopping where the knight can build must pick that slot).
+const AUTO_SELECT_REACH := 1.6
+## An automatically picked slot is let go when the knight is this far from it.
+const AUTO_RELEASE_REACH := 2.6
 ## The hero builds when this close to a slot centre (metres).
 const BUILD_REACH := 1.25
 ## A tap this close to a tree sends the hero to chop it.
@@ -22,6 +25,9 @@ var trade_with: Villager = null
 var pending_command: StringName = &""
 
 var _pending_slot: TowerSlot = null
+## The selected slot was picked by walking up to it (not by a tap): walking away drops it.
+var _auto_selected: bool = false
+var _auto_selecting: bool = false
 ## The villager the player closed the card for (until the hero walks away), and
 ## whether the hero walks to the villager after a tap.
 var _trade_dismissed: Villager = null
@@ -145,6 +151,8 @@ func refresh() -> void:
 
 
 func on_slot_selected(slot: TowerSlot) -> void:
+	if not _auto_selecting:
+		_auto_selected = false  # a tap
 	# Picking another slot drops a build/upgrade the hero was walking to do.
 	if pending_command != &"" and slot != _pending_slot:
 		_hero.cancel_order()
@@ -200,20 +208,48 @@ func _command_available(id: StringName, slot: TowerSlot) -> bool:
 
 
 func _auto_select_near_hero() -> void:
-	# Walking (keys, joystick or a tap on the ground) selects the slot the hero
-	# reaches; a pending build/upgrade command keeps its own target.
-	if _hero.velocity.length() < 0.1 or pending_command != &"":
+	# Walking (keys, joystick) selects the slot nearest to the knight within reach and
+	# follows him: a slot picked on the way is dropped for a nearer one and released when
+	# he leaves it, so "Build" never sends him back to the slot of the start of the level.
+	# A pending build/upgrade command keeps its own target; a tap on a slot stays until
+	# he walks up to another one.
+	if pending_command != &"":
 		return
+	var moving: bool = _hero.velocity.length() >= 0.1
+	var current: TowerSlot = _build_manager.selected_slot
 	var nearest: TowerSlot = null
 	var best: float = AUTO_SELECT_REACH
 	for slot in _commands.slots:
-		var offset: Vector3 = slot.global_position - _hero.global_position
-		offset.y = 0.0
-		if offset.length() < best:
-			best = offset.length()
+		var distance: float = _flat_distance(slot)
+		if distance < best:
+			best = distance
 			nearest = slot
-	if nearest != null and nearest != _build_manager.selected_slot:
-		_build_manager.select_slot(nearest)
+	if current != null and _auto_selected and not moving:
+		# Standing still: only a clearly nearer slot replaces it (no flicker between two).
+		if nearest != null and nearest != current and best + 0.15 < _flat_distance(current):
+			_auto_select(nearest)
+		return
+	if not moving:
+		return
+	if nearest != null and nearest != current:
+		_auto_select(nearest)
+	elif nearest == null and current != null and _auto_selected:
+		if _flat_distance(current) > AUTO_RELEASE_REACH:
+			_auto_selected = false
+			_build_manager.clear_selection()
+
+
+func _auto_select(slot: TowerSlot) -> void:
+	_auto_selecting = true
+	_build_manager.select_slot(slot)
+	_auto_selecting = false
+	_auto_selected = true
+
+
+func _flat_distance(node: Node3D) -> float:
+	var offset: Vector3 = node.global_position - _hero.global_position
+	offset.y = 0.0
+	return offset.length()
 
 
 ## Attack radius of the tower on `slot` (for a free slot: what a new tower reaches).
