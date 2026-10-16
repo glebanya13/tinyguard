@@ -17,7 +17,6 @@ const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const DAILY_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
 const ACHIEVEMENTS_ICON: Texture2D = preload("res://ui/icons/crown.png")
-const RECORD_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const GOLD := Color(0.98, 0.8, 0.4)
 ## Tint of the difficulty crown: Hard, Nightmare.
 const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
@@ -159,7 +158,7 @@ func _build_extras() -> void:
 	daily_button.name = "DailyButton"
 	daily_button.pressed.connect(_daily.open)
 	row.add_child(daily_button)
-	_record_button = _extra_button("", RECORD_ICON, 230)
+	_record_button = _extra_button("", CASTLE_ICON, 230)
 	_record_button.name = "RecordRunButton"
 	_record_button.custom_minimum_size = Vector2(230, 104)
 	_record_button.theme_type_variation = &""  # the primary (gold) button: the big call to play
@@ -267,9 +266,7 @@ func _select(id: int) -> void:
 		_crown_icon.modulate = CROWN_COLORS[crown]
 		_crown_icon.tooltip_text = tr("MAP_CROWN") % tr(str(Balance.difficulty(crown)["name"]))
 	var record: int = LevelCatalog.endless_record(id)
-	_record_label.text = (
-		tr("MAP_RECORD_BEST") % record if record > 0 else tr("MAP_RECORD_NONE")
-	)
+	_record_label.text = (tr("MAP_RECORD_BEST") % record if record > 0 else tr("MAP_RECORD_NONE"))
 	_update_record_button(id, record)
 	if not LevelCatalog.is_difficulty_open(id, _difficulty):
 		_difficulty = 0

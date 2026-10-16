@@ -47,7 +47,8 @@ static func empty() -> Dictionary:
 		"updatedAt": 0,
 		"onboardingCompleted": false,
 		"tutorialVersionCompleted": 0,
-		"progression": {"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 0, "crowns": {}},
+		"progression":
+		{"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 0, "crowns": {}},
 		"settings": {"sound": true},
 		"achievements": 0,
 	}

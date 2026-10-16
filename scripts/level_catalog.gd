@@ -168,7 +168,11 @@ static func crown(id: int) -> int:
 static func is_difficulty_open(id: int, level_difficulty: int) -> bool:
 	if level_difficulty <= 0:
 		return true
-	return is_completed(id) and crown(id) >= level_difficulty - 1 and level_difficulty <= MAX_DIFFICULTY
+	return (
+		is_completed(id)
+		and crown(id) >= level_difficulty - 1
+		and level_difficulty <= MAX_DIFFICULTY
+	)
 
 
 static func complete(id: int, earned_stars: int = 1, won_difficulty: int = 0) -> void:

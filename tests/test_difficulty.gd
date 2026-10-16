@@ -50,13 +50,13 @@ func _check_multipliers() -> void:
 		last_count = n
 	var hard := WavePlan.new(level["waves"])
 	hard.set_difficulty(2)
-	check(
-		_count(hard.spawns(20)) > _count(normal.spawns(20)), "Nightmare sends more enemies at 20"
-	)
+	check(_count(hard.spawns(20)) > _count(normal.spawns(20)), "Nightmare sends more enemies at 20")
 	var lives_hard: float = float(Balance.difficulty(2)["lives"])
 	check(lives_hard < 1.0 and float(Balance.difficulty(0)["lives"]) == 1.0, "castle lives shrink")
 	check(
-		is_equal_approx(normal.reward_scale(0), 1.0 * float(level["waves"].get("reward_mult", 1.0))),
+		is_equal_approx(
+			normal.reward_scale(0), 1.0 * float(level["waves"].get("reward_mult", 1.0))
+		),
 		"Normal reward is the level's"
 	)
 	check(normal.reward_scale(2) < normal.reward_scale(0), "Nightmare pays less")
@@ -110,7 +110,9 @@ func _check_record_growth() -> void:
 		check(last_boss_gap <= 6, "level %d: bosses get more frequent" % id)
 		check(plan.spawns(40).size() > plan.spawns(2).size(), "level %d: waves grow" % id)
 		check(plan.window_for(5) < plan.window_for(40), "level %d: spawn window stretches" % id)
-		check(plan.window_for(80) <= plan.wave_duration + 0.001, "level %d: no gap between waves" % id)
+		check(
+			plan.window_for(80) <= plan.wave_duration + 0.001, "level %d: no gap between waves" % id
+		)
 		check(plan.wave_count == WavePlan.ENDLESS_WAVES and not plan.is_elite_wave(1), "endless")
 
 

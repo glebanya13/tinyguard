@@ -350,7 +350,9 @@ func _current_perks() -> Dictionary:
 ## the same battle; call it before the battle clock starts.
 func _apply_perks(perks: Dictionary) -> void:
 	var start: Dictionary = level["start"].duplicate()
-	start["lives"] = maxi(roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1)
+	start["lives"] = maxi(
+		roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1
+	)
 	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
 	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
 	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
