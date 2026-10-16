@@ -34,6 +34,10 @@ const INFO_COLOR := Color(0.62, 0.86, 1.0)
 ## Command card buttons: 84 px is ~48 dp on a 1080p phone (720 px tall canvas).
 const CARD_BUTTON_SIZE := Vector2(84, 84)
 const CARD_ICON_HEIGHT := 46.0
+## A button with a caption under its icon (tower name, "Upgrade", "Sell").
+const CARD_CAPTION_SIZE := Vector2(100, 130)
+const CARD_CAPTION_ICON_HEIGHT := 60.0
+const CARD_CAPTION_FONT := 17
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
@@ -476,6 +480,14 @@ func _make_button(spec: Dictionary) -> Button:
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(icon)
+	var caption := Label.new()
+	caption.name = "Caption"
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.add_theme_color_override("font_color", COST_COLOR)
+	caption.add_theme_constant_override("outline_size", 0)
+	caption.add_theme_font_size_override("font_size", CARD_CAPTION_FONT)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(caption)
 	var cost := HBoxContainer.new()
 	cost.name = "Cost"
 	cost.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -489,6 +501,12 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 	button.disabled = not spec.get("enabled", false)
 	button.tooltip_text = "" if _touch else spec.get("tooltip", "")
 	(button.find_child("Icon", true, false) as TextureRect).texture = spec.get("icon")
+	var caption := button.find_child("Caption", true, false) as Label
+	caption.text = spec.get("caption", "")
+	caption.visible = caption.text != ""
+	button.custom_minimum_size = CARD_CAPTION_SIZE if caption.visible else CARD_BUTTON_SIZE
+	var icon_height: float = CARD_CAPTION_ICON_HEIGHT if caption.visible else CARD_ICON_HEIGHT
+	(button.find_child("Icon", true, false) as TextureRect).custom_minimum_size.y = icon_height
 	var cost: HBoxContainer = button.find_child("Cost", true, false)
 	for child in cost.get_children():
 		child.free()
