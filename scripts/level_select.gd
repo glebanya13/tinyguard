@@ -159,12 +159,13 @@ func _build_extras() -> void:
 	daily_button.name = "DailyButton"
 	daily_button.pressed.connect(_daily.open)
 	row.add_child(daily_button)
-	_record_button = _extra_button("", RECORD_ICON, 250)
+	_record_button = _extra_button("", RECORD_ICON, 230)
 	_record_button.name = "RecordRunButton"
-	_record_button.custom_minimum_size = Vector2(250, 112)
+	_record_button.custom_minimum_size = Vector2(230, 104)
 	_record_button.theme_type_variation = &""  # the primary (gold) button: the big call to play
-	_record_button.add_theme_font_size_override("font_size", 21)
-	_record_button.add_theme_constant_override("icon_max_width", 52)
+	_record_button.add_theme_font_size_override("font_size", 19)
+	_record_button.add_theme_constant_override("icon_max_width", 34)
+	_record_button.add_theme_constant_override("h_separation", 6)
 	_record_button.pressed.connect(_start.bind(true))
 	row.add_child(_record_button)
 	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, 84)
@@ -435,7 +436,7 @@ func _on_leaderboard_loaded(level_id: int, entries: Array) -> void:
 	for i in entries.size():
 		var row := Label.new()
 		row.text = tr("MAP_RECORD_ROW") % [i + 1, entries[i]["name"], entries[i]["wave"]]
-		row.add_theme_font_size_override("font_size", 21)
+		row.add_theme_font_size_override("font_size", 19)
 		if i == 0:
 			row.add_theme_color_override("font_color", GOLD)
 		_records_list.add_child(row)
@@ -547,8 +548,8 @@ func _start(endless: bool) -> void:
 
 
 ## The Record Run button on the map: the selected level and its best result.
-func _update_record_button(id: int, record: int) -> void:
-	var sub: String = tr("MAP_RECORD_BTN_SUB") % [record, id] if record > 0 else tr("MAP_RECORD_BTN_NEW") % id
+func _update_record_button(_id: int, record: int) -> void:
+	var sub: String = tr("MAP_RECORD_BTN_SUB") % record if record > 0 else tr("MAP_RECORD_BTN_NEW")
 	_record_button.text = tr("MAP_RECORD_RUN") + "\n" + sub
 
 

@@ -475,8 +475,8 @@ MAP_RECORD_RUN,Игра на рекорд,Record Run
 MAP_RECORD_SUB,Свободный режим без конца: каждая волна тяжелее предыдущей,Free mode with no end: every wave is harder than the last
 MAP_RECORD_BEST,Рекорд: %d волн,Best: %d waves
 MAP_RECORD_NONE,Рекорда пока нет,No record yet
-MAP_RECORD_BTN_SUB,Рекорд %d · ур. %d,Best %d · lvl %d
-MAP_RECORD_BTN_NEW,Ур. %d · без конца,Lvl %d · endless
+MAP_RECORD_BTN_SUB,Рекорд: %d,Best: %d
+MAP_RECORD_BTN_NEW,Без конца,No end
 HUD_RECORD_WAVE,Волна %d · Рекорд %d,Wave %d · Best %d
 HUD_WAVE_ONLY,Волна %d,Wave %d
 HUD_AGAIN,Ещё раз,Again
