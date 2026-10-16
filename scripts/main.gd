@@ -52,6 +52,11 @@ var _focused_tree: WoodTree = null
 var _focus: Node3D = null
 var _paused: bool = false
 var _endless: bool = false
+## Record Run: the endless mode of a normal level (not the daily challenge, not co-op).
+var _record: bool = false
+## Campaign difficulty of this battle: 0 Normal, 1 Hard, 2 Nightmare (rows of "difficulty" in
+## resources/balance.json). Journal header "difficulty"; co-op: the host's choice.
+var _difficulty: int = 0
 ## Date of the daily challenge being played ("" = a normal battle).
 var _daily_key: String = ""
 var _tracker: AchievementTracker = null
@@ -98,8 +103,11 @@ func _ready() -> void:
 	builder.build(level, _level_root, _enemy_path, _wave_manager, _commands, _sim, _hero, _camera)
 	_daily_key = LevelCatalog.daily_key if not _coop_on() else ""
 	_endless = (LevelCatalog.endless or _daily_key != "") and not _coop_on()
+	_record = _endless and _daily_key == ""
+	_difficulty = _chosen_difficulty()
 	_apply_perks(_current_perks())
-	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
+	_wave_manager.plan = WavePlan.new(level["waves"], _endless, _record)
+	_apply_difficulty()
 	_wave_manager.sim = _sim
 	_build_manager.sim = _sim
 	if _daily_key != "":
@@ -129,6 +137,8 @@ func _ready() -> void:
 		_defeat_sound,
 		_daily_key
 	)
+	battle_end.difficulty = _difficulty
+	battle_end.record_run = _record
 	if _coop_on():
 		coop = _coop_hooks.attach(
 			self,
@@ -177,6 +187,7 @@ func _ready() -> void:
 	_hud.spin_pressed.connect(_hero.try_spin)
 	_hud.restart_pressed.connect(_on_restart_pressed)
 	_hud.map_pressed.connect(_on_map_pressed)
+	_hud.records_pressed.connect(_on_records_pressed)
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
@@ -194,6 +205,9 @@ func _ready() -> void:
 	_hud.set_gold(_game_state.gold)
 	_hud.set_wood(_game_state.wood)
 	_hud.set_lives(_game_state.lives)
+	if _record:
+		_hud.record_mode = true
+		_hud.record_best = LevelCatalog.endless_record(int(level["id"]))
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_lane_hint = LaneHint.new()
 	_lane_hint.camera = _camera
@@ -293,12 +307,33 @@ func _journal_header() -> Dictionary:
 		"seed": _sim.seed_value,
 		"perks": _current_perks(),
 	}
+	if _difficulty > 0:
+		header["difficulty"] = _difficulty
+	if _record:
+		header["record"] = 1
 	if _daily_key != "":
 		header["daily"] = _daily_key
 	if _coop_on():
 		header["coop"] = 1
 		header["delay"] = int(coop_config["delay"])
 	return header
+
+
+## Difficulty of this battle: the player's choice on the map; co-op takes the host's choice
+## from the room; the record run and the daily challenge are always Normal.
+func _chosen_difficulty() -> int:
+	if _coop_on():
+		return int(coop_config.get("difficulty", 0))
+	if _endless:
+		return 0
+	return LevelCatalog.difficulty
+
+
+## Health, enemy count and kill gold of the difficulty (the lives are in _apply_perks).
+func _apply_difficulty() -> void:
+	var plan: WavePlan = _wave_manager.plan
+	plan.set_difficulty(_difficulty)
+	_wave_manager.reward_scale = plan.reward_scale(_difficulty)
 
 
 ## The player's permanent perks by name.
@@ -315,6 +350,7 @@ func _current_perks() -> Dictionary:
 ## the same battle; call it before the battle clock starts.
 func _apply_perks(perks: Dictionary) -> void:
 	var start: Dictionary = level["start"].duplicate()
+	start["lives"] = maxi(roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1)
 	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
 	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
 	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
@@ -326,7 +362,9 @@ func _apply_perks(perks: Dictionary) -> void:
 
 
 func _on_replay_begun(header: Dictionary) -> void:
+	_difficulty = clampi(int(header.get("difficulty", 0)), 0, Balance.difficulty_count() - 1)
 	_apply_perks(header.get("perks", {}))
+	_apply_difficulty()
 	if header.has("daily"):
 		DailyRun.apply(str(header["daily"]), _wave_manager.plan, _wave_manager, _build_manager)
 
@@ -503,6 +541,8 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	var next: String = ""
 	if not last:
 		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
+	if _record and not _wave_manager.plan.surprise_key(wave).is_empty():
+		next = tr(_wave_manager.plan.surprise_key(wave))  # "Swarm!", "Armoured!" ...
 	_hud.show_banner(title, next, boss)
 
 
@@ -518,6 +558,12 @@ func _on_restart_pressed() -> void:
 	if error != OK:
 		push_error("Restart failed: %s" % error_string(error))
 		get_tree().paused = true
+
+
+## Record Run end screen: the map opens with the records table of this level.
+func _on_records_pressed() -> void:
+	LevelCatalog.open_records = true
+	_on_map_pressed()
 
 
 func _on_map_pressed() -> void:

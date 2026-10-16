@@ -14,7 +14,13 @@ slots are played: "balanced" (round-robin over the paths, the sensible one),
 nearest to the castle, everything else into upgrades: must not beat balanced).
 It is an estimate: real players also fight with the hero and call waves early.
 
-Usage: python3 tools/balance_sim.py [level_id ...]
+Difficulty (--diff 0|1|2: Normal / Hard / Nightmare, multipliers from "difficulty" in
+resources/balance.json) and the Record Run (--record: free mode, every wave harder, rules from
+"record" in the same file; the result is the wave the castle falls on) are played as well.
+
+Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [level_id ...]
+  --table  one line per level: result of every strategy (lives left / wave lost on)
+  --sanity the "afk" (no tower at all) and "one" (a single tower) players: both must lose
 """
 from __future__ import annotations
 
@@ -32,7 +38,11 @@ WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
 HERO = {"damage_levels": [14.0], "range_levels": [1.4], "interval_levels": [0.5],
         "splash_levels": [0.0], "slow_levels": [1.0]}
 HERO_FROM_CASTLE = 3.0  # metres before the castle gate (on path 0) where the hero stands
-_RULES = json.loads((ROOT / "resources/balance.json").read_text())["waves"]  # same file as the game
+_BALANCE = json.loads((ROOT / "resources/balance.json").read_text())  # same file as the game
+_RULES = _BALANCE["waves"]
+DIFFS = _BALANCE["difficulty"]
+REC = _BALANCE["record"]
+RECORD_WAVE_LIMIT = 70  # the simulation stops here ("nobody gets further")
 BOSS_GROWTH_EXPONENT = _RULES["boss_growth_exponent"]
 BOSS_PER_WAVES = _RULES["boss_per_waves"]
 INTERVAL_DECAY = 0.97
@@ -66,6 +76,8 @@ NEVER = 100000
 AIR_GUARD_TOWERS = 3
 AIR_GUARD_RADIUS = 9.0
 STRATEGIES = ("balanced", "greedy", "turtle")
+# Sanity checks (--sanity): nobody may win by doing nothing or with a single tower.
+SANITY = {"afk": 0, "one": 1}
 
 
 def deal(dealt: dict, kind: str, weights: list, wave: int) -> int:
@@ -81,40 +93,100 @@ def deal(dealt: dict, kind: str, weights: list, wave: int) -> int:
     return best
 
 
-def wave_spawns(w: dict, n: int) -> list:
+def rnd(x: float) -> int:
+    """roundi() of GDScript: halves go away from zero."""
+    return int(math.floor(x + 0.5))
+
+
+def surprise_of(n: int):
+    for s in REC["surprises"]:
+        if n >= s["from"] and (n - s["from"]) % s["every"] == 0:
+            return s
+    return None
+
+
+def boss_wave(w: dict, n: int, record: bool) -> bool:
+    if record:
+        rows = [r for r in REC["boss"]["schedule"] if n >= r[0]]
+        return bool(rows) and (n - rows[-1][0]) % rows[-1][1] == 0
+    return n % w["boss_every"] == 0 or (w["boss_last"] and n == w["count"])
+
+
+def hp_factor(w: dict, n: int, record: bool, hp_scale: float) -> float:
+    if record:
+        return hp_scale * w["hp_mult"] * min(REC["hp_growth"] ** (n - 1), REC["hp_cap"])
+    return hp_scale * w["hp_mult"] * w["hp_growth"] ** (n - 1)
+
+
+def wave_spawns(w: dict, n: int, record: bool = False, hp_scale: float = 1.0, count_scale: float = 1.0) -> list:
     """[(kind, hp, lane, extra)] in spawn order; extra = {"elite": (reward x, scale)} or {}."""
-    hp = w["hp_mult"] * w["hp_growth"] ** (n - 1)
-    count = round(w["count_base"] + w["count_step"] * (n - 1))
+    hp = hp_factor(w, n, record, hp_scale)
+    surprise = surprise_of(n) if record else None
+    base = w["count_base"] + w["count_step"] * (n - 1)
+    if record:
+        base = w["count_base"] * REC["count_growth"] ** (n - 1)
+        if surprise:
+            base *= surprise["count"]
+        base = min(base, REC["count_cap"])
+    count = max(rnd(base * count_scale), 1)
     lanes = w.get("lanes", {})
     patterns = lanes.get("patterns", [])
     weights = patterns[(n - 1) % len(patterns)] if patterns else []
+    if surprise and weights:
+        weights = [1] * len(weights)
     dealt: dict = {}
     out = []
+    late = record and n >= REC["late_from"]
     for i in range(count):
         kind = "slime"
-        for key, enemy, every, offset in MIX:
-            if n >= w.get(key, NEVER) and i % every == offset:
-                kind = enemy
-                break
+        ehp = hp
+        if surprise:
+            kind, ehp = surprise["kind"], hp * surprise["hp"]
+        elif record:
+            for first, enemy, every, offset, every_late in REC["mix"]:
+                e = every_late if late else every
+                if n >= first and i % e == offset % e:
+                    kind = enemy
+                    break
+        else:
+            for key, enemy, every, offset in MIX:
+                if n >= w.get(key, NEVER) and i % every == offset:
+                    kind = enemy
+                    break
         lane = None
         if weights:
             use = weights
-            if kind == "slime_fast":
+            if kind == "slime_fast" and not surprise:
                 use = [1 if k in lanes["scout_paths"] else 0 for k in range(len(weights))]
             lane = deal(dealt, kind, use, n)
-        out.append((kind, hp, lane, {}))
-    elite = w.get("elite")
+        out.append((kind, ehp, lane, {}))
+    elite = REC["elite"] if record else w.get("elite")
     if elite and n >= elite["from"] and (n - elite["from"]) % elite["every"] == 0:
         elites = 1 + int((n - elite["from"]) // elite["step"])
         for e in range(elites):
             lane = deal(dealt, elite["kind"], weights, n + e) if weights else None
-            idx = round(len(out) * (e + 1.0) / (elites + 1.0))
+            idx = rnd(len(out) * (e + 1.0) / (elites + 1.0))
             out.insert(idx, (elite["kind"], hp * elite["hp"], lane, {"elite": elite["reward"]}))
-    if n % w["boss_every"] == 0 or (w["boss_last"] and n == w["count"]):
-        for i in range(1 + n // BOSS_PER_WAVES):
+    if boss_wave(w, n, record):
+        if record:
+            count_b = 1 + n // REC["boss"]["per_waves"]
+            bhp = hp ** REC["boss"]["hp_exponent"] * REC["boss"]["hp_mult"]
+        else:
+            count_b = 1 + n // BOSS_PER_WAVES
+            bhp = hp ** BOSS_GROWTH_EXPONENT * w.get("boss_hp_mult", 1.0)
+        for i in range(count_b):
             lane = lanes["boss_paths"][(n + i) % len(lanes["boss_paths"])] if weights else None
-            out.append(("slime_king", hp ** BOSS_GROWTH_EXPONENT, lane, {}))
+            out.append(("slime_king", bhp, lane, {}))
     return out
+
+
+def window_for(w: dict, n: int, record: bool) -> float:
+    window, duration = w.get("spawn_window", 24), w.get("wave_duration", 30)
+    if not record:
+        return window
+    r = REC["window_ramp"]
+    t = min(max((n - r["from"]) / (r["to"] - r["from"]), 0.0), 1.0)
+    return window + (duration - window) * t
 
 
 class Path2D:
@@ -175,14 +247,19 @@ def order_slots(lv: dict, drawn: list, strategy: str) -> list:
     return out
 
 
-def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
+def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int = 0, record: bool = False) -> int:
+    """Lives left after the campaign level; in the record run (`record`) the wave the castle fell on."""
     w = lv["waves"]
+    d = DIFFS[diff]
+    hp_scale, count_scale = d["hp"], d["count"]
+    reward_mult = d["reward"] * (REC["reward_mult"] if record else 1.0) * w.get("reward_mult", 1.0)
     paths = [Path2D(r) for r in routes(lv)]
     drawn = [Path2D(pts) for pts in lv["paths"]]  # every metre of road once
     gate = lv["paths"][0][-1]
     air_routes = [Path2D([p[0], gate]) for p in lv["paths"]]  # flyers: straight line to the gate
     slots = order_slots(lv, drawn, strategy)
-    gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], lv["start"]["lives"]
+    gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], max(rnd(lv["start"]["lives"] * d["lives"]), 1)
+    lives_start = lives
     towers = []  # dicts: kind, level, x, z, cd
     hx, hz = paths[0].at(paths[0].length - HERO_FROM_CASTLE)
     hero = {"kind": "hero", "level": 0, "x": hx + 0.8, "z": hz, "cd": 0.0}
@@ -193,12 +270,12 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
     free_slots = list(slots)
     leaked_on = {}  # path -> enemies that got through on it
     # "turtle" never builds beyond the 40% of slots nearest to the castle: the rest goes into upgrades.
-    slot_cap = math.ceil(0.4 * len(slots)) if strategy == "turtle" else len(slots)
+    slot_cap = SANITY.get(strategy, math.ceil(0.4 * len(slots)) if strategy == "turtle" else len(slots))
     cover_table = {tuple(sl): [p.coverage(sl[0], sl[1], 3.2) for p in drawn] for sl in slots}
 
     def air_guard() -> bool:
         """Flyers cross the map in a straight line: balanced keeps archers near the castle."""
-        if strategy != "balanced" or wave + 2 < w.get("bat_from", NEVER):
+        if strategy != "balanced" or wave + 2 < (REC["mix"][5][0] if record else w.get("bat_from", NEVER)):
             return False
         near = [tw for tw in towers if math.dist((tw["x"], tw["z"]), lv["castle"]) < AIR_GUARD_RADIUS
                 and TOWERS[tw["kind"]].get("hits_air", True)]
@@ -211,7 +288,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
         if air_guard():
             return min(free_slots, key=lambda sl: math.dist(sl, lv["castle"]))
         reserved = sorted(free_slots, key=lambda sl: math.dist(sl, lv["castle"]))[:AIR_GUARD_TOWERS]
-        if "bat_from" in w and len(free_slots) > AIR_GUARD_TOWERS:
+        if ("bat_from" in w or record) and len(free_slots) > AIR_GUARD_TOWERS:
             pool = [sl for sl in free_slots if sl not in reserved]  # kept for the flyers
         else:
             pool = free_slots
@@ -279,12 +356,12 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
         t += DT
         wood += WOOD_PER_SECOND * DT
         shop()
-        if wave < w["count"] and t >= next_wave_at:
+        if (record or wave < w["count"]) and t >= next_wave_at:
             wave += 1
-            queue = wave_spawns(w, wave)
-            spawners.append({"queue": queue, "interval": window / max(len(queue), 1), "left": 0.0})
+            queue = wave_spawns(w, wave, record, hp_scale, count_scale)
+            spawners.append({"queue": queue, "interval": window_for(w, wave, record) / max(len(queue), 1), "left": 0.0})
             next_wave_at = t + duration
-            if wave % w["boss_every"] == 0 or wave == w["count"]:
+            if not record and (wave % w["boss_every"] == 0 or wave == w["count"]):
                 levels = sum(tw["level"] + 1 for tw in towers)
                 report.append(f"волна {wave}: жизни {lives}, башен {len(towers)} (ур. {levels}), врагов {len(enemies)}")
         for sp in list(spawners):
@@ -316,6 +393,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
             enemies.remove(en)
         if lives <= 0:
             report.append(f"проигрыш на волне {wave}")
+            break
+        if record and wave > RECORD_WAVE_LIMIT:
             break
         for tw in towers + [hero]:
             tw["cd"] -= DT
@@ -365,32 +444,50 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
             tw["cd"] = d["interval_levels"][lvl]
         for en in [en for en in enemies if en["hp"] <= 0]:
             e = ENEMIES[en["kind"]]
-            gold += int(e["reward"] * en["rmult"])
+            gold += int(e["reward"] * en["rmult"] * reward_mult)
             enemies.remove(en)
             if e.get("split_count"):
                 for k in range(int(e["split_count"])):
                     add_enemy(enemies, "slime_mini", en["mult"], None, None, max(en["d"] - 0.35 * k, 0.0), en["route"])
-        if wave >= w["count"] and not spawners and not enemies:
+        if not record and wave >= w["count"] and not spawners and not enemies:
             break
+    if record:
+        reached = wave if lives <= 0 else RECORD_WAVE_LIMIT
+        if verbose:
+            print(f"{lv['id']}. [{strategy}] игра на рекорд: волна {reached}, башен {len(towers)}")
+        return reached
     if verbose:
         lost = ", ".join(f"{k} {v}" for k, v in sorted(leaks.items(), key=lambda kv: -kv[1]))
         print(f"{lv['id']}. {lv['name']} ({len(paths)} пути): " + "; ".join(report)
-              + f" | итог: жизни {max(lives, 0)}/{lv['start']['lives']}" + (f" | прорвались: {lost}" if lost else ""))
+              + f" | итог: жизни {max(lives, 0)}/{lives_start}" + (f" | прорвались: {lost}" if lost else ""))
     return max(lives, 0)
 
 
 def main() -> None:
     levels = json.loads((ROOT / "resources" / "levels.json").read_text(encoding="utf-8"))["levels"]
-    only = {int(a) for a in sys.argv[1:]}
+    args = sys.argv[1:]
+    diff = int(args[args.index("--diff") + 1]) if "--diff" in args else 0
+    record = "--record" in args
+    table = "--table" in args or "--sanity" in args
+    strategies = tuple(SANITY) if "--sanity" in args else STRATEGIES
+    only = {int(a) for a in args if a.isdigit() and args[args.index(a) - 1] != "--diff"}
     for lv in levels:
-        if not only or lv["id"] in only:
-            results = {}
-            for strategy in STRATEGIES:
+        if only and lv["id"] not in only:
+            continue
+        results = {}
+        for strategy in strategies:
+            if not table:
                 print(f"[{strategy}]", end=" ")
-                results[strategy] = play(lv, True, strategy)
-            start = lv["start"]["lives"]
-            if results["turtle"] > results["balanced"] + max(2, start // 5):
-                print(f"   !! уровень {lv['id']}: «черепаха» у замка лучше расстановки по дорогам")
+            results[strategy] = play(lv, not table, strategy, diff, record)
+        start = max(rnd(lv["start"]["lives"] * DIFFS[diff]["lives"]), 1)
+        if table:
+            if record:
+                print(f"{lv['id']}: " + "  ".join(f"{k} волна {v}" for k, v in results.items()))
+            else:
+                print(f"{lv['id']}: " + "  ".join(
+                    f"{k} {v}/{start}" + (" ПРОИГРЫШ" if v <= 0 else "") for k, v in results.items()))
+        elif not record and "turtle" in results and results["turtle"] > results["balanced"] + max(2, start // 5):
+            print(f"   !! уровень {lv['id']}: «черепаха» у замка лучше расстановки по дорогам")
 
 
 if __name__ == "__main__":

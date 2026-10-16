@@ -2,7 +2,8 @@ extends Node3D
 ## Start screen: a 3D island map with one button per level (locked levels
 ## show a lock, earned stars sit under each button), the star counter, the
 ## treasury where stars buy permanent perks, and the selected level's card
-## with "Play" and, once the level is won, the endless siege.
+## with "Play" (campaign, on Normal / Hard / Nightmare) and the Record Run (free mode, every
+## wave harder). A big Record Run button sits beside the daily challenge.
 
 const GAME_SCENE := "res://scenes/main.tscn"
 const COOP_SCENE := "res://scenes/coop_lobby.tscn"
@@ -16,7 +17,10 @@ const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const DAILY_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
 const ACHIEVEMENTS_ICON: Texture2D = preload("res://ui/icons/crown.png")
+const RECORD_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const GOLD := Color(0.98, 0.8, 0.4)
+## Tint of the difficulty crown: Hard, Nightmare.
+const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
 
 var _site_buttons: Array[Button] = []
 var _sites: Array[Node3D] = []
@@ -33,6 +37,12 @@ var _sync_label: Label = null
 var _coop_button: Button = null
 var _daily: DailyPanel = null
 var _achievements: AchievementsPanel = null
+## Campaign difficulty picked for the next battle (0 Normal, 1 Hard, 2 Nightmare).
+var _difficulty: int = 0
+var _diff_buttons: Array[Button] = []
+var _diff_info: Label = null
+var _crown_icon: TextureRect = null
+var _record_button: Button = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
@@ -58,12 +68,14 @@ func _ready() -> void:
 	GameSettings.apply_language()
 	LevelCatalog.apply_sound()
 	LevelCatalog.endless = false
+	LevelCatalog.difficulty = 0
 	LevelCatalog.tutorial = false
 	LevelCatalog.daily_key = ""
 	_build_sites()
 	_build_account_ui()
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
+	_build_difficulty_row()
 	_build_coop_button()
 	_build_extras()
 	_sound_button.pressed.connect(_on_sound_pressed)
@@ -78,6 +90,9 @@ func _ready() -> void:
 	Online.status_changed.connect(_on_online_status)
 	Online.cloud_loaded.connect(_on_cloud_loaded)
 	_select(clampi(LevelCatalog.selected_id, 1, LevelCatalog.unlocked()))
+	if LevelCatalog.open_records and Online.is_configured():
+		_open_records()  # back from the end screen of a Record Run
+	LevelCatalog.open_records = false
 
 
 func _process(_delta: float) -> void:
@@ -144,6 +159,14 @@ func _build_extras() -> void:
 	daily_button.name = "DailyButton"
 	daily_button.pressed.connect(_daily.open)
 	row.add_child(daily_button)
+	_record_button = _extra_button("", RECORD_ICON, 250)
+	_record_button.name = "RecordRunButton"
+	_record_button.custom_minimum_size = Vector2(250, 112)
+	_record_button.theme_type_variation = &""  # the primary (gold) button: the big call to play
+	_record_button.add_theme_font_size_override("font_size", 24)
+	_record_button.add_theme_constant_override("icon_max_width", 52)
+	_record_button.pressed.connect(_start.bind(true))
+	row.add_child(_record_button)
 	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, 84)
 	ach_button.name = "AchievementsButton"
 	ach_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -197,6 +220,10 @@ func _build_sites() -> void:
 			var stars := _star_row(LevelCatalog.stars(id), 26)
 			stars.position = Vector2(2, 84)
 			button.add_child(stars)
+			if LevelCatalog.crown(id) > 0:
+				var badge := _crown_texture(LevelCatalog.crown(id), 30)
+				badge.position = Vector2(56, -10)
+				button.add_child(badge)
 		_site_layer.add_child(button)
 		var number := Label.new()
 		number.text = str(id)
@@ -233,15 +260,19 @@ func _select(id: int) -> void:
 	for child in _level_stars.get_children():
 		child.queue_free()
 	_level_stars.add_child(_star_row(LevelCatalog.stars(id), 34))
-	var won: bool = LevelCatalog.is_completed(id)
-	_endless_button.visible = won
+	var crown: int = LevelCatalog.crown(id)
+	_crown_icon.visible = crown > 0
+	if crown > 0:
+		_crown_icon.modulate = CROWN_COLORS[crown]
+		_crown_icon.tooltip_text = tr("MAP_CROWN") % tr(str(Balance.difficulty(crown)["name"]))
 	var record: int = LevelCatalog.endless_record(id)
-	if not won:
-		_record_label.text = tr("MAP_NO_ENDLESS")
-	else:
-		_record_label.text = (
-			tr("MAP_ENDLESS_RECORD") % [record, Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
-		)
+	_record_label.text = (
+		tr("MAP_RECORD_BEST") % record if record > 0 else tr("MAP_RECORD_NONE")
+	)
+	_update_record_button(id, record)
+	if not LevelCatalog.is_difficulty_open(id, _difficulty):
+		_difficulty = 0
+	_refresh_difficulty(id)
 	for i in _site_buttons.size():
 		var chosen: bool = _site_ids[i] == id
 		_site_buttons[i].modulate = Color(1.12, 1.08, 0.92) if chosen else Color.WHITE
@@ -508,6 +539,106 @@ func _update_sound_icon() -> void:
 func _start(endless: bool) -> void:
 	LevelCatalog.selected_id = _selected
 	LevelCatalog.endless = endless
+	LevelCatalog.difficulty = 0 if endless else _difficulty
 	_play_button.disabled = true
 	_endless_button.disabled = true
+	_record_button.disabled = true
 	get_tree().change_scene_to_file(GAME_SCENE)
+
+
+## The Record Run button on the map: the selected level and its best result.
+func _update_record_button(id: int, record: int) -> void:
+	var sub: String = tr("MAP_RECORD_BTN_SUB") % [record, id] if record > 0 else tr("MAP_RECORD_BTN_NEW") % id
+	_record_button.text = tr("MAP_RECORD_RUN") + "\n" + sub
+
+
+## Difficulty row of the level card: three buttons (a locked one shows a lock) and the line
+## with what the picked difficulty changes. Built in code, filled by _refresh_difficulty().
+func _build_difficulty_row() -> void:
+	_endless_button.text = tr("MAP_RECORD_RUN")
+	_endless_button.tooltip_text = tr("MAP_RECORD_SUB")
+	_endless_button.visible = true
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var group := ButtonGroup.new()
+	for i in Balance.difficulty_count():
+		var button := Button.new()
+		button.toggle_mode = true
+		button.button_group = group
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(170, 56)
+		button.theme_type_variation = &"SecondaryButton"
+		button.text = tr(str(Balance.difficulty(i)["name"]))
+		button.add_theme_font_size_override("font_size", 22)
+		button.add_theme_constant_override("icon_max_width", 24)
+		button.pressed.connect(_on_difficulty_pressed.bind(i))
+		row.add_child(button)
+		_diff_buttons.append(button)
+	_diff_info = Label.new()
+	_diff_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_diff_info.add_theme_font_size_override("font_size", 16)
+	_diff_info.add_theme_color_override("font_color", Color(0.82, 0.86, 0.95))
+	box.add_child(_diff_info)
+	var content: Control = _play_button.get_parent().get_parent()
+	content.add_child(box)
+	content.move_child(box, _play_button.get_parent().get_index())
+	_crown_icon = _crown_texture(1, 34)
+	_crown_icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	_level_stars.get_parent().add_child(_crown_icon)
+	_level_stars.get_parent().move_child(_crown_icon, 1)
+
+
+func _refresh_difficulty(id: int) -> void:
+	for i in _diff_buttons.size():
+		var open: bool = LevelCatalog.is_difficulty_open(id, i)
+		var button: Button = _diff_buttons[i]
+		button.disabled = not open
+		button.icon = null if open else LOCK_ICON
+		button.set_pressed_no_signal(i == _difficulty)
+	_diff_info.text = _difficulty_info(id, _difficulty)
+
+
+func _difficulty_info(id: int, index: int) -> String:
+	if index == 0:
+		# What the next locked one needs, else the plain note.
+		for i in range(1, _diff_buttons.size()):
+			if not LevelCatalog.is_difficulty_open(id, i):
+				return tr("MAP_DIFF_LOCK_%d" % i)
+		return tr("MAP_DIFF_BASE")
+	var row: Dictionary = Balance.difficulty(index)
+	return (
+		tr("MAP_DIFF_INFO")
+		% [
+			_times(float(row["hp"])),
+			_times(float(row["count"])),
+			_times(float(row["reward"])),
+			_times(float(row["lives"])),
+		]
+	)
+
+
+## "1.3" / "0.8" without a trailing zero: 1.0 -> "1".
+static func _times(value: float) -> String:
+	return str(snappedf(value, 0.01))
+
+
+func _on_difficulty_pressed(index: int) -> void:
+	_difficulty = index
+	_refresh_difficulty(_selected)
+
+
+## The crown icon, tinted by the difficulty (1 Hard, 2 Nightmare).
+func _crown_texture(level_difficulty: int, size: float) -> TextureRect:
+	var icon := TextureRect.new()
+	icon.texture = ACHIEVEMENTS_ICON
+	icon.custom_minimum_size = Vector2(size, size)
+	icon.size = Vector2(size, size)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.modulate = CROWN_COLORS[clampi(level_difficulty, 0, CROWN_COLORS.size() - 1)]
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return icon

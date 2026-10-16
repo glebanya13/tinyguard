@@ -5,21 +5,24 @@ extends RefCounted
 ## keep it (sections progress/perks/settings of user://progress.cfg); the
 ## [profile] section adds identity and onboarding fields. See docs/ACCOUNTS.md.
 ##
-## Shape (schemaVersion 1):
+## Shape (schemaVersion 2; 2 added progression.crowns):
 ## {schemaVersion, nickname, nicknameNormalized, createdAt, updatedAt (unix s),
 ##  onboardingCompleted, tutorialVersionCompleted,
 ##  progression: {unlocked, stars: {"1": 3}, endless: {"1": 23}, perks: {"axe": 1},
-##                dailyStars: 2 (bonus stars of the daily challenge)},
+##                dailyStars: 2 (bonus stars of the daily challenge),
+##                crowns: {"1": 2} (highest difficulty won above Normal: 1 Hard, 2 Nightmare)},
 ##  achievements: bit mask of unlocked achievements (resources/achievements.json),
 ##  settings: {sound},
 ##  local only: nicknameVerified (reserved on the server), nicknameConflict
 ##  (the server said the name is taken), newer (cloud written by a newer app)}
 ## The Firebase uid is the stable id; the nickname is only a display name.
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 const SECTION := "profile"
 ## Upper bound for a stars / endless / perk value read from the cloud (the rules cap them too).
 const MAX_CLOUD_VALUE := 5000
+## Highest difficulty crown (1 Hard, 2 Nightmare; LevelCatalog.MAX_DIFFICULTY).
+const MAX_CROWN := 2
 ## Tutorial version a player who already had progress before profiles existed
 ## is treated as having seen (they skip the tutorial).
 const LEGACY_TUTORIAL_VERSION := 1
@@ -44,7 +47,7 @@ static func empty() -> Dictionary:
 		"updatedAt": 0,
 		"onboardingCompleted": false,
 		"tutorialVersionCompleted": 0,
-		"progression": {"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 0},
+		"progression": {"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 0, "crowns": {}},
 		"settings": {"sound": true},
 		"achievements": 0,
 	}
@@ -67,6 +70,10 @@ static func from_save(cfg: ConfigFile) -> Dictionary:
 					prog["stars"][id] = clampi(stars, 0, 3)
 			elif key.begins_with("endless_"):
 				prog["endless"][id] = maxi(int(cfg.get_value("progress", key, 0)), 0)
+			elif key.begins_with("crown_"):
+				var crown: int = clampi(int(cfg.get_value("progress", key, 0)), 0, MAX_CROWN)
+				if crown > 0:
+					prog["crowns"][id] = crown
 	if cfg.has_section("perks"):
 		for key: String in cfg.get_section_keys("perks"):
 			prog["perks"][key] = maxi(int(cfg.get_value("perks", key, 0)), 0)
@@ -104,6 +111,8 @@ static func write_to_save(p: Dictionary, cfg: ConfigFile) -> void:
 		cfg.erase_section("perks")
 	for id: String in prog["perks"]:
 		cfg.set_value("perks", id, int(prog["perks"][id]))
+	for id: String in prog.get("crowns", {}):
+		cfg.set_value("progress", "crown_" + id, int(prog["crowns"][id]))
 	cfg.set_value("settings", "sound", bool(p["settings"]["sound"]))
 	if int(prog.get("dailyStars", 0)) > 0:
 		cfg.set_value(Daily.SECTION, "bonus_stars", int(prog["dailyStars"]))
@@ -129,7 +138,8 @@ static func migrate(p: Dictionary) -> Dictionary:
 		return out
 	if version < 1:
 		out = _migrate_0_to_1(out)
-	# Future: if version < 2: out = _migrate_1_to_2(out) ...
+	if version < 2:
+		out = _migrate_1_to_2(out)
 	out["schemaVersion"] = SCHEMA_VERSION
 	return out
 
@@ -147,8 +157,8 @@ static func merge(local: Dictionary, cloud: Dictionary) -> Dictionary:
 	var b: Dictionary = cloud.get("progression", {})
 	var prog: Dictionary = out["progression"]
 	prog["unlocked"] = maxi(int(a["unlocked"]), int(b.get("unlocked", 1)))
-	for key in ["stars", "endless"]:
-		var merged: Dictionary = (a[key] as Dictionary).duplicate()
+	for key in ["stars", "endless", "crowns"]:
+		var merged: Dictionary = (a.get(key, {}) as Dictionary).duplicate()
 		var other: Dictionary = b.get(key, {})
 		for id: String in other:
 			merged[id] = maxi(int(merged.get(id, 0)), int(other[id]))
@@ -226,14 +236,18 @@ static func from_cloud(fields: Dictionary) -> Dictionary:
 	if fields.get("achievements") is int:
 		# Only bits of achievements this app knows (the cloud is not trusted).
 		p["achievements"] = int(fields["achievements"]) & Achievements.known_mask()
-	for key in ["stars", "endless", "perks"]:
+	for key in ["stars", "endless", "perks", "crowns"]:
 		var source: Variant = prog.get(key, {})
 		if source is Dictionary:
 			for id: Variant in source:
 				var value: Variant = source[id]
 				if value is int:
 					# A level has 0..3 stars; the cloud is not trusted to stay in range.
-					var top: int = 3 if key == "stars" else MAX_CLOUD_VALUE
+					var top: int = MAX_CLOUD_VALUE
+					if key == "stars":
+						top = 3
+					elif key == "crowns":
+						top = MAX_CROWN
 					out_prog[key][str(id)] = clampi(value, 0, top)
 	var settings: Variant = fields.get("settings", {})
 	if settings is Dictionary:
@@ -312,6 +326,15 @@ static func is_pending() -> bool:
 static func mark_synced(p: Dictionary) -> void:
 	LevelCatalog.data().set_value(SECTION, "synced_hash", content_hash(p))
 	LevelCatalog.commit()
+
+
+## Schema 2: difficulty crowns. Nothing to convert (an old save has none); the field exists.
+static func _migrate_1_to_2(p: Dictionary) -> Dictionary:
+	var prog: Dictionary = p.get("progression", {})
+	if not prog.get("crowns") is Dictionary:
+		prog["crowns"] = {}
+	p["progression"] = prog
+	return p
 
 
 static func _migrate_0_to_1(p: Dictionary) -> Dictionary:

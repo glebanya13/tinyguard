@@ -15,12 +15,22 @@ const DIRECTION_KEYS: Array[String] = [
 ## looks along (-1, -1, -1), so the top of the screen is the world's (-X, -Z) corner.
 const SCREEN_UP := Vector2(-0.7071068, -0.7071068)
 const SCREEN_RIGHT := Vector2(0.7071068, -0.7071068)
+## Number of difficulty levels above Normal (Hard, Nightmare).
+const MAX_DIFFICULTY := 2
 ## Tests point this at a scratch file.
 static var save_path: String = "user://progress.cfg"
 
 static var selected_id: int = 1
-## True when the selected level is played as an endless siege.
+## True when the selected level is played as the Record Run (free mode without an end,
+## every wave harder than the last; see WavePlan.record_run).
 static var endless: bool = false
+## Difficulty of the campaign battle that starts next: 0 Normal, 1 Hard, 2 Nightmare
+## (rows of "difficulty" in resources/balance.json). The Record Run and the daily challenge
+## ignore it.
+static var difficulty: int = 0
+## The map opens the records table of the selected level on arrival (set by the Record Run
+## end screen), once.
+static var open_records: bool = false
 ## True when the selected level is played as the onboarding tutorial.
 static var tutorial: bool = false
 ## Date ("yyyy-mm-dd") of the daily challenge being played, "" otherwise. Daily runs
@@ -147,11 +157,29 @@ static func stars_for(lives_left: int, lives_start: int) -> int:
 	return 2 if lives_left * 2 >= lives_start else 1
 
 
-static func complete(id: int, earned_stars: int = 1) -> void:
+## Highest difficulty above Normal a level was won on: 0 none, 1 Hard, 2 Nightmare
+## (the "difficulty crown" next to the stars; it adds no stars).
+static func crown(id: int) -> int:
+	var cfg: ConfigFile = data()
+	return clampi(int(cfg.get_value("progress", "crown_%d" % id, 0)), 0, MAX_DIFFICULTY)
+
+
+## Hard opens once the level is won, Nightmare once it is won on Hard.
+static func is_difficulty_open(id: int, level_difficulty: int) -> bool:
+	if level_difficulty <= 0:
+		return true
+	return is_completed(id) and crown(id) >= level_difficulty - 1 and level_difficulty <= MAX_DIFFICULTY
+
+
+static func complete(id: int, earned_stars: int = 1, won_difficulty: int = 0) -> void:
 	var best: int = maxi(stars(id), earned_stars)
 	var cfg: ConfigFile = data()
 	cfg.set_value("progress", "won_%d" % id, true)
 	cfg.set_value("progress", "stars_%d" % id, best)
+	if won_difficulty > 0:
+		cfg.set_value(
+			"progress", "crown_%d" % id, clampi(maxi(crown(id), won_difficulty), 0, MAX_DIFFICULTY)
+		)
 	cfg.set_value("progress", "unlocked", maxi(unlocked(), mini(id + 1, levels().size())))
 	commit()
 

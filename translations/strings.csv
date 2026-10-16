@@ -163,29 +163,26 @@ TUT_BACK,Назад,Back
 TUT_GIFT,Король прислал золото на первую башню!,The king sent gold for the first tower!
 TUT_STEP_PLACEHOLDER,Шаг 1 из 8,Step 1 of 8
 MAP_BOSS_NOTE_PLACEHOLDER,1. Зелёная долина,1. Green Valley
-MAP_NO_ENDLESS,  Пройдите уровень — откроется бесконечная осада,  Beat the level to unlock the endless siege
-MAP_ENDLESS_RECORD,  Осада: рекорд %d волн · звёзд %d/%d,  Siege: best %d waves · stars %d/%d
 MAP_FREE_STARS,Свободно: %d,Free: %d
 MAP_PERK_LEVEL,Уровень %d / %d,Level %d / %d
 MAP_PERK_NONE,нет,none
 MAP_PERK_MAX,Максимум,Maximum
 MAP_PERK_BUY,Купить за %d,Buy for %d
-MAP_RECORDS_TITLE,Рекорды осады: %s,Siege records: %s
+MAP_RECORDS_TITLE,Рекорды «Игры на рекорд»: %s,Record Run: %s
 MAP_LOADING,Загрузка…,Loading…
 MAP_YOUR_NAME,Ваше имя: %s (сменить — в Профиле),Your name: %s (change it in Profile)
 MAP_TO_CLOUD,В облако,To cloud
 MAP_FROM_CLOUD,Из облака,From cloud
 MAP_CLOSE,Закрыть,Close
-MAP_NO_RECORDS,Пока никто не играл в осаду на этом уровне,Nobody has played the siege on this level yet
+MAP_NO_RECORDS,Пока никто не играл в «Игру на рекорд» на этом уровне,Nobody has played the Record Run on this level yet
 MAP_RECORD_ROW,%d. %s — %d волн,%d. %s — %d waves
 MAP_PROFILE,Профиль,Profile
 MAP_NAME_CONFLICT,Имя занято — выбери другое в Профиле,"Name is taken, pick another in Profile"
 MAP_TREASURY,Казна,Treasury
 MAP_RECORDS,Рекорды,Records
 MAP_PLAY,Играть,Play
-MAP_ENDLESS,Бесконечная осада,Endless siege
 MAP_TREASURY_TITLE,Королевская казна,Royal treasury
-MAP_TREASURY_HINT,"Звёзды дают уровни (до 3 за уровень) и бесконечная осада (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях.","Stars come from levels (up to 3 each) and the endless siege (1 per 10 waves, up to 5). Upgrades work in every battle."
+MAP_TREASURY_HINT,"Звёзды дают уровни (до 3 за уровень) и «Игра на рекорд» (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях.","Stars come from levels (up to 3 each) and the Record Run (1 per 10 waves, up to 5). Upgrades work in every battle."
 MAP_REFUND,Вернуть звёзды,Refund stars
 MAP_DONE,Готово,Done
 LEVEL_1_NAME,Зелёная долина,Green Valley
@@ -296,7 +293,6 @@ END_STARS_HINT,"
 3 stars: win without losing a single life"
 END_NEW_RECORD,Новый рекорд: %d волн!,New record: %d waves!
 END_SIEGE_OVER,Осада окончена,Siege over
-END_SIEGE_STATS,Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d,Waves cleared: %d · record: %d · siege stars: %d of %d
 END_DEFEAT,Поражение,Defeat
 END_TIP,Совет: %s,Tip: %s
 TIP_REPAIR,ремонт стен в кузнице: +%d жизни за %d дерева,repair the walls at the forge: +%d lives for %d wood
@@ -456,9 +452,9 @@ ACH_UPGRADER_DESC,Улучши башни 15 раз.,Upgrade towers 15 times.
 ACH_LUMBERJACK,Дровосек,Lumberjack
 ACH_LUMBERJACK_DESC,Добудь 300 дерева.,Gather 300 wood.
 ACH_SIEGE_10,Стойкий,Stalwart
-ACH_SIEGE_10_DESC,Продержись 10 волн в бесконечной осаде.,Hold out 10 waves in the endless siege.
+ACH_SIEGE_10_DESC,Продержись 10 волн в «Игре на рекорд».,Hold out 10 waves in the Record Run.
 ACH_SIEGE_30,Несокрушимый,Unbreakable
-ACH_SIEGE_30_DESC,Продержись 30 волн в бесконечной осаде.,Hold out 30 waves in the endless siege.
+ACH_SIEGE_30_DESC,Продержись 30 волн в «Игре на рекорд».,Hold out 30 waves in the Record Run.
 ACH_DAILY_FIRST,Испытатель,Challenger
 ACH_DAILY_FIRST_DESC,Сыграй в испытание дня.,Play a daily trial.
 ACH_DAILY_STREAK_3,Три дня подряд,Three days in a row
@@ -467,3 +463,31 @@ ACH_DAILY_WAVE_15,Герой дня,Hero of the day
 ACH_DAILY_WAVE_15_DESC,Продержись 15 волн в испытании дня.,Survive 15 waves in a daily trial.
 ACH_PERK_BUYER,Первое усиление,First upgrade
 ACH_PERK_BUYER_DESC,Купи любое усиление в казне.,Buy any perk in the treasury.
+DIFF_NORMAL,Нормально,Normal
+DIFF_HARD,Сложно,Hard
+DIFF_NIGHTMARE,Кошмар,Nightmare
+MAP_DIFF_BASE,Основной режим кампании,The standard campaign
+MAP_DIFF_LOCK_1,Сложно откроется после победы на этом уровне,Hard opens after you win this level
+MAP_DIFF_LOCK_2,Кошмар откроется после победы на «Сложно»,Nightmare opens after you win on Hard
+MAP_DIFF_INFO,Здоровье врагов ×%s · врагов ×%s · золото ×%s · жизни замка ×%s,Enemy health ×%s · enemies ×%s · gold ×%s · castle lives ×%s
+MAP_CROWN,Корона сложности: пройдено на «%s»,Difficulty crown: won on %s
+MAP_RECORD_RUN,Игра на рекорд,Record Run
+MAP_RECORD_SUB,Свободный режим без конца: каждая волна тяжелее предыдущей,Free mode with no end: every wave is harder than the last
+MAP_RECORD_BEST,Рекорд: %d волн,Best: %d waves
+MAP_RECORD_NONE,Рекорда пока нет,No record yet
+MAP_RECORD_BTN_SUB,Рекорд: %d волн · ур. %d,Best: %d waves · lvl %d
+MAP_RECORD_BTN_NEW,Уровень %d · без конца,Level %d · no end
+HUD_RECORD_WAVE,Волна %d · Рекорд %d,Wave %d · Best %d
+HUD_WAVE_ONLY,Волна %d,Wave %d
+HUD_AGAIN,Ещё раз,Again
+HUD_RECORDS_TABLE,Таблица рекордов,Records table
+END_RECORD_WAVE,Достигнута волна: %d · рекорд: %d,Wave reached: %d · best: %d
+END_RECORD_LEFT,До рекорда не хватило %d волн,%d more waves to beat your best
+END_RECORD_BEATEN,Прошлый рекорд: %d,Previous best: %d
+END_RECORD_STARS,Звёзды за рекорды: %d из %d,Stars from records: %d of %d
+END_DIFFICULTY,Сложность: %s,Difficulty: %s
+END_CROWN_NEW,Новая корона сложности!,New difficulty crown!
+REC_SURPRISE_SWARM,Рой быстрых!,A fast swarm!
+REC_SURPRISE_AIR,Налёт со всех сторон!,Air raid from every side!
+REC_SURPRISE_ARMOR,Бронированный натиск!,Armoured assault!
+COOP_DIFFICULTY,Сложность: %s,Difficulty: %s
