@@ -90,7 +90,9 @@ func _run() -> void:
 	for i in 4:
 		var r: PackedVector2Array = routes[i]
 		var out: Vector2 = r[r.size() - 2] - r[r.size() - 1]
-		quadrants[Vector2i(signi(roundi(out.dot(LevelCatalog.SCREEN_RIGHT) * 100.0)), signi(roundi(out.dot(LevelCatalog.SCREEN_UP) * 100.0)))] = true
+		var qx: int = signi(roundi(out.dot(LevelCatalog.SCREEN_RIGHT) * 100.0))
+		var qy: int = signi(roundi(out.dot(LevelCatalog.SCREEN_UP) * 100.0))
+		quadrants[Vector2i(qx, qy)] = true
 	check(quadrants.size() == 4, "approaches cover all 4 screen quadrants: %s" % [quadrants.keys()])
 	var dirs := {}
 	for route: PackedVector2Array in routes:
