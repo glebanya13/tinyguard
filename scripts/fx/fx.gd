@@ -8,7 +8,7 @@ extends Node3D
 ## Purely visual and one-way: it listens to signals of the battle (and reads the
 ## positions they carry) but never writes simulation state, never uses the sim
 ## RNG (it has its own, seeded randomly) and adds nothing the state hash sees.
-## GameSettings.effects() decides how much happens: off = nothing, minimum = the
+## GameSettings.effects_now() decides how much happens: off = nothing, minimum = the
 ## essentials (gold numbers, death puffs, build rings, castle hit, confetti),
 ## full = everything. The level creates one Fx and calls setup().
 
@@ -122,12 +122,12 @@ func _exit_tree() -> void:
 
 ## Effects that are on at all (minimum and full).
 func enabled() -> bool:
-	return GameSettings.effects() >= GameSettings.FX_MIN
+	return GameSettings.effects_now() >= GameSettings.FX_MIN
 
 
 ## The extra effects of the full level.
 func full() -> bool:
-	return GameSettings.effects() >= GameSettings.FX_FULL
+	return GameSettings.effects_now() >= GameSettings.FX_FULL
 
 
 func _process(delta: float) -> void:
