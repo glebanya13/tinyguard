@@ -68,6 +68,7 @@ for level in 1 2 3 4 5 6; do
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_walk.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_villagers.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_card_select.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_lane_hint.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_replay.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_command_validation.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_coop_integration.gd

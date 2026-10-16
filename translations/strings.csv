@@ -344,6 +344,7 @@ DIR_NW,северо-запада,the north-west
 LANES_ALL,Со всех сторон!,From every side!
 LANES_FROM,С %s!,From %s!
 LANES_FROM_TWO,С %s и %s!,From %s and %s!
+LANES_COMPASS,Компас: откуда идут волны,Compass: where the waves come from
 TIP_LANES,Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам,Lightning hits frost-slowed enemies harder; watch the banner: waves come along different paths
 COOP_BUTTON,Кооператив,Co-op
 COOP_TITLE,Кооператив: двое против слаймов,Co-op: two against the slimes

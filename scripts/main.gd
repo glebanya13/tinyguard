@@ -164,6 +164,8 @@ func _ready() -> void:
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
 	_wave_manager.wave_lanes.connect(_on_wave_lanes)
 	_wave_manager.wave_started.connect(_on_wave_started)
+	_wave_manager.wave_cleared.connect(_on_wave_cleared)
+	battle_end.finished.connect(_on_battle_finished.unbind(2))
 
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
@@ -214,7 +216,10 @@ func _ready() -> void:
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_lane_hint = LaneHint.new()
 	_lane_hint.camera = _camera
-	_hud.add_child(_lane_hint)
+	_lane_hint.level = level
+	var hud_root: Control = _hud.get_node("Root")
+	hud_root.add_child(_lane_hint)
+	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
 	cards.refresh()
 	_start_fx()
 	_start_diagnostics()
@@ -552,6 +557,16 @@ func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 	_lane_hint.announce(builder.portals, lanes)
 
 
+## The arrows of the wave go out when no wave has enemies left.
+func _on_wave_cleared(_wave: int) -> void:
+	if not _wave_manager.is_wave_active():
+		_lane_hint.finish()
+
+
+func _on_battle_finished() -> void:
+	_lane_hint.stop()
+
+
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.set_wave(wave, 0 if _endless else total)
 	_wave_boom.play()
@@ -565,6 +580,8 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
 	if _record and not _wave_manager.plan.surprise_key(wave).is_empty():
 		next = tr(_wave_manager.plan.surprise_key(wave))  # "Swarm!", "Armoured!" ...
+	if _wave_direction != "":
+		next = _wave_direction + ("\n" + next if next != "" else "")  # "From the north!"
 	_hud.show_banner(title, next, boss)
 
 
