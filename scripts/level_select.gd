@@ -163,7 +163,7 @@ func _build_extras() -> void:
 	_record_button.name = "RecordRunButton"
 	_record_button.custom_minimum_size = Vector2(250, 112)
 	_record_button.theme_type_variation = &""  # the primary (gold) button: the big call to play
-	_record_button.add_theme_font_size_override("font_size", 24)
+	_record_button.add_theme_font_size_override("font_size", 21)
 	_record_button.add_theme_constant_override("icon_max_width", 52)
 	_record_button.pressed.connect(_start.bind(true))
 	row.add_child(_record_button)
@@ -555,6 +555,12 @@ func _update_record_button(id: int, record: int) -> void:
 ## Difficulty row of the level card: three buttons (a locked one shows a lock) and the line
 ## with what the picked difficulty changes. Built in code, filled by _refresh_difficulty().
 func _build_difficulty_row() -> void:
+	_name_label.add_theme_font_size_override("font_size", 26)
+	_subtitle_label.add_theme_font_size_override("font_size", 16)
+	_play_button.custom_minimum_size.y = 72
+	_endless_button.custom_minimum_size.y = 72
+	var info_panel: Control = $UI/Root/Info
+	info_panel.offset_top = -262.0
 	_endless_button.text = tr("MAP_RECORD_RUN")
 	_endless_button.tooltip_text = tr("MAP_RECORD_SUB")
 	_endless_button.visible = true
@@ -570,7 +576,7 @@ func _build_difficulty_row() -> void:
 		button.toggle_mode = true
 		button.button_group = group
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(170, 56)
+		button.custom_minimum_size = Vector2(170, 48)
 		button.theme_type_variation = &"SecondaryButton"
 		button.text = tr(str(Balance.difficulty(i)["name"]))
 		button.add_theme_font_size_override("font_size", 22)
