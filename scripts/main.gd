@@ -214,6 +214,7 @@ func _ready() -> void:
 	_hud.add_child(_lane_hint)
 	cards.refresh()
 	_start_fx()
+	_start_diagnostics()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_start_tracker()
 	if _endless and _daily_key == "":
@@ -464,6 +465,17 @@ func _start_fx() -> void:
 	fx.name = "Fx"
 	add_child(fx)
 	fx.setup(_camera, _wave_manager, _build_manager, _game_state, heroes, builder.castle, _hud)
+
+
+## Quality guard (lowers visual settings on a weak phone) and the hidden diagnostics overlay.
+func _start_diagnostics() -> void:
+	var guard := QualityGuard.new()
+	guard.name = "QualityGuard"
+	add_child(guard)
+	guard.setup($Sun, get_viewport())
+	var diag := DiagOverlay.new()
+	add_child(diag)
+	diag.setup(_sim, _wave_manager, int(level["id"]), guard)
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:

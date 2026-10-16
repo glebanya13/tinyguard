@@ -49,7 +49,7 @@ func build(
 	_sim = sim
 	var id: int = int(level["id"])
 	for part in ["terrain", "decor", "forest"]:
-		var scene: PackedScene = load("res://assets/models/level_%d_%s.glb" % [id, part])
+		var scene: PackedScene = LevelPrefetch.take(LevelPrefetch.model_path(id, part))
 		var node: Node3D = scene.instantiate()
 		# Ground, small props and the far forest cast no shadows (half the triangles
 		# of the frame otherwise go to the shadow pass); trees and towers still do.
@@ -57,6 +57,7 @@ func build(
 		_root.add_child(node)
 		if part == "decor":
 			_plant_trees(node)
+	LevelPrefetch.release()  # models asked for another level on the map are not kept
 
 	# One Path3D per entry: the scene's EnemyPath for the first, siblings for the rest.
 	var paths: Array[Path3D] = []

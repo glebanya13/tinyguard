@@ -81,6 +81,7 @@ run "$GODOT" --headless --path . --script res://tests/test_difficulty.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_units.gd
 run "$GODOT" --headless --path . --script res://tests/test_i18n.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_fx.gd
+run "$GODOT" --headless --path . --script res://tests/test_quality_guard.gd
 echo "== co-op network (fake transport)"
 run "$GODOT" --headless --path . --script res://tests/test_coop_net.gd
 run "$GODOT" --headless --path . --script res://tests/test_coop_lobby_ui.gd

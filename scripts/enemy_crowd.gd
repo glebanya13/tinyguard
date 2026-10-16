@@ -27,7 +27,7 @@ var _flash_on: bool = false
 
 
 func _ready() -> void:
-	_flash_on = GameSettings.effects() == GameSettings.FX_FULL
+	_flash_on = GameSettings.effects_now() == GameSettings.FX_FULL
 	_bars = _new_multimesh(BAR_MESH)
 
 
@@ -61,6 +61,7 @@ func _process(delta: float) -> void:
 	var bar_count: int = 0
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	var bar_basis: Basis = camera.global_basis if camera else Basis.IDENTITY
+	var flash: bool = _flash_on and GameSettings.effects_now() == GameSettings.FX_FULL
 	var total: int = 0
 	for kind: Dictionary in _kinds.values():
 		total += (kind["members"] as Array).size()
@@ -77,7 +78,7 @@ func _process(delta: float) -> void:
 				var part: Dictionary = parts[p]
 				var mm: MultiMesh = mms[p]
 				mm.set_instance_transform(i, base * part["rest"] * _animate(part["anim"], phase))
-			if _flash_on:
+			if flash:
 				_tint(enemy, i, mms, delta)
 			if enemy.shows_health_bar():
 				var ratio: float = enemy.health_ratio()
