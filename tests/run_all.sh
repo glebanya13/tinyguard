@@ -98,6 +98,7 @@ run "$GODOT" --headless --path . --script res://tests/test_signup_flow.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_end_to_map.gd
 
 echo "== summary: $ran run, $failed not passed, $leaky with leak warnings at exit"
 if [ "$ran" -eq 0 ]; then

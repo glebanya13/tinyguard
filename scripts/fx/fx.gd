@@ -67,6 +67,8 @@ var _step_timer: float = 0.0
 var _selected: TowerSlot = null
 var _select_timer: float = 0.0
 var _confetti_left: float = 0.0
+## shutdown() was called: nothing happens any more.
+var _down: bool = false
 
 
 func _ready() -> void:
@@ -120,9 +122,22 @@ func _exit_tree() -> void:
 		_castle.scale = _castle_scale
 
 
+## The battle is being left: stop listening to the scene and drawing before it is freed.
+func shutdown() -> void:
+	_down = true
+	set_process(false)
+	var tree: SceneTree = get_tree()
+	if tree != null and tree.node_added.is_connected(_on_node_added):
+		tree.node_added.disconnect(_on_node_added)
+	if _castle_tween:
+		_castle_tween.kill()
+		_castle_tween = null
+	_switch_off()
+
+
 ## Effects that are on at all (minimum and full).
 func enabled() -> bool:
-	return GameSettings.effects_now() >= GameSettings.FX_MIN
+	return not _down and GameSettings.effects_now() >= GameSettings.FX_MIN
 
 
 ## The extra effects of the full level.
@@ -158,7 +173,7 @@ func _on_node_added(node: Node) -> void:
 
 func _on_enemy_died(reward: int, enemy: Enemy) -> void:
 	_damage_gate.erase(enemy.get_instance_id())
-	if not enabled():
+	if not enabled() or not is_instance_valid(enemy):
 		return
 	var at: Vector3 = enemy.get_aim_point()
 	var tint: Color = enemy.data.fx_color if enemy.data else HURT
@@ -172,7 +187,7 @@ func _on_enemy_died(reward: int, enemy: Enemy) -> void:
 
 
 func _on_enemy_damaged(amount: float, enemy: Enemy) -> void:
-	if not full() or enemy.health <= 0.0:
+	if not full() or not is_instance_valid(enemy) or enemy.health <= 0.0:
 		return
 	var now: int = Time.get_ticks_msec()
 	var id: int = enemy.get_instance_id()
