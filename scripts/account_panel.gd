@@ -143,10 +143,14 @@ func _update_verify_row() -> void:
 	if status == "":
 		return
 	var mail: String = Online.masked_email()
-	var text: String = tr("ACC_EMAIL_VERIFIED") if status == "verified" else tr("ACC_EMAIL_UNVERIFIED")
-	_set_label(_verify_label, text if mail == "" else "%s\n%s" % [mail, text], (
+	var text: String = (
+		tr("ACC_EMAIL_VERIFIED") if status == "verified" else tr("ACC_EMAIL_UNVERIFIED")
+	)
+	_set_label(
+		_verify_label,
+		text if mail == "" else "%s\n%s" % [mail, text],
 		OK_COLOR if status == "verified" else INFO_COLOR
-	))
+	)
 	_verify_button.visible = status == "unverified"
 
 

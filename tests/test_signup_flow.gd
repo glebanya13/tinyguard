@@ -89,7 +89,9 @@ func _test_welcome_gate() -> void:
 		Onboarding.route(profile, online.needs_welcome()) == Onboarding.Route.WELCOME,
 		"route: welcome first"
 	)
-	check(Onboarding.route(profile) == Onboarding.Route.NICKNAME, "route without the gate: nickname")
+	check(
+		Onboarding.route(profile) == Onboarding.Route.NICKNAME, "route without the gate: nickname"
+	)
 	# Offline "play without an account": the choice is remembered, nothing is created yet.
 	fake.offline = true
 	await online.choose_guest()
@@ -136,9 +138,10 @@ func _test_registration() -> void:
 	r = await online.register_email("  Ana@Example.com ", "hunter22", "Сова")
 	check(r["ok"], "registered")
 	check(online.auth.uid == "uid1" and online.account_type() == "email", "signed in as email")
-	var sent: Dictionary = fake.email_requests.filter(
+	var sign_ups: Array = fake.email_requests.filter(
 		func(q: Dictionary) -> bool: return "signUp" in q["url"]
-	)[-1]["body"]
+	)
+	var sent: Dictionary = sign_ups[-1]["body"]
 	check(
 		sent["email"] == "Ana@Example.com" and sent["password"] == "hunter22",
 		"signUp carries the trimmed email and the password"
@@ -248,7 +251,10 @@ func _test_expired_session() -> void:
 	check(online.account_type() == "email", "still the same email account")
 	check(PlayerProfile.local()["progression"]["stars"]["1"] == 3, "local progress kept")
 	check(PlayerProfile.local()["nickname"] == "Ева", "nickname kept")
-	check(Onboarding.route(PlayerProfile.local(), online.needs_welcome()) == Onboarding.Route.MAP, "no welcome loop")
+	check(
+		Onboarding.route(PlayerProfile.local(), online.needs_welcome()) == Onboarding.Route.MAP,
+		"no welcome loop"
+	)
 	await online.sync_now()
 	check(_expired == [1], "not announced again")
 	# Signing in again restores sync without losing anything.
@@ -277,8 +283,10 @@ func _test_guest_to_account() -> void:
 	check(_count(online, "accounts:update") == 1, "the guest is linked (accounts:update)")
 	check(_count(online, "signUp") == before, "no second account is created")
 	check(
-		fake.users_doc["progression"]["stars"]["1"] == 3
-		and fake.users_doc["progression"]["stars"]["2"] == 2,
+		(
+			fake.users_doc["progression"]["stars"]["1"] == 3
+			and fake.users_doc["progression"]["stars"]["2"] == 2
+		),
 		"the guest's progress is in the cloud of the same uid"
 	)
 	check(PlayerProfile.local()["nickname"] == "Гость", "the guest's nickname stays")
@@ -427,8 +435,10 @@ func _test_auto_sync() -> void:
 	await create_timer(0.6).timeout
 	check(fake.commits.size() == before + 1, "a burst of changes becomes one write")
 	check(
-		fake.users_doc["progression"]["stars"]["2"] == 2
-		and fake.users_doc["progression"]["endless"]["1"] == 7,
+		(
+			fake.users_doc["progression"]["stars"]["2"] == 2
+			and fake.users_doc["progression"]["endless"]["1"] == 7
+		),
 		"the cloud has the new progress"
 	)
 	check(not PlayerProfile.is_pending(), "nothing pending afterwards")

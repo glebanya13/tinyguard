@@ -22,27 +22,29 @@ var _later: Button
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(520, 0)
-	set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	offset_left = 24.0
-	offset_top = 24.0
+	# Bottom left: the corner of the map that has no buttons or levels.
+	custom_minimum_size = Vector2(290, 0)
+	set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	grow_vertical = Control.GROW_DIRECTION_BEGIN
+	offset_left = 16.0
+	offset_right = 306.0
+	offset_bottom = -16.0
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	add_child(box)
-	_title = _label("", 28, GOLD)
+	_title = _label("", 26, GOLD)
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title.custom_minimum_size = Vector2(260, 0)
 	box.add_child(_title)
-	_body = _label("", 20, SOFT_COLOR)
+	_body = _label("", 19, SOFT_COLOR)
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_body.custom_minimum_size = Vector2(480, 0)
+	_body.custom_minimum_size = Vector2(260, 0)
 	box.add_child(_body)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	box.add_child(row)
 	_action = _button(false, func() -> void: action_requested.emit(_kind_name()))
-	row.add_child(_action)
+	box.add_child(_action)
 	_later = _button(true, _on_later_pressed)
 	_later.text = tr("REMIND_LATER")
-	row.add_child(_later)
+	box.add_child(_later)
 	hide()
 
 

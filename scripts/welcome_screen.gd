@@ -5,12 +5,12 @@ extends Control
 ## and the app review needs no credentials. Everything works offline except the
 ## account buttons, which then say so and point to the guest option.
 
+var _dialog: EmailAuthDialog = null
+
 @onready var _safe: MarginContainer = $Safe
 @onready var _create: Button = $Safe/Center/Row/Panel/Content/CreateButton
 @onready var _sign_in: Button = $Safe/Center/Row/Panel/Content/SignInButton
 @onready var _guest: Button = $Safe/Center/Row/Panel/Content/GuestButton
-
-var _dialog: EmailAuthDialog = null
 
 
 func _ready() -> void:
