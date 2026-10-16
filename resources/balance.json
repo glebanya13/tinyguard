@@ -22,7 +22,8 @@
 		{"id": "nightmare", "name": "DIFF_NIGHTMARE", "hp": 1.3, "count": 1.15, "reward": 0.85, "lives": 0.8}
 	],
 	"record": {
-		"hp_growth": 1.075,
+		"hp_start": 1.0,
+		"hp_growth": 1.07,
 		"hp_cap": 1000000000000,
 		"count_growth": 1.04,
 		"count_cap": 80,

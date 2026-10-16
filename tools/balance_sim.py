@@ -114,7 +114,7 @@ def boss_wave(w: dict, n: int, record: bool) -> bool:
 
 def hp_factor(w: dict, n: int, record: bool, hp_scale: float) -> float:
     if record:
-        return hp_scale * w["hp_mult"] * min(REC["hp_growth"] ** (n - 1), REC["hp_cap"])
+        return hp_scale * REC["hp_start"] * min(REC["hp_growth"] ** (n - 1), REC["hp_cap"])
     return hp_scale * w["hp_mult"] * w["hp_growth"] ** (n - 1)
 
 

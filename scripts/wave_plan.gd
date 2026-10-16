@@ -130,7 +130,7 @@ func is_boss_wave(wave: int) -> bool:
 func health_factor(wave: int) -> float:
 	if record_run:
 		var growth: float = pow(float(_rec["hp_growth"]), wave - 1)
-		return hp_scale * float(_w["hp_mult"]) * minf(growth, float(_rec["hp_cap"]))
+		return hp_scale * float(_rec["hp_start"]) * minf(growth, float(_rec["hp_cap"]))
 	return hp_scale * float(_w["hp_mult"]) * pow(float(_w["hp_growth"]), wave - 1)
 
 
