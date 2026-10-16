@@ -90,10 +90,6 @@ func _test_guard() -> void:
 	for i in 2000:
 		guard.feed(50.0)
 	check(guard.level >= 1 and not sun.shadow_enabled, "slow frames: shadows go first")
-	check(
-		GameSettings.effects_now() <= GameSettings.FX_MIN or guard.level < 2,
-		"slow frames: effects are lowered next"
-	)
 	for i in 4000:
 		guard.feed(50.0)
 	check(guard.level == QualityGuard.MAX_LEVEL, "it stops at the last notch (%d)" % guard.level)

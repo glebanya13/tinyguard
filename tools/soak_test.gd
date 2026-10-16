@@ -6,7 +6,8 @@ extends SceneTree
 ## its towers keep up with the late waves (STRESS=0 turns the top-up off).
 ##
 ## LEVEL=<id> [DAILY=YYYY-MM-DD] [MINUTES=20] [TICKS_PER_FRAME=6] [SAMPLE_SECONDS=60]
-##   [STRESS=1] [RAMP=0] godot --path . --resolution 1280x720 --script res://tools/soak_test.gd
+##   [STRESS=1] [RAMP=0] [VSYNC=0] [SHADOW_SIZE=2048] \
+##   godot --path . --resolution 1280x720 --script res://tools/soak_test.gd
 ## RAMP=1 also starts a new wave every few seconds (hundreds of enemies at once).
 ## CSV columns: see HEADER. One line "SOAK_SUMMARY ..." at the end.
 
@@ -40,6 +41,10 @@ func _initialize() -> void:
 	_sample_ticks = _env_int("SAMPLE_SECONDS", 60) * Sim.TICK_RATE
 	_stress = _env_int("STRESS", 1) != 0
 	_ramp = _env_int("RAMP", 0) != 0
+	if OS.get_environment("VSYNC") == "0":
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)  # real frame cost
+	if OS.get_environment("SHADOW_SIZE") != "":
+		RenderingServer.directional_shadow_atlas_set_size(_env_int("SHADOW_SIZE", 4096), false)
 	LevelCatalog.selected_id = _level
 	LevelCatalog.endless = true
 	var daily: String = OS.get_environment("DAILY")

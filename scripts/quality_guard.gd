@@ -1,8 +1,8 @@
 class_name QualityGuard
 extends Node
 ## Keeps a battle playable on a weak phone: when the frame rate stays low it lowers
-## the purely visual settings one notch at a time (sun shadows, then fewer effects,
-## then no MSAA, then no effects at all). It never touches the simulation, so battles
+## the purely visual settings one notch at a time (sun shadows, then MSAA, then fewer
+## effects, then no effects at all). It never touches the simulation, so battles
 ## and replays are not affected, and it never raises quality again (no flip-flopping).
 ## The level reached is kept for the session: the next battle starts at it.
 
@@ -94,9 +94,9 @@ func _apply(notch: int) -> void:
 			if _sun != null and is_instance_valid(_sun):
 				_sun.shadow_enabled = false
 		2:
-			GameSettings.cap_effects(GameSettings.FX_MIN)
-		3:
 			if _viewport != null and is_instance_valid(_viewport):
-				_viewport.msaa_3d = Viewport.MSAA_DISABLED
+				_viewport.msaa_3d = Viewport.MSAA_DISABLED  # costly bandwidth on a phone GPU
+		3:
+			GameSettings.cap_effects(GameSettings.FX_MIN)
 		4:
 			GameSettings.cap_effects(GameSettings.FX_OFF)

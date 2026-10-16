@@ -227,6 +227,7 @@ func _star_row(earned: int, size: float) -> HBoxContainer:
 
 func _select(id: int) -> void:
 	_selected = id
+	LevelPrefetch.request(id)  # the models load on a worker thread while the card is read
 	var level: Dictionary = LevelCatalog.get_level(id)
 	_name_label.text = "%d. %s" % [id, tr(level["name"])]
 	_subtitle_label.text = tr(level["subtitle"])
