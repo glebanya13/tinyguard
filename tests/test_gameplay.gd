@@ -72,19 +72,35 @@ func _run() -> void:
 	)
 	var routes: Array[PackedVector2Array] = LevelCatalog.routes(level)
 	var paths: Array[Path3D] = wm.get_paths()
-	check(routes.size() >= 3 and paths.size() == routes.size(), "paths built: %d" % paths.size())
+	check(routes.size() >= 4 and paths.size() == routes.size(), "paths built: %d" % paths.size())
+	var castle := Vector2(float(level["castle"][0]), float(level["castle"][1]))
 	for i in paths.size():
 		var curve: Curve3D = paths[i].curve
 		var end: Vector3 = curve.get_point_position(curve.point_count - 1)
 		check(
 			(
 				curve.point_count == routes[i].size()
-				and end.is_equal_approx(
-					paths[0].curve.get_point_position(paths[0].curve.point_count - 1)
-				)
+				and LevelCatalog.is_gate(Vector2(end.x, end.z), castle)
 			),
-			"path %d ends at the castle" % i
+			"path %d ends at a castle gate" % i
 		)
+	# Enemies come from all four sides of the castle: the approaches (last segments of
+	# the castle paths) lie in the four screen quadrants, portals in 4+ screen directions.
+	var quadrants := {}
+	for i in 4:
+		var r: PackedVector2Array = routes[i]
+		var out: Vector2 = r[r.size() - 2] - r[r.size() - 1]
+		quadrants[
+			Vector2i(
+				signi(roundi(out.dot(LevelCatalog.SCREEN_RIGHT) * 100.0)),
+				signi(roundi(out.dot(LevelCatalog.SCREEN_UP) * 100.0))
+			)
+		] = true
+	check(quadrants.size() == 4, "approaches cover all 4 screen quadrants: %s" % [quadrants.keys()])
+	var dirs := {}
+	for route: PackedVector2Array in routes:
+		dirs[LevelCatalog.screen_direction(route[0] - castle)] = true
+	check(dirs.size() >= 4, "portals in %d screen directions" % dirs.size())
 	var portals: int = 0
 	for node: Node in main.get_node("Level").get_children():
 		if node.scene_file_path == "res://assets/models/spawn_portal.glb":
@@ -225,8 +241,10 @@ func _run() -> void:
 	var lanes: Dictionary = level["waves"]["lanes"]
 	check(wm.plan.lane_count() == paths.size(), "lane patterns fit %d paths" % paths.size())
 	check(wm.air_paths.size() == paths.size(), "an air path per path")
-	var gate: Vector3 = paths[0].curve.get_point_position(paths[0].curve.point_count - 1)
-	for air: Path3D in wm.air_paths:
+	for i in paths.size():
+		var curve: Curve3D = paths[i].curve
+		var gate: Vector3 = curve.get_point_position(curve.point_count - 1)
+		var air: Path3D = wm.air_paths[i]
 		var air_end: Vector3 = air.curve.get_point_position(1)
 		check(air.curve.point_count == 2 and air_end.is_equal_approx(gate), "air path to the gate")
 	var planned := {}
