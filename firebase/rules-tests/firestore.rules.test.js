@@ -698,6 +698,62 @@ test("daily: a list is capped at 100 and ordered queries work for everybody", as
   await assertFails(getDocs(col)); // unbounded
 });
 
+test("users: difficulty crowns are 0..2 per known level (optional, schemaVersion 2)", async () => {
+  let n = 0;
+  const create = (crowns) => {
+    const uid = `crown${n++}`;
+    const db = env.authenticatedContext(uid).firestore();
+    return setDoc(doc(db, `users/${uid}`), {
+      ...profile(),
+      schemaVersion: 2,
+      createdAt: serverTimestamp(),
+      progression: { ...profile().progression, crowns },
+    });
+  };
+  await assertSucceeds(create({}));
+  await assertSucceeds(create({ 1: 1, 2: 2, 6: 2 }));
+  await assertFails(create({ 1: 3 }));
+  await assertFails(create({ 1: -1 }));
+  await assertFails(create({ 1: 1.5 }));
+  await assertFails(create({ 1: "2" }));
+  await assertFails(create({ 99: 1 }));
+  await assertFails(create({ abc: 1 }));
+  await assertFails(create([1, 2]));
+  await assertFails(create("all"));
+  // The fullest honest profile (6 levels of stars, records and crowns, every perk) fits the
+  // rules' expression budget.
+  const six = { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3 };
+  const full = env.authenticatedContext("crownFull").firestore();
+  await assertSucceeds(
+    setDoc(doc(full, "users/crownFull"), {
+      ...profile(),
+      schemaVersion: 2,
+      createdAt: serverTimestamp(),
+      achievements: 65535,
+      progression: {
+        unlocked: 6,
+        stars: six,
+        endless: { 1: 80, 2: 80, 3: 80, 4: 80, 5: 80, 6: 80 },
+        perks: { axe: 1, walls: 2, sword: 2, gold_start: 3, towers: 3, wood_start: 3 },
+        dailyStars: 10,
+        crowns: { 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 },
+      },
+    }),
+  );
+  // Unknown keys next to the crowns stay refused.
+  const evil = env.authenticatedContext("crownEvil").firestore();
+  await assertFails(
+    setDoc(doc(evil, "users/crownEvil"), {
+      ...profile(),
+      createdAt: serverTimestamp(),
+      progression: { ...profile().progression, crowns: {}, medals: {} },
+    }),
+  );
+  // A document without crowns (older client) stays valid.
+  const old = env.authenticatedContext("crownOld").firestore();
+  await assertSucceeds(setDoc(doc(old, "users/crownOld"), { ...profile(), createdAt: serverTimestamp() }));
+});
+
 test("users: achievements are a bit mask integer (optional, bounded)", async () => {
   let n = 0; // a fresh user each time: a second setDoc on one would be an update
   const create = (achievements) => {

@@ -104,35 +104,37 @@ service cloud.firestore {
       return !(k in m) || (m[k] is int && m[k] >= 0 && m[k] <= hi);
     }
 
-    // Stars 0..3 and perk levels 0..9 (checked per key: rules cannot loop over maps).
+    // One request may evaluate 1000 expressions, and a per-key check of every map used to
+    // exhaust that for a player with stars AND records for six levels. So maps whose values
+    // come from a short list (stars, crowns, perk levels) are checked in one go with
+    // values().hasOnly([...]); only the records, which have no short list, are checked key by
+    // key, for the first 8 levels (the game has 6; more levels: extend, test a full profile
+    // in firebase/rules-tests, redeploy).
+    function recordKeys() {
+      return ['1', '2', '3', '4', '5', '6', '7', '8'];
+    }
+
+    // Stars 0..3.
     function starsOk(m) {
-      return m.keys().hasOnly(levelKeys())
-        && smallInt(m, '1', 3) && smallInt(m, '2', 3) && smallInt(m, '3', 3)
-        && smallInt(m, '4', 3) && smallInt(m, '5', 3) && smallInt(m, '6', 3)
-        && smallInt(m, '7', 3) && smallInt(m, '8', 3) && smallInt(m, '9', 3)
-        && smallInt(m, '10', 3) && smallInt(m, '11', 3) && smallInt(m, '12', 3)
-        && smallInt(m, '13', 3) && smallInt(m, '14', 3) && smallInt(m, '15', 3)
-        && smallInt(m, '16', 3) && smallInt(m, '17', 3) && smallInt(m, '18', 3)
-        && smallInt(m, '19', 3) && smallInt(m, '20', 3);
+      return m.keys().hasOnly(levelKeys()) && m.values().hasOnly([0, 1, 2, 3]);
     }
 
     // Endless records: waves below 5000, like the leaderboard.
     function endlessOk(m) {
-      return m.keys().hasOnly(levelKeys())
+      return m.keys().hasOnly(recordKeys())
         && smallInt(m, '1', 4999) && smallInt(m, '2', 4999) && smallInt(m, '3', 4999)
         && smallInt(m, '4', 4999) && smallInt(m, '5', 4999) && smallInt(m, '6', 4999)
-        && smallInt(m, '7', 4999) && smallInt(m, '8', 4999) && smallInt(m, '9', 4999)
-        && smallInt(m, '10', 4999) && smallInt(m, '11', 4999) && smallInt(m, '12', 4999)
-        && smallInt(m, '13', 4999) && smallInt(m, '14', 4999) && smallInt(m, '15', 4999)
-        && smallInt(m, '16', 4999) && smallInt(m, '17', 4999) && smallInt(m, '18', 4999)
-        && smallInt(m, '19', 4999) && smallInt(m, '20', 4999);
+        && smallInt(m, '7', 4999) && smallInt(m, '8', 4999);
     }
 
+    // Difficulty crowns (highest difficulty won above Normal): 0..2 per level.
+    function crownsOk(m) {
+      return m.keys().hasOnly(levelKeys()) && m.values().hasOnly([0, 1, 2]);
+    }
+
+    // Perk levels 0..9.
     function perksOk(m) {
-      return m.keys().hasOnly(perkKeys())
-        && smallInt(m, 'axe', 9) && smallInt(m, 'walls', 9) && smallInt(m, 'sword', 9)
-        && smallInt(m, 'gold_start', 9) && smallInt(m, 'towers', 9)
-        && smallInt(m, 'wood_start', 9);
+      return m.keys().hasOnly(perkKeys()) && m.values().hasOnly([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 
     // Unlocked achievements as a bit mask (bit numbers: resources/achievements.json, never
@@ -144,12 +146,14 @@ service cloud.firestore {
 
     function validProgression(p) {
       return p is map
-        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks', 'dailyStars'])
+        && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks', 'dailyStars', 'crowns'])
         // Bonus stars of the daily challenge (Daily.max_stars()); optional for older clients.
         && (!('dailyStars' in p) || (p.dailyStars is int && p.dailyStars >= 0 && p.dailyStars <= 10))
         && p.unlocked is int && p.unlocked >= 1 && p.unlocked <= 100
         && p.stars is map && starsOk(p.stars)
         && p.endless is map && endlessOk(p.endless)
+        // Difficulty crowns (schemaVersion 2); optional for older clients.
+        && (!('crowns' in p) || (p.crowns is map && crownsOk(p.crowns)))
         && p.perks is map && perksOk(p.perks);
     }
 
