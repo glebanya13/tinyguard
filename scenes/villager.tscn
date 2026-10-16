@@ -1,11 +1,30 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/villager.gd" id="1_villager"]
 [ext_resource type="PackedScene" path="res://assets/models/villager.glb" id="2_model"]
 [ext_resource type="Script" path="res://scripts/no_shadow.gd" id="3_no_shadow"]
+[ext_resource type="Script" path="res://scripts/anim/puppet.gd" id="4_puppet"]
 
 [node name="Villager" type="Node3D"]
 script = ExtResource("1_villager")
 
 [node name="Model" parent="." instance=ExtResource("2_model")]
 script = ExtResource("3_no_shadow")
+
+[node name="Puppet" type="Node" parent="." node_paths=PackedStringArray("model")]
+script = ExtResource("4_puppet")
+model = NodePath("../Model")
+run_speed = 0.6
+stride = 0.5
+leg_swing = 38.0
+arm_swing = 32.0
+lean = 5.0
+body_roll = 7.0
+body_twist = 10.0
+bounce = 0.035
+squash = 0.06
+leg_lift = 0.03
+look_around = 32.0
+fidget_min = 4.0
+fidget_max = 9.0
+fidget_clips = Array[StringName]([&"hop", &"skip", &"wave"])

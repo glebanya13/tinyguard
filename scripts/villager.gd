@@ -19,6 +19,10 @@ const GROUP := &"villagers"
 @export var target_tries: int = 6
 ## Distance between ground checks along a stroll.
 @export var check_step: float = 0.3
+## A knight this close (metres) gets a wave and the villager turns to him.
+@export var greet_range: float = 4.0
+## Seconds before the same villager greets again.
+@export var greet_pause: float = 12.0
 
 ## Centre of the strolls (on the ground).
 var home: Vector3 = Vector3.ZERO
@@ -32,17 +36,16 @@ var _target: Vector3 = Vector3.ZERO
 var _walking: bool = false
 var _rest_left: float = 0.0
 var _partner: Node3D = null
+var _greet_wait: float = 0.0
+var _look_at: Node3D = null
+var _sense_left: float = 0.0
 
 @onready var _model: Node3D = $Model
-@onready var _anim: AnimationPlayer = $Model/AnimationPlayer
+@onready var _puppet: Puppet = $Puppet
 
 
 func _ready() -> void:
 	add_to_group(GROUP)
-	for anim_name: StringName in [&"idle", &"walk"]:
-		_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
-	_anim.play(&"idle")
-	_anim.seek(rng.randf() * _anim.current_animation_length, true)
 	_model.rotation.y = rng.randf() * TAU
 	_rest_left = rng.randf_range(0.0, rest_max)
 
@@ -51,7 +54,9 @@ func _process(delta: float) -> void:
 	if _partner != null:
 		_turn_to(_partner.global_position, delta)
 		return
+	_greet_wait = maxf(_greet_wait - delta, 0.0)
 	if not _walking:
+		_notice_hero(delta)
 		_rest_left -= delta
 		if _rest_left <= 0.0:
 			_start_stroll()
@@ -74,26 +79,47 @@ func talk_to(partner: Node3D) -> void:
 	_partner = partner
 	if partner != null:
 		_walking = false
-		cheer()
+		greet()
 	else:
 		_rest()
 
 
 ## Waves a hand (greeting, a sale).
 func cheer() -> void:
-	_anim.play(&"wave", 0.15)
-	_anim.queue(&"idle")
+	_puppet.play_action(&"cheer")
+
+
+## Greets with a wave.
+func greet() -> void:
+	_puppet.play_action(&"wave")
 
 
 func is_walking() -> bool:
 	return _walking
 
 
+## Resting: waves at a knight who comes near, then keeps an eye on him.
+func _notice_hero(delta: float) -> void:
+	_sense_left -= delta
+	if _sense_left <= 0.0:
+		_sense_left = 0.3
+		_look_at = null
+		var best: float = greet_range
+		for hero: Node3D in get_tree().get_nodes_in_group(Hero.GROUP):
+			var d: float = Vector2(hero.global_position.x - global_position.x, hero.global_position.z - global_position.z).length()
+			if d <= best:
+				best = d
+				_look_at = hero
+		if _look_at != null and _greet_wait <= 0.0:
+			_greet_wait = greet_pause
+			greet()
+	if _look_at != null and is_instance_valid(_look_at):
+		_turn_to(_look_at.global_position, delta)
+
+
 func _rest() -> void:
 	_walking = false
 	_rest_left = rng.randf_range(rest_min, rest_max)
-	if _anim.current_animation == &"walk":
-		_anim.play(&"idle", 0.25)
 
 
 func _start_stroll() -> void:
@@ -105,7 +131,6 @@ func _start_stroll() -> void:
 		if _way_free(global_position, target):
 			_target = target
 			_walking = true
-			_anim.play(&"walk", 0.25)
 			return
 	_rest()
 
