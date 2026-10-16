@@ -63,6 +63,9 @@ var _tracker: AchievementTracker = null
 var _coop_menu_open: bool = false
 var _coop_hooks := CoopHooks.new()
 var _lane_hint: LaneHint = null
+var _fx: Fx = null
+## The battle is being left (map / restart): the scene change is queued, ignore more taps.
+var _leaving: bool = false
 ## "С севера!" for the wave that is starting.
 var _wave_direction: String = ""
 
@@ -161,6 +164,8 @@ func _ready() -> void:
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
 	_wave_manager.wave_lanes.connect(_on_wave_lanes)
 	_wave_manager.wave_started.connect(_on_wave_started)
+	_wave_manager.wave_cleared.connect(_on_wave_cleared)
+	battle_end.finished.connect(_on_battle_finished.unbind(2))
 
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
@@ -211,7 +216,10 @@ func _ready() -> void:
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_lane_hint = LaneHint.new()
 	_lane_hint.camera = _camera
-	_hud.add_child(_lane_hint)
+	_lane_hint.level = level
+	var hud_root: Control = _hud.get_node("Root")
+	hud_root.add_child(_lane_hint)
+	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
 	cards.refresh()
 	_start_fx()
 	_start_diagnostics()
@@ -413,6 +421,8 @@ func _update_target_ring() -> void:
 ## Needs the level's bodies in the physics space: runs after a physics frame.
 func _build_walk_grid() -> void:
 	await get_tree().physics_frame
+	if _leaving or not is_inside_tree():
+		return  # the player left in the very first frame
 	walk_grid.build(
 		get_world_3d().direct_space_state, LevelBuilder.map_rect(level), WALK_OBSTACLE_MASK
 	)
@@ -440,6 +450,7 @@ func _start_tutorial() -> void:
 	):
 		return
 	guide.start_tutorial(self, _wave_manager, _camera, _hud)
+	guide.tutorial.leave_requested.connect(_on_map_pressed)
 	cards.refresh()
 
 
@@ -462,6 +473,7 @@ func _start_fx() -> void:
 	if coop != null:
 		heroes.append(coop.ghost)
 	var fx := Fx.new()
+	_fx = fx
 	fx.name = "Fx"
 	add_child(fx)
 	fx.setup(_camera, _wave_manager, _build_manager, _game_state, heroes, builder.castle, _hud)
@@ -545,6 +557,16 @@ func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 	_lane_hint.announce(builder.portals, lanes)
 
 
+## The arrows of the wave go out when no wave has enemies left.
+func _on_wave_cleared(_wave: int) -> void:
+	if not _wave_manager.is_wave_active():
+		_lane_hint.finish()
+
+
+func _on_battle_finished() -> void:
+	_lane_hint.stop()
+
+
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.set_wave(wave, 0 if _endless else total)
 	_wave_boom.play()
@@ -558,6 +580,8 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
 	if _record and not _wave_manager.plan.surprise_key(wave).is_empty():
 		next = tr(_wave_manager.plan.surprise_key(wave))  # "Swarm!", "Armoured!" ...
+	if _wave_direction != "":
+		next = _wave_direction + ("\n" + next if next != "" else "")  # "From the north!"
 	_hud.show_banner(title, next, boss)
 
 
@@ -567,12 +591,7 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 func _on_restart_pressed() -> void:
 	if _coop_on():
 		return  # one player cannot restart a shared battle
-	get_tree().paused = false
-	Engine.time_scale = 1.0
-	var error: Error = get_tree().reload_current_scene()
-	if error != OK:
-		push_error("Restart failed: %s" % error_string(error))
-		get_tree().paused = true
+	_leave_to("")
 
 
 ## Record Run end screen: the map opens with the records table of this level.
@@ -584,8 +603,41 @@ func _on_records_pressed() -> void:
 func _on_map_pressed() -> void:
 	if _coop_on():
 		coop.leave()
-	get_tree().paused = false
-	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
+	_leave_to(LEVEL_SELECT_SCENE)
+
+
+## Leaves the battle for `scene_path` ("" = start this level again). The change is queued
+## for the idle time of the frame: it must not run inside the tap's own input event, nor
+## in the middle of a sim step or a _process of this scene (the scene is freed whole).
+## Everything that touches the scene from outside (the effects layer, the sim clock,
+## the models asked for in advance) is shut down first.
+func _leave_to(scene_path: String) -> void:
+	if _leaving:
+		return
+	_leaving = true
+	set_process(false)
+	_sim.running = false
+	if _fx != null and is_instance_valid(_fx):
+		_fx.shutdown()
+	_change_scene.call_deferred(scene_path)
+
+
+func _change_scene(scene_path: String) -> void:
+	if not is_inside_tree():
+		return
+	var tree: SceneTree = get_tree()
+	# SceneTree.paused is the only state that survives a scene change: clear it first.
+	tree.paused = false
+	Engine.time_scale = 1.0
+	var error: Error = (
+		tree.change_scene_to_file(scene_path) if scene_path != "" else tree.reload_current_scene()
+	)
+	if error != OK:
+		push_error("Leaving the battle failed: %s" % error_string(error))
+		_leaving = false
+		set_process(true)
+		_sim.running = true
+		tree.paused = battle_end.ended or _paused
 
 
 func _coop_on() -> bool:

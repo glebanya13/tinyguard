@@ -67,6 +67,8 @@ for level in 1 2 3 4 5 6; do
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_gameplay.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_walk.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_villagers.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_card_select.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_lane_hint.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_replay.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_command_validation.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_coop_integration.gd
@@ -74,6 +76,7 @@ done
 echo "== pause / speed / stars / perks / endless"
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_meta.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_combat.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hero_target.gd
 run "$GODOT" --headless --path . --script res://tests/test_online.gd
 run "$GODOT" --headless --path . --script res://tests/test_records.gd
 run "$GODOT" --headless --path . --script res://tests/test_waves.gd
@@ -98,6 +101,7 @@ run "$GODOT" --headless --path . --script res://tests/test_signup_flow.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_end_to_map.gd
 
 echo "== summary: $ran run, $failed not passed, $leaky with leak warnings at exit"
 if [ "$ran" -eq 0 ]; then
