@@ -65,7 +65,7 @@
 | Сброс накопителя при `APPLICATION_PAUSED/RESUMED/FOCUS_IN/OUT` | `scripts/sim.gd` |
 | `QualityGuard`: средний кадр > 30 мс за 2 с → ступени: тени солнца, MSAA, эффекты «минимум», эффекты выкл.; только визуал, настройка игрока не меняется, ступень держится до закрытия игры | `scripts/quality_guard.gd`, `GameSettings.effects_now()` |
 | `max_fps` 60 и тени 2048 только на мобильных (`.mobile`-переопределения), десктоп прежний | `project.godot` |
-| Предзагрузка моделей выбранного уровня в потоке, пока игрок читает карточку (`ResourceLoader.load_threaded_request`), без лишней памяти (непринятое отпускается) | `scripts/level_prefetch.gd`, `level_select.gd`, `level_builder.gd` |
+| Предзагрузка моделей выбранного уровня в потоке, пока игрок читает карточку (`ResourceLoader.load_threaded_request`), без лишней памяти (непринятое отпускается) | `scripts/level_prefetch.gd`, `level_select.gd`, `level_builder.gd` | **УБРАНА 2026-10-16**: гонка с освобождением ресурсов рендера (RID-ошибки при смене сцен), см. TECHNICAL_DESIGN.
 | Скрытый оверлей диагностики (5 тапов по версии в настройках): FPS, кадр, память, VRAM, узлы, враги, стоимость шага, ступень качества | `scripts/diag_overlay.gd`, `settings_panel.gd` |
 | Записка о прошлом запуске (`user://last_session.json`): «battle» = умер в бою, «background» = пропал в фоне; показывается в оверлее | `scripts/crash_trace.gd` |
 | Инструкция сбора логов с телефона | `docs/DEBUG_ANDROID.md` |

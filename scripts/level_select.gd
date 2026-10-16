@@ -22,10 +22,7 @@ const GOLD := Color(0.98, 0.8, 0.4)
 const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
 
 ## Seconds the map waits before it starts loading the selected level's models.
-const PREFETCH_DELAY := 0.6
 
-var _prefetch_timer: Timer = null
-var _prefetch_id: int = 0
 var _site_buttons: Array[Button] = []
 var _sites: Array[Node3D] = []
 ## Level id of each site button (same order as _site_buttons).
@@ -260,7 +257,6 @@ func _star_row(earned: int, size: float) -> HBoxContainer:
 
 func _select(id: int) -> void:
 	_selected = id
-	_queue_prefetch(id)
 	var level: Dictionary = LevelCatalog.get_level(id)
 	_name_label.text = "%d. %s" % [id, tr(level["name"])]
 	_subtitle_label.text = tr(level["subtitle"])
@@ -283,23 +279,6 @@ func _select(id: int) -> void:
 		_site_buttons[i].modulate = Color(1.12, 1.08, 0.92) if chosen else Color.WHITE
 		_site_buttons[i].pivot_offset = _site_buttons[i].custom_minimum_size * 0.5
 		_site_buttons[i].scale = Vector2(1.16, 1.16) if chosen else Vector2.ONE
-
-
-## The models load on a worker thread while the card is read. Not in the very first
-## frames of the map: the battle that was just left is being freed and the map itself is
-## being built then, a phone should not do three jobs and a 7 MB load at once.
-func _queue_prefetch(id: int) -> void:
-	if _prefetch_timer == null:
-		_prefetch_timer = Timer.new()
-		_prefetch_timer.one_shot = true
-		_prefetch_timer.timeout.connect(_on_prefetch_timer)
-		add_child(_prefetch_timer)
-	_prefetch_id = id
-	_prefetch_timer.start(PREFETCH_DELAY)
-
-
-func _on_prefetch_timer() -> void:
-	LevelPrefetch.request(_prefetch_id)
 
 
 func _refresh_stars() -> void:
@@ -599,7 +578,6 @@ func _start(endless: bool) -> void:
 	_play_button.disabled = true
 	_endless_button.disabled = true
 	_record_button.disabled = true
-	_prefetch_timer.stop()  # a request that is still waiting must not start now
 	get_tree().change_scene_to_file(GAME_SCENE)
 
 
