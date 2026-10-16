@@ -21,6 +21,7 @@ const INFO_COLOR := Color(0.62, 0.86, 1.0)
 const ERROR_COLOR := Color(1.0, 0.62, 0.55)
 const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const DANGER_COLOR := Color(1.0, 0.45, 0.4)
+const BUTTON_HEIGHT := 72.0
 const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 
 var _name_label: Label
@@ -33,6 +34,9 @@ var _link_button: Button
 var _signin_button: Button
 var _reauth_button: Button
 var _signout_button: Button
+var _verify_row: Control
+var _verify_label: Label
+var _verify_button: Button
 var _dialog: EmailAuthDialog
 var _delete_button: Button
 var _sync_button: Button
@@ -61,10 +65,17 @@ func _ready() -> void:
 
 func open() -> void:
 	refresh()
+	Online.refresh_email_status()  # the cached state shows at once, the lookup updates it
 	_info_label.text = ""
 	_confirm.hide()
 	_dialog.hide()
 	show()
+
+
+## Opens the panel with an email form on top (the map's reminder card uses this).
+func open_dialog(mode: EmailAuthDialog.Mode) -> void:
+	open()
+	_dialog.open(mode)
 
 
 ## Back button: closes the confirmation first, then the panel.
@@ -104,6 +115,7 @@ func refresh() -> void:
 	var configured: bool = Online.is_configured()
 	_sync_row.visible = configured
 	_update_email_buttons()
+	_update_verify_row()
 	_delete_button.text = tr("ACC_DELETE_ACCOUNT") if configured else tr("ACC_DELETE_DATA")
 	var uid: String = Online.auth.uid if configured else ""
 	_id_label.text = tr("ACC_PLAYER_ID") % uid if uid != "" else ""
@@ -118,11 +130,36 @@ func email_controls_visible() -> bool:
 
 func _update_email_buttons() -> void:
 	var type: String = Online.account_type()
-	_link_button.visible = type == "guest"
+	_link_button.visible = type in ["guest", "none"]
 	_signin_button.visible = type in ["guest", "none"]
 	_reauth_button.visible = type == "email"
 	_signout_button.visible = type == "email"
 	_link_row.visible = Online.is_configured()
+
+
+func _update_verify_row() -> void:
+	var status: String = Online.email_status()
+	_verify_row.visible = status != ""
+	if status == "":
+		return
+	var mail: String = Online.masked_email()
+	var text: String = tr("ACC_EMAIL_VERIFIED") if status == "verified" else tr("ACC_EMAIL_UNVERIFIED")
+	_set_label(_verify_label, text if mail == "" else "%s\n%s" % [mail, text], (
+		OK_COLOR if status == "verified" else INFO_COLOR
+	))
+	_verify_button.visible = status == "unverified"
+
+
+func _on_resend_pressed() -> void:
+	if _busy:
+		return
+	var result: Dictionary = await Online.send_verification()
+	if result["ok"]:
+		_set_label(_info_label, tr("ACC_EMAIL_SENT"), OK_COLOR)
+	elif str(result["error"]) == "cooldown":
+		_set_label(_info_label, tr("ACC_EMAIL_COOLDOWN"), INFO_COLOR)
+	else:
+		_set_label(_info_label, EmailRules.message(str(result["error"])), ERROR_COLOR)
 
 
 func _on_sync_state() -> void:
@@ -213,6 +250,17 @@ func _build() -> void:
 	_signout_button = _button(tr("ACC_SIGNOUT"), _ask_sign_out, true, 280)
 	link_row.add_child(_signout_button)
 
+	var verify_row := HBoxContainer.new()
+	_verify_row = verify_row
+	verify_row.add_theme_constant_override("separation", 12)
+	box.add_child(verify_row)
+	_verify_label = _label("", 20)
+	_verify_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_verify_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	verify_row.add_child(_verify_label)
+	_verify_button = _button(tr("ACC_EMAIL_RESEND"), _on_resend_pressed, true, 330)
+	verify_row.add_child(_verify_button)
+
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -289,7 +337,7 @@ func _open_dialog(mode: EmailAuthDialog.Mode) -> void:
 
 func _on_email_done(kind: String, result: Dictionary) -> void:
 	match kind:
-		"link":
+		"link", "register":
 			refresh()
 			_set_label(_info_label, tr("ACC_LINKED"), OK_COLOR)
 		"signin":
@@ -409,8 +457,8 @@ func _button(text: String, action: Callable, secondary: bool, width: float) -> B
 	var button := Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(width, 58)
-	button.add_theme_font_size_override("font_size", 21)
+	button.custom_minimum_size = Vector2(width, BUTTON_HEIGHT)
+	button.add_theme_font_size_override("font_size", 22)
 	if secondary:
 		button.theme_type_variation = &"SecondaryButton"
 	if action.is_valid():
