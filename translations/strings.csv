@@ -4,7 +4,7 @@ ERR_EMAIL_INVALID,Проверь почту: нужен адрес вида name
 ERR_PASSWORD_EMPTY,Введи пароль,Enter your password
 ERR_PASSWORD_WEAK,"Пароль слишком простой: минимум 6 символов, лучше с цифрами","Password is too weak: at least 6 characters, digits help"
 ERR_PASSWORD_LONG,Пароль слишком длинный: не больше 128 символов,Password is too long: 128 characters at most
-ERR_CREDENTIAL_IN_USE,Эта почта уже занята. Если аккаунт твой — нажми «Войти по почте» вместо привязки,"This email is already taken. If the account is yours, tap ""Sign in with email"" instead of linking"
+ERR_CREDENTIAL_IN_USE,"Эта почта уже занята. Если аккаунт твой, войди с ней (кнопка «Войти»)","This email is already taken. If the account is yours, sign in with it (the ""Sign in"" button)"
 ERR_INVALID_CREDENTIALS,Неверная почта или пароль,Wrong email or password
 ERR_TOO_MANY_ATTEMPTS,Слишком много попыток. Подожди немного и попробуй снова,Too many attempts. Wait a little and try again
 ERR_REAUTH_REQUIRED,Нужен свежий вход: войди по почте и повтори действие,A fresh sign-in is needed: sign in with email and repeat the action
@@ -43,7 +43,7 @@ SYNC_OFF,Только на этом устройстве,This device only
 SYNC_SYNCING,Синхронизация…,Syncing…
 SYNC_SYNCED,Сохранено в облаке,Saved to the cloud
 SYNC_PENDING,Не синхронизировано,Not synced
-SYNC_OFFLINE,Не синхронизировано · нет связи,Not synced · no connection
+SYNC_OFFLINE,Не в сети · синхронизируется позже,Offline · will sync later
 SYNC_SESSION_LOST,Не синхронизировано · вход потерян,Not synced · signed out
 SYNC_NEWER,Не синхронизировано · обновите игру,Not synced · update the game
 SYNC_DISABLED,Аккаунт заблокирован,Account blocked
@@ -58,13 +58,13 @@ ONLINE_ERR_NEWER,Облачный прогресс из новой версии 
 ONLINE_ERR_SESSION_LOST,Вход потерян — откройте Профиль,"Signed out, open Profile"
 ONLINE_ERR_NOT_CONFIGURED,Облако недоступно,The cloud is unavailable
 ONLINE_ERR_GENERIC,Не удалось синхронизировать,Could not sync
-EMAIL_TITLE_LINK,Привязать почту,Link email
+EMAIL_TITLE_LINK,Создать аккаунт,Create account
 EMAIL_TITLE_SIGNIN,Войти по почте,Sign in with email
 EMAIL_TITLE_RESET,Сброс пароля,Reset password
 EMAIL_NOTE_LINK,"Прогресс останется на месте, а войти с этой почтой можно будет на любом устройстве.","Your progress stays put, and you can sign in with this email on any device."
 EMAIL_NOTE_SIGNIN,Прогресс этого устройства добавится к аккаунту: останутся лучшие звёзды и рекорды.,This device's progress is merged into the account: the best stars and records are kept.
 EMAIL_NOTE_RESET,Пришлём письмо со ссылкой для нового пароля.,We will send an email with a link for a new password.
-EMAIL_ACTION_LINK,Привязать,Link
+EMAIL_ACTION_LINK,Создать аккаунт,Create account
 EMAIL_ACTION_SIGNIN,Войти,Sign in
 EMAIL_ACTION_RESET,Отправить письмо,Send email
 EMAIL_SHOW,Показать,Show
@@ -82,7 +82,7 @@ ACC_NAME_LOCAL,на этом устройстве,on this device
 ACC_NAME_VERIFIED,✓ подтверждено,✓ verified
 ACC_NAME_PENDING,ждёт проверки,awaiting check
 ACC_TYPE_LOCAL,Онлайн выключен: всё хранится только на этом устройстве,Online is off: everything is stored on this device only
-ACC_TYPE_GUEST,"Гостевой аккаунт: прогресс в облаке, но войти можно только с этого телефона. Привяжи почту, чтобы играть и на других устройствах.","Guest account: progress is in the cloud, but you can only sign in from this phone. Link an email to play on other devices."
+ACC_TYPE_GUEST,"Гость: прогресс хранится на этом телефоне и в облаке, но войти с другого телефона нельзя. Создай аккаунт (почта и пароль), чтобы не потерять его при смене телефона или переустановке.","Guest: progress is kept on this phone and in the cloud, but you cannot sign in from another phone. Create an account (email and password) so you do not lose it on a new phone or after a reinstall."
 ACC_TYPE_EMAIL,Аккаунт с почтой: войди с ней на другом устройстве,Email account: sign in with it on another device
 ACC_TYPE_NONE,"Гостевой аккаунт создастся, когда появится связь",A guest account will be created when you are online
 ACC_DELETE_ACCOUNT,Удалить аккаунт,Delete account
@@ -93,7 +93,7 @@ ACC_DONE,Готово,Done
 ACC_RENAME,Сменить имя,Change name
 ACC_NEW_GUEST,Новый гость,New guest
 ACC_SYNC,Синхронизировать,Sync
-ACC_LINK_EMAIL,Привязать почту,Link email
+ACC_LINK_EMAIL,Создать аккаунт,Create account
 ACC_SIGNIN_EMAIL,Войти по почте,Sign in with email
 ACC_SIGNIN_AGAIN,Войти заново,Sign in again
 ACC_SIGNOUT,Выйти из аккаунта,Sign out
@@ -102,7 +102,7 @@ ACC_PRIVACY,Конфиденциальность,Privacy
 ACC_DELETE_ACCOUNT_Q,Удалить аккаунт?,Delete account?
 ACC_DELETE_DATA_Q,Удалить данные?,Delete data?
 ACC_DELETE_FOREVER,Удалить навсегда,Delete forever
-ACC_LINKED,Почта привязана. Войди с ней на другом устройстве.,Email linked. Sign in with it on another device.
+ACC_LINKED,Аккаунт создан. Мы отправили письмо для подтверждения почты; войди с ней на другом телефоне.,Account created. We sent a confirmation email; sign in with it on another phone.
 ACC_SIGNIN_OK,Вход подтверждён.,Signed in.
 ACC_RESET_SENT,"Если такая почта зарегистрирована, мы отправили письмо. Загляни и в «Спам».","If this email is registered, we sent a message. Check the spam folder too."
 ACC_SIGNOUT_Q,Выйти из аккаунта?,Sign out?
@@ -163,43 +163,40 @@ TUT_BACK,Назад,Back
 TUT_GIFT,Король прислал золото на первую башню!,The king sent gold for the first tower!
 TUT_STEP_PLACEHOLDER,Шаг 1 из 8,Step 1 of 8
 MAP_BOSS_NOTE_PLACEHOLDER,1. Зелёная долина,1. Green Valley
-MAP_NO_ENDLESS,  Пройдите уровень — откроется бесконечная осада,  Beat the level to unlock the endless siege
-MAP_ENDLESS_RECORD,  Осада: рекорд %d волн · звёзд %d/%d,  Siege: best %d waves · stars %d/%d
 MAP_FREE_STARS,Свободно: %d,Free: %d
 MAP_PERK_LEVEL,Уровень %d / %d,Level %d / %d
 MAP_PERK_NONE,нет,none
 MAP_PERK_MAX,Максимум,Maximum
 MAP_PERK_BUY,Купить за %d,Buy for %d
-MAP_RECORDS_TITLE,Рекорды осады: %s,Siege records: %s
+MAP_RECORDS_TITLE,Рекорды «Игры на рекорд»: %s,Record Run: %s
 MAP_LOADING,Загрузка…,Loading…
 MAP_YOUR_NAME,Ваше имя: %s (сменить — в Профиле),Your name: %s (change it in Profile)
 MAP_TO_CLOUD,В облако,To cloud
 MAP_FROM_CLOUD,Из облака,From cloud
 MAP_CLOSE,Закрыть,Close
-MAP_NO_RECORDS,Пока никто не играл в осаду на этом уровне,Nobody has played the siege on this level yet
+MAP_NO_RECORDS,Пока никто не играл в «Игру на рекорд» на этом уровне,Nobody has played the Record Run on this level yet
 MAP_RECORD_ROW,%d. %s — %d волн,%d. %s — %d waves
 MAP_PROFILE,Профиль,Profile
 MAP_NAME_CONFLICT,Имя занято — выбери другое в Профиле,"Name is taken, pick another in Profile"
 MAP_TREASURY,Казна,Treasury
 MAP_RECORDS,Рекорды,Records
 MAP_PLAY,Играть,Play
-MAP_ENDLESS,Бесконечная осада,Endless siege
 MAP_TREASURY_TITLE,Королевская казна,Royal treasury
-MAP_TREASURY_HINT,"Звёзды дают уровни (до 3 за уровень) и бесконечная осада (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях.","Stars come from levels (up to 3 each) and the endless siege (1 per 10 waves, up to 5). Upgrades work in every battle."
+MAP_TREASURY_HINT,"Звёзды дают уровни (до 3 за уровень) и «Игра на рекорд» (1 за каждые 10 волн, до 5). Улучшения действуют во всех боях.","Stars come from levels (up to 3 each) and the Record Run (1 per 10 waves, up to 5). Upgrades work in every battle."
 MAP_REFUND,Вернуть звёзды,Refund stars
 MAP_DONE,Готово,Done
 LEVEL_1_NAME,Зелёная долина,Green Valley
-LEVEL_1_SUB,"15 волн · 3 дороги · босс на 10-й и 15-й","15 waves · 3 roads · boss on waves 10 and 15"
+LEVEL_1_SUB,15 волн · 3 дороги · босс на 10-й и 15-й,15 waves · 3 roads · boss on waves 10 and 15
 LEVEL_2_NAME,Тёмная чаща,Dark Thicket
 LEVEL_2_SUB,"25 волн · 5 дорог · боссы на 10, 20 и 25-й","25 waves · 5 roads · bosses on waves 10, 20 and 25"
 LEVEL_3_NAME,Королевский тракт,King's Road
 LEVEL_3_SUB,"40 волн · 5 дорог · босс каждые 10 волн, с 30-й — два","40 waves · 5 roads · a boss every 10 waves, two from wave 30"
 LEVEL_4_NAME,Снежный перевал,Snowy Pass
-LEVEL_4_SUB,"30 волн · 5 дорог · летуны и щитовики · боссы каждые 10 волн","30 waves · 5 roads · flyers and shield bearers · a boss every 10 waves"
+LEVEL_4_SUB,30 волн · 5 дорог · летуны и щитовики · боссы каждые 10 волн,30 waves · 5 roads · flyers and shield bearers · a boss every 10 waves
 LEVEL_5_NAME,Осенняя роща,Autumn Grove
-LEVEL_5_SUB,"35 волн · 5 дорог · все враги · боссы каждые 10 волн","35 waves · 5 roads · all enemies · a boss every 10 waves"
+LEVEL_5_SUB,35 волн · 5 дорог · все враги · боссы каждые 10 волн,35 waves · 5 roads · all enemies · a boss every 10 waves
 LEVEL_6_NAME,Песчаная крепость,Sand Fortress
-LEVEL_6_SUB,"40 волн · 5 дорог · финальная битва · два короля с 30-й волны","40 waves · 5 roads · the final battle · two kings from wave 30"
+LEVEL_6_SUB,40 волн · 5 дорог · финальная битва · два короля с 30-й волны,40 waves · 5 roads · the final battle · two kings from wave 30
 TOWER_ARCHER_NAME,Лучник,Archer
 TOWER_ARCHER_ROLE,"быстро, по одной цели; слаб против щитов","fast, single target; weak against shields"
 TOWER_FROST_NAME,Мороз,Frost
@@ -259,6 +256,8 @@ CARD_TOWER_TITLE,%s · ур. %d/%d,%s · lvl %d/%d
 CARD_UPGRADE_TIP,Улучшить (U),Upgrade (U)
 CARD_UPGRADE_TIP_NEXT,Улучшить (U) → %s,Upgrade (U) → %s
 CARD_MAX,макс.,max
+CARD_UPGRADE_NAME,Улучшить,Upgrade
+CARD_SELL_NAME,Продать,Sell
 CARD_SELL_TIP,Продать за %d%% вложенного (X),Sell for %d%% of the investment (X)
 CARD_DESELECT_TIP,Снять выбор (Esc),Deselect (Esc)
 CARD_KNIGHT_WALKS,Рыцарь идёт к площадке…,The knight is walking to the plot…
@@ -296,7 +295,6 @@ END_STARS_HINT,"
 3 stars: win without losing a single life"
 END_NEW_RECORD,Новый рекорд: %d волн!,New record: %d waves!
 END_SIEGE_OVER,Осада окончена,Siege over
-END_SIEGE_STATS,Пройдено волн: %d · рекорд: %d · звёзд за осаду: %d из %d,Waves cleared: %d · record: %d · siege stars: %d of %d
 END_DEFEAT,Поражение,Defeat
 END_TIP,Совет: %s,Tip: %s
 TIP_REPAIR,ремонт стен в кузнице: +%d жизни за %d дерева,repair the walls at the forge: +%d lives for %d wood
@@ -336,7 +334,7 @@ PRIORITY_FIRST_HINT,ближайший к замку,closest to the castle
 PRIORITY_LAST_HINT,самый далёкий от замка,furthest from the castle
 PRIORITY_STRONGEST_HINT,с наибольшим здоровьем,with the most health
 PRIORITY_NEAREST_HINT,ближайший к башне,closest to the tower
-PRIORITY_TIP,"Цель: %s — %s. Нажмите, чтобы сменить","Target: %s — %s. Tap to change"
+PRIORITY_TIP,"Цель: %s — %s. Нажмите, чтобы сменить",Target: %s — %s. Tap to change
 DIR_N,севера,the north
 DIR_NE,северо-востока,the north-east
 DIR_E,востока,the east
@@ -348,7 +346,8 @@ DIR_NW,северо-запада,the north-west
 LANES_ALL,Со всех сторон!,From every side!
 LANES_FROM,С %s!,From %s!
 LANES_FROM_TWO,С %s и %s!,From %s and %s!
-TIP_LANES,"Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам","Lightning hits frost-slowed enemies harder; watch the banner: waves come along different paths"
+LANES_COMPASS,Компас: откуда идут волны,Compass: where the waves come from
+TIP_LANES,Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам,Lightning hits frost-slowed enemies harder; watch the banner: waves come along different paths
 COOP_BUTTON,Кооператив,Co-op
 COOP_TITLE,Кооператив: двое против слаймов,Co-op: two against the slimes
 COOP_INTRO,"Играйте вдвоём: общие казна и жизни, у каждого свой рыцарь. Один создаёт комнату, второй входит по коду.","Play together: shared gold, wood and lives, a knight each. One of you creates a room, the other joins with its code."
@@ -456,9 +455,9 @@ ACH_UPGRADER_DESC,Улучши башни 15 раз.,Upgrade towers 15 times.
 ACH_LUMBERJACK,Дровосек,Lumberjack
 ACH_LUMBERJACK_DESC,Добудь 300 дерева.,Gather 300 wood.
 ACH_SIEGE_10,Стойкий,Stalwart
-ACH_SIEGE_10_DESC,Продержись 10 волн в бесконечной осаде.,Hold out 10 waves in the endless siege.
+ACH_SIEGE_10_DESC,Продержись 10 волн в «Игре на рекорд».,Hold out 10 waves in the Record Run.
 ACH_SIEGE_30,Несокрушимый,Unbreakable
-ACH_SIEGE_30_DESC,Продержись 30 волн в бесконечной осаде.,Hold out 30 waves in the endless siege.
+ACH_SIEGE_30_DESC,Продержись 30 волн в «Игре на рекорд».,Hold out 30 waves in the Record Run.
 ACH_DAILY_FIRST,Испытатель,Challenger
 ACH_DAILY_FIRST_DESC,Сыграй в испытание дня.,Play a daily trial.
 ACH_DAILY_STREAK_3,Три дня подряд,Three days in a row
@@ -467,3 +466,51 @@ ACH_DAILY_WAVE_15,Герой дня,Hero of the day
 ACH_DAILY_WAVE_15_DESC,Продержись 15 волн в испытании дня.,Survive 15 waves in a daily trial.
 ACH_PERK_BUYER,Первое усиление,First upgrade
 ACH_PERK_BUYER_DESC,Купи любое усиление в казне.,Buy any perk in the treasury.
+DIFF_NORMAL,Нормально,Normal
+DIFF_HARD,Сложно,Hard
+DIFF_NIGHTMARE,Кошмар,Nightmare
+MAP_DIFF_BASE,Основной режим кампании,The standard campaign
+MAP_DIFF_LOCK_1,Сложно откроется после победы на этом уровне,Hard opens after you win this level
+MAP_DIFF_LOCK_2,Кошмар откроется после победы на «Сложно»,Nightmare opens after you win on Hard
+MAP_DIFF_INFO,Здоровье врагов ×%s · врагов ×%s · золото ×%s · жизни замка ×%s,Enemy health ×%s · enemies ×%s · gold ×%s · castle lives ×%s
+MAP_CROWN,Корона сложности: пройдено на «%s»,Difficulty crown: won on %s
+MAP_RECORD_RUN,Игра на рекорд,Record Run
+MAP_RECORD_SUB,Свободный режим без конца: каждая волна тяжелее предыдущей,Free mode with no end: every wave is harder than the last
+MAP_RECORD_BEST,Рекорд: %d волн,Best: %d waves
+MAP_RECORD_NONE,Рекорда пока нет,No record yet
+MAP_RECORD_BTN_SUB,Рекорд: %d,Best: %d
+MAP_RECORD_BTN_NEW,Без конца,No end
+HUD_RECORD_WAVE,Волна %d · Рекорд %d,Wave %d · Best %d
+HUD_WAVE_ONLY,Волна %d,Wave %d
+HUD_AGAIN,Ещё раз,Again
+HUD_RECORDS_TABLE,Таблица рекордов,Records table
+END_RECORD_WAVE,Достигнута волна: %d · рекорд: %d,Wave reached: %d · best: %d
+END_RECORD_LEFT,До рекорда не хватило %d волн,%d more waves to beat your best
+END_RECORD_BEATEN,Прошлый рекорд: %d,Previous best: %d
+END_RECORD_STARS,Звёзды за рекорды: %d из %d,Stars from records: %d of %d
+END_DIFFICULTY,Сложность: %s,Difficulty: %s
+END_CROWN_NEW,Новая корона сложности!,New difficulty crown!
+REC_SURPRISE_SWARM,Рой быстрых!,A fast swarm!
+REC_SURPRISE_AIR,Налёт со всех сторон!,Air raid from every side!
+REC_SURPRISE_ARMOR,Бронированный натиск!,Armoured assault!
+COOP_DIFFICULTY,Сложность: %s,Difficulty: %s
+WELCOME_TITLE,Добро пожаловать!,Welcome!
+WELCOME_SUBTITLE,Создай аккаунт: прогресс сохранится в облаке и вернётся на новом телефоне.,Create an account: your progress is saved in the cloud and follows you to a new phone.
+WELCOME_CREATE,Создать аккаунт,Create account
+WELCOME_SIGNIN,Войти,Sign in
+WELCOME_GUEST,Играть без аккаунта,Play without an account
+WELCOME_GUEST_NOTE,"Гость играет в полную игру, но прогресс остаётся только на этом телефоне.","Guests play the full game, but progress stays on this phone only."
+EMAIL_TITLE_REGISTER,Создать аккаунт,Create account
+EMAIL_NOTE_REGISTER,"Почта и пароль нужны, чтобы войти на другом телефоне. Пришлём письмо для подтверждения почты; игра от этого не зависит.",Email and password let you sign in on another phone. We will send a confirmation email; the game does not depend on it.
+EMAIL_ACTION_REGISTER,Создать,Create
+EMAIL_FIELD_NICK,Имя героя (3–16),Hero name (3–16)
+EMAIL_OFFLINE_HINT,Можно начать как гость и создать аккаунт позже.,You can start as a guest and create an account later.
+REMIND_TITLE,Не потеряй прогресс,Do not lose your progress
+REMIND_BODY,Создай аккаунт: прогресс сохранится при смене телефона и после переустановки.,Create an account: your progress survives a new phone or a reinstall.
+REMIND_LATER,Позже,Later
+REMIND_SESSION,"Нужно войти снова, чтобы прогресс продолжил синхронизироваться. Игра работает как обычно.",Sign in again so progress keeps syncing. The game works as usual.
+ACC_EMAIL_VERIFIED,Почта подтверждена ✓,Email confirmed ✓
+ACC_EMAIL_UNVERIFIED,Почта не подтверждена: открой письмо и нажми ссылку (проверь «Спам»),Email not confirmed: open the email and tap the link (check Spam)
+ACC_EMAIL_RESEND,Отправить письмо ещё раз,Send the email again
+ACC_EMAIL_SENT,Письмо отправлено. Загляни и в «Спам».,Email sent. Check Spam too.
+ACC_EMAIL_COOLDOWN,Подожди минуту перед новым письмом.,Wait a minute before another email.

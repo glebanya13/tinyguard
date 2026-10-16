@@ -18,17 +18,29 @@ const DIRECTION_KEYS: Array[String] = [
 ## looks along (-1, -1, -1), so the top of the screen is the world's (-X, -Z) corner.
 const SCREEN_UP := Vector2(-0.7071068, -0.7071068)
 const SCREEN_RIGHT := Vector2(0.7071068, -0.7071068)
+## Number of difficulty levels above Normal (Hard, Nightmare).
+const MAX_DIFFICULTY := 2
 ## Tests point this at a scratch file.
 static var save_path: String = "user://progress.cfg"
 
 static var selected_id: int = 1
-## True when the selected level is played as an endless siege.
+## True when the selected level is played as the Record Run (free mode without an end,
+## every wave harder than the last; see WavePlan.record_run).
 static var endless: bool = false
+## Difficulty of the campaign battle that starts next: 0 Normal, 1 Hard, 2 Nightmare
+## (rows of "difficulty" in resources/balance.json). The Record Run and the daily challenge
+## ignore it.
+static var difficulty: int = 0
+## The map opens the records table of the selected level on arrival (set by the Record Run
+## end screen), once.
+static var open_records: bool = false
 ## True when the selected level is played as the onboarding tutorial.
 static var tutorial: bool = false
 ## Date ("yyyy-mm-dd") of the daily challenge being played, "" otherwise. Daily runs
 ## are endless sieges with the day's seed and modifiers (see DailyRun).
 static var daily_key: String = ""
+## Called after every successful commit (the Online autoload schedules a cloud sync).
+static var on_committed: Callable = Callable()
 static var _levels: Array = []
 static var _save: ConfigFile = null
 static var _save_loaded_from: String = ""
@@ -151,11 +163,33 @@ static func stars_for(lives_left: int, lives_start: int) -> int:
 	return 2 if lives_left * 2 >= lives_start else 1
 
 
-static func complete(id: int, earned_stars: int = 1) -> void:
+## Highest difficulty above Normal a level was won on: 0 none, 1 Hard, 2 Nightmare
+## (the "difficulty crown" next to the stars; it adds no stars).
+static func crown(id: int) -> int:
+	var cfg: ConfigFile = data()
+	return clampi(int(cfg.get_value("progress", "crown_%d" % id, 0)), 0, MAX_DIFFICULTY)
+
+
+## Hard opens once the level is won, Nightmare once it is won on Hard.
+static func is_difficulty_open(id: int, level_difficulty: int) -> bool:
+	if level_difficulty <= 0:
+		return true
+	return (
+		is_completed(id)
+		and crown(id) >= level_difficulty - 1
+		and level_difficulty <= MAX_DIFFICULTY
+	)
+
+
+static func complete(id: int, earned_stars: int = 1, won_difficulty: int = 0) -> void:
 	var best: int = maxi(stars(id), earned_stars)
 	var cfg: ConfigFile = data()
 	cfg.set_value("progress", "won_%d" % id, true)
 	cfg.set_value("progress", "stars_%d" % id, best)
+	if won_difficulty > 0:
+		cfg.set_value(
+			"progress", "crown_%d" % id, clampi(maxi(crown(id), won_difficulty), 0, MAX_DIFFICULTY)
+		)
 	cfg.set_value("progress", "unlocked", maxi(unlocked(), mini(id + 1, levels().size())))
 	commit()
 
@@ -193,8 +227,11 @@ static func save_endless(id: int, wave: int) -> bool:
 	return true
 
 
-## The save file, loaded once and cached. A corrupt file falls back to its
-## .bak copy; if both fail the game runs on defaults and never writes.
+## The save file, loaded once and cached. A damaged file falls back to its .bak
+## copy (the previous good state). If both are unreadable because of a parse error,
+## the damaged file is kept aside as ".corrupt" and the game starts a fresh, writable
+## save: progress made from now on is never lost to a file nobody can read. Any other
+## read error (permissions, busy file) only makes the save read-only for this run.
 static func data() -> ConfigFile:
 	if _save != null and _save_loaded_from == save_path:
 		return _save
@@ -207,11 +244,15 @@ static func data() -> ConfigFile:
 		_save = ConfigFile.new()
 		if _save.load(save_path + ".bak") != OK:
 			_save = ConfigFile.new()
-			_save_broken = true
+			if error == ERR_PARSE_ERROR and _quarantine_damaged_save():
+				_save_broken = false
+			else:
+				_save_broken = true
 	return _save
 
 
-## Writes the cached save atomically: temp file, keep the old one as .bak, rename.
+## Writes the cached save atomically: temp file, read it back to be sure it parses,
+## keep the previous good file as .bak, rename over the real one.
 static func commit() -> void:
 	if _save == null or _save_broken:
 		return
@@ -219,10 +260,25 @@ static func commit() -> void:
 	if _save.save(tmp) != OK:
 		push_error("Cannot write the save to %s" % tmp)
 		return
+	var verify := ConfigFile.new()
+	if verify.load(tmp) != OK:
+		push_error("The save written to %s does not parse, keeping the old file" % tmp)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+		return
 	var real: String = ProjectSettings.globalize_path(save_path)
-	if FileAccess.file_exists(save_path):
-		DirAccess.copy_absolute(real, real + ".bak")
-	DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real)
+	if FileAccess.file_exists(save_path) and ConfigFile.new().load(save_path) == OK:
+		DirAccess.copy_absolute(real, real + ".bak")  # only a good file becomes the backup
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real) != OK:
+		push_error("Cannot replace the save %s" % save_path)
+		return
+	if on_committed.is_valid():
+		on_committed.call()
+
+
+## Writes the save now (the app is going to the background or closing). Everything
+## is committed at every change already; this is the belt-and-braces call.
+static func flush() -> void:
+	commit()
 
 
 ## Replaces the whole progress with a saved text (cloud restore). False if the
@@ -251,10 +307,19 @@ static func _route_after(routes: Array[PackedVector2Array], join: Vector2) -> Pa
 	return PackedVector2Array()
 
 
+## Moves a save that cannot be parsed (and has no usable backup) aside, so a new one can
+## be written. The old bytes stay in ".corrupt" for support.
+static func _quarantine_damaged_save() -> bool:
+	var real: String = ProjectSettings.globalize_path(save_path)
+	if FileAccess.file_exists(save_path + ".corrupt"):
+		DirAccess.remove_absolute(real + ".corrupt")
+	return DirAccess.rename_absolute(real, real + ".corrupt") == OK
+
+
 ## Deletes the save (and its backup) and drops the cache: a fresh install.
 ## Used when the player deletes the account or the local data.
 static func erase_all() -> void:
-	for suffix in ["", ".bak", ".tmp"]:
+	for suffix in ["", ".bak", ".tmp", ".corrupt"]:
 		if FileAccess.file_exists(save_path + suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path + suffix))
 	_save = null

@@ -15,21 +15,21 @@ static var path: String = "user://session.dat"
 
 
 ## The stored session, {} when there is none, or {"unreadable": true} when a
-## file exists but cannot be decrypted (other device id, damaged file).
+## file exists but cannot be decrypted (other device id, damaged file). A damaged
+## main file falls back to the .bak copy of the previous good session.
 static func load_session() -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
-	var file := FileAccess.open_encrypted_with_pass(path, FileAccess.READ, _key())
-	if file == null:
-		return {"unreadable": true}
-	var data: Variant = JSON.parse_string(file.get_as_text())
-	file.close()
-	if not data is Dictionary:
+	var data: Dictionary = _read(path)
+	if data.is_empty() and FileAccess.file_exists(path + ".bak"):
+		data = _read(path + ".bak")
+	if data.is_empty():
 		return {"unreadable": true}
 	return data
 
 
-## Writes atomically (temp file, then rename). Returns false on failure.
+## Writes atomically (temp file, read back, previous good file kept as .bak, then
+## rename). Returns false on failure; the old session stays then.
 static func save_session(session: Dictionary) -> bool:
 	var tmp: String = path + ".tmp"
 	var file := FileAccess.open_encrypted_with_pass(tmp, FileAccess.WRITE, _key())
@@ -37,17 +37,29 @@ static func save_session(session: Dictionary) -> bool:
 		return false
 	file.store_string(JSON.stringify(session))
 	file.close()
-	var error: Error = DirAccess.rename_absolute(
-		ProjectSettings.globalize_path(tmp), ProjectSettings.globalize_path(path)
-	)
-	return error == OK
+	if _read(tmp).is_empty():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+		return false
+	var real: String = ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(path) and not _read(path).is_empty():
+		DirAccess.copy_absolute(real, real + ".bak")
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real) == OK
 
 
 static func clear() -> void:
-	for suffix in ["", ".tmp"]:
+	for suffix in ["", ".tmp", ".bak"]:
 		var real: String = ProjectSettings.globalize_path(path + suffix)
 		if FileAccess.file_exists(path + suffix):
 			DirAccess.remove_absolute(real)
+
+
+static func _read(file_path: String) -> Dictionary:
+	var file := FileAccess.open_encrypted_with_pass(file_path, FileAccess.READ, _key())
+	if file == null:
+		return {}
+	var data: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	return data if data is Dictionary else {}
 
 
 static func _key() -> String:

@@ -63,7 +63,11 @@ func _check_level(level: Dictionary) -> void:
 			if is_boss and i < list.size() - bosses:
 				ok_order = false  # bosses close the wave
 			# (below factor 1 the boss exponent works the other way round: no check there)
-			if is_boss and hp >= 1.0 and float(list[i]["hp"]) > hp + 0.0001:
+			if (
+				is_boss
+				and hp >= 1.0
+				and float(list[i]["hp"]) > hp * float(waves.get("boss_hp_mult", 1.0)) + 0.0001
+			):
 				ok_boss = false  # bosses grow slower than the crowd
 	check(ok_counts, "level %d: enemies per wave follow count_base + step" % id)
 	check(ok_hp, "level %d: health factor grows every wave" % id)

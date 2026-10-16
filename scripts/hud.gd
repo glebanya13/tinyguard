@@ -16,6 +16,8 @@ signal pause_pressed
 signal continue_pressed
 signal speed_pressed
 signal forge_pressed
+## End screen of the Record Run: open the records table on the map.
+signal records_pressed
 signal joystick_changed(vector: Vector2)
 
 const VICTORY_COLOR := Color(0.98, 0.8, 0.4)
@@ -32,6 +34,10 @@ const INFO_COLOR := Color(0.62, 0.86, 1.0)
 ## Command card buttons: 84 px is ~48 dp on a 1080p phone (720 px tall canvas).
 const CARD_BUTTON_SIZE := Vector2(84, 84)
 const CARD_ICON_HEIGHT := 46.0
+## A button with a caption under its icon (tower name, "Upgrade", "Sell").
+const CARD_CAPTION_SIZE := Vector2(100, 130)
+const CARD_CAPTION_ICON_HEIGHT := 60.0
+const CARD_CAPTION_FONT := 17
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
@@ -55,6 +61,10 @@ const SHORTCUTS := {
 ## Seconds the wave banner stays fully visible (plus fade in/out).
 @export var banner_seconds: float = 2.5
 
+## Record Run: the wave counter reads "Wave N · Record M". `record_best` is the personal record.
+var record_mode: bool = false
+var record_best: int = 0
+
 var _button_ids: Array[StringName] = []
 var _hint_tween: Tween = null
 var _hint_text: String = ""
@@ -62,6 +72,7 @@ var _banner_tween: Tween = null
 var _joystick_visible: bool = false
 var _card_hash: int = 0
 var _settings_button: Button = null
+var _records_button: Button = null
 var _settings_panel: SettingsPanel = null
 var _spin_shown: int = -1
 ## Co-op: "waiting for the partner" notice (built when the mode is switched on).
@@ -145,9 +156,32 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## `total` 0 = endless siege.
+## `total` 0 = endless (the daily siege, the Record Run).
 func set_wave(wave: int, total: int) -> void:
-	_wave_label.text = tr("HUD_SIEGE_WAVE") % wave if total <= 0 else "%d/%d" % [wave, total]
+	if total > 0:
+		_wave_label.text = "%d/%d" % [wave, total]
+	elif record_mode:
+		var best: int = maxi(record_best, wave - 1)  # passing the old record moves it along
+		_wave_label.text = (
+			tr("HUD_RECORD_WAVE") % [wave, best] if best > 0 else tr("HUD_WAVE_ONLY") % wave
+		)
+	else:
+		_wave_label.text = tr("HUD_SIEGE_WAVE") % wave
+
+
+## The end screen of the Record Run: "Once more" instead of "Play again" and, when the
+## records table exists (online), a button that opens it on the map.
+func set_record_end(online: bool) -> void:
+	_restart_button.text = tr("HUD_AGAIN")
+	if not online or _records_button != null:
+		return
+	_records_button = Button.new()
+	_records_button.name = "RecordsButton"
+	_records_button.text = tr("HUD_RECORDS_TABLE")
+	_records_button.focus_mode = Control.FOCUS_NONE
+	_records_button.theme_type_variation = &"SecondaryButton"
+	_records_button.pressed.connect(_on_end_button_pressed.bind(records_pressed))
+	_restart_button.add_sibling(_records_button)
 
 
 func set_gold(gold: int) -> void:
@@ -446,6 +480,14 @@ func _make_button(spec: Dictionary) -> Button:
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(icon)
+	var caption := Label.new()
+	caption.name = "Caption"
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.add_theme_color_override("font_color", COST_COLOR)
+	caption.add_theme_constant_override("outline_size", 0)
+	caption.add_theme_font_size_override("font_size", CARD_CAPTION_FONT)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(caption)
 	var cost := HBoxContainer.new()
 	cost.name = "Cost"
 	cost.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -459,6 +501,12 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 	button.disabled = not spec.get("enabled", false)
 	button.tooltip_text = "" if _touch else spec.get("tooltip", "")
 	(button.find_child("Icon", true, false) as TextureRect).texture = spec.get("icon")
+	var caption := button.find_child("Caption", true, false) as Label
+	caption.text = spec.get("caption", "")
+	caption.visible = caption.text != ""
+	button.custom_minimum_size = CARD_CAPTION_SIZE if caption.visible else CARD_BUTTON_SIZE
+	var icon_height: float = CARD_CAPTION_ICON_HEIGHT if caption.visible else CARD_ICON_HEIGHT
+	(button.find_child("Icon", true, false) as TextureRect).custom_minimum_size.y = icon_height
 	var cost: HBoxContainer = button.find_child("Cost", true, false)
 	for child in cost.get_children():
 		child.free()

@@ -71,12 +71,13 @@ func _run() -> void:
 	LevelCatalog.save_path = SAVE
 	LevelCatalog.set_sound_on(true)
 	check(
-		FileAccess.get_file_as_string(real).begins_with("[progress\nbroken"),
-		"damaged save left untouched"
+		FileAccess.get_file_as_string(real + ".corrupt").begins_with("[progress\nbroken"),
+		"unreadable save without a backup is kept aside as .corrupt"
 	)
+	check(ConfigFile.new().load(real) == OK and LevelCatalog.sound_on(), "a fresh save is written")
 	DirAccess.remove_absolute(real + ".tmp")
 	LevelCatalog.endless = false
-	for suffix in ["", ".bak", ".tmp"]:
+	for suffix in ["", ".bak", ".tmp", ".corrupt"]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE) + suffix)
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

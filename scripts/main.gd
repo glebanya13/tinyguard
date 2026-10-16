@@ -52,12 +52,20 @@ var _focused_tree: WoodTree = null
 var _focus: Node3D = null
 var _paused: bool = false
 var _endless: bool = false
+## Record Run: the endless mode of a normal level (not the daily challenge, not co-op).
+var _record: bool = false
+## Campaign difficulty of this battle: 0 Normal, 1 Hard, 2 Nightmare (rows of "difficulty" in
+## resources/balance.json). Journal header "difficulty"; co-op: the host's choice.
+var _difficulty: int = 0
 ## Date of the daily challenge being played ("" = a normal battle).
 var _daily_key: String = ""
 var _tracker: AchievementTracker = null
 var _coop_menu_open: bool = false
 var _coop_hooks := CoopHooks.new()
 var _lane_hint: LaneHint = null
+var _fx: Fx = null
+## The battle is being left (map / restart): the scene change is queued, ignore more taps.
+var _leaving: bool = false
 ## "С севера!" for the wave that is starting.
 var _wave_direction: String = ""
 
@@ -98,8 +106,11 @@ func _ready() -> void:
 	builder.build(level, _level_root, _enemy_path, _wave_manager, _commands, _sim, _hero, _camera)
 	_daily_key = LevelCatalog.daily_key if not _coop_on() else ""
 	_endless = (LevelCatalog.endless or _daily_key != "") and not _coop_on()
+	_record = _endless and _daily_key == ""
+	_difficulty = _chosen_difficulty()
 	_apply_perks(_current_perks())
-	_wave_manager.plan = WavePlan.new(level["waves"], _endless)
+	_wave_manager.plan = WavePlan.new(level["waves"], _endless, _record)
+	_apply_difficulty()
 	_wave_manager.sim = _sim
 	_build_manager.sim = _sim
 	if _daily_key != "":
@@ -129,6 +140,8 @@ func _ready() -> void:
 		_defeat_sound,
 		_daily_key
 	)
+	battle_end.difficulty = _difficulty
+	battle_end.record_run = _record
 	if _coop_on():
 		coop = _coop_hooks.attach(
 			self,
@@ -151,6 +164,8 @@ func _ready() -> void:
 	_wave_manager.enemy_reached_base.connect(_on_enemy_reached_base)
 	_wave_manager.wave_lanes.connect(_on_wave_lanes)
 	_wave_manager.wave_started.connect(_on_wave_started)
+	_wave_manager.wave_cleared.connect(_on_wave_cleared)
+	battle_end.finished.connect(_on_battle_finished.unbind(2))
 
 	_build_manager.tower_built.connect(_on_tower_built)
 	_build_manager.tower_upgraded.connect(_on_tower_upgraded)
@@ -177,6 +192,7 @@ func _ready() -> void:
 	_hud.spin_pressed.connect(_hero.try_spin)
 	_hud.restart_pressed.connect(_on_restart_pressed)
 	_hud.map_pressed.connect(_on_map_pressed)
+	_hud.records_pressed.connect(_on_records_pressed)
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
@@ -194,12 +210,19 @@ func _ready() -> void:
 	_hud.set_gold(_game_state.gold)
 	_hud.set_wood(_game_state.wood)
 	_hud.set_lives(_game_state.lives)
+	if _record:
+		_hud.record_mode = true
+		_hud.record_best = LevelCatalog.endless_record(int(level["id"]))
 	_hud.set_wave(0, 0 if _endless else _wave_manager.get_total_waves())
 	_lane_hint = LaneHint.new()
 	_lane_hint.camera = _camera
-	_hud.add_child(_lane_hint)
+	_lane_hint.level = level
+	var hud_root: Control = _hud.get_node("Root")
+	hud_root.add_child(_lane_hint)
+	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
 	cards.refresh()
 	_start_fx()
+	_start_diagnostics()
 	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_start_tracker()
 	if _endless and _daily_key == "":
@@ -227,6 +250,7 @@ func _notification(what: int) -> void:
 			else:
 				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			battle_end.flush_progress()  # the process may be killed while in the background
 			# Phone call, home button: never let waves run unattended.
 			if OS.has_feature("mobile") and not _paused and not battle_end.ended and not _coop_on():
 				_toggle_pause()
@@ -293,12 +317,33 @@ func _journal_header() -> Dictionary:
 		"seed": _sim.seed_value,
 		"perks": _current_perks(),
 	}
+	if _difficulty > 0:
+		header["difficulty"] = _difficulty
+	if _record:
+		header["record"] = 1
 	if _daily_key != "":
 		header["daily"] = _daily_key
 	if _coop_on():
 		header["coop"] = 1
 		header["delay"] = int(coop_config["delay"])
 	return header
+
+
+## Difficulty of this battle: the player's choice on the map; co-op takes the host's choice
+## from the room; the record run and the daily challenge are always Normal.
+func _chosen_difficulty() -> int:
+	if _coop_on():
+		return int(coop_config.get("difficulty", 0))
+	if _endless:
+		return 0
+	return LevelCatalog.difficulty
+
+
+## Health, enemy count and kill gold of the difficulty (the lives are in _apply_perks).
+func _apply_difficulty() -> void:
+	var plan: WavePlan = _wave_manager.plan
+	plan.set_difficulty(_difficulty)
+	_wave_manager.reward_scale = plan.reward_scale(_difficulty)
 
 
 ## The player's permanent perks by name.
@@ -315,6 +360,9 @@ func _current_perks() -> Dictionary:
 ## the same battle; call it before the battle clock starts.
 func _apply_perks(perks: Dictionary) -> void:
 	var start: Dictionary = level["start"].duplicate()
+	start["lives"] = maxi(
+		roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1
+	)
 	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
 	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
 	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
@@ -326,7 +374,9 @@ func _apply_perks(perks: Dictionary) -> void:
 
 
 func _on_replay_begun(header: Dictionary) -> void:
+	_difficulty = clampi(int(header.get("difficulty", 0)), 0, Balance.difficulty_count() - 1)
 	_apply_perks(header.get("perks", {}))
+	_apply_difficulty()
 	if header.has("daily"):
 		DailyRun.apply(str(header["daily"]), _wave_manager.plan, _wave_manager, _build_manager)
 
@@ -371,6 +421,8 @@ func _update_target_ring() -> void:
 ## Needs the level's bodies in the physics space: runs after a physics frame.
 func _build_walk_grid() -> void:
 	await get_tree().physics_frame
+	if _leaving or not is_inside_tree():
+		return  # the player left in the very first frame
 	walk_grid.build(
 		get_world_3d().direct_space_state, LevelBuilder.map_rect(level), WALK_OBSTACLE_MASK
 	)
@@ -398,6 +450,7 @@ func _start_tutorial() -> void:
 	):
 		return
 	guide.start_tutorial(self, _wave_manager, _camera, _hud)
+	guide.tutorial.leave_requested.connect(_on_map_pressed)
 	cards.refresh()
 
 
@@ -420,9 +473,21 @@ func _start_fx() -> void:
 	if coop != null:
 		heroes.append(coop.ghost)
 	var fx := Fx.new()
+	_fx = fx
 	fx.name = "Fx"
 	add_child(fx)
 	fx.setup(_camera, _wave_manager, _build_manager, _game_state, heroes, builder.castle, _hud)
+
+
+## Quality guard (lowers visual settings on a weak phone) and the hidden diagnostics overlay.
+func _start_diagnostics() -> void:
+	var guard := QualityGuard.new()
+	guard.name = "QualityGuard"
+	add_child(guard)
+	guard.setup($Sun, get_viewport())
+	var diag := DiagOverlay.new()
+	add_child(diag)
+	diag.setup(_sim, _wave_manager, int(level["id"]), guard)
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
@@ -492,6 +557,16 @@ func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 	_lane_hint.announce(builder.portals, lanes)
 
 
+## The arrows of the wave go out when no wave has enemies left.
+func _on_wave_cleared(_wave: int) -> void:
+	if not _wave_manager.is_wave_active():
+		_lane_hint.finish()
+
+
+func _on_battle_finished() -> void:
+	_lane_hint.stop()
+
+
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.set_wave(wave, 0 if _endless else total)
 	_wave_boom.play()
@@ -503,6 +578,10 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	var next: String = ""
 	if not last:
 		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
+	if _record and not _wave_manager.plan.surprise_key(wave).is_empty():
+		next = tr(_wave_manager.plan.surprise_key(wave))  # "Swarm!", "Armoured!" ...
+	if _wave_direction != "":
+		next = _wave_direction + ("\n" + next if next != "" else "")  # "From the north!"
 	_hud.show_banner(title, next, boss)
 
 
@@ -512,19 +591,53 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 func _on_restart_pressed() -> void:
 	if _coop_on():
 		return  # one player cannot restart a shared battle
-	get_tree().paused = false
-	Engine.time_scale = 1.0
-	var error: Error = get_tree().reload_current_scene()
-	if error != OK:
-		push_error("Restart failed: %s" % error_string(error))
-		get_tree().paused = true
+	_leave_to("")
+
+
+## Record Run end screen: the map opens with the records table of this level.
+func _on_records_pressed() -> void:
+	LevelCatalog.open_records = true
+	_on_map_pressed()
 
 
 func _on_map_pressed() -> void:
 	if _coop_on():
 		coop.leave()
-	get_tree().paused = false
-	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
+	_leave_to(LEVEL_SELECT_SCENE)
+
+
+## Leaves the battle for `scene_path` ("" = start this level again). The change is queued
+## for the idle time of the frame: it must not run inside the tap's own input event, nor
+## in the middle of a sim step or a _process of this scene (the scene is freed whole).
+## Everything that touches the scene from outside (the effects layer, the sim clock,
+## the models asked for in advance) is shut down first.
+func _leave_to(scene_path: String) -> void:
+	if _leaving:
+		return
+	_leaving = true
+	set_process(false)
+	_sim.running = false
+	if _fx != null and is_instance_valid(_fx):
+		_fx.shutdown()
+	_change_scene.call_deferred(scene_path)
+
+
+func _change_scene(scene_path: String) -> void:
+	if not is_inside_tree():
+		return
+	var tree: SceneTree = get_tree()
+	# SceneTree.paused is the only state that survives a scene change: clear it first.
+	tree.paused = false
+	Engine.time_scale = 1.0
+	var error: Error = (
+		tree.change_scene_to_file(scene_path) if scene_path != "" else tree.reload_current_scene()
+	)
+	if error != OK:
+		push_error("Leaving the battle failed: %s" % error_string(error))
+		_leaving = false
+		set_process(true)
+		_sim.running = true
+		tree.paused = battle_end.ended or _paused
 
 
 func _coop_on() -> bool:

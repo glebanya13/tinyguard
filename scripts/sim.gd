@@ -24,6 +24,18 @@ const TICK_RATE: int = 30
 const TICK_DT: float = 1.0 / TICK_RATE
 ## Steps per frame at most (a long hitch must not freeze the game in catch-up).
 const MAX_STEPS_PER_FRAME: int = 10
+## Wall-clock budget of the steps of one frame, microseconds. When the steps of a frame
+## take longer (a weak phone, hundreds of enemies) the rest of the debt is dropped: the
+## game slows down instead of falling into a spiral where every frame owes more steps
+## than the last and the picture freezes. One step is always done. Not applied when
+## `manual` (tests count steps, not time).
+const STEP_BUDGET_USEC: int = 22000
+const LIFECYCLE_NOTIFICATIONS: Array[int] = [
+	NOTIFICATION_APPLICATION_PAUSED,
+	NOTIFICATION_APPLICATION_FOCUS_OUT,
+	NOTIFICATION_APPLICATION_RESUMED,
+	NOTIFICATION_APPLICATION_FOCUS_IN,
+]
 ## Co-op: how many steps of real time may pile up while waiting for the partner.
 const COOP_MAX_BACKLOG: int = 3
 ## FNV-1a 64-bit (as signed integers).
@@ -64,6 +76,12 @@ var towers: Array[Tower] = []
 var projectiles: Array[Projectile] = []
 var trees: Array[WoodTree] = []
 
+## Frames in which the step budget ran out / steps lost to it (diagnostics, quality guard).
+var over_budget_frames: int = 0
+var dropped_steps: int = 0
+## Wall time of the steps of the last frame, microseconds.
+var last_frame_step_usec: int = 0
+
 var _accum: float = 0.0
 var _next_id: int = 1
 var _in_step: bool = false
@@ -91,6 +109,13 @@ func _process(delta: float) -> void:
 		advance(delta)
 
 
+func _notification(what: int) -> void:
+	# Home button, phone call, switching apps: real time that passed while the game was
+	# away is not game time (no burst of steps on return).
+	if what in LIFECYCLE_NOTIFICATIONS:
+		_accum = 0.0
+
+
 ## Seconds -> whole steps (at least 1).
 static func ticks(seconds: float) -> int:
 	return maxi(1, roundi(seconds * TICK_RATE))
@@ -104,6 +129,7 @@ func advance(delta: float) -> void:
 		return
 	_accum += delta
 	var steps: int = 0
+	var started: int = 0 if manual else Time.get_ticks_usec()
 	while _accum >= TICK_DT and steps < MAX_STEPS_PER_FRAME:
 		if coop != null and not coop.can_step():
 			_accum = minf(_accum, COOP_MAX_BACKLOG * TICK_DT)  # waiting for the partner
@@ -111,8 +137,16 @@ func advance(delta: float) -> void:
 		_accum -= TICK_DT
 		step()
 		steps += 1
+		if not manual and Time.get_ticks_usec() - started > STEP_BUDGET_USEC:
+			if _accum >= TICK_DT:
+				over_budget_frames += 1
+				dropped_steps += int(_accum / TICK_DT)
+			_accum = minf(_accum, TICK_DT)  # too slow: give up the debt
+			break
 	if steps >= MAX_STEPS_PER_FRAME:
 		_accum = minf(_accum, TICK_DT)  # drop the backlog instead of spiralling
+	if not manual:
+		last_frame_step_usec = Time.get_ticks_usec() - started
 
 
 ## Position between the last two steps (0..1) for drawing.

@@ -23,6 +23,9 @@ static var config_path: String = "user://settings.cfg"
 static var _effects: int = -1
 ## Level forced by BIMBLEGUARD_FX (-1 = none); -2 = environment not read yet.
 static var _forced: int = -2
+## Ceiling set by the quality guard when the device cannot keep up (this session only,
+## never saved: the player's own choice stays what the settings panel shows).
+static var _cap: int = FX_FULL
 
 
 ## Saved choice: "auto", "ru" or "en".
@@ -68,6 +71,34 @@ static func set_effects(level: int) -> void:
 	cfg.set_value("ui", "effects", FX_NAMES[level])
 	cfg.save(config_path)
 	_effects = level
+
+
+## Effects level the battle really uses: the choice, lowered by the quality guard.
+static func effects_now() -> int:
+	return mini(effects(), _cap)
+
+
+## The quality guard lowers the effects to at most `level` until the app is closed.
+static func cap_effects(level: int) -> void:
+	_cap = clampi(level, FX_OFF, FX_FULL)
+
+
+static func effects_cap() -> int:
+	return _cap
+
+
+## Diagnostics overlay (FPS, memory, enemies): hidden until the version line in the
+## settings is tapped five times.
+static func diagnostics() -> bool:
+	var cfg := ConfigFile.new()
+	return cfg.load(config_path) == OK and bool(cfg.get_value("ui", "diagnostics", false))
+
+
+static func set_diagnostics(on: bool) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("ui", "diagnostics", on)
+	cfg.save(config_path)
 
 
 ## The locale for a choice: "ru"/"en" as is; "auto" follows the system language

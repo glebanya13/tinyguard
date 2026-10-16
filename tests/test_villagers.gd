@@ -78,6 +78,11 @@ func _run() -> void:
 	# The trade card: walk the hero to a villager, press its buttons.
 	var hero: Hero = main.get_node("Level/Hero")
 	var v0: Villager = list[0]
+	# The villagers stroll on a random stream, so another one may stand nearer to the hero than
+	# v0 and take the card: park the others far away (the card picks the nearest villager).
+	for other: Villager in list:
+		if other != v0:
+			other.global_position += Vector3(200.0, 0.0, 200.0)
 	hero.global_position = v0.global_position + Vector3(0.8, 0.0, 0.0)
 	await process_frame
 	await process_frame

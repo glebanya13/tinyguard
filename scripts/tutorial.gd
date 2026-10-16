@@ -11,6 +11,8 @@ extends CanvasLayer
 ## Normal levels never create this node.
 
 signal step_changed(step: Step)
+## "To the map" / skip: the level leaves the battle (it also resets pause and speed).
+signal leave_requested
 
 enum Step { WELCOME, CHOP, SLIMES, SELECT, BUILD, MOVE, SPIN, WAVE, UPGRADE, DONE }
 
@@ -301,9 +303,7 @@ func _ask_skip() -> void:
 
 func _leave_to_map() -> void:
 	LevelCatalog.tutorial = false
-	get_tree().paused = false
-	Engine.time_scale = 1.0
-	get_tree().change_scene_to_file(Onboarding.MAP_SCENE)
+	leave_requested.emit()
 
 
 func _on_resources() -> void:

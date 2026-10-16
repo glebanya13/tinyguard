@@ -13,6 +13,9 @@ const GOLD := Color(0.98, 0.8, 0.4)
 const SOFT_COLOR := Color(0.82, 0.86, 0.95)
 const BUTTON_HEIGHT := 58.0
 const FX_KEYS: Array[String] = ["SET_FX_OFF", "SET_FX_MIN", "SET_FX_FULL"]
+## Taps on the version line that switch the diagnostics overlay, and the longest gap between two.
+const VERSION_TAPS := 5
+const VERSION_TAP_GAP_MS := 900
 const LANGUAGE_KEYS: Dictionary = {
 	"auto": "SET_LANG_AUTO",
 	"ru": "SET_LANG_RU",
@@ -22,6 +25,8 @@ const LANGUAGE_KEYS: Dictionary = {
 var _box: VBoxContainer
 var _sound_button: Button
 var _fx_button: Button
+var _version_taps: int = 0
+var _last_version_tap_ms: int = 0
 
 
 func _ready() -> void:
@@ -109,7 +114,38 @@ func _build() -> void:
 
 	var version := _label(tr("SET_VERSION") % GameSettings.version(), 18, Color(SOFT_COLOR, 0.75))
 	version.name = "Version"
+	version.mouse_filter = Control.MOUSE_FILTER_STOP
+	version.gui_input.connect(_on_version_input.bind(version))
 	_box.add_child(version)
+	_update_version_text(version)
+
+
+## Five quick taps on the version switch the diagnostics overlay (FPS, memory...) on / off.
+func _on_version_input(event: InputEvent, version: Label) -> void:
+	var tapped: bool = (
+		(event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+		or (
+			event is InputEventMouseButton
+			and (event as InputEventMouseButton).pressed
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT
+		)
+	)
+	if not tapped:
+		return
+	var now: int = Time.get_ticks_msec()
+	if now - _last_version_tap_ms > VERSION_TAP_GAP_MS:
+		_version_taps = 0
+	_last_version_tap_ms = now
+	_version_taps += 1
+	if _version_taps >= VERSION_TAPS:
+		_version_taps = 0
+		GameSettings.set_diagnostics(not GameSettings.diagnostics())
+		_update_version_text(version)
+
+
+func _update_version_text(version: Label) -> void:
+	var text: String = tr("SET_VERSION") % GameSettings.version()
+	version.text = text + (" [diag]" if GameSettings.diagnostics() else "")
 
 
 func _on_language(code: String) -> void:

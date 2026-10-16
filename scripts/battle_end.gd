@@ -16,6 +16,10 @@ var waves_cleared: int = 0
 var stats := {"kills": 0, "gold": 0, "wood": 0, "towers": 0, "time": 0.0}
 ## Set by Main when this is a co-op match.
 var coop: CoopBattle = null
+## Campaign difficulty of the battle (0 Normal): a win on a higher one earns a crown.
+var difficulty: int = 0
+## Record Run (free mode of a normal level, see WavePlan.record_run).
+var record_run: bool = false
 
 var _tree: SceneTree = null
 var _sim: Sim = null
@@ -31,6 +35,11 @@ var _hero: Hero = null
 var _hud: Hud = null
 var _victory_sound: AudioStreamPlayer = null
 var _defeat_sound: AudioStreamPlayer = null
+## Siege record of the level when the run began (the end screen compares with it, because
+## the record is saved after every wave, not only at the end).
+var _record_at_start: int = 0
+## Highest wave already sent to the online table by flush_progress().
+var _submitted_wave: int = 0
 
 
 ## `commands` already knows the game state, build manager, hero and sim (wired by Main).
@@ -58,14 +67,33 @@ func setup(
 	_hud = hud
 	_victory_sound = victory_sound
 	_defeat_sound = defeat_sound
-	wave_manager.wave_cleared.connect(
-		func(wave: int) -> void: waves_cleared = maxi(waves_cleared, wave)
-	)
+	if endless and daily_key == "":
+		_record_at_start = LevelCatalog.endless_record(int(level["id"]))
+	wave_manager.wave_cleared.connect(_on_wave_cleared)
 	wave_manager.enemy_killed.connect(count_kill)
 	# Deferred: the last enemy may leak in the same emission chain (it still has to
 	# take its lives), so the stars are counted after the lives are final.
 	wave_manager.all_waves_cleared.connect(on_all_waves_cleared, CONNECT_DEFERRED)
 	_game_state.defeated.connect(on_defeated)
+
+
+## Every cleared wave of a siege saves the record at once: a killed app or a dead phone
+## keeps what was reached.
+func _on_wave_cleared(wave: int) -> void:
+	waves_cleared = maxi(waves_cleared, wave)
+	if _endless and _daily_key == "":
+		LevelCatalog.save_endless(int(_level["id"]), waves_cleared)
+
+
+## The app goes to the background or closes: writes the save and sends a siege record that
+## is higher than the old one (the online table keeps only higher ones).
+func flush_progress() -> void:
+	if _endless and _daily_key == "" and not ended and waves_cleared > 0:
+		LevelCatalog.save_endless(int(_level["id"]), waves_cleared)
+		if waves_cleared > _record_at_start and waves_cleared > _submitted_wave:
+			_submitted_wave = waves_cleared
+			Online.submit_record(int(_level["id"]), waves_cleared)
+	LevelCatalog.flush()
 
 
 func count_kill(reward: int) -> void:
@@ -91,7 +119,8 @@ func on_all_waves_cleared() -> void:
 		return
 	var stars: int = LevelCatalog.stars_for(_game_state.lives, _game_state.starting_lives)
 	var before: int = Perks.earned_stars()
-	LevelCatalog.complete(int(_level["id"]), stars)
+	var crown_before: int = LevelCatalog.crown(int(_level["id"]))
+	LevelCatalog.complete(int(_level["id"]), stars, difficulty)
 	var gained: int = Perks.earned_stars() - before
 	_victory_sound.play()
 	var line: String = tr("END_STARS_TOTAL") % [Perks.earned_stars(), Perks.max_stars()]
@@ -99,6 +128,10 @@ func on_all_waves_cleared() -> void:
 		line = tr("END_STARS_NEW") % [gained, line]
 	elif stars < 3:
 		line += tr("END_STARS_HINT")
+	if difficulty > 0:
+		line = tr("END_DIFFICULTY") % tr(str(Balance.difficulty(difficulty)["name"])) + "\n" + line
+		if LevelCatalog.crown(int(_level["id"])) > crown_before:
+			line += "\n" + tr("END_CROWN_NEW")
 	end_game(tr("HUD_VICTORY"), true, stars, line + "\n")
 
 
@@ -111,26 +144,30 @@ func on_defeated() -> void:
 		_end_daily()
 		return
 	if _endless:
-		var id: int = int(_level["id"])
-		var old_record: int = LevelCatalog.endless_record(id)
-		var record: bool = LevelCatalog.save_endless(id, waves_cleared)
-		if record:
-			Online.submit_record(id, waves_cleared)
-		var title := tr("END_NEW_RECORD") % waves_cleared if record else tr("END_SIEGE_OVER")
-		var line := (
-			tr("END_SIEGE_STATS")
-			% [
-				waves_cleared,
-				maxi(old_record, waves_cleared),
-				Perks.endless_stars(id),
-				Perks.ENDLESS_MAX_STARS
-			]
-		)
-		end_game(title, record, 0, line + "\n")
+		_end_record_run()
 		return
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
 	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
 	end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
+
+
+## Record Run over: the wave reached, the record (saved and sent online as before), how far
+## the old record is. The end screen offers "Once more" and the map (see Hud.set_record_end).
+func _end_record_run() -> void:
+	var id: int = int(_level["id"])
+	var old_record: int = LevelCatalog.endless_record(id)
+	var record: bool = LevelCatalog.save_endless(id, waves_cleared)
+	if record:
+		Online.submit_record(id, waves_cleared)
+	var title: String = tr("END_NEW_RECORD") % waves_cleared if record else tr("END_SIEGE_OVER")
+	var line: String = tr("END_RECORD_WAVE") % [waves_cleared, maxi(old_record, waves_cleared)]
+	if not record and old_record > 0:
+		line += "\n" + tr("END_RECORD_LEFT") % maxi(old_record - waves_cleared + 1, 1)
+	elif record and old_record > 0:
+		line += "\n" + tr("END_RECORD_BEATEN") % old_record
+	line += "\n" + tr("END_RECORD_STARS") % [Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
+	_hud.set_record_end(Online.is_configured())
+	end_game(title, record, 0, line + "\n")
 
 
 ## Daily challenge over: files the result, shows the day's summary.

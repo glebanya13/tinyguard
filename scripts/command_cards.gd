@@ -40,6 +40,7 @@ static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool
 					{
 						"id": StringName("build_%d" % i),
 						"icon": data.icon,
+						"caption": _t(data.display_name),
 						"gold": data.cost_gold,
 						"wood": data.cost_wood,
 						"enabled": ok,
@@ -63,6 +64,7 @@ static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool
 		var upgrade := {
 			"id": &"upgrade",
 			"icon": UPGRADE_ICON,
+			"caption": _t("CARD_UPGRADE_NAME"),
 			"enabled": build_manager.can_upgrade(slot),
 			"tooltip": _t("CARD_UPGRADE_TIP")
 		}
@@ -85,6 +87,7 @@ static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool
 			{
 				"id": &"sell",
 				"icon": COIN_ICON,
+				"caption": _t("CARD_SELL_NAME"),
 				"gold": refund.x,
 				"wood": refund.y,
 				"gain": true,

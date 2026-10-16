@@ -232,7 +232,7 @@ custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
-text = "MAP_ENDLESS"
+text = "MAP_RECORD_RUN"
 icon = ExtResource("i_crown")
 
 [node name="Treasury" type="Control" parent="UI/Root"]

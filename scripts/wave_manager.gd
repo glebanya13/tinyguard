@@ -83,6 +83,8 @@ func sim_step(tick: int) -> void:
 ## Integers describing the wave state (for Sim.state_hash).
 func state_ints() -> Array[int]:
 	var out: Array[int] = [current_wave, _alive, _next_wave_tick, killed, leaked, _spawners.size()]
+	if plan != null and plan.difficulty > 0:
+		out.append(plan.difficulty)  # a battle on another difficulty never hashes the same
 	for spawner in _spawners:
 		out.append(int(spawner["index"]))
 		out.append(int(spawner["start"]))
@@ -135,7 +137,7 @@ func start_next_wave() -> bool:
 				"wave": current_wave,
 				"queue": queue,
 				"start": sim.tick,
-				"span": Sim.ticks(plan.spawn_window),
+				"span": Sim.ticks(plan.window_for(current_wave)),
 				"index": 0,
 			}
 		)

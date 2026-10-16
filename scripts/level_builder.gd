@@ -4,6 +4,7 @@ extends RefCounted
 ## decor models, choppable trees (one Grove), enemy paths with portals, the castle,
 ## tower slots, hero spot and camera bounds. Main reads `portals` and `castle`.
 
+const MODEL_PATH := "res://assets/models/level_%d_%s.glb"
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
 const CASTLE_SCENE: PackedScene = preload("res://assets/models/castle.glb")
@@ -49,7 +50,7 @@ func build(
 	_sim = sim
 	var id: int = int(level["id"])
 	for part in ["terrain", "decor", "forest"]:
-		var scene: PackedScene = load("res://assets/models/level_%d_%s.glb" % [id, part])
+		var scene: PackedScene = load(MODEL_PATH % [id, part])
 		var node: Node3D = scene.instantiate()
 		# Ground, small props and the far forest cast no shadows (half the triangles
 		# of the frame otherwise go to the shadow pass); trees and towers still do.
