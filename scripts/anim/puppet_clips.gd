@@ -29,9 +29,7 @@ static func blender_rot(deg: Vector3) -> Quaternion:
 	)
 
 
-static func _k(
-	t: float, rot := Vector3.ZERO, loc := Vector3.ZERO, scl := Vector3.ONE
-) -> Array:
+static func _k(t: float, rot := Vector3.ZERO, loc := Vector3.ZERO, scl := Vector3.ONE) -> Array:
 	return [t, blender_rot(rot), loc, scl]
 
 
@@ -118,7 +116,8 @@ static func _spin() -> Dictionary:
 				_k(0.35, Vector3(-95, 0, -25)),
 				_k(0.45),
 			],
-			P.SWORD: [_k(0.0), _k(0.08, Vector3(170, 0, 0)), _k(0.35, Vector3(170, 0, 0)), _k(0.45)],
+			P.SWORD:
+			[_k(0.0), _k(0.08, Vector3(170, 0, 0)), _k(0.35, Vector3(170, 0, 0)), _k(0.45)],
 			P.ARM_L:
 			[_k(0.0), _k(0.08, Vector3(0, -70, 0)), _k(0.35, Vector3(0, -70, 0)), _k(0.45)],
 			P.BODY:
@@ -129,8 +128,10 @@ static func _spin() -> Dictionary:
 				_k(0.35, Vector3(12, 0, 0)),
 				_k(0.45, Vector3(0, 0, 0), Vector3.ZERO, Vector3(1.05, 1.05, 0.93)),
 			],
-			P.LEG_L: [_k(0.0), _k(0.08, Vector3(-18, 0, 12)), _k(0.35, Vector3(-18, 0, 12)), _k(0.45)],
-			P.LEG_R: [_k(0.0), _k(0.08, Vector3(18, 0, -12)), _k(0.35, Vector3(18, 0, -12)), _k(0.45)],
+			P.LEG_L:
+			[_k(0.0), _k(0.08, Vector3(-18, 0, 12)), _k(0.35, Vector3(-18, 0, 12)), _k(0.45)],
+			P.LEG_R:
+			[_k(0.0), _k(0.08, Vector3(18, 0, -12)), _k(0.35, Vector3(18, 0, -12)), _k(0.45)],
 			P.CAPE: [_k(0.0), _k(0.2, Vector3(55, 0, 0)), _k(0.45)],
 			P.ROOT:
 			[
@@ -160,8 +161,7 @@ static func _wave() -> Dictionary:
 				_k(0.88, Vector3(0, 155, 0)),
 				_k(1.2),
 			],
-			P.HEAD:
-			[_k(0.0), _k(0.25, Vector3(-4, 0, -9)), _k(0.9, Vector3(-4, 0, -9)), _k(1.2)],
+			P.HEAD: [_k(0.0), _k(0.25, Vector3(-4, 0, -9)), _k(0.9, Vector3(-4, 0, -9)), _k(1.2)],
 			P.BODY:
 			[
 				_k(0.0),
@@ -236,8 +236,7 @@ static func _skip() -> Dictionary:
 				_k(0.5),
 				_k(0.6),
 			],
-			P.BODY:
-			[_k(0.0), _k(0.15, Vector3(0, 0, 8)), _k(0.45, Vector3(0, 0, -8)), _k(0.6)],
+			P.BODY: [_k(0.0), _k(0.15, Vector3(0, 0, 8)), _k(0.45, Vector3(0, 0, -8)), _k(0.6)],
 			P.ARM_L: [_k(0.0), _k(0.15, Vector3(0, -60, 0)), _k(0.45, Vector3(0, -20, 0)), _k(0.6)],
 			P.ARM_R: [_k(0.0), _k(0.15, Vector3(0, 20, 0)), _k(0.45, Vector3(0, 60, 0)), _k(0.6)],
 		}

@@ -201,8 +201,16 @@ func _walk_pose() -> void:
 	_loc[Part.ROOT].y += lift
 	_pose(Part.BODY, body_e, Vector3.ZERO, body_s)
 	_pose(Part.HEAD, head_e)
-	_pose(Part.LEG_L, Vector3(leg_swing * s * run, 0.0, 0.0), Vector3(0, leg_lift * maxf(-cos(_phase), 0.0) * run, 0))
-	_pose(Part.LEG_R, Vector3(-leg_swing * s * run, 0.0, 0.0), Vector3(0, leg_lift * maxf(cos(_phase), 0.0) * run, 0))
+	_pose(
+		Part.LEG_L,
+		Vector3(leg_swing * s * run, 0.0, 0.0),
+		Vector3(0, leg_lift * maxf(-cos(_phase), 0.0) * run, 0)
+	)
+	_pose(
+		Part.LEG_R,
+		Vector3(-leg_swing * s * run, 0.0, 0.0),
+		Vector3(0, leg_lift * maxf(cos(_phase), 0.0) * run, 0)
+	)
 	_pose(Part.ARM_L, Vector3(-arm_swing * s * run + arm_idle - 14.0 * run, 0.0, 4.0 * calm))
 	_pose(Part.ARM_R, Vector3(arm_swing * 0.75 * s * run - arm_idle - 10.0 * run, 0.0, -2.0 * calm))
 	# The cape streams back with speed and flutters.
@@ -213,7 +221,9 @@ func _walk_pose() -> void:
 	)
 
 
-func _pose(part: int, euler_deg: Vector3, loc: Vector3 = Vector3.ZERO, scl: Vector3 = Vector3.ONE) -> void:
+func _pose(
+	part: int, euler_deg: Vector3, loc: Vector3 = Vector3.ZERO, scl: Vector3 = Vector3.ONE
+) -> void:
 	if _parts[part] == null:
 		return
 	_q[part] = (

@@ -67,7 +67,7 @@ func _capture(row: Image, col: int) -> void:
 	var img: Image = root.get_texture().get_image()
 	img.convert(Image.FORMAT_RGB8)
 	var size: Vector2i = img.get_size()
-	var rect := Rect2i(size.x / 2 - CELL.x / 2, size.y / 2 - CELL.y / 2 + 20, CELL.x, CELL.y)
+	var rect := Rect2i(size.x / 2 - CELL.x / 2, size.y / 2 - CELL.y / 2 - 10, CELL.x, CELL.y)
 	row.blit_rect(img, rect, Vector2i(col * CELL.x, 0))
 
 
@@ -90,7 +90,7 @@ func _row(drive: Callable, start_delay: float, step: float = STEP) -> Image:
 		await process_frame
 		t += 1.0 / 60.0
 		drive.call(1.0 / 60.0, t)
-		_aim(1.0)
+		_aim(1.35)
 		if t >= next:
 			await _capture(row, col)
 			col += 1

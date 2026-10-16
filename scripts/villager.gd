@@ -106,7 +106,13 @@ func _notice_hero(delta: float) -> void:
 		_look_at = null
 		var best: float = greet_range
 		for hero: Node3D in get_tree().get_nodes_in_group(Hero.GROUP):
-			var d: float = Vector2(hero.global_position.x - global_position.x, hero.global_position.z - global_position.z).length()
+			var d: float = (
+				Vector2(
+					hero.global_position.x - global_position.x,
+					hero.global_position.z - global_position.z
+				)
+				. length()
+			)
 			if d <= best:
 				best = d
 				_look_at = hero

@@ -256,6 +256,8 @@ CARD_TOWER_TITLE,%s · ур. %d/%d,%s · lvl %d/%d
 CARD_UPGRADE_TIP,Улучшить (U),Upgrade (U)
 CARD_UPGRADE_TIP_NEXT,Улучшить (U) → %s,Upgrade (U) → %s
 CARD_MAX,макс.,max
+CARD_UPGRADE_NAME,Улучшить,Upgrade
+CARD_SELL_NAME,Продать,Sell
 CARD_SELL_TIP,Продать за %d%% вложенного (X),Sell for %d%% of the investment (X)
 CARD_DESELECT_TIP,Снять выбор (Esc),Deselect (Esc)
 CARD_KNIGHT_WALKS,Рыцарь идёт к площадке…,The knight is walking to the plot…
