@@ -1,7 +1,8 @@
 extends Control
-## Entry scene: starts the online services in the background (guest sign-in,
-## profile sync — offline is fine), then routes by the local profile:
-## nickname screen, the tutorial, or straight to the world map.
+## Entry scene: starts the online services in the background (restores the saved
+## login, syncs the profile — offline is fine), then routes by the local profile:
+## welcome screen (clean first launch), nickname screen, the tutorial, or straight
+## to the world map.
 
 ## A new player waits at most this long for the guest sign-in (seconds);
 ## returning players never wait.
@@ -25,12 +26,20 @@ func _notification(what: int) -> void:
 
 
 func _run() -> void:
-	Online.start()  # not awaited: it may take long or never answer offline
-	if Onboarding.route(PlayerProfile.local()) != Onboarding.Route.MAP:
+	# Not awaited: it may take long or never answer offline. A clean first launch does
+	# not create any account here: the welcome screen asks first.
+	Online.start(false)
+	if _route() != Onboarding.Route.MAP and _route() != Onboarding.Route.WELCOME:
 		var deadline: int = Time.get_ticks_msec() + int(AUTH_WAIT * 1000.0)
 		while not Online.startup_done and Time.get_ticks_msec() < deadline:
 			await get_tree().process_frame
 	if _routed:
 		return
 	_routed = true
-	Onboarding.go(get_tree(), Onboarding.route(PlayerProfile.local()))
+	Onboarding.go(get_tree(), _route())
+
+
+## Welcome screen on a clean first launch; otherwise by the local profile only (a
+## returning player never waits for the network and sees the cached progress at once).
+func _route() -> Onboarding.Route:
+	return Onboarding.route(PlayerProfile.local(), Online.needs_welcome())

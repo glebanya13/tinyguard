@@ -278,7 +278,9 @@ func _test_email_accounts() -> void:
 		+ FileAccess.get_file_as_bytes(SESSION).get_string_from_ascii()
 	)
 	check(not "hunter22" in disk and not "xample.com" in disk, "password and email are not stored")
-	var allowed: Array[String] = ["uid", "refresh_token", "account_type", "previous_uid"]
+	var allowed: Array[String] = [
+		"uid", "refresh_token", "account_type", "previous_uid", "email_verified"
+	]
 	var extra: Array = SessionStore.load_session().keys().filter(
 		func(k: String) -> bool: return not k in allowed
 	)

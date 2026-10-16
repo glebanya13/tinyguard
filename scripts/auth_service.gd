@@ -3,6 +3,11 @@ extends RefCounted
 ## Firebase Authentication over its REST APIs (Identity Toolkit + Secure Token),
 ## no SDK and no native plugin. Providers:
 ## - anonymous (guest): accounts:signUp, the default on first launch;
+## - email/password registration on a clean first launch: accounts:signUp with the
+##   email and password (instead of an anonymous account); a guest that already has
+##   a uid is linked with accounts:update instead, so its uid and progress stay;
+## - email verification mail: accounts:sendOobCode (VERIFY_EMAIL), status through
+##   accounts:lookup; the game is never blocked by an unverified email;
 ## - email/password linking of a guest: accounts:update with the guest idToken
 ##   (keeps the uid, so the profile and progress stay);
 ## - email/password sign-in on another device: accounts:signInWithPassword
@@ -33,6 +38,7 @@ const SIGN_UP_URL := "https://identitytoolkit.googleapis.com/v1/accounts:signUp?
 const UPDATE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:update?key=%s"
 const SIGN_IN_URL := "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=%s"
 const OOB_URL := "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=%s"
+const LOOKUP_URL := "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=%s"
 const DELETE_URL := "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=%s"
 const REFRESH_URL := "https://securetoken.googleapis.com/v1/token?key=%s"
 const TYPE_GUEST := "guest"
@@ -75,6 +81,13 @@ const SIGN_IN_ERRORS := {
 	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
 	"OPERATION_NOT_ALLOWED": "not_available",
 }
+const VERIFY_ERRORS := {
+	"INVALID_ID_TOKEN": "reauth_required",
+	"TOKEN_EXPIRED": "reauth_required",
+	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
+	"OPERATION_NOT_ALLOWED": "not_available",
+	"USER_DISABLED": "disabled",
+}
 const RESET_ERRORS := {
 	"INVALID_EMAIL": "invalid_email",
 	"MISSING_EMAIL": "invalid_email",
@@ -93,6 +106,10 @@ var uid: String = ""
 var account_type: String = ""
 ## uid of a guest account that had to be replaced (its refresh token was dead).
 var previous_uid: String = ""
+## The email of the account is confirmed (cached from the last lookup, so it is known offline).
+var email_verified: bool = false
+## Email of the signed-in account, only in memory (never written to disk); "" until known.
+var email: String = ""
 
 var _id_token: String = ""
 var _refresh_token: String = ""
@@ -109,6 +126,8 @@ func restore(known_uid: String = "") -> void:
 	_refresh_token = str(session.get("refresh_token", ""))
 	account_type = str(session.get("account_type", TYPE_GUEST if uid != "" else ""))
 	previous_uid = str(session.get("previous_uid", ""))
+	email_verified = bool(session.get("email_verified", false))
+	email = ""
 	_id_token = ""
 	_expires_at = 0.0
 
@@ -178,6 +197,8 @@ func forget() -> void:
 	uid = ""
 	account_type = ""
 	previous_uid = ""
+	email_verified = false
+	email = ""
 	_refresh_token = ""
 	invalidate_token()
 	SessionStore.clear()
@@ -190,20 +211,22 @@ func forget() -> void:
 ## merged automatically), invalid_email, weak_password, reauth_required,
 ## not_available (provider disabled in the console), too_many_attempts,
 ## already_linked, offline, server. The password is never stored or logged.
-func link_email(email: String, password: String) -> Dictionary:
+func link_email(email_arg: String, password: String) -> Dictionary:
 	if account_type == TYPE_EMAIL:
 		return {"ok": false, "error": "already_linked"}
 	var auth: Dictionary = await ensure_token(false)
 	if not auth["ok"]:
 		return {"ok": false, "error": auth["error"]}
 	var body := {
-		"idToken": _id_token, "email": email, "password": password, "returnSecureToken": true
+		"idToken": _id_token, "email": email_arg, "password": password, "returnSecureToken": true
 	}
 	var reply: Dictionary = await _post_json(UPDATE_URL % api_key, body, false)
 	if not reply["ok"]:
 		return {"ok": false, "error": _link_error(reply)}
 	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
 	account_type = TYPE_EMAIL
+	email = email_arg
+	email_verified = false
 	_persist()
 	changed.emit()
 	return {"ok": true, "error": ""}
@@ -218,10 +241,10 @@ func link_email(email: String, password: String) -> Dictionary:
 ## {"ok", "error", "switched" (the uid changed)}: invalid_credentials,
 ## invalid_email, too_many_attempts, disabled, not_available, other_account,
 ## not_configured, offline, server.
-func sign_in_email(email: String, password: String) -> Dictionary:
+func sign_in_email(email_arg: String, password: String) -> Dictionary:
 	if not is_configured():
 		return {"ok": false, "error": "not_configured", "switched": false}
-	var body := {"email": email, "password": password, "returnSecureToken": true}
+	var body := {"email": email_arg, "password": password, "returnSecureToken": true}
 	var reply: Dictionary = await _post_json(SIGN_IN_URL % api_key, body, false)
 	if not reply["ok"]:
 		return {"ok": false, "error": _error_key(reply, SIGN_IN_ERRORS), "switched": false}
@@ -236,9 +259,75 @@ func sign_in_email(email: String, password: String) -> Dictionary:
 		previous_uid = uid
 	_take_tokens(json, "idToken", "refreshToken", "localId", "expiresIn")
 	account_type = TYPE_EMAIL
+	email = email_arg
+	if switched:
+		email_verified = false  # unknown until the next lookup
 	_persist()
 	changed.emit()
 	return {"ok": true, "error": "", "switched": switched}
+
+
+## Registers a new email account on a clean first launch (accounts:signUp with email
+## and password): no guest existed, so there is no uid to keep. A device that already
+## has a uid links the email instead (link_email). Never retried: a second request
+## could create a second account. {"ok", "error"}: credential_in_use (email taken),
+## invalid_email, weak_password, too_many_attempts, not_available, already_linked,
+## not_configured, offline, server. The password is never stored or logged.
+func sign_up_email(email_arg: String, password: String) -> Dictionary:
+	if not is_configured():
+		return {"ok": false, "error": "not_configured"}
+	if uid != "" or _refresh_token != "":
+		return {"ok": false, "error": "already_linked"}
+	var body := {"email": email_arg, "password": password, "returnSecureToken": true}
+	var reply: Dictionary = await _post_json(SIGN_UP_URL % api_key, body, false)
+	if not reply["ok"]:
+		return {"ok": false, "error": _link_error(reply)}
+	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
+	if uid == "" or _id_token == "":
+		return {"ok": false, "error": "server"}
+	account_type = TYPE_EMAIL
+	email = email_arg
+	email_verified = false
+	_persist()
+	changed.emit()
+	return {"ok": true, "error": ""}
+
+
+## Asks Firebase to mail the confirmation link (accounts:sendOobCode, VERIFY_EMAIL).
+## Not retried; the caller rate-limits the button. {"ok", "error"}: reauth_required,
+## too_many_attempts, not_available, offline, server, no_session.
+func send_verification() -> Dictionary:
+	var auth: Dictionary = await ensure_token(false)
+	if not auth["ok"]:
+		return {"ok": false, "error": auth["error"]}
+	var body := {"requestType": "VERIFY_EMAIL", "idToken": _id_token}
+	var reply: Dictionary = await _post_json(OOB_URL % api_key, body, false)
+	if reply["ok"]:
+		return {"ok": true, "error": ""}
+	return {"ok": false, "error": _error_key(reply, VERIFY_ERRORS)}
+
+
+## Reads the account data (accounts:lookup) and updates email_verified / email.
+## {"ok", "error", "verified"}. Offline keeps the cached value.
+func refresh_account_info() -> Dictionary:
+	var auth: Dictionary = await ensure_token(false)
+	if not auth["ok"]:
+		return {"ok": false, "error": auth["error"], "verified": email_verified}
+	var reply: Dictionary = await _post_json(LOOKUP_URL % api_key, {"idToken": _id_token}, false)
+	if not reply["ok"]:
+		return {"ok": false, "error": _error_key(reply, VERIFY_ERRORS), "verified": email_verified}
+	var json: Variant = reply["json"]
+	var users: Variant = (json as Dictionary).get("users", []) if json is Dictionary else []
+	if not users is Array or (users as Array).is_empty() or not users[0] is Dictionary:
+		return {"ok": false, "error": "server", "verified": email_verified}
+	var info: Dictionary = users[0]
+	var verified: bool = bool(info.get("emailVerified", false))
+	email = str(info.get("email", email))
+	if verified != email_verified:
+		email_verified = verified
+		_persist()
+		changed.emit()
+	return {"ok": true, "error": "", "verified": email_verified}
 
 
 ## Sends the password reset mail (accounts:sendOobCode, PASSWORD_RESET). Needs no
@@ -246,10 +335,10 @@ func sign_in_email(email: String, password: String) -> Dictionary:
 ## not tell whether an email is registered (projects with enumeration protection
 ## answer the same way). {"ok", "error"}: invalid_email, too_many_attempts,
 ## not_available, not_configured, offline, server.
-func send_password_reset(email: String) -> Dictionary:
+func send_password_reset(email_arg: String) -> Dictionary:
 	if not is_configured():
 		return {"ok": false, "error": "not_configured"}
-	var body := {"requestType": "PASSWORD_RESET", "email": email}
+	var body := {"requestType": "PASSWORD_RESET", "email": email_arg}
 	var reply: Dictionary = await _post_json(OOB_URL % api_key, body, false)
 	if reply["ok"]:
 		return {"ok": true, "error": ""}
@@ -385,6 +474,7 @@ func _persist() -> void:
 				"refresh_token": _refresh_token,
 				"account_type": account_type,
 				"previous_uid": previous_uid,
+				"email_verified": email_verified,
 			}
 		)
 	)

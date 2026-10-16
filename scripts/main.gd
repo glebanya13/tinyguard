@@ -241,6 +241,7 @@ func _notification(what: int) -> void:
 			else:
 				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			battle_end.flush_progress()  # the process may be killed while in the background
 			# Phone call, home button: never let waves run unattended.
 			if OS.has_feature("mobile") and not _paused and not battle_end.ended and not _coop_on():
 				_toggle_pause()

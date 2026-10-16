@@ -36,6 +36,8 @@ static var tutorial: bool = false
 ## Date ("yyyy-mm-dd") of the daily challenge being played, "" otherwise. Daily runs
 ## are endless sieges with the day's seed and modifiers (see DailyRun).
 static var daily_key: String = ""
+## Called after every successful commit (the Online autoload schedules a cloud sync).
+static var on_committed: Callable = Callable()
 static var _levels: Array = []
 static var _save: ConfigFile = null
 static var _save_loaded_from: String = ""
@@ -221,8 +223,11 @@ static func save_endless(id: int, wave: int) -> bool:
 	return true
 
 
-## The save file, loaded once and cached. A corrupt file falls back to its
-## .bak copy; if both fail the game runs on defaults and never writes.
+## The save file, loaded once and cached. A damaged file falls back to its .bak
+## copy (the previous good state). If both are unreadable because of a parse error,
+## the damaged file is kept aside as ".corrupt" and the game starts a fresh, writable
+## save: progress made from now on is never lost to a file nobody can read. Any other
+## read error (permissions, busy file) only makes the save read-only for this run.
 static func data() -> ConfigFile:
 	if _save != null and _save_loaded_from == save_path:
 		return _save
@@ -235,11 +240,15 @@ static func data() -> ConfigFile:
 		_save = ConfigFile.new()
 		if _save.load(save_path + ".bak") != OK:
 			_save = ConfigFile.new()
-			_save_broken = true
+			if error == ERR_PARSE_ERROR and _quarantine_damaged_save():
+				_save_broken = false
+			else:
+				_save_broken = true
 	return _save
 
 
-## Writes the cached save atomically: temp file, keep the old one as .bak, rename.
+## Writes the cached save atomically: temp file, read it back to be sure it parses,
+## keep the previous good file as .bak, rename over the real one.
 static func commit() -> void:
 	if _save == null or _save_broken:
 		return
@@ -247,10 +256,25 @@ static func commit() -> void:
 	if _save.save(tmp) != OK:
 		push_error("Cannot write the save to %s" % tmp)
 		return
+	var verify := ConfigFile.new()
+	if verify.load(tmp) != OK:
+		push_error("The save written to %s does not parse, keeping the old file" % tmp)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+		return
 	var real: String = ProjectSettings.globalize_path(save_path)
-	if FileAccess.file_exists(save_path):
-		DirAccess.copy_absolute(real, real + ".bak")
-	DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real)
+	if FileAccess.file_exists(save_path) and ConfigFile.new().load(save_path) == OK:
+		DirAccess.copy_absolute(real, real + ".bak")  # only a good file becomes the backup
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), real) != OK:
+		push_error("Cannot replace the save %s" % save_path)
+		return
+	if on_committed.is_valid():
+		on_committed.call()
+
+
+## Writes the save now (the app is going to the background or closing). Everything
+## is committed at every change already; this is the belt-and-braces call.
+static func flush() -> void:
+	commit()
 
 
 ## Replaces the whole progress with a saved text (cloud restore). False if the
@@ -279,10 +303,19 @@ static func _route_after(routes: Array[PackedVector2Array], join: Vector2) -> Pa
 	return PackedVector2Array()
 
 
+## Moves a save that cannot be parsed (and has no usable backup) aside, so a new one can
+## be written. The old bytes stay in ".corrupt" for support.
+static func _quarantine_damaged_save() -> bool:
+	var real: String = ProjectSettings.globalize_path(save_path)
+	if FileAccess.file_exists(save_path + ".corrupt"):
+		DirAccess.remove_absolute(real + ".corrupt")
+	return DirAccess.rename_absolute(real, real + ".corrupt") == OK
+
+
 ## Deletes the save (and its backup) and drops the cache: a fresh install.
 ## Used when the player deletes the account or the local data.
 static func erase_all() -> void:
-	for suffix in ["", ".bak", ".tmp"]:
+	for suffix in ["", ".bak", ".tmp", ".corrupt"]:
 		if FileAccess.file_exists(save_path + suffix):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path + suffix))
 	_save = null

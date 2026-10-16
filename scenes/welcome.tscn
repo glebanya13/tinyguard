@@ -1,0 +1,128 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/welcome_screen.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://ui/app/icon_foreground.png" id="3_art"]
+[ext_resource type="Texture2D" path="res://ui/app/backdrop.jpg" id="4_backdrop"]
+
+[node name="Welcome" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("4_backdrop")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Safe" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="Safe"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Row" type="HBoxContainer" parent="Safe/Center"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Art" type="VBoxContainer" parent="Safe/Center/Row"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="GameTitle" type="Label" parent="Safe/Center/Row/Art"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 14
+theme_override_font_sizes/font_size = 56
+text = "Bimbleguard"
+horizontal_alignment = 1
+
+[node name="Picture" type="TextureRect" parent="Safe/Center/Row/Art"]
+custom_minimum_size = Vector2(400, 400)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("3_art")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Panel" type="PanelContainer" parent="Safe/Center/Row"]
+custom_minimum_size = Vector2(640, 0)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Content" type="VBoxContainer" parent="Safe/Center/Row/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 46
+text = "WELCOME_TITLE"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "WELCOME_SUBTITLE"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="CreateButton" type="Button" parent="Safe/Center/Row/Panel/Content"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 36
+text = "WELCOME_CREATE"
+
+[node name="SignInButton" type="Button" parent="Safe/Center/Row/Panel/Content"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SecondaryButton"
+theme_override_font_sizes/font_size = 36
+text = "WELCOME_SIGNIN"
+
+[node name="GuestButton" type="Button" parent="Safe/Center/Row/Panel/Content"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+flat = true
+text = "WELCOME_GUEST"
+
+[node name="Note" type="Label" parent="Safe/Center/Row/Panel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.86, 0.95, 1)
+theme_override_font_sizes/font_size = 17
+text = "WELCOME_GUEST_NOTE"
+horizontal_alignment = 1
+autowrap_mode = 3

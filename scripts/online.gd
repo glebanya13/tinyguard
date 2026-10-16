@@ -1,4 +1,4 @@
-# gdlint:disable=max-public-methods,max-returns
+# gdlint:disable=max-public-methods,max-returns,max-file-lines
 extends Node
 ## Optional online features over Firebase REST APIs (no SDK, no native
 ## plugins). Autoload "Online": a facade over AuthService (guest sign-in,
@@ -22,6 +22,9 @@ signal sync_state_changed(state: String)
 signal account_changed
 ## A sync_now() finished (concurrent callers wait for this).
 signal sync_finished(result: Dictionary)
+## The saved login stopped working for good (refresh token rejected): the game keeps
+## running on the local cache and the map softly offers to sign in again.
+signal session_expired
 
 const CONFIG_PATH := "res://firebase.cfg"
 const LEADERBOARD_SIZE := 10
@@ -34,6 +37,14 @@ const MAX_SYNC_ROUNDS := 3
 const RECORD_SECTION := "record_queue"
 ## Local save section of the unsent daily result (day + wave + account).
 const DAILY_SECTION := "daily_queue"
+## Pause after the last local change before the profile goes to the cloud (seconds).
+const SYNC_DEBOUNCE := 3.0
+## Minimum time between two automatic syncs (keeps a device far below Spark's 20k
+## writes a day), and the longest wait after failed ones.
+const SYNC_MIN_GAP := 10.0
+const SYNC_RETRY_MAX := 300.0
+## Pause between two verification mails requested from the profile (seconds).
+const VERIFY_COOLDOWN := 60.0
 const RETRY_MAX := 300.0
 const MAX_RETRIES := 8
 ## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
@@ -62,6 +73,11 @@ var rtdb: RtdbClient = null
 var startup_done: bool = false
 ## First retry delay of an unsent record, seconds (tests shorten it).
 var retry_base: float = 5.0
+## Syncs the profile by itself a few seconds after local progress changed (tests of
+## other features keep it off; _ready switches it on).
+var auto_sync: bool = false
+var sync_debounce: float = SYNC_DEBOUNCE
+var sync_min_gap: float = SYNC_MIN_GAP
 
 var _transport: HttpTransport = null
 var _started: bool = false
@@ -77,6 +93,11 @@ var _email_busy: bool = false
 var _switching: bool = false
 ## Error of the last sync ("" after a success).
 var _last_error: String = ""
+var _auto_sync_waiting: bool = false
+var _auto_failures: int = 0
+var _last_auto_sync_msec: int = -1000000
+var _verify_ready_msec: int = 0
+var _expired_announced: bool = false
 
 
 func _ready() -> void:
@@ -92,6 +113,22 @@ func _ready() -> void:
 		db_url = str(cfg.get_value("firebase", "database_url", ""))
 	database_url = db_url
 	setup(key, project, HttpTransport.new())
+	auto_sync = true
+	LevelCatalog.on_committed = _on_local_committed
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			# Phone call, home button, task switcher: the process may be killed any moment.
+			_save_everything()
+			_schedule_auto_sync(0.0)
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			LevelCatalog.flush()
+		NOTIFICATION_WM_CLOSE_REQUEST:
+			_save_everything()  # the tree quits by itself right after this
+		NOTIFICATION_APPLICATION_RESUMED:
+			_schedule_auto_sync(0.0)
 
 
 ## (Re)wires the services. Tests pass a fake transport and a made-up project.
@@ -123,6 +160,11 @@ func setup(key: String, project: String, transport: HttpTransport) -> void:
 	_started = false
 	startup_done = false
 	_last_error = ""
+	auto_sync = false
+	_sync_busy = false
+	_email_busy = false
+	_switching = false
+	_auto_sync_waiting = false
 
 
 func is_configured() -> bool:
@@ -130,8 +172,12 @@ func is_configured() -> bool:
 
 
 ## Boot: restores the session, migrates old saves, signs in as a guest if
-## needed and syncs the profile. Idempotent; never blocks the offline game.
-func start() -> void:
+## needed and syncs the profile. Idempotent; never blocks the offline game: the
+## local profile is read straight from the save, the cloud catches up in the
+## background. `allow_new_account` false (the boot scene) stops before creating any
+## account on a clean first launch: the player picks "create account", "sign in" or
+## "play as guest" on the welcome screen first (needs_welcome()).
+func start(allow_new_account: bool = true) -> void:
 	if _started:
 		return
 	_started = true
@@ -145,10 +191,37 @@ func start() -> void:
 		cfg.erase_section("online")  # the refresh token must not stay in plain text
 		LevelCatalog.commit()
 	_remember_uid()
+	if not allow_new_account and needs_welcome():
+		startup_done = true
+		sync_state_changed.emit(sync_state())
+		return
+	await _first_sync()
+
+
+## Clean first launch with Firebase: no account, no saved session, and the player has
+## not yet chosen how to play (Onboarding.welcome_done()).
+func needs_welcome() -> bool:
+	return (
+		is_configured()
+		and not auth.has_session()
+		and not auth.is_session_lost()
+		and not Onboarding.welcome_done()
+	)
+
+
+## "Play without an account" on the welcome screen: remembers the choice (also
+## offline) and starts as a guest. The guest account is created in the background.
+func choose_guest() -> void:
+	Onboarding.mark_welcome_done()
+	await _first_sync()
+
+
+func _first_sync() -> void:
 	if is_configured():
 		await sync_now()
 		flush_records()
 		flush_daily()
+		refresh_email_status()
 	startup_done = true
 	sync_state_changed.emit(sync_state())
 
@@ -162,9 +235,11 @@ func sync_state() -> String:
 		return "syncing"
 	if _last_error in ["session_lost", "newer", "disabled"]:
 		return _last_error
+	if _last_error in ["offline", "server"]:
+		return "offline"  # also with nothing pending: the profile says it syncs later
 	if not PlayerProfile.is_pending():
 		return "synced"
-	return "offline" if _last_error != "" else "pending"
+	return "pending"
 
 
 static func state_text(state: String) -> String:
@@ -196,6 +271,9 @@ func sync_now() -> Dictionary:
 	_last_error = "" if result["ok"] else str(result["error"])
 	_sync_busy = false
 	sync_state_changed.emit(sync_state())
+	if _last_error == "session_lost" and not _expired_announced:
+		_expired_announced = true
+		session_expired.emit()
 	sync_finished.emit(result)
 	return result
 
@@ -331,11 +409,21 @@ func link_email(email: String, password: String) -> Dictionary:
 	var check: Dictionary = _check_credentials(email, password, true)
 	if not check["ok"]:
 		return check
+	if auth.uid == "":
+		return await register_email(email, password)  # no guest yet: a clean sign-up
 	if _email_busy:
 		return {"ok": false, "error": "busy"}
 	_email_busy = true
 	var result: Dictionary = await auth.link_email(check["email"], password)
+	if result["ok"]:
+		Onboarding.mark_welcome_done()
+		_expired_announced = false
+		var mail: Dictionary = await auth.send_verification()  # the game never waits for the answer
+		result["verification"] = mail["ok"]
+		auth.changed.emit()
 	_email_busy = false
+	if result["ok"]:
+		await sync_now()  # the progress of the guest goes to the account at once
 	return result
 
 
@@ -361,13 +449,118 @@ func sign_in_email(email: String, password: String) -> Dictionary:
 		if reply["switched"]:
 			_forget_nickname_of_old_account()
 		_last_error = ""
+		_expired_announced = false
+		Onboarding.mark_welcome_done()
 		result.merge({"ok": true, "error": "", "switched": reply["switched"]}, true)
 	_switching = false
 	if reply["ok"]:
 		var synced: Dictionary = await sync_now()
 		result["synced"] = synced["ok"]
+		startup_done = true
+		refresh_email_status()
 	_email_busy = false
 	return result
+
+
+## Registers an email account (email + password, optionally the nickname). On a clean
+## first launch it is accounts:signUp; a guest that already has a uid is linked
+## instead (accounts:update), so its uid and all its progress stay. A verification
+## mail is requested right away; the game is never blocked by an unverified email.
+## The nickname is reserved after the account exists; a taken one sends the player to
+## the nickname screen. {"ok", "error", "message" (nickname text, optional),
+## "nickname" (reserve_nickname reason or ""), "verification" (mail requested),
+## "synced"}. The password lives only in this call.
+func register_email(email: String, password: String, nickname: String = "") -> Dictionary:
+	var check: Dictionary = _check_credentials(email, password, true)
+	if not check["ok"]:
+		return check
+	var nick: Dictionary = {}
+	if nickname.strip_edges() != "":
+		nick = NicknameRules.validate(nickname)
+		if not nick["ok"]:
+			return {"ok": false, "error": "nickname_invalid", "message": str(nick["message"])}
+	if _email_busy:
+		return {"ok": false, "error": "busy"}
+	_email_busy = true
+	_switching = true
+	if _sync_busy:
+		await sync_finished
+	var reply: Dictionary = {}
+	if auth.uid == "":
+		reply = await auth.sign_up_email(check["email"], password)
+	else:
+		reply = await auth.link_email(check["email"], password)
+	_switching = false
+	if not reply["ok"]:
+		_email_busy = false
+		return {"ok": false, "error": str(reply["error"])}
+	Onboarding.mark_welcome_done()
+	_last_error = ""
+	_expired_announced = false
+	var out := {"ok": true, "error": "", "nickname": "", "verification": false, "synced": false}
+	var mail: Dictionary = await auth.send_verification()
+	out["verification"] = mail["ok"]
+	_email_busy = false
+	if not nick.is_empty():
+		var reserved: Dictionary = await reserve_nickname(nickname)
+		out["nickname"] = str(reserved["reason"])
+		if reserved["reason"] in ["taken", "invalid", "rate_limited"]:
+			Onboarding.set_local_nickname(nick["nickname"], nick["normalized"], false)
+			Onboarding.flag_nickname_conflict()
+	var synced: Dictionary = await sync_now()
+	out["synced"] = synced["ok"]
+	startup_done = true
+	sync_state_changed.emit(sync_state())
+	return out
+
+
+## Mails the confirmation link again (the profile's button; at most once a minute).
+## {"ok", "error"}: cooldown, not_configured (no email account), plus the AuthService errors.
+func send_verification() -> Dictionary:
+	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
+		return {"ok": false, "error": "not_configured"}
+	if Time.get_ticks_msec() < _verify_ready_msec:
+		return {"ok": false, "error": "cooldown"}
+	_verify_ready_msec = Time.get_ticks_msec() + int(VERIFY_COOLDOWN * 1000.0)
+	var result: Dictionary = await auth.send_verification()
+	if not result["ok"]:
+		_verify_ready_msec = 0
+	return result
+
+
+## Reads whether the account's email is confirmed (cached on the device, so the
+## profile shows the last known state offline). Background; failures keep the cache.
+func refresh_email_status() -> void:
+	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
+		return
+	if not auth.has_session():
+		return
+	await auth.refresh_account_info()
+	account_changed.emit()
+
+
+## "" | "verified" | "unverified": the email state of an email account (cached).
+func email_status() -> String:
+	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
+		return ""
+	return "verified" if auth.email_verified else "unverified"
+
+
+## "a***@gmail.com" when the address is known in this run, else "". Never stored.
+func masked_email() -> String:
+	var mail: String = auth.email
+	var at: int = mail.find("@")
+	if at < 1:
+		return ""
+	return mail.substr(0, 1) + "***" + mail.substr(at)
+
+
+## True when the soft "create an account so you do not lose progress" reminder is due:
+## a guest (or a player who skipped the choice) with at least one win.
+func account_reminder_due() -> bool:
+	if not is_configured() or auth.account_type == AuthService.TYPE_EMAIL:
+		return false
+	return Onboarding.reminder_due(PlayerProfile.local())
 
 
 ## Sends the password reset mail. Unknown addresses look like success on purpose.
@@ -929,6 +1122,48 @@ func _forget_nickname_of_old_account() -> void:
 	PlayerProfile.save_local(p)
 
 
+## Flushes everything that lives only in memory (the save file cache).
+func _save_everything() -> void:
+	LevelCatalog.flush()
+
+
+## LevelCatalog wrote the save: if the synced part of the profile changed, send it to
+## the cloud after a short pause (a burst of changes becomes one write).
+func _on_local_committed() -> void:
+	if not auto_sync or not is_configured() or _switching or _sync_busy:
+		return
+	if _auto_sync_waiting or not auth.has_session():
+		return
+	if PlayerProfile.is_pending():
+		_schedule_auto_sync(sync_debounce)
+
+
+func _schedule_auto_sync(delay: float) -> void:
+	if not auto_sync or not is_configured() or _auto_sync_waiting or not is_inside_tree():
+		return
+	if not auth.has_session() or not PlayerProfile.is_pending():
+		return
+	_auto_sync_waiting = true
+	var since: float = float(Time.get_ticks_msec() - _last_auto_sync_msec) / 1000.0
+	var wait: float = maxf(delay, sync_min_gap - since)
+	if _auto_failures > 0:
+		wait = maxf(wait, minf(30.0 * pow(2.0, _auto_failures - 1), SYNC_RETRY_MAX))
+	if wait > 0.0:
+		await get_tree().create_timer(wait).timeout
+	_auto_sync_waiting = false
+	if _switching or not PlayerProfile.is_pending():
+		return
+	_last_auto_sync_msec = Time.get_ticks_msec()
+	var result: Dictionary = await sync_now()
+	if result["ok"]:
+		_auto_failures = 0
+	elif str(result["error"]) in ["offline", "server"]:
+		_auto_failures = mini(_auto_failures + 1, 5)
+		_schedule_auto_sync(0.0)  # waits with the growing back-off
+	else:
+		_auto_failures = 0
+
+
 func _wipe_local() -> void:
 	auth.forget()
 	LevelCatalog.erase_all()
@@ -936,6 +1171,8 @@ func _wipe_local() -> void:
 	_started = false
 	startup_done = false
 	_last_error = ""
+	_expired_announced = false
+	_auto_failures = 0
 	sync_state_changed.emit(sync_state())
 
 

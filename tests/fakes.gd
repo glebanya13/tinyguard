@@ -68,6 +68,10 @@ class FakeFirebase:
 	var email_requests: Array[Dictionary] = []
 	## Password reset mails that were "sent".
 	var oob: Array[Dictionary] = []
+	## Verification mails (VERIFY_EMAIL) that were "sent": the email of the account.
+	var verify_mails: Array[String] = []
+	## Emails confirmed by a click on the link (lower case).
+	var verified: Array[String] = []
 
 	func handle(method: int, url: String, body: String) -> Array:
 		if offline:
@@ -83,7 +87,11 @@ class FakeFirebase:
 	func auth_reply(url: String, body: String) -> Array:
 		var parsed: Variant = JSON.parse_string(body) if body.begins_with("{") else null
 		var data: Dictionary = parsed if parsed is Dictionary else {}
+		var is_verify: bool = data.get("requestType", "") == "VERIFY_EMAIL"
 		if "accounts:update" in url or "signInWithPassword" in url or "sendOobCode" in url:
+			if not is_verify:
+				email_requests.append({"url": url, "body": data})
+		if "signUp" in url and data.has("email"):
 			email_requests.append({"url": url, "body": data})
 		for fragment: String in forced:
 			if fragment in url:
@@ -92,7 +100,11 @@ class FakeFirebase:
 
 	func route(url: String, body: String, data: Dictionary) -> Array:
 		if "signUp" in url:
+			if data.has("email"):
+				return sign_up(data)
 			return tokens(guest_uid)
+		if "accounts:lookup" in url:
+			return lookup(data)
 		if "securetoken" in url:
 			return refresh(body)
 		if "accounts:update" in url:
@@ -128,7 +140,35 @@ class FakeFirebase:
 			return [400, {"error": {"message": "INVALID_LOGIN_CREDENTIALS"}}]
 		return tokens(str(accounts[key]["uid"]))
 
+	## accounts:signUp with email + password: a fresh account (uid = guest_uid).
+	func sign_up(data: Dictionary) -> Array:
+		var key: String = str(data.get("email", "")).to_lower()
+		if accounts.has(key):
+			return [400, {"error": {"message": "EMAIL_EXISTS"}}]
+		if str(data.get("password", "")).length() < min_password:
+			return [400, {"error": {"message": "WEAK_PASSWORD : Password should be longer"}}]
+		accounts[key] = {"password": data["password"], "uid": guest_uid}
+		return tokens(guest_uid)
+
+	## accounts:lookup for the account the idToken belongs to.
+	func lookup(data: Dictionary) -> Array:
+		var uid: String = str(data.get("idToken", "")).trim_prefix("ID:")
+		for key: String in accounts:
+			if accounts[key]["uid"] == uid:
+				return [
+					200,
+					{"users": [{"localId": uid, "email": key, "emailVerified": key in verified}]}
+				]
+		return [200, {"users": [{"localId": uid}]}]
+
 	func send_oob(data: Dictionary) -> Array:
+		if data.get("requestType", "") == "VERIFY_EMAIL":
+			var uid: String = str(data.get("idToken", "")).trim_prefix("ID:")
+			for key: String in accounts:
+				if accounts[key]["uid"] == uid:
+					verify_mails.append(key)
+					return [200, {"email": key}]
+			return [400, {"error": {"message": "INVALID_ID_TOKEN"}}]
 		oob.append(data)
 		if not accounts.has(str(data.get("email", "")).to_lower()):
 			return [400, {"error": {"message": "EMAIL_NOT_FOUND"}}]

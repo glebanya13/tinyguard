@@ -247,7 +247,7 @@ export const en: Content = {
         },
         {
           q: "How do I continue on another phone?",
-          a: "Link an e-mail in Profile: your progress is saved in the cloud, so you can sign in on another device and reset the password. E-mail is optional.",
+          a: "Create an account (e-mail and password) on the first screen or in Profile: your progress is saved in the cloud, so you can sign in on another device and reset the password. You can also play without an account ("Play without an account"), but then progress stays tied to this device.",
         },
         {
           q: "What data do you collect?",
@@ -284,7 +284,7 @@ export const en: Content = {
   privacy: {
     eyebrow: "Document",
     title: "Privacy Policy",
-    lead: "The game works offline. We do not use ads, analytics, tracking or geolocation and do not ask for a phone number or your real name. E-mail is optional.",
+    lead: "The game works offline. We do not use ads, analytics, tracking or geolocation and do not ask for a phone number or your real name. E-mail is needed only for an account; you can play without one.",
     sections: [
       {
         id: "short",
@@ -292,7 +292,7 @@ export const en: Content = {
         blocks: [
           {
             t: "p",
-            text: "Online features (leaderboard, cloud save and co-op) are on only in builds with Firebase configured. **E-mail is optional**: it is collected only if you link it yourself in Profile, to sign in on another device and reset your password.",
+            text: "Online features (leaderboard, cloud save and co-op) are on only in builds with Firebase configured. The main way to sign in is an **account with e-mail and password**, so progress survives a new phone or a reinstall. You can also play **without an account** ("Play without an account"): then no e-mail is collected and progress is tied to this device. For an account we process the e-mail and password through Firebase Authentication and send you a confirmation e-mail; the game is not blocked until the e-mail is confirmed.",
           },
           {
             t: "p",
@@ -355,8 +355,8 @@ export const en: Content = {
                 "Only on your device, in an encrypted file",
               ],
               [
-                "**E-mail and password** (only if you linked an e-mail)",
-                "Sign-in on another device, a password reset e-mail",
+                "**E-mail and password** (only if you created an account or linked an e-mail; guests do not need them)",
+                "Sign-in on another device, an e-mail confirmation message, a password reset e-mail",
                 "Firebase Authentication. Google stores the password as a hash; the game stores neither the password nor the e-mail on the device and writes them neither to cloud data nor to logs",
               ],
             ],
@@ -397,7 +397,7 @@ export const en: Content = {
         blocks: [
           {
             t: "p",
-            text: "Only Google (Firebase Authentication, Cloud Firestore and, for co-op, Realtime Database) as a processor on our behalf; password reset e-mails are sent by Firebase. We do not see your password after it is sent to Firebase. Google may process technical request data (for example, the IP address) under its own rules: [Firebase privacy](https://firebase.google.com/support/privacy). There are no other recipients.",
+            text: "Only Google (Firebase Authentication, Cloud Firestore and, for co-op, Realtime Database) as a processor on our behalf; e-mail confirmation and password reset messages are sent by Firebase. We do not see your password after it is sent to Firebase. Google may process technical request data (for example, the IP address) under its own rules: [Firebase privacy](https://firebase.google.com/support/privacy). There are no other recipients.",
           },
         ],
       },
@@ -409,7 +409,7 @@ export const en: Content = {
             t: "ul",
             items: [
               "**Delete everything**: Profile, Delete account (see the [account deletion](/delete-account/) page). This removes the nickname and its uniqueness entry, the public profile, the private profile, the cloud save, records on all levels, the run start time and the user in Firebase Authentication (with the linked e-mail), then the data on the device. If you signed in long ago, the game asks you to sign in again and then repeat the deletion. Internet is required (the cloud part cannot be deleted offline); without the online mode only local data is erased.",
-              "**Sign out**: Profile, Sign out (for an account with an e-mail): data on the device is erased, cloud data stays under your e-mail. Forgot your password: Sign in with e-mail, Forgot password.",
+              "**Sign out**: Profile, Sign out (for an account with an e-mail): data on the device is erased, cloud data stays under your e-mail. Forgot your password: Sign in, Forgot password. A guest cannot sign out: to keep your progress, create an account (it attaches to the same ID, progress stays).",
               "**Fix your nickname**: Profile, change name (no more than once per 24 hours).",
               "**Get your data**: progress is a file on your device; on request to the contact below the cloud copy can be exported by uid (Profile shows it).",
               "If an account is deleted less than 24 hours after a nickname change, a record remains (only the uid and the change time, no nickname): the rules do not allow deleting it earlier, and the Authentication user is already gone. It has no nickname and is useless without an account; the operator may delete such records manually.",
@@ -473,7 +473,7 @@ export const en: Content = {
   deleteAccount: {
     eyebrow: "Account and data",
     title: "Delete your account and data",
-    lead: "How to delete a Bimbleguard account and the data linked to it. An account is created automatically as anonymous; an e-mail is linked only if you choose to.",
+    lead: "How to delete a Bimbleguard account and the data linked to it. An account is created with an e-mail and password or, if you play without an account, as anonymous; an e-mail can be linked later.",
     sections: [
       {
         id: "in-app",
@@ -557,11 +557,11 @@ export const en: Content = {
     faq: [
       {
         q: "My progress is gone. What now?",
-        a: "Progress is kept in a file on the device and, if online features are on, in the cloud. Link an e-mail in Profile to sign in on another device.",
+        a: "Progress is kept in a file on the device and, if online features are on, in the cloud. Create an account with an e-mail in Profile (or on the first screen) to sign in on another device.",
       },
       {
         q: "How do I link an e-mail and reset the password?",
-        a: "Profile, Sign in with e-mail. Forgot your password: Sign in with e-mail, Forgot password; Firebase sends the e-mail.",
+        a: "Profile, Create account (or Sign in). Forgot your password: Sign in, Forgot password; Firebase sends the e-mail. Firebase also sends the e-mail confirmation message; the game works without confirming.",
       },
       {
         q: "How do I change my nickname?",
@@ -609,7 +609,7 @@ export const en: Content = {
         blocks: [
           {
             t: "p",
-            text: "An anonymous account is created automatically; linking an e-mail is optional. You can delete your account and data at any time: see [account deletion](/delete-account/).",
+            text: "Signing in with e-mail and password is the main way; the no-account (anonymous) mode stays available. You can delete your account and data at any time: see [account deletion](/delete-account/).",
           },
         ],
       },

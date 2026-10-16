@@ -33,6 +33,7 @@ var _records_status: Label = null
 var _account: AccountPanel = null
 var _settings: SettingsPanel = null
 var _sync_label: Label = null
+var _reminder: AccountReminder = null
 var _coop_button: Button = null
 var _daily: DailyPanel = null
 var _achievements: AchievementsPanel = null
@@ -487,8 +488,39 @@ func _build_account_ui() -> void:
 	Online.sync_state_changed.connect(_on_sync_state)
 	Online.start()  # no-op after boot
 	_on_sync_state(Online.sync_state())
+	_build_reminder()
 	if Online.is_configured():
 		Online.sync_now()  # pushes progress made in the level
+
+
+## The soft reminder cards: a guest with progress is invited to create an account; an
+## email account whose login expired is invited to sign in again. Dismissible.
+func _build_reminder() -> void:
+	_reminder = AccountReminder.new()
+	_ui_root.add_child(_reminder)
+	_reminder.action_requested.connect(_on_reminder_action)
+	Online.session_expired.connect(_update_reminder)
+	Online.account_changed.connect(_update_reminder)
+	_update_reminder()
+
+
+func _update_reminder() -> void:
+	if _reminder == null or not Online.is_configured():
+		return
+	if Online.account_type() == "email" and Online.sync_state() == "session_lost":
+		_reminder.present(AccountReminder.Kind.SIGN_IN)
+	elif Online.account_reminder_due():
+		_reminder.present(AccountReminder.Kind.CREATE)
+	else:
+		_reminder.hide()
+
+
+func _on_reminder_action(kind: String) -> void:
+	_reminder.hide()
+	if kind == "signin":
+		_account.open_dialog(EmailAuthDialog.Mode.SIGN_IN)
+	else:
+		_account.open_dialog(EmailAuthDialog.Mode.LINK)
 
 
 ## Gear button next to the sound button and the settings dialog.
@@ -513,7 +545,10 @@ func _build_settings_ui() -> void:
 ## Shown only when something is not saved to the cloud (or the name is taken).
 func _on_sync_state(state: String) -> void:
 	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
-	_sync_label.visible = conflict or state in ["pending", "offline", "session_lost", "newer"]
+	var behind: bool = state in ["pending", "offline", "session_lost", "newer"]
+	if state == "offline" and not PlayerProfile.is_pending():
+		behind = false  # offline but everything is saved: nothing to nag about on the map
+	_sync_label.visible = conflict or behind
 	_sync_label.text = (tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state))
 	_sync_label.add_theme_color_override(
 		"font_color", Color(1.0, 0.62, 0.55) if conflict else Color(0.82, 0.86, 0.95)

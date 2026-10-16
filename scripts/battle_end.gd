@@ -35,6 +35,11 @@ var _hero: Hero = null
 var _hud: Hud = null
 var _victory_sound: AudioStreamPlayer = null
 var _defeat_sound: AudioStreamPlayer = null
+## Siege record of the level when the run began (the end screen compares with it, because
+## the record is saved after every wave, not only at the end).
+var _record_at_start: int = 0
+## Highest wave already sent to the online table by flush_progress().
+var _submitted_wave: int = 0
 
 
 ## `commands` already knows the game state, build manager, hero and sim (wired by Main).
@@ -62,14 +67,33 @@ func setup(
 	_hud = hud
 	_victory_sound = victory_sound
 	_defeat_sound = defeat_sound
-	wave_manager.wave_cleared.connect(
-		func(wave: int) -> void: waves_cleared = maxi(waves_cleared, wave)
-	)
+	if endless and daily_key == "":
+		_record_at_start = LevelCatalog.endless_record(int(level["id"]))
+	wave_manager.wave_cleared.connect(_on_wave_cleared)
 	wave_manager.enemy_killed.connect(count_kill)
 	# Deferred: the last enemy may leak in the same emission chain (it still has to
 	# take its lives), so the stars are counted after the lives are final.
 	wave_manager.all_waves_cleared.connect(on_all_waves_cleared, CONNECT_DEFERRED)
 	_game_state.defeated.connect(on_defeated)
+
+
+## Every cleared wave of a siege saves the record at once: a killed app or a dead phone
+## keeps what was reached.
+func _on_wave_cleared(wave: int) -> void:
+	waves_cleared = maxi(waves_cleared, wave)
+	if _endless and _daily_key == "":
+		LevelCatalog.save_endless(int(_level["id"]), waves_cleared)
+
+
+## The app goes to the background or closes: writes the save and sends a siege record that
+## is higher than the old one (the online table keeps only higher ones).
+func flush_progress() -> void:
+	if _endless and _daily_key == "" and not ended and waves_cleared > 0:
+		LevelCatalog.save_endless(int(_level["id"]), waves_cleared)
+		if waves_cleared > _record_at_start and waves_cleared > _submitted_wave:
+			_submitted_wave = waves_cleared
+			Online.submit_record(int(_level["id"]), waves_cleared)
+	LevelCatalog.flush()
 
 
 func count_kill(reward: int) -> void:
