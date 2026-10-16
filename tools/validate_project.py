@@ -251,22 +251,68 @@ def _seg_dist(p, a, b) -> float:
     return ((ax + dx * k - px) ** 2 + (az + dz * k - pz) ** 2) ** 0.5
 
 
+def _segments_cross(a, b, c, d) -> bool:
+    """True if segments a-b and c-d intersect (crossing or touching)."""
+    def orient(p, q, r):
+        v = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+        return (v > 1e-9) - (v < -1e-9)
+    o1, o2, o3, o4 = orient(a, b, c), orient(a, b, d), orient(c, d, a), orient(c, d, b)
+    return o1 != o2 and o3 != o4
+
+
+def _seg_gap(a, b, c, d) -> float:
+    """Distance between segments a-b and c-d (0 if they cross)."""
+    if _segments_cross(a, b, c, d):
+        return 0.0
+    return min(_seg_dist(a, c, d), _seg_dist(b, c, d), _seg_dist(c, a, b), _seg_dist(d, a, b))
+
+
 def _on_segment(p, a, b) -> bool:
     """True if p lies on the segment a-b."""
     return _seg_dist(p, a, b) < 0.01
 
 
+# Gate: a path whose last point is this close (taxicab, metres) to the castle centre
+# ends at the castle; every other path ends on an earlier one (a T-junction).
+GATE_REACH = 1.5
+# The last segment of a castle path ("private approach", towers stand beside it) is at
+# least this long, and other paths join the approach no closer than this to the castle.
+APPROACH_LENGTH = 9.0
+# Castle paths: one from each side of the castle (4 screen quadrants).
+CASTLE_PATHS = 4
+MIN_SLOTS = 14
+MAX_SLOTS = 20
+SLOTS_PER_SIDE = 2
+DIRECTION_COUNT = 8
+SCREEN_UP = (-0.7071068, -0.7071068)
+SCREEN_RIGHT = (0.7071068, -0.7071068)
+
+
+def screen_direction(x: float, z: float) -> int:
+    """0..7 clockwise from the top of the screen (as LevelCatalog.screen_direction)."""
+    import math
+    angle = math.atan2(x * SCREEN_RIGHT[0] + z * SCREEN_RIGHT[1], x * SCREEN_UP[0] + z * SCREEN_UP[1])
+    return round(angle / (math.pi / 4.0)) % DIRECTION_COUNT
+
+
+def _is_gate(end, castle) -> bool:
+    return abs(end[0] - castle[0]) + abs(end[1] - castle[1]) <= GATE_REACH
+
+
 def _check_paths(tag: str, lv: dict) -> list:
     """Checks lv["paths"]; returns every segment as (path, index, a, b).
 
-    Path 0 ends at the castle gate. Every other path ends on a segment of an
-    earlier path (a T-junction) and its enemies follow that path on to the castle.
-    Segments of all paths keep 3 m apart, except a path's last segment and the
-    segment it joins.
+    The first CASTLE_PATHS paths end at the castle gates, one from each side. Every
+    other path ends on a segment of an earlier path (a T-junction) and its enemies
+    follow that path on to the castle. Segments of all paths keep 3 m apart, except a
+    path's last segment and the segment it joins, and the last segments of two castle
+    paths next to the castle (they converge on it, 1.6 m apart at the gates).
     """
     x0, z0, w, h = lv["bounds"]
+    castle = lv["castle"]
     segs: list = []
     joins: dict = {}  # path -> (path, segment) it ends on
+    gates: set = set()
     for k, pts in enumerate(lv["paths"]):
         ptag = f"{tag} path {k}"
         if len(pts) < 2:
@@ -280,8 +326,17 @@ def _check_paths(tag: str, lv: dict) -> list:
                 errors.append(f"{ptag}: segment {i} is not axis-aligned")
             if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.6:
                 errors.append(f"{ptag}: segment {i} shorter than the 0.75 m corner radius x2")
-        if k > 0:
-            end, before = pts[-1], pts[-2]
+        end, before = pts[-1], pts[-2]
+        if _is_gate(end, castle):
+            gates.add(k)
+            if k >= CASTLE_PATHS:
+                errors.append(f"{ptag}: castle paths must come first (paths 0..{CASTLE_PATHS - 1})")
+            length = abs(end[0] - before[0]) + abs(end[1] - before[1])
+            if length < APPROACH_LENGTH:
+                errors.append(f"{ptag}: approach (last segment) is {length:.1f} m, needs {APPROACH_LENGTH}")
+        else:
+            if k < CASTLE_PATHS:
+                errors.append(f"{ptag}: must end at the castle gate (paths 0..{CASTLE_PATHS - 1})")
             host = [(j, i, a, b) for j, i, a, b in segs if _on_segment(end, a, b)]
             if not host:
                 errors.append(f"{ptag}: must end on a segment of an earlier path")
@@ -293,6 +348,8 @@ def _check_paths(tag: str, lv: dict) -> list:
                 corner = min(abs(end[0] - a[0]) + abs(end[1] - a[1]), abs(end[0] - b[0]) + abs(end[1] - b[1]))
                 if corner < 1.6:
                     errors.append(f"{ptag}: joins path {j} too close to a corner")
+                if ((end[0] - castle[0]) ** 2 + (end[1] - castle[1]) ** 2) ** 0.5 < APPROACH_LENGTH:
+                    errors.append(f"{ptag}: joins path {j} within {APPROACH_LENGTH} m of the castle")
         segs += [(k, i, a, b) for i, (a, b) in enumerate(zip(pts, pts[1:]))]
     last = {k: len(pts) - 2 for k, pts in enumerate(lv["paths"])}
     for n, (k1, i, a, b) in enumerate(segs):
@@ -301,9 +358,25 @@ def _check_paths(tag: str, lv: dict) -> list:
                 continue
             if k1 != k2 and joins.get(k2) == (k1, i) and j == last[k2]:
                 continue
-            gap = min(_seg_dist(a, c, d), _seg_dist(b, c, d), _seg_dist(c, a, b), _seg_dist(d, a, b))
+            gap = _seg_gap(a, b, c, d)
+            if k1 != k2 and k1 in gates and k2 in gates and i == last[k1] and j == last[k2] and gap >= 1.6:
+                continue
             if gap < 3.0:
                 errors.append(f"{tag}: path {k1} segment {i} and path {k2} segment {j} only {gap:.1f} m apart")
+    # One approach from each side of the castle: the four axis directions are the four
+    # screen quadrants (the camera looks along (-1, -1, -1)): behind-left, behind-right,
+    # in front-left and in front-right.
+    sides = set()
+    for k in gates:
+        pts = lv["paths"][k]
+        dx, dz = pts[-2][0] - pts[-1][0], pts[-2][1] - pts[-1][1]
+        sides.add((1 if dx > 0 else -1, 0) if abs(dx) > abs(dz) else (0, 1 if dz > 0 else -1))
+    if len(gates) != CASTLE_PATHS or len(sides) != 4:
+        errors.append(f"{tag}: needs {CASTLE_PATHS} castle paths, one from each side of the castle "
+                      f"(found {len(gates)} paths, {len(sides)} sides)")
+    portal_sides = {screen_direction(*pts[0]) for pts in lv["paths"]}
+    if len(portal_sides) < 4:
+        errors.append(f"{tag}: portals must be spread over at least 4 screen directions, found {sorted(portal_sides)}")
     return segs
 
 
@@ -333,8 +406,8 @@ def _check_lanes(tag: str, lv: dict) -> None:
             ids = lanes.get(key, [])
             if not ids or any(not isinstance(k, int) or not 0 <= k < n for k in ids):
                 errors.append(f"{tag}: waves.lanes.{key} must list path indices 0..{n - 1}")
-        if n < 3:
-            errors.append(f"{tag}: needs at least 3 paths")
+        if n < CASTLE_PATHS:
+            errors.append(f"{tag}: needs at least {CASTLE_PATHS} paths")
     elite = waves.get("elite")
     if elite is not None:
         for key in ("from", "every", "step", "kind", "hp", "reward", "scale"):
@@ -389,9 +462,7 @@ def check_levels() -> None:
         cx, cz = lv["castle"]
         if not (x0 + 1.2 <= cx <= x0 + w - 1.2 and z0 + 1.2 <= cz <= z0 + h - 1.2):
             errors.append(f"{tag}: castle outside the play bounds")
-        gate = lv["paths"][0][-1]
-        if abs(gate[0] - cx) + abs(gate[1] - cz) > 1.5:
-            errors.append(f"{tag}: path 0 must end at the castle gate")
+        _check_slot_sides(tag, lv)
         spots = [("slot", s, 1.3) for s in lv["slots"]] + [("tree", s, 1.2) for s in lv["trees"]]
         spots.append(("hero", lv["hero"], 0.8))
         for kind, s, clearance in spots:
@@ -424,6 +495,26 @@ def check_levels() -> None:
             for k2, b, _ in spots[i + 1:]:
                 if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 < 1.5:
                     errors.append(f"{tag}: {k1} {a} and {k2} {b} closer than 1.5 m")
+
+
+def _check_slot_sides(tag: str, lv: dict) -> None:
+    """14-20 slots, and at least SLOTS_PER_SIDE beside every approach to the castle."""
+    slots = lv["slots"]
+    if not MIN_SLOTS <= len(slots) <= MAX_SLOTS:
+        errors.append(f"{tag}: {len(slots)} slots, expected {MIN_SLOTS}..{MAX_SLOTS}")
+    cx, cz = lv["castle"]
+    for k, pts in enumerate(lv["paths"][:CASTLE_PATHS]):
+        dx, dz = pts[-2][0] - pts[-1][0], pts[-2][1] - pts[-1][1]
+        along_x = abs(dx) > abs(dz)
+        sign = (1 if dx > 0 else -1) if along_x else (1 if dz > 0 else -1)
+        near = 0
+        for sx, sz in slots:
+            along = ((sx - cx) if along_x else (sz - cz)) * sign
+            side = abs((sz - cz) if along_x else (sx - cx))
+            if 1.5 <= along <= 11.0 and side <= 3.5:
+                near += 1
+        if near < SLOTS_PER_SIDE:
+            errors.append(f"{tag}: only {near} slots beside the approach of path {k} (needs {SLOTS_PER_SIDE})")
 
 
 # Slots: path length (m) the weakest-ranged tower must see, and a safety margin

@@ -5,8 +5,10 @@ builds level_<id>_terrain.glb, level_<id>_decor.glb and level_<id>_forest.glb in
 world coordinates (placed at the origin in Godot). Godot (x, y, z) == Blender
 (x, -z, y). Path corners are rounded (0.75 m) but stay within half a metre of the
 sharp curve enemies walk on (a 0.75 m quadratic corner is 0.27 m off the sharp one).
-Path 0 runs to the castle; the others end on an earlier path (a T-junction) and
-are drawn a few millimetres lower so the path they join covers the overlap.
+The first four paths run to the castle gates, one from each side of the castle (they
+are drawn a millimetre apart: next to the castle they overlap under its walls); every
+other path ends on an earlier path (a T-junction) and is drawn a few millimetres lower so
+the path it joins covers the overlap.
 Set TG_LEVELS=1,3 to build only some levels.
 """
 import json
@@ -30,8 +32,12 @@ CORNER_R = 0.75  # > path half width + shoulder (0.6), else the inner edge folds
 # play area is 2 x 2 detail / decor cells and the camera sees one to four of them.
 CHUNK = 15.0
 FOREST_CHUNK = 15.0
-# Secondary paths sit this much lower than the path they join.
+# Paths that join another sit this much lower than the path they join.
 JOIN_DROP = 0.004
+# Taxicab distance of a path's last point from the castle centre that makes it a castle path
+# (LevelCatalog.GATE_REACH), and how many of those every level has.
+GATE_REACH = 1.5
+CASTLE_PATHS = 4
 # Decoration counts inside the play area (44 x 30 m), kept low for the frame
 # triangle budget (a flower patch is ~770 triangles).
 TALL_PROPS = 80
@@ -57,11 +63,13 @@ def use_level(lv: dict) -> None:
     PLAY_X, PLAY_Z = w / 2, h / 2
     DENSE_X, DENSE_Z = PLAY_X + 1.5, PLAY_Z + 1.5
     PATHS = [[tuple(p) for p in pts] for pts in lv["paths"]]
-    # Extend the castle path's last segment to the castle steps.
-    main = PATHS[0]
-    (ax, az), (bx, bz) = main[-2], main[-1]
-    d = Vector((bx - ax, bz - az)).normalized()
-    main[-1] = (bx + d.x * 0.45, bz + d.y * 0.45)
+    # Extend the last segment of every castle path to the castle steps.
+    cx, cz = lv["castle"]
+    for main in PATHS[:CASTLE_PATHS]:
+        (ax, az), (bx, bz) = main[-2], main[-1]
+        assert abs(bx - cx) + abs(bz - cz) <= GATE_REACH, f"level {lv['id']}: castle path does not end at the castle"
+        d = Vector((bx - ax, bz - az)).normalized()
+        main[-1] = (bx + d.x * 0.45, bz + d.y * 0.45)
     SEGS = [(Vector(a), Vector(c)) for pts in PATHS for a, c in zip(pts, pts[1:])]
     SLOTS = [tuple(s) for s in lv["slots"]]
     HERO = tuple(lv["hero"])
@@ -363,7 +371,7 @@ def build_level(lv: dict) -> list:
     ground = build_ground()
     paths, lines = [], []
     for k, polyline in enumerate(PATHS):
-        path, pts = build_path(polyline, JOIN_DROP if k else 0.0)
+        path, pts = build_path(polyline, 0.001 * k if k < CASTLE_PATHS else JOIN_DROP)
         paths.append(path)
         lines.append(pts)
     details = build_details(rng, lines)

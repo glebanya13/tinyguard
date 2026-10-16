@@ -7,6 +7,9 @@ extends RefCounted
 const LEVELS_PATH := "res://resources/levels.json"
 ## A path's last point counts as lying on another path this close to it (metres).
 const JOIN_TOLERANCE := 0.01
+## A path whose last point is this close to the castle (taxicab metres) ends at one of
+## its gates. Every level has four such paths, one on each side of the castle.
+const GATE_REACH := 1.5
 ## Translation keys of the 8 screen directions, clockwise from the top.
 const DIRECTION_KEYS: Array[String] = [
 	"DIR_N", "DIR_NE", "DIR_E", "DIR_SE", "DIR_S", "DIR_SW", "DIR_W", "DIR_NW"
@@ -48,39 +51,39 @@ static func get_level(id: int) -> Dictionary:
 
 
 ## Full enemy routes of a level (X/Z points), one per entry of level["paths"]:
-## path 0 runs to the castle; every other path ends on a segment of an earlier
-## one and its route goes on along that one (see tools/validate_project.py).
+## the first four paths run to the castle gates (one from each side of the castle);
+## every other path ends on a segment of an earlier one and its route goes on along
+## that one (see tools/validate_project.py).
 static func routes(level: Dictionary) -> Array[PackedVector2Array]:
 	var out: Array[PackedVector2Array] = []
+	var castle := Vector2(float(level["castle"][0]), float(level["castle"][1]))
 	for points: Array in level["paths"]:
 		var route := PackedVector2Array()
 		for point: Array in points:
 			route.append(Vector2(float(point[0]), float(point[1])))
-		if not out.is_empty():
+		if not is_gate(route[route.size() - 1], castle):
 			route.append_array(_route_after(out, route[route.size() - 1]))
 		out.append(route)
 	return out
 
 
+## True if `point` is at a castle gate (the end of a path that reaches the castle).
+static func is_gate(point: Vector2, castle: Vector2) -> bool:
+	return absf(point.x - castle.x) + absf(point.y - castle.y) <= GATE_REACH
+
+
 ## Straight flight lines of the flying enemies, one per entry of level["paths"]:
-## from the portal over the ground to the castle gate.
+## from the portal over the ground to the castle gate its route ends at, so flyers
+## too come from every side.
 static func air_routes(level: Dictionary) -> Array[PackedVector2Array]:
 	var out: Array[PackedVector2Array] = []
-	var gate: Array = level["paths"][0][-1]
-	for points: Array in level["paths"]:
-		out.append(
-			PackedVector2Array(
-				[
-					Vector2(float(points[0][0]), float(points[0][1])),
-					Vector2(float(gate[0]), float(gate[1]))
-				]
-			)
-		)
+	for route: PackedVector2Array in routes(level):
+		out.append(PackedVector2Array([route[0], route[route.size() - 1]]))
 	return out
 
 
-## Where on the screen a portal is seen from the map centre: 0..7 clockwise from
-## the top (index into DIRECTION_NAMES).
+## Where on the screen a point (relative to the castle) is seen: 0..7 clockwise from
+## the top (index into DIRECTION_KEYS).
 static func screen_direction(point: Vector2) -> int:
 	var angle: float = atan2(point.dot(SCREEN_RIGHT), point.dot(SCREEN_UP))
 	return posmod(roundi(angle / (PI / 4.0)), 8)
@@ -94,7 +97,8 @@ static func direction_text(level: Dictionary, lanes: Array) -> String:
 	var names: Array[String] = []
 	for lane: int in lanes:
 		var start: Array = paths[lane][0]
-		var from := Vector2(float(start[0]), float(start[1]))
+		var castle: Array = level["castle"]
+		var from := Vector2(float(start[0]) - float(castle[0]), float(start[1]) - float(castle[1]))
 		var side: String = TranslationServer.translate(DIRECTION_KEYS[screen_direction(from)])
 		if not names.has(side):
 			names.append(side)

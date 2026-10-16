@@ -31,7 +31,10 @@ TOWER_BONUS = 1.0
 WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
 HERO = {"damage_levels": [14.0], "range_levels": [1.4], "interval_levels": [0.5],
         "splash_levels": [0.0], "slow_levels": [1.0]}
-HERO_FROM_CASTLE = 3.0  # metres before the castle gate (on path 0) where the hero stands
+HERO_SPEED = 3.2  # m/s, scripts/hero.gd
+HERO_FROM_CASTLE = 3.0  # metres before the castle gate where the hero stands on the approach in use
+DEBUG = False
+GATE_REACH = 1.5  # a path ending this close (taxicab) to the castle centre ends at a castle gate
 _RULES = json.loads((ROOT / "resources/balance.json").read_text())["waves"]  # same file as the game
 BOSS_GROWTH_EXPONENT = _RULES["boss_growth_exponent"]
 BOSS_PER_WAVES = _RULES["boss_per_waves"]
@@ -139,12 +142,13 @@ class Path2D:
 
 
 def routes(lv: dict) -> list:
-    """Full enemy routes as in LevelCatalog.routes(): a path that ends on an
-    earlier one continues along it to the castle."""
+    """Full enemy routes as in LevelCatalog.routes(): a path that does not end at a castle
+    gate ends on an earlier one and continues along it to the castle."""
     out = []
+    cx, cz = lv["castle"]
     for pts in lv["paths"]:
         route = [tuple(p) for p in pts]
-        if out:
+        if abs(route[-1][0] - cx) + abs(route[-1][1] - cz) > GATE_REACH:
             end = route[-1]
             for prev in out:
                 hit = [i for i, (a, b) in enumerate(zip(prev, prev[1:]))
@@ -179,13 +183,32 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
     w = lv["waves"]
     paths = [Path2D(r) for r in routes(lv)]
     drawn = [Path2D(pts) for pts in lv["paths"]]  # every metre of road once
-    gate = lv["paths"][0][-1]
-    air_routes = [Path2D([p[0], gate]) for p in lv["paths"]]  # flyers: straight line to the gate
+    # flyers: straight line from the portal to the gate their route ends at
+    air_routes = [Path2D([p.pts[0], p.pts[-1]]) for p in paths]
     slots = order_slots(lv, drawn, strategy)
     gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], lv["start"]["lives"]
     towers = []  # dicts: kind, level, x, z, cd
-    hx, hz = paths[0].at(paths[0].length - HERO_FROM_CASTLE)
-    hero = {"kind": "hero", "level": 0, "x": hx + 0.8, "z": hz, "cd": 0.0}
+    hx, hz = lv["hero"]
+    hero = {"kind": "hero", "level": 0, "x": hx, "z": hz, "cd": 0.0}
+
+    hero_goal = [hx, hz]
+
+    def steer_hero(enemies: list) -> None:
+        """The player keeps the hero on the approach of the enemy closest to the castle (walking
+        round the castle takes time: HERO_SPEED, 30% longer than the straight line)."""
+        walkers = [en for en in enemies if not ENEMIES[en["kind"]].get("flying", False)]
+        if walkers:
+            en = min(walkers, key=lambda en: en["route"].length - en["d"])
+            x, z = en["route"].at(en["route"].length - HERO_FROM_CASTLE)
+            hero_goal[0], hero_goal[1] = x + 0.8, z
+        gx, gz = hero_goal
+        dist = math.dist((hero["x"], hero["z"]), (gx, gz))
+        step = HERO_SPEED * DT / 1.3
+        if dist <= step:
+            hero["x"], hero["z"] = gx, gz
+        elif dist > 0:
+            hero["x"] += (gx - hero["x"]) / dist * step
+            hero["z"] += (gz - hero["z"]) / dist * step
     t = 0.0
     report = []
 
@@ -279,6 +302,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
         t += DT
         wood += WOOD_PER_SECOND * DT
         shop()
+        steer_hero(enemies)
         if wave < w["count"] and t >= next_wave_at:
             wave += 1
             queue = wave_spawns(w, wave)
@@ -309,6 +333,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced") -> int:
                         if o is not en and math.dist(o["pos"], en["pos"]) <= e.get("heal_radius", 1.8):
                             o["hp"] = min(o["max"], o["hp"] + o["max"] * e["heal_fraction"])
         for en in [en for en in enemies if en["d"] >= en["route"].length]:
+            if DEBUG: print("leak", round(t), wave, en["kind"], round(en["hp"]), "hero", hero, "gold", gold, "towers", len(towers))
             lives -= int(ENEMIES[en["kind"]]["base_damage"])
             if en["lane"] is not None:
                 leaked_on[en["lane"]] = leaked_on.get(en["lane"], 0) + 1

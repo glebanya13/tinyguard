@@ -89,22 +89,21 @@ func _run() -> void:
 		n += 1
 		peak = maxi(peak, c)
 		peak_enemies = maxi(peak_enemies, get_nodes_in_group(Enemy.GROUP).size())
+	var fmt: String = "LEVEL %s empty=%.0f built=%.0f battle_mean=%.0f battle_peak=%d "
+	fmt += "peak_enemies=%d tris_k=%.0f script_ms=%.2f"
 	print(
 		(
-			"LEVEL %s empty=%.0f built=%.0f battle_mean=%.0f battle_peak=%d "
-			+ (
-				"peak_enemies=%d tris_k=%.0f script_ms=%.2f"
-				% [
-					LevelCatalog.selected_id,
-					empty,
-					built,
-					sum / n,
-					peak,
-					peak_enemies,
-					prims / n / 1000.0,
-					proc_ms / n
-				]
-			)
+			fmt
+			% [
+				LevelCatalog.selected_id,
+				empty,
+				built,
+				sum / n,
+				peak,
+				peak_enemies,
+				prims / n / 1000.0,
+				proc_ms / n
+			]
 		)
 	)
 	# Cost of each part: hide it, count, show it again.
