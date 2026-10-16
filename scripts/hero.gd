@@ -47,6 +47,9 @@ signal wood_gathered(amount: int, at: Vector3)
 @export var auto_aim_range: float = 2.4
 ## Cosine of the half-angle of the hit cone in front of the hero.
 @export var attack_cone: float = 0.2
+## Extra reach (metres) for the moment the blade lands: the enemy keeps walking during
+## attack_hit_delay, the swing must not miss an enemy that was in reach when it began.
+@export var strike_slack: float = 0.4
 ## Swing on its own at enemies/trees in reach while standing still.
 @export var auto_action: bool = true
 
@@ -181,7 +184,7 @@ func try_attack() -> bool:
 	if commands == null or not can_attack():
 		return false
 	var yaw: float = _model.rotation.y
-	var target: Node3D = _nearest_target(auto_aim_range)
+	var target: Node3D = _aim_target()
 	if target != null:
 		var offset: Vector3 = target.global_position - global_position
 		yaw = atan2(offset.x, offset.z)
@@ -298,6 +301,11 @@ func get_focus_target(strict: bool = false) -> Node3D:
 	return best
 
 
+## Reach of the blade against an enemy at the moment it lands.
+func strike_reach() -> float:
+	return attack_range + strike_slack
+
+
 func is_attacking() -> bool:
 	return _attack_left > 0.0
 
@@ -338,9 +346,14 @@ func _glide(delta: float) -> void:
 
 func _strike(origin: Vector3, yaw: float) -> void:
 	var forward := Vector3(sin(yaw), 0.0, cos(yaw))
+	var hit_enemy := false
+	# The blade lands attack_hit_delay after the swing began, the enemy walked on meanwhile.
 	for enemy in sim.enemies.duplicate():
-		if enemy.is_alive() and _in_cone(origin, enemy.sim_position(), forward, attack_range):
+		if enemy.is_alive() and _in_cone(origin, enemy.sim_position(), forward, strike_reach()):
 			enemy.take_damage(attack_damage * damage_multiplier)
+			hit_enemy = true
+	if hit_enemy:
+		return  # an enemy in reach always comes before a tree
 	var chopped := false
 	for tree in sim.trees:
 		if tree.is_choppable() and _in_cone(origin, tree.global_position, forward, chop_range):
@@ -361,6 +374,14 @@ func _in_cone(origin: Vector3, point: Vector3, forward: Vector3, reach: float) -
 	return distance < 0.3 or forward.dot(offset / distance) >= attack_cone
 
 
+## What the swing turns to: the same thing it can hit (focus target: an enemy in sword
+## reach, else a tree in chop reach), so a tree beside the knight is chopped even while an
+## enemy walks by out of reach; only without both he turns to whatever is nearby.
+func _aim_target() -> Node3D:
+	var focus: Node3D = get_focus_target(true)
+	return focus if focus != null else _nearest_target(auto_aim_range)
+
+
 ## Nearest living enemy, or else choppable tree, within `reach`.
 func _nearest_target(reach: float) -> Node3D:
 	var best: Node3D = null
@@ -369,7 +390,7 @@ func _nearest_target(reach: float) -> Node3D:
 		return null
 	for enemy in sim.enemies:
 		var d: float = _flat_distance(enemy)
-		if d < best_distance:
+		if enemy.is_alive() and d < best_distance:
 			best_distance = d
 			best = enemy
 	if best != null:

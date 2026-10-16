@@ -74,6 +74,7 @@ done
 echo "== pause / speed / stars / perks / endless"
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_meta.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_combat.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hero_target.gd
 run "$GODOT" --headless --path . --script res://tests/test_online.gd
 run "$GODOT" --headless --path . --script res://tests/test_records.gd
 run "$GODOT" --headless --path . --script res://tests/test_waves.gd
