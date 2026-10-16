@@ -64,6 +64,7 @@ func _run() -> void:
 	gs = main.get_node("GameState")
 	bm = main.get_node("BuildManager")
 	hero = main.get_node("Level/Hero")
+	hero.auto_action = false  # swings only when the test says so
 	sim = main.get_node("Sim")
 	sim.manual = true
 	sim.running = true

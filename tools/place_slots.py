@@ -160,7 +160,7 @@ class Level:
                 self.road(p) >= 2.0
                 and self.away_from_castle(p)
                 and self.free(p, 2.0, self.slots)
-                and self.free(p, 2.4, [self.hero])
+                and self.free(p, 3.0, [self.hero])
                 and self.free(p, 3.0, self.portals)
                 and self.free(p, 3.0, self.trees)
             ):

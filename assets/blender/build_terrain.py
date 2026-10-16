@@ -45,6 +45,7 @@ SMALL_PROPS = 60
 GRASS_TUFTS = 420
 PEBBLES = 100
 EDGE_STONE_SKIP = 0.45
+HERO_CLEAR = 3.0
 
 # Current level (set by use_level).
 PLAY_X = PLAY_Z = DENSE_X = DENSE_Z = 0.0
@@ -124,7 +125,7 @@ def free_spot(x, z, margin=0.75) -> bool:
         return False
     if abs(x - CASTLE[0]) < 1.9 and abs(z - CASTLE[1]) < 1.9:
         return False
-    if math.hypot(x - HERO[0], z - HERO[1]) < 0.8:
+    if math.hypot(x - HERO[0], z - HERO[1]) < HERO_CLEAR:  # no tree within auto-chop reach at the start
         return False
     if any(math.hypot(x - px, z - pz) < 1.8 for px, pz in PORTALS):
         return False
