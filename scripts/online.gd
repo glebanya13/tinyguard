@@ -235,9 +235,11 @@ func sync_state() -> String:
 		return "syncing"
 	if _last_error in ["session_lost", "newer", "disabled"]:
 		return _last_error
+	if _last_error in ["offline", "server"]:
+		return "offline"  # also with nothing pending: the profile says it syncs later
 	if not PlayerProfile.is_pending():
 		return "synced"
-	return "offline" if _last_error != "" else "pending"
+	return "pending"
 
 
 static func state_text(state: String) -> String:

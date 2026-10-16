@@ -474,6 +474,7 @@ func _persist() -> void:
 				"refresh_token": _refresh_token,
 				"account_type": account_type,
 				"previous_uid": previous_uid,
+				"email_verified": email_verified,
 			}
 		)
 	)

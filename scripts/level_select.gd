@@ -516,7 +516,10 @@ func _build_settings_ui() -> void:
 ## Shown only when something is not saved to the cloud (or the name is taken).
 func _on_sync_state(state: String) -> void:
 	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
-	_sync_label.visible = conflict or state in ["pending", "offline", "session_lost", "newer"]
+	var behind: bool = state in ["pending", "offline", "session_lost", "newer"]
+	if state == "offline" and not PlayerProfile.is_pending():
+		behind = false  # offline but everything is saved: nothing to nag about on the map
+	_sync_label.visible = conflict or behind
 	_sync_label.text = (tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state))
 	_sync_label.add_theme_color_override(
 		"font_color", Color(1.0, 0.62, 0.55) if conflict else Color(0.82, 0.86, 0.95)
