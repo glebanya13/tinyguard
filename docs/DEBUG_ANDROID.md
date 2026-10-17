@@ -105,6 +105,57 @@ prev run ended in battle: level 3 wave 41 enemies 220 mem 310 MB fps 12
 `adb shell run-as com.bimbleguard.app cat files/last_session.json` (в релизной сборке `run-as`
 не работает — используйте оверлей).
 
+### Строка «prev exit» (причина гибели прошлого запуска, Android 11+)
+
+При старте игра спрашивает у Android (`ActivityManager.getHistoricalProcessExitReasons`), чем кончился
+прошлый запуск, и показывает в оверлее строку:
+
+```
+prev exit: LOW_MEMORY rss=612 MB pss=420 MB FOREGROUND (low_memory)
+prev exit: SIGNALED/9 rss=540 MB pss=390 MB FOREGROUND (probable_low_memory)
+```
+
+- Причины (`ApplicationExitInfo.REASON_*`): `LOW_MEMORY` — система убила процесс из-за нехватки памяти;
+  `SIGNALED/9` (SIGKILL без причины) — **вероятное убийство по памяти** на телефонах, где Android
+  не сообщает `LOW_MEMORY` (до Android 14 так почти всегда; на Xiaomi/HyperOS тоже бывает убийство
+  «оптимизатором»); `CRASH` / `CRASH_NATIVE` — исключение Java / падение в нативном коде;
+  `ANR` — приложение не отвечало; `EXIT_SELF`, `USER_REQUESTED` — обычный выход.
+- `rss`/`pss` — память процесса на момент смерти (МБ), слово после — важность процесса
+  (`FOREGROUND`, `VISIBLE`, `CACHED`…). Убийство в фоне (`CACHED`) — нормальная работа системы и
+  **не** считается проблемой игры.
+- Если прошлый запуск был убит по памяти / упал / завис **при игре**, игра понижает стартовое
+  качество: 1-й раз подряд — ступень 2 (тени и MSAA выкл.), 2-й — 3, 3-й и далее — 4 (см. раздел 6).
+  Счётчик подряд идущих плохих запусков сбрасывается после нормального выхода или запуска, прожившего
+  10+ минут. Состояние: `user://exit_reasons.cfg`.
+- На Android < 11 и на компьютере строки нет.
+
+## 5a. Отчёты о сбоях в Firebase (Crashlytics)
+
+Включено в Gradle-сборках («Android Play (AAB)», «Android Debug (Gradle)»); обычный APK «Android»
+без Gradle отчётов не шлёт. Игрок может отключить: Настройки → «Отправлять отчёты о сбоях».
+
+- **Где смотреть**: Firebase Console → проект `bimbleguard` → Release & Monitor → **Crashlytics**.
+  Вкладка Dashboard — сводка, Issues — группы сбоев (по стеку). Откройте проблему: ниже «Keys»
+  (уровень `level`, режим `mode`, сложность `difficulty`, пресет дня `daily_preset`, волна `wave`,
+  ступень качества `quality_notch`, пик памяти `peak_mem_mb`, и для прошлого запуска
+  `prev_exit_reason`, `prev_exit_kind`, `prev_exit_rss_mb`…), «Logs» (хлебные крошки: старт боя,
+  каждая 5-я волна, смена качества, выход из боя) и «Device» (модель, ОС, память, свободное место).
+- **Убийство по памяти Crashlytics не видит** (процесс убит сигналом без обработчика): такие запуски
+  приходят как **non-fatal** «prev exit: LOW_MEMORY … / SIGNALED/9 …» **при следующем запуске**
+  (все такие non-fatal сгруппированы в одну проблему: различайте по Keys и тексту).
+- Нативные падения (Godot/драйвер GPU) приходят как fatal; **символы не загружаются**
+  (`nativeSymbolUploadEnabled false`), стек будет из адресов в `libgodot_android.so`
+  (можно сопоставить вручную с `libgodot_android.so` из `android_source.zip`/шаблона). Достаточно для
+  группировки по модели и GPU.
+- **Android vitals**: Play Console → приложение → Quality → Android vitals → Crashes and ANRs: сводка
+  вылетов и ANR от Google без SDK, по моделям телефонов (только у установок из Play). Есть и «Excessive
+  wakeups», «Stuck wake locks», «Startup time».
+- Первый отчёт приходит после **следующего** запуска; Dashboard обновляется с задержкой в минуты.
+- Что не пишем: uid, почту, ник (в ключах и логах). `user id` — только случайный хеш (если задан).
+- Проверка на телефоне (не выполнялась агентом): установить «Android Debug (Gradle)», вызвать
+  вылет (например, убить процесс командой `adb shell am crash com.bimbleguard.app`
+  — это Java-исключение, попадёт в Crashlytics), открыть игру снова и ждать отчёт в консоли.
+
 ## 6. Автозащита от низкого FPS
 
 Если средний кадр дольше 30 мс (меньше ~33 FPS) в течение 2 секунд, `QualityGuard` ступенчато
