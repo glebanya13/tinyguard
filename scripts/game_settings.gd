@@ -101,6 +101,56 @@ static func set_diagnostics(on: bool) -> void:
 	cfg.save(config_path)
 
 
+## Thumb controls (index settings, saved in settings.cfg, device-local): joystick size
+## 0 small / 1 medium / 2 large, position 0 lower / 1 standard / 2 higher, side 0 left /
+## 1 right; road compass size 0..2 and mode 0 show / 1 hide / 2 at the start of a wave.
+const LAYOUT_DEFAULTS := {
+	"joystick_size": 1,
+	"joystick_pos": 1,
+	"joystick_side": 0,
+	"minimap_size": 1,
+	"minimap_mode": 2,
+}
+
+
+static func layout_value(key: String) -> int:
+	var cfg := ConfigFile.new()
+	var fallback: int = LAYOUT_DEFAULTS[key]
+	if cfg.load(config_path) != OK:
+		return fallback
+	var max_value: int = 1 if key == "joystick_side" else 2
+	return clampi(int(cfg.get_value("layout", key, fallback)), 0, max_value)
+
+
+static func set_layout_value(key: String, value: int) -> void:
+	if not LAYOUT_DEFAULTS.has(key):
+		return
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("layout", key, value)
+	cfg.save(config_path)
+
+
+static func joystick_size() -> int:
+	return layout_value("joystick_size")
+
+
+static func joystick_position() -> int:
+	return layout_value("joystick_pos")
+
+
+static func joystick_side() -> int:
+	return layout_value("joystick_side")
+
+
+static func minimap_size() -> int:
+	return layout_value("minimap_size")
+
+
+static func minimap_mode() -> int:
+	return layout_value("minimap_mode")
+
+
 ## The locale for a choice: "ru"/"en" as is; "auto" follows the system language
 ## (Russian for ru, English for everything else).
 static func resolve_locale(code: String, system_language: String) -> String:

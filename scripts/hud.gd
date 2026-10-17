@@ -19,6 +19,8 @@ signal forge_pressed
 ## End screen of the Record Run: open the records table on the map.
 signal records_pressed
 signal joystick_changed(vector: Vector2)
+## The thumb controls were re-placed (settings changed): the road compass follows.
+signal layout_changed
 
 const BANNER_COLOR := Color(1.0, 0.86, 0.45)
 const BOSS_COLOR := Color(1.0, 0.55, 0.5)
@@ -145,8 +147,9 @@ func _ready() -> void:
 	_banner.hide()
 	_hint_pill.hide()
 	_card.hide()
-	_apply_safe_area()
-	get_viewport().size_changed.connect(_apply_safe_area)
+	SafeArea.attach(_root)
+	_root.resized.connect(apply_layout)
+	apply_layout()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -440,6 +443,7 @@ func _show_menu(text: String, ribbon: StringName) -> void:
 		_joystick_visible = _joystick.visible
 	_message_label.text = text
 	_message_label.theme_type_variation = ribbon
+	_hint_pill.hide()
 	_restart_button.disabled = false
 	_map_button.disabled = false
 	_card.hide()
@@ -449,19 +453,28 @@ func _show_menu(text: String, ribbon: StringName) -> void:
 	_end_screen.show()
 
 
-## Keeps the HUD out of display cutouts and rounded corners on phones.
-func _apply_safe_area() -> void:
-	if not _touch:
+## Places the joystick by the saved settings (size, height, side) and keeps its dead zone
+## and logic as they are: only the control and its radius scale.
+func apply_layout() -> void:
+	if _root == null or _joystick == null:
 		return
-	var screen: Vector2 = Vector2(DisplayServer.screen_get_size())
-	var safe := Rect2(DisplayServer.get_display_safe_area())
-	if screen.x <= 0.0 or screen.y <= 0.0:
-		return
-	var scale: Vector2 = get_viewport().get_visible_rect().size / screen
-	_root.offset_left = safe.position.x * scale.x
-	_root.offset_top = safe.position.y * scale.y
-	_root.offset_right = -(screen.x - safe.end.x) * scale.x
-	_root.offset_bottom = -(screen.y - safe.end.y) * scale.y
+	var r: Dictionary = HudLayout.current(_root.size)
+	var rect: Rect2 = r["joystick"]
+	var right: bool = GameSettings.joystick_side() == HudLayout.SIDE_RIGHT
+	var anchor: float = 1.0 if right else 0.0
+	_joystick.custom_minimum_size = rect.size
+	_joystick.anchor_left = anchor
+	_joystick.anchor_right = anchor
+	_joystick.anchor_top = 1.0
+	_joystick.anchor_bottom = 1.0
+	var from_left: float = rect.position.x - (_root.size.x if right else 0.0)
+	_joystick.offset_left = from_left
+	_joystick.offset_right = from_left + rect.size.x
+	_joystick.offset_top = rect.position.y - _root.size.y
+	_joystick.offset_bottom = rect.end.y - _root.size.y
+	_joystick.set("radius", rect.size.x * HudLayout.JOY_RADIUS_RATIO)
+	_joystick.queue_redraw()
+	layout_changed.emit()
 
 
 func _make_button(spec: Dictionary) -> Button:
@@ -525,7 +538,10 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 		child.free()
 	var pill: Control = cost.get_parent()
 	pill.visible = spec.has("label") or spec.get("gold", 0) > 0 or spec.get("wood", 0) > 0
-	pill.add_theme_stylebox_override("panel", PLAIN if spec.has("label") else null)
+	if spec.has("label"):
+		pill.add_theme_stylebox_override("panel", PLAIN)
+	else:
+		pill.remove_theme_stylebox_override("panel")
 	if spec.has("label"):
 		var label: String = spec["label"]
 		if _touch and label == "Esc":
@@ -609,10 +625,12 @@ func _build_settings() -> void:
 	_settings_button.hide()
 	_sound_button.add_sibling(_settings_button)
 	_settings_panel = SettingsPanel.new()
+	_settings_panel.z_index = 10  # above the chips, which are layered by kind
 	_root.add_child(_settings_panel)
 	_settings_button.pressed.connect(_settings_panel.open)
 	_settings_panel.closed.connect(_update_sound_label)
 	_settings_panel.language_changed.connect(_on_language_changed)
+	_settings_panel.layout_changed.connect(apply_layout)
 
 
 func _on_language_changed() -> void:

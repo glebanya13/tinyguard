@@ -27,6 +27,7 @@ BLUE = ((96, 160, 255), (43, 95, 199), (26, 58, 140))
 GREEN = ((120, 228, 112), (47, 166, 74), (26, 106, 49))
 RED = ((255, 124, 112), (218, 58, 62), (140, 30, 42))
 GREY = ((156, 166, 186), (112, 122, 146), (72, 80, 104))
+DARK = ((86, 108, 190), (52, 70, 140), (30, 42, 96))
 WOOD = ((214, 156, 90), (160, 104, 52), (100, 62, 28))
 
 
@@ -304,7 +305,7 @@ def build():
 	# round buttons must stay at (0,0),(130,0),(260,0): the HUD scene uses these regions
 	for state in ("up", "hover", "down"):
 		items.append(("round_gold_" + state, round_button((128, 128), GOLD, state)))
-	schemes = {"gold": GOLD, "blue": BLUE, "green": GREEN, "red": RED, "grey": GREY}
+	schemes = {"gold": GOLD, "blue": BLUE, "green": GREEN, "red": RED, "grey": GREY, "dark": DARK}
 	for cname, sc in schemes.items():
 		for state in ("up", "hover", "down"):
 			if cname == "grey" and state != "up":
@@ -378,13 +379,13 @@ def sb(sid, rect, margins, content, expand=None):
 
 def theme_text(r):
 	subs = []
-	for c in ("gold", "blue", "green", "red"):
+	for c in ("gold", "blue", "green", "red", "dark"):
 		for st in ("up", "hover", "down"):
 			cm = BTN_CM["down" if st == "down" else "up"]
 			subs.append(sb(f"{c}_{st}", r[f"btn_{c}_{st}"], BTN_M, cm))
 	subs.append(sb("grey", r["btn_grey_up"], BTN_M, BTN_CM["up"]))
-	subs.append(sb("panel", r["panel"], (32, 32, 32, 38), (32, 16, 32, 40)))
-	subs.append(sb("panel_gold", r["panel_gold"], (32, 32, 32, 38), (32, 16, 32, 40)))
+	subs.append(sb("panel", r["panel"], (32, 32, 32, 38), (32, 24, 32, 40)))
+	subs.append(sb("panel_gold", r["panel_gold"], (32, 32, 32, 38), (32, 24, 32, 40)))
 	subs.append(sb("card", r["card"], (24, 24, 24, 24), (16, 12, 16, 12)))
 	subs.append(sb("card_select", r["card_select"], (24, 24, 24, 24), (16, 12, 16, 12)))
 	subs.append(sb("inset", r["inset"], (16, 16, 16, 16), (16, 12, 16, 12)))
@@ -418,7 +419,7 @@ def theme_text(r):
 		"variation_opentype = {\n2003265652: 900.0\n}\n\n"
 		'[sub_resource type="FontVariation" id="font_button"]\n'
 		'base_font = ExtResource("font_display_file")\n'
-		"variation_opentype = {\n2003265652: 800.0\n}\n\n"
+		"variation_opentype = {\n2003265652: 800.0\n}\nspacing_space = 5\n\n"
 	)
 	cream = "Color(1, 0.97, 0.88, 1)"
 	navy = "Color(0.07, 0.11, 0.27, 1)"
@@ -457,6 +458,12 @@ def theme_text(r):
 		btn_type("SecondaryButton", "Button", "blue"),
 		btn_type("GreenButton", "Button", "green"),
 		btn_type("DangerButton", "Button", "red"),
+		# toggle (segmented choice): dark when off, green and sunk when chosen
+		'ToggleButton/base_type = &"Button"',
+		'ToggleButton/styles/normal = SubResource("dark_up")',
+		'ToggleButton/styles/hover = SubResource("dark_hover")',
+		'ToggleButton/styles/pressed = SubResource("green_down")',
+		'ToggleButton/styles/hover_pressed = SubResource("green_down")',
 		# slot card (tower build / upgrade card): dark text on cream
 		'SlotButton/base_type = &"Button"',
 		'SlotButton/styles/normal = SubResource("slot")',
@@ -496,7 +503,7 @@ def theme_text(r):
 		"NumberLabel/constants/outline_size = 3",
 		'StatsLabel/base_type = &"Label"',
 		'StatsLabel/fonts/font = SubResource("font_display")',
-		"StatsLabel/font_sizes/font_size = 16",
+		"StatsLabel/font_sizes/font_size = 20",
 		"StatsLabel/constants/line_spacing = 8",
 		'StatsLabel/styles/normal = SubResource("inset")',
 		'CaptionLabel/base_type = &"Label"',
@@ -544,7 +551,9 @@ def theme_text(r):
 		'ProgressBar/styles/fill = SubResource("bar_fill")',
 		f"ProgressBar/colors/font_color = {cream}",
 	]
-	return head + body + "\n" + flat + "\n" + "\n".join(res) + "\n"
+	text = head + body + "\n" + flat + "\n" + "\n".join(res) + "\n"
+	steps = text.count("[sub_resource") + text.count("[ext_resource") + 1
+	return text.replace("load_steps=60", f"load_steps={steps}")
 
 
 def main():

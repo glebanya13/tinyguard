@@ -65,7 +65,13 @@ func _release() -> void:
 
 
 func _draw() -> void:
-	draw_circle(_center, radius, Color(0.11, 0.16, 0.31, 0.45))
-	draw_arc(_center, radius, 0.0, TAU, 48, Color(0.91, 0.71, 0.3, 0.8), 3.0, true)
-	draw_circle(_knob, radius * 0.42, Color(0.95, 0.73, 0.29, 0.9))
-	draw_arc(_knob, radius * 0.42, 0.0, TAU, 32, Color(0.66, 0.45, 0.12, 1.0), 3.0, true)
+	var ring := Color(0.07, 0.11, 0.27)
+	draw_circle(_center, radius, Color(0.11, 0.16, 0.36, 0.5))
+	draw_arc(_center, radius, 0.0, TAU, 48, ring, 8.0, true)
+	draw_arc(_center, radius, 0.0, TAU, 48, Color(0.98, 0.78, 0.3, 0.95), 4.0, true)
+	var knob_r: float = radius * 0.42
+	draw_circle(_knob + Vector2(0.0, 5.0), knob_r + 3.0, Color(0.03, 0.05, 0.15, 0.4))
+	draw_circle(_knob, knob_r + 4.0, ring)
+	draw_circle(_knob, knob_r, Color(0.96, 0.7, 0.2))
+	draw_circle(_knob - Vector2(0.0, knob_r * 0.18), knob_r * 0.74, Color(1.0, 0.86, 0.4))
+	draw_arc(_knob, knob_r * 0.62, deg_to_rad(200.0), deg_to_rad(290.0), 12, Color(1, 1, 1, 0.7), 4.0, true)

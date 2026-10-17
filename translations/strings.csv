@@ -514,3 +514,22 @@ ACC_EMAIL_UNVERIFIED,Почта не подтверждена: открой пи
 ACC_EMAIL_RESEND,Отправить письмо ещё раз,Send the email again
 ACC_EMAIL_SENT,Письмо отправлено. Загляни и в «Спам».,Email sent. Check Spam too.
 ACC_EMAIL_COOLDOWN,Подожди минуту перед новым письмом.,Wait a minute before another email.
+SET_TAB_GENERAL,Общие,General
+SET_TAB_CONTROLS,Управление,Controls
+SET_JOY_SIZE,Размер джойстика,Joystick size
+SET_JOY_POS,Высота джойстика,Joystick height
+SET_JOY_SIDE,Сторона джойстика,Joystick side
+SET_MAP_SIZE,Размер мини-карты,Mini-map size
+SET_MAP_MODE,Мини-карта,Mini-map
+SET_SMALL,Малый,Small
+SET_MEDIUM,Средний,Medium
+SET_LARGE,Большой,Large
+SET_LOWER,Ниже,Lower
+SET_STANDARD,Обычно,Standard
+SET_HIGHER,Выше,Higher
+SET_LEFT,Слева,Left
+SET_RIGHT,Справа,Right
+SET_MAP_SHOW,Всегда,Always
+SET_MAP_HIDE,Скрыть,Hide
+SET_MAP_WAVE,С волной,On waves
+SET_PREVIEW_NOTE,Так будут стоять кнопки в бою. Изменения применяются сразу.,This is where the controls sit in battle. Changes apply at once.

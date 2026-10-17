@@ -142,11 +142,7 @@ func _build() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	var title := Label.new()
-	title.text = tr("COOP_TITLE")
-	title.add_theme_color_override("font_color", GOLD)
-	title.add_theme_font_size_override("font_size", 36)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := UiKit.ribbon(tr("COOP_TITLE"))
 	box.add_child(title)
 	_menu_view = _build_menu()
 	_join_view = _build_join()
@@ -253,6 +249,7 @@ func _build_room() -> Control:
 func _label(text: String, size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
+	UiKit.style_label(label, size, color)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)

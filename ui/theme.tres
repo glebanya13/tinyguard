@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=60 format=3]
+[gd_resource type="Theme" load_steps=44 format=3]
 
 [ext_resource type="Texture2D" path="res://ui/theme_atlas.png" id="atlas"]
 [ext_resource type="FontFile" path="res://assets/fonts/Nunito.ttf" id="font_body_file"]
@@ -21,6 +21,7 @@ base_font = ExtResource("font_display_file")
 variation_opentype = {
 2003265652: 800.0
 }
+spacing_space = 5
 
 [sub_resource type="StyleBoxTexture" id="gold_up"]
 content_margin_left = 28
@@ -32,7 +33,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(98, 572, 96, 72)
+region_rect = Rect2(0, 646, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="gold_hover"]
 content_margin_left = 28
@@ -44,7 +45,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(0, 572, 96, 72)
+region_rect = Rect2(294, 572, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="gold_down"]
 content_margin_left = 28
@@ -56,7 +57,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(294, 498, 96, 72)
+region_rect = Rect2(196, 572, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="blue_up"]
 content_margin_left = 28
@@ -104,7 +105,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(0, 646, 96, 72)
+region_rect = Rect2(294, 646, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="green_hover"]
 content_margin_left = 28
@@ -116,7 +117,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(294, 572, 96, 72)
+region_rect = Rect2(196, 646, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="green_down"]
 content_margin_left = 28
@@ -128,7 +129,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(196, 572, 96, 72)
+region_rect = Rect2(98, 646, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="red_up"]
 content_margin_left = 28
@@ -140,7 +141,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(0, 720, 96, 72)
+region_rect = Rect2(294, 720, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="red_hover"]
 content_margin_left = 28
@@ -152,7 +153,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(294, 646, 96, 72)
+region_rect = Rect2(196, 720, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="red_down"]
 content_margin_left = 28
@@ -164,7 +165,43 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(196, 646, 96, 72)
+region_rect = Rect2(98, 720, 96, 72)
+
+[sub_resource type="StyleBoxTexture" id="dark_up"]
+content_margin_left = 28
+content_margin_top = 14
+content_margin_right = 28
+content_margin_bottom = 24
+texture = ExtResource("atlas")
+texture_margin_left = 24
+texture_margin_top = 24
+texture_margin_right = 24
+texture_margin_bottom = 32
+region_rect = Rect2(98, 572, 96, 72)
+
+[sub_resource type="StyleBoxTexture" id="dark_hover"]
+content_margin_left = 28
+content_margin_top = 14
+content_margin_right = 28
+content_margin_bottom = 24
+texture = ExtResource("atlas")
+texture_margin_left = 24
+texture_margin_top = 24
+texture_margin_right = 24
+texture_margin_bottom = 32
+region_rect = Rect2(0, 572, 96, 72)
+
+[sub_resource type="StyleBoxTexture" id="dark_down"]
+content_margin_left = 28
+content_margin_top = 18
+content_margin_right = 28
+content_margin_bottom = 20
+texture = ExtResource("atlas")
+texture_margin_left = 24
+texture_margin_top = 24
+texture_margin_right = 24
+texture_margin_bottom = 32
+region_rect = Rect2(294, 498, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="grey"]
 content_margin_left = 28
@@ -176,11 +213,11 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 32
-region_rect = Rect2(98, 646, 96, 72)
+region_rect = Rect2(0, 720, 96, 72)
 
 [sub_resource type="StyleBoxTexture" id="panel"]
 content_margin_left = 32
-content_margin_top = 16
+content_margin_top = 24
 content_margin_right = 32
 content_margin_bottom = 40
 texture = ExtResource("atlas")
@@ -192,7 +229,7 @@ region_rect = Rect2(294, 130, 96, 96)
 
 [sub_resource type="StyleBoxTexture" id="panel_gold"]
 content_margin_left = 32
-content_margin_top = 16
+content_margin_top = 24
 content_margin_right = 32
 content_margin_bottom = 40
 texture = ExtResource("atlas")
@@ -212,7 +249,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 24
-region_rect = Rect2(98, 720, 64, 64)
+region_rect = Rect2(0, 794, 64, 64)
 
 [sub_resource type="StyleBoxTexture" id="card_select"]
 content_margin_left = 16
@@ -224,7 +261,7 @@ texture_margin_left = 24
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 24
-region_rect = Rect2(164, 720, 64, 64)
+region_rect = Rect2(66, 794, 64, 64)
 
 [sub_resource type="StyleBoxTexture" id="inset"]
 content_margin_left = 16
@@ -236,7 +273,7 @@ texture_margin_left = 16
 texture_margin_top = 16
 texture_margin_right = 16
 texture_margin_bottom = 16
-region_rect = Rect2(162, 844, 48, 48)
+region_rect = Rect2(162, 910, 48, 48)
 
 [sub_resource type="StyleBoxTexture" id="slot"]
 content_margin_left = 6
@@ -332,7 +369,7 @@ texture_margin_left = 54
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 24
-region_rect = Rect2(0, 794, 160, 48)
+region_rect = Rect2(0, 860, 160, 48)
 
 [sub_resource type="StyleBoxTexture" id="chip_wood"]
 content_margin_left = 11
@@ -344,7 +381,7 @@ texture_margin_left = 54
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 24
-region_rect = Rect2(0, 844, 160, 48)
+region_rect = Rect2(0, 910, 160, 48)
 
 [sub_resource type="StyleBoxTexture" id="chip_red"]
 content_margin_left = 11
@@ -356,7 +393,7 @@ texture_margin_left = 54
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 24
-region_rect = Rect2(162, 794, 160, 48)
+region_rect = Rect2(162, 860, 160, 48)
 
 [sub_resource type="StyleBoxTexture" id="chip_blue"]
 content_margin_left = 11
@@ -368,7 +405,7 @@ texture_margin_left = 54
 texture_margin_top = 24
 texture_margin_right = 24
 texture_margin_bottom = 24
-region_rect = Rect2(230, 720, 160, 48)
+region_rect = Rect2(132, 794, 160, 48)
 
 [sub_resource type="StyleBoxTexture" id="pill"]
 content_margin_left = 12
@@ -380,7 +417,7 @@ texture_margin_left = 16
 texture_margin_top = 16
 texture_margin_right = 16
 texture_margin_bottom = 16
-region_rect = Rect2(212, 844, 64, 32)
+region_rect = Rect2(212, 910, 64, 32)
 
 [sub_resource type="StyleBoxTexture" id="bar_bg"]
 content_margin_left = 0
@@ -392,7 +429,7 @@ texture_margin_left = 14
 texture_margin_top = 14
 texture_margin_right = 14
 texture_margin_bottom = 14
-region_rect = Rect2(278, 844, 96, 28)
+region_rect = Rect2(278, 910, 96, 28)
 
 [sub_resource type="StyleBoxTexture" id="bar_fill"]
 content_margin_left = 0
@@ -404,7 +441,7 @@ texture_margin_left = 14
 texture_margin_top = 14
 texture_margin_right = 14
 texture_margin_bottom = 14
-region_rect = Rect2(0, 894, 96, 28)
+region_rect = Rect2(0, 960, 96, 28)
 
 [sub_resource type="StyleBoxTexture" id="toast"]
 content_margin_left = 24
@@ -456,6 +493,11 @@ DangerButton/styles/normal = SubResource("red_up")
 DangerButton/styles/hover = SubResource("red_hover")
 DangerButton/styles/pressed = SubResource("red_down")
 DangerButton/styles/hover_pressed = SubResource("red_down")
+ToggleButton/base_type = &"Button"
+ToggleButton/styles/normal = SubResource("dark_up")
+ToggleButton/styles/hover = SubResource("dark_hover")
+ToggleButton/styles/pressed = SubResource("green_down")
+ToggleButton/styles/hover_pressed = SubResource("green_down")
 SlotButton/base_type = &"Button"
 SlotButton/styles/normal = SubResource("slot")
 SlotButton/styles/hover = SubResource("slot_select")
@@ -493,7 +535,7 @@ NumberLabel/font_sizes/font_size = 22
 NumberLabel/constants/outline_size = 3
 StatsLabel/base_type = &"Label"
 StatsLabel/fonts/font = SubResource("font_display")
-StatsLabel/font_sizes/font_size = 16
+StatsLabel/font_sizes/font_size = 20
 StatsLabel/constants/line_spacing = 8
 StatsLabel/styles/normal = SubResource("inset")
 CaptionLabel/base_type = &"Label"

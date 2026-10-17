@@ -525,7 +525,7 @@ alignment = 1
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"RibbonLabel"
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 40
 text = "HUD_VICTORY"
 horizontal_alignment = 1
 
@@ -536,7 +536,7 @@ theme_override_constants/separation = 6
 alignment = 1
 
 [node name="Stats" type="Label" parent="Root/EndScreen/EndPanel/Content"]
-custom_minimum_size = Vector2(600, 0)
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
 theme_type_variation = &"StatsLabel"
 theme_override_colors/font_color = Color(1, 0.97, 0.88, 1)

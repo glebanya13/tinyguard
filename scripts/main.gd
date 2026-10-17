@@ -220,6 +220,7 @@ func _ready() -> void:
 	var hud_root: Control = _hud.get_node("Root")
 	hud_root.add_child(_lane_hint)
 	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
+	_hud.layout_changed.connect(_lane_hint.apply_settings)
 	cards.refresh()
 	_start_fx()
 	_start_diagnostics()

@@ -53,3 +53,12 @@ static func button(
 	if icon != null:
 		b.icon = icon
 	return b
+
+
+## Gives a code-made label the display look by its size: 30+ is a title (outlined, with
+## shadow), 22-29 in gold is a heading. Color and size overrides of the caller still apply.
+static func style_label(label: Label, size: int, color: Color = CREAM) -> void:
+	if size >= 30:
+		label.theme_type_variation = &"TitleLabel"
+	elif size >= 22 and color.r > 0.9 and color.b < 0.6:
+		label.theme_type_variation = &"HeadingLabel"

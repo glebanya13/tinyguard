@@ -53,9 +53,8 @@ theme_override_constants/separation = 0
 alignment = 1
 
 [node name="GameTitle" type="Label" parent="Safe/Center/Row/Art"]
+theme_type_variation = &"TitleLabel"
 layout_mode = 2
-theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
-theme_override_constants/outline_size = 14
 theme_override_font_sizes/font_size = 56
 text = "Bimbleguard"
 horizontal_alignment = 1
@@ -78,9 +77,8 @@ layout_mode = 2
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Safe/Center/Row/Panel/Content"]
+theme_type_variation = &"TitleLabel"
 layout_mode = 2
-theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
-theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 46
 text = "WELCOME_TITLE"
 horizontal_alignment = 1
