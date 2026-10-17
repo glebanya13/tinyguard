@@ -622,3 +622,11 @@ EMAIL_REPORT,Сообщить в поддержку,Report to support
 EMAIL_REPORT_COPIED,Код скопирован. Вставь его в сообщение поддержке,Code copied. Paste it into your message to support
 EMAIL_ALT_SIGNIN,Войти с этой почтой,Sign in with this email
 EMAIL_ALT_REAUTH,Войти заново,Sign in again
+MAP_DIR_N,С,N
+MAP_DIR_NE,СВ,NE
+MAP_DIR_E,В,E
+MAP_DIR_SE,ЮВ,SE
+MAP_DIR_S,Ю,S
+MAP_DIR_SW,ЮЗ,SW
+MAP_DIR_W,З,W
+MAP_DIR_NW,СЗ,NW
