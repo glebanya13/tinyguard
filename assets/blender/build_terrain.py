@@ -25,13 +25,16 @@ import tg_common as tg
 
 LEVELS_FILE = tg.ROOT / "resources" / "levels.json"
 GROUND_HALF = 46.0
-STEP = 0.5
+STEP = 0.5  # centre line sampling (corners)
+PATH_STEP = 0.75  # along straight stretches
+GROUND_STEP = 1.0  # ground grid inside the play area (it is nearly flat)
 PATH_HALF = 0.5
 CORNER_R = 0.75  # > path half width + shoulder (0.6), else the inner edge folds
 # Culling cells. Every visible cell is one draw call, so they are big: the 44 x 30 m
 # play area is 2 x 2 detail / decor cells and the camera sees one to four of them.
 CHUNK = 15.0
 FOREST_CHUNK = 15.0
+FOREST_STEP = 2.3  # grid of the forest ring (metres)
 # Paths that join another sit this much lower than the path they join.
 JOIN_DROP = 0.004
 # Taxicab distance of a path's last point from the castle centre that makes it a castle path
@@ -42,8 +45,8 @@ CASTLE_PATHS = 4
 # triangle budget (a flower patch is ~770 triangles).
 TALL_PROPS = 80
 SMALL_PROPS = 60
-GRASS_TUFTS = 420
-PEBBLES = 100
+GRASS_TUFTS = 260
+PEBBLES = 70
 EDGE_STONE_SKIP = 0.45
 HERO_CLEAR = 3.0
 
@@ -92,13 +95,13 @@ def centerline(polyline: list) -> list:
         d = (p1 - p0).normalized()
         start = p0 + d * (CORNER_R if i > 0 else 0)
         end = p1 - d * (CORNER_R if i < len(polyline) - 2 else 0)
-        n = max(2, int((end - start).length / STEP))
+        n = max(2, int((end - start).length / PATH_STEP))
         pts += [start.lerp(end, k / n) for k in range(n)]
         if i < len(polyline) - 2:
             p2 = Vector(polyline[i + 2])
             a, c = end, p1 + (p2 - p1).normalized() * CORNER_R
-            for k in range(8):
-                t = k / 8
+            for k in range(6):
+                t = k / 6
                 pts.append(a * (1 - t) ** 2 + p1 * 2 * (1 - t) * t + c * t * t)
     pts.append(Vector(polyline[-1]))
     return pts
@@ -135,9 +138,9 @@ def free_spot(x, z, margin=0.75) -> bool:
 
 
 def axis(dense: float) -> list:
-    """Grid coordinates: 0.5 m inside the play area, 2 m in the distant hills."""
+    """Grid coordinates: 1 m inside the play area, 2 m in the distant hills."""
     coarse = [-GROUND_HALF + 2.0 * i for i in range(int((GROUND_HALF - dense) / 2.0) + 1)]
-    fine = [-dense + STEP * i for i in range(int(2 * dense / STEP) + 1)]
+    fine = [-dense + GROUND_STEP * i for i in range(int(2 * dense / GROUND_STEP) + 1)]
     pts = sorted({round(v, 3) for v in coarse + fine + [-v for v in coarse]})
     return [v for v in pts if -dense - 0.01 <= v <= dense + 0.01 or abs(v) >= dense + 1.0]
 
@@ -152,9 +155,10 @@ def height(gx, gz) -> float:
     if d > 0:  # rolling hills rising towards the horizon
         rise = min(d, 9.0) / 9.0
         return rise * (0.5 + 0.9 * (0.5 + 0.5 * noise.noise(Vector((gx * 0.12, gz * 0.12, 2.0)))))
-    if dist_to_path(gx, gz) > 1.0:
-        return 0.03 * noise.noise(Vector((gx * 0.6, gz * 0.6, 0.5)))
-    return 0.0
+    # Ground ripples fade out towards the paths (flat within 1.5 m) so that the coarse grid
+    # never lifts the ground over a path surface.
+    fade = min(max(dist_to_path(gx, gz) - 1.5, 0.0), 1.0)
+    return 0.03 * fade * noise.noise(Vector((gx * 0.6, gz * 0.6, 0.5)))
 
 
 def build_ground():
@@ -195,8 +199,8 @@ def build_walls():
 
 def build_path(polyline: list, drop: float):
     pts = centerline(polyline)
-    section = [(-0.6, -0.02, "path_dark"), (-0.5, 0.012, "path"), (-0.25, 0.016, "path"), (0.0, 0.018, "path"),
-               (0.25, 0.016, "path"), (0.5, 0.012, "path_dark"), (0.6, -0.02, None)]
+    section = [(-0.6, -0.02, "path_dark"), (-0.5, 0.012, "path"), (0.0, 0.018, "path"), (0.5, 0.012, "path_dark"),
+               (0.6, -0.02, None)]
     section = [(off, h - drop, m) for off, h, m in section]
     verts, faces, fmat = [], [], []
     for k, p in enumerate(pts):
@@ -231,7 +235,7 @@ def build_path(polyline: list, drop: float):
 
 
 def pebble(name, rng, x, z, size, mat):
-    s = tg.sphere(name, (size * rng.uniform(0.9, 1.3), size, size * 0.55), b(x, z, 0.01), mat, seg=6, rings=4,
+    s = tg.sphere(name, (size * rng.uniform(0.9, 1.3), size, size * 0.55), b(x, z, 0.01), mat, seg=5, rings=3,
                   rot=(0, 0, rng.uniform(0, 180)))
     tg.displace_noise(s, size * 0.12, 0.05, seed=rng.randint(0, 999))
     return s
@@ -255,7 +259,7 @@ def build_details(rng, lines):
         if not free_spot(x, z, 0.7):
             continue
         blades = []
-        for i in range(rng.randint(3, 5)):
+        for i in range(rng.randint(3, 4)):
             a = rng.uniform(0, 2 * math.pi)
             r = rng.uniform(0.0, 0.05)
             bl = tg.cylinder(f"blade{placed}_{i}", 0.018, 0.0, rng.uniform(0.08, 0.15),
@@ -279,7 +283,7 @@ def build_details(rng, lines):
 
 def edge_stones(rng, pts, first: int) -> list:
     stones = []
-    for k in range(0, len(pts), 2):
+    for k in range(0, len(pts), 1):
         p = pts[k]
         a, c = pts[max(k - 1, 0)], pts[min(k + 1, len(pts) - 1)]
         t = (c - a).normalized()
@@ -299,8 +303,9 @@ def edge_stones(rng, pts, first: int) -> list:
     return stones
 
 
-MAKERS = {"pine": env.tree_pine, "round": env.tree_round, "round_lite": env.tree_round_lite, "bush": env.bush,
-          "flowers": env.flowers, "rock_a": lambda r: env.rock("Rock", r, 30), "rock_b": env.rock_cluster}
+MAKERS = {"pine": env.tree_pine, "round": env.tree_round, "round_lite": env.tree_round_lite, "bush": env.bush_lite,
+          "flowers": env.flowers_lite, "rock_a": env.rock_lite, "rock_b": env.rock_cluster_lite,
+          "pine_lite": env.tree_pine_lite}
 TREES = ("pine", "round", "round_lite")
 
 
@@ -336,10 +341,10 @@ def generated_layout(rng):
             jx, jz = gx + rng.uniform(-0.6, 0.6), gz + rng.uniform(-0.6, 0.6)
             d = outside(jx, jz)
             if 1.2 < d and (d < 6.0 or rng.random() < 0.2):
-                kind = "pine" if rng.random() < 0.7 else "round_lite"
+                kind = "pine_lite" if rng.random() < 0.7 else "round_lite"
                 ring.append((kind, jx, jz, rng.uniform(0, 360), rng.uniform(0.95, 1.45)))
-            gz += 2.0
-        gx += 2.0
+            gz += FOREST_STEP
+        gx += FOREST_STEP
     return tall, small, ring
 
 
@@ -424,6 +429,7 @@ def build_level(lv: dict) -> list:
 
 def build() -> list:
     import bpy
+    tg.MAX_BEVEL_SEG = 1  # slot rings: one bevel segment per stone
     levels = json.loads(LEVELS_FILE.read_text(encoding="utf-8"))["levels"]
     only = os.environ.get("TG_LEVELS")
     if only:

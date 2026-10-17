@@ -8,6 +8,8 @@ extends SceneTree
 const BATTLE_SECONDS := 40.0
 const SAMPLE_FRAMES := 20
 
+var _last_prims := 0.0
+
 
 func _initialize() -> void:
 	LevelCatalog.save_path = "user://measure.cfg"
@@ -27,9 +29,14 @@ func _calls() -> int:
 
 func _mean(frames: int) -> float:
 	var sum := 0.0
+	var prims := 0.0
 	for i in frames:
 		await process_frame
 		sum += _calls()
+		prims += RenderingServer.get_rendering_info(
+			RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME
+		)
+	_last_prims = prims / frames
 	return sum / frames
 
 
@@ -111,11 +118,17 @@ func _run() -> void:
 	# Cost of each part: hide it, count, show it again.
 	Engine.time_scale = 0.0001
 	var base: float = await _mean(SAMPLE_FRAMES)
+	var base_prims := _last_prims
 	var sun: DirectionalLight3D = main.get_node("Sun")
 	sun.shadow_enabled = false
 	var m0: float = await _mean(4)
 	sun.shadow_enabled = true
-	print("  part Sun shadows: %.0f of %.0f" % [base - m0, base])
+	print(
+		(
+			"  part Sun shadows: %.0f of %.0f calls, %.1fk of %.1fk tris"
+			% [base - m0, base, (base_prims - _last_prims) / 1000.0, base_prims / 1000.0]
+		)
+	)
 	var kids: Array[Node] = main.get_node("Level").get_children()
 	kids.append_array(main.get_children())
 	kids.append_array(main.get_node("HUD/Root").get_children())
@@ -130,11 +143,17 @@ func _run() -> void:
 		child.visible = false
 		var m: float = await _mean(4)
 		child.visible = was
-		if base - m >= 1.0:
+		if base - m >= 1.0 or base_prims - _last_prims >= 500.0:
 			print(
 				(
-					"  part %s: %.0f of %.0f"
-					% [child.get_path() if child is Control else child.name, base - m, base]
+					"  part %s: %.0f of %.0f calls, %.1fk of %.1fk tris"
+					% [
+						child.get_path() if child is Control else child.name,
+						base - m,
+						base,
+						(base_prims - _last_prims) / 1000.0,
+						base_prims / 1000.0
+					]
 				)
 			)
 	quit()
