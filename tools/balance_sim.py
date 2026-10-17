@@ -461,8 +461,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                 tw["cd"] = 0.15
                 continue
             prio = 3 if tw["kind"] == "hero" else int(d.get("default_priority", 0))
-            if skilled and any(en["max"] >= BIG_HP for en in in_range):
-                prio = 2 if tw["kind"] not in ("frost",) else prio
+            if skilled and tw["kind"] == "hero" and any(en["max"] >= BIG_HP for en in in_range):
+                prio = 2  # the skilled hero swings at the toughest one in reach
             goal = lambda en: en["route"].length - en["d"]
             key = {0: goal, 1: lambda en: -goal(en), 2: lambda en: -en["hp"],
                    3: lambda en: math.dist(en["pos"], (tw["x"], tw["z"]))}[prio]
@@ -510,7 +510,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                     hero["whirl"] = 0.2
         for en in [en for en in enemies if en["hp"] <= 0]:
             e = ENEMIES[en["kind"]]
-            gold += int(e["reward"] * en["rmult"] * reward_mult)
+            gold += rnd(rnd(e["reward"] * en["rmult"]) * reward_mult)  # roundi() twice, as in wave_manager.gd
             enemies.remove(en)
             if e.get("split_count"):
                 for k in range(int(e["split_count"])):
