@@ -49,6 +49,7 @@ const MAX_ATTEMPTS := 3
 const BACKOFF_SECONDS := 0.8
 const DEAD_SESSION_ERRORS: Array[String] = AuthErrors.DEAD_SESSION_ERRORS
 const LINK_ERRORS := AuthErrors.LINK_ERRORS
+const SIGN_UP_ERRORS := AuthErrors.SIGN_UP_ERRORS
 const SIGN_IN_ERRORS := AuthErrors.SIGN_IN_ERRORS
 const VERIFY_ERRORS := AuthErrors.VERIFY_ERRORS
 const RESET_ERRORS := AuthErrors.RESET_ERRORS
@@ -174,13 +175,13 @@ func link_email(email_arg: String, password: String) -> Dictionary:
 		return {"ok": false, "error": "already_linked"}
 	var auth: Dictionary = await ensure_token(false)
 	if not auth["ok"]:
-		return {"ok": false, "error": auth["error"]}
+		return {"ok": false, "error": auth["error"], "detail": str(auth.get("detail", ""))}
 	var body := {
 		"idToken": _id_token, "email": email_arg, "password": password, "returnSecureToken": true
 	}
 	var reply: Dictionary = await _post_json(UPDATE_URL % api_key, body, false)
 	if not reply["ok"]:
-		return {"ok": false, "error": _link_error(reply)}
+		return AuthErrors.failure(reply, LINK_ERRORS, "link")
 	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
 	account_type = TYPE_EMAIL
 	email = email_arg
@@ -205,7 +206,9 @@ func sign_in_email(email_arg: String, password: String) -> Dictionary:
 	var body := {"email": email_arg, "password": password, "returnSecureToken": true}
 	var reply: Dictionary = await _post_json(SIGN_IN_URL % api_key, body, false)
 	if not reply["ok"]:
-		return {"ok": false, "error": _error_key(reply, SIGN_IN_ERRORS), "switched": false}
+		var failed: Dictionary = AuthErrors.failure(reply, SIGN_IN_ERRORS, "signin")
+		failed["switched"] = false
+		return failed
 	var json: Dictionary = reply["json"] if reply["json"] is Dictionary else {}
 	var new_uid: String = str(json.get("localId", ""))
 	if new_uid == "" or str(json.get("idToken", "")) == "":
@@ -239,7 +242,7 @@ func sign_up_email(email_arg: String, password: String) -> Dictionary:
 	var body := {"email": email_arg, "password": password, "returnSecureToken": true}
 	var reply: Dictionary = await _post_json(SIGN_UP_URL % api_key, body, false)
 	if not reply["ok"]:
-		return {"ok": false, "error": _link_error(reply)}
+		return AuthErrors.failure(reply, SIGN_UP_ERRORS, "signup")
 	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
 	if uid == "" or _id_token == "":
 		return {"ok": false, "error": "server"}
@@ -257,12 +260,12 @@ func sign_up_email(email_arg: String, password: String) -> Dictionary:
 func send_verification() -> Dictionary:
 	var auth: Dictionary = await ensure_token(false)
 	if not auth["ok"]:
-		return {"ok": false, "error": auth["error"]}
+		return {"ok": false, "error": auth["error"], "detail": str(auth.get("detail", ""))}
 	var body := {"requestType": "VERIFY_EMAIL", "idToken": _id_token}
 	var reply: Dictionary = await _post_json(OOB_URL % api_key, body, false)
 	if reply["ok"]:
 		return {"ok": true, "error": ""}
-	return {"ok": false, "error": _error_key(reply, VERIFY_ERRORS)}
+	return AuthErrors.failure(reply, VERIFY_ERRORS, "verify")
 
 
 ## Reads the account data (accounts:lookup) and updates email_verified / email.
@@ -273,7 +276,9 @@ func refresh_account_info() -> Dictionary:
 		return {"ok": false, "error": auth["error"], "verified": email_verified}
 	var reply: Dictionary = await _post_json(LOOKUP_URL % api_key, {"idToken": _id_token}, false)
 	if not reply["ok"]:
-		return {"ok": false, "error": _error_key(reply, VERIFY_ERRORS), "verified": email_verified}
+		var failed: Dictionary = AuthErrors.failure(reply, VERIFY_ERRORS, "lookup")
+		failed["verified"] = email_verified
+		return failed
 	var json: Variant = reply["json"]
 	var users: Variant = (json as Dictionary).get("users", []) if json is Dictionary else []
 	if not users is Array or (users as Array).is_empty() or not users[0] is Dictionary:
@@ -302,7 +307,7 @@ func send_password_reset(email_arg: String) -> Dictionary:
 		return {"ok": true, "error": ""}
 	if not HttpTransport.is_transient(reply) and error_message(reply["json"]) == "EMAIL_NOT_FOUND":
 		return {"ok": true, "error": ""}
-	return {"ok": false, "error": _error_key(reply, RESET_ERRORS)}
+	return AuthErrors.failure(reply, RESET_ERRORS, "reset")
 
 
 ## Deletes the Firebase Auth user of this device (accounts:delete with the
@@ -382,13 +387,18 @@ func _refresh() -> Dictionary:
 			"ok": _id_token != "", "error": "" if _id_token != "" else "server", "created": false
 		}
 	if HttpTransport.is_transient(reply):
-		return {"ok": false, "error": "offline" if reply["network"] else "server", "created": false}
+		return {
+			"ok": false,
+			"error": "offline" if reply["network"] else "server",
+			"created": false,
+			"detail": AuthErrors.detail(reply)
+		}
 	var message: String = error_message(reply["json"])
 	if message == "USER_DISABLED":
 		return {"ok": false, "error": "disabled", "created": false}
 	if DEAD_SESSION_ERRORS.has(message) or message == "invalid_grant":
 		return {"ok": false, "error": "dead", "created": false}
-	return {"ok": false, "error": "server", "created": false}
+	return {"ok": false, "error": "server", "created": false, "detail": AuthErrors.detail(reply)}
 
 
 func _sign_up() -> Dictionary:
@@ -397,7 +407,13 @@ func _sign_up() -> Dictionary:
 	)
 	if not reply["ok"]:
 		var network: bool = reply["network"]
-		return {"ok": false, "error": "offline" if network else "server", "created": false}
+		CrashTrace.note_auth_error("guest", AuthErrors.detail(reply))
+		return {
+			"ok": false,
+			"error": "offline" if network else "server",
+			"created": false,
+			"detail": AuthErrors.detail(reply)
+		}
 	_take_tokens(reply["json"], "idToken", "refreshToken", "localId", "expiresIn")
 	account_type = TYPE_GUEST
 	_persist()
@@ -431,14 +447,6 @@ func _persist() -> void:
 			}
 		)
 	)
-
-
-func _link_error(reply: Dictionary) -> String:
-	return _error_key(reply, LINK_ERRORS)
-
-
-static func _error_key(reply: Dictionary, table: Dictionary) -> String:
-	return AuthErrors.key(reply, table)
 
 
 func _post_json(url: String, body: Dictionary, retry: bool) -> Dictionary:

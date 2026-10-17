@@ -64,6 +64,8 @@ class FakeFirebase:
 	var min_password: int = 6
 	## URL fragment -> Firebase error message to answer with instead of working.
 	var forced: Dictionary = {}
+	## URL fragment -> a whole reply [code, json] (code 0 = timeout), see the make_* helpers.
+	var forced_raw: Dictionary = {}
 	## Bodies of the email requests: {"url", "body"} (accounts:update, signInWithPassword, ...).
 	var email_requests: Array[Dictionary] = []
 	## Password reset mails that were "sent".
@@ -93,10 +95,48 @@ class FakeFirebase:
 				email_requests.append({"url": url, "body": data})
 		if "signUp" in url and data.has("email"):
 			email_requests.append({"url": url, "body": data})
+		for fragment: String in forced_raw:
+			if fragment in url:
+				return forced_raw[fragment]
 		for fragment: String in forced:
 			if fragment in url:
 				return [400, {"error": {"code": 400, "message": forced[fragment]}}]
 		return route(url, body, data)
+
+	## Failure modes of the Identity Toolkit as the real server answers them.
+	static func err_operation_not_allowed() -> Array:
+		return [400, {"error": {"code": 400, "message": "OPERATION_NOT_ALLOWED"}}]
+
+	static func err_admin_only() -> Array:
+		return [400, {"error": {"code": 400, "message": "ADMIN_ONLY_OPERATION"}}]
+
+	## 403 PERMISSION_DENIED with reason API_KEY_SERVICE_BLOCKED (key restricted).
+	static func err_key_blocked() -> Array:
+		return [
+			403,
+			{
+				"error":
+				{
+					"code": 403,
+					"message": "Requests to this API identitytoolkit method are blocked.",
+					"status": "PERMISSION_DENIED",
+					"details":
+					[
+						{
+							"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+							"reason": "API_KEY_SERVICE_BLOCKED",
+							"domain": "googleapis.com"
+						}
+					]
+				}
+			}
+		]
+
+	static func err_no_body() -> Array:
+		return [400, null]
+
+	static func err_timeout() -> Array:
+		return [0, null]
 
 	func route(url: String, body: String, data: Dictionary) -> Array:
 		if "signUp" in url:

@@ -47,8 +47,8 @@ Firebase из GDScript (`scripts/online.gd`, autoload `Online`), без нати
    сброса пароля: **Authentication → Templates → Password reset**; язык и текст письма
    подтверждения почты (отправляется после регистрации, игра им не блокируется):
    **Authentication → Templates → Email address verification**.
-   Без включённого Email/Password кнопки привязки и входа отвечают «Вход по почте сейчас
-   недоступен» (`OPERATION_NOT_ALLOWED`), остальное работает.
+   Без включённого Email/Password кнопки привязки и входа отвечают «…выключено в проекте»
+   (`OPERATION_NOT_ALLOWED`), остальное работает. Полный чек-лист входа по почте: ниже.
 3. **Build → Firestore Database → Create database** → режим **Native**, регион
    (например `eur3`/`europe-west1`; регион потом не изменить) → **Production mode**.
 4. Установить CLI и войти (у вас — на своём компьютере):
@@ -196,3 +196,24 @@ npm test        # поднимает эмулятор Firestore (порт 8189) 
 5. Тесты правил на эмуляторе (Java 21): `cd firebase/rules-tests && npm install && npm test`
    (запускает эмуляторы Firestore и Database; `firebase.json`: `singleProjectMode: false`
    нужен, иначе эмулятор RTDB не принимает пространство имён тестов).
+
+
+## Чек-лист консоли: вход по почте
+
+Если тестер пишет «не могу зайти по почте», пусть пришлёт строку «Код: …» из диалога (кнопка
+«Сообщить в поддержку» копирует её), по ней смотрим таблицу в `docs/ACCOUNTS.md`. Проверить:
+
+1. **Authentication → Sign-in method → Email/Password** включён (Anonymous тоже). Заведомо
+   неверный вход должен отвечать `INVALID_LOGIN_CREDENTIALS`, а не `OPERATION_NOT_ALLOWED`.
+2. **Authentication → Settings → User actions → Enable create (sign-up)** включён, иначе
+   регистрация и привязка отвечают `ADMIN_ONLY_OPERATION`.
+3. **Authorized domains** для REST не нужны (только для OAuth в браузере).
+4. **Google Cloud → APIs & Services → Credentials → API key** (тот, что в `firebase.cfg`):
+   *Application restrictions*: **None**. Ограничение «Android apps» блокирует запросы Godot, он не
+   отправляет заголовки с package и SHA-1 (`API_KEY_ANDROID_APP_BLOCKED`); «HTTP referrers»
+   тоже. *API restrictions*: либо без ограничений, либо в списке есть **Identity Toolkit API**
+   и **Token Service API** (иначе `PERMISSION_DENIED / API_KEY_SERVICE_BLOCKED`), а также Cloud
+   Firestore API и Firebase Realtime Database для остального.
+5. **Квоты**: Identity Toolkit API → Quotas; на Spark письма (подтверждение, сброс) ограничены
+   суточным лимитом, превышение даёт `TOO_MANY_ATTEMPTS_TRY_LATER`.
+6. После смены настроек подождать пару минут: ограничения ключа применяются не сразу.

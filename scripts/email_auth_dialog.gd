@@ -43,6 +43,12 @@ var _password_row: Control
 var _password: LineEdit
 var _reveal: Button
 var _status: Label
+var _detail: Label
+var _report: Button
+var _alt: Button
+## Server code of the last failure ("HTTP 400 OPERATION_NOT_ALLOWED"), "" when there is none.
+var _last_detail: String = ""
+var _alt_mode: int = -1
 var _forgot: Button
 var _cancel: Button
 var _action: Button
@@ -85,6 +91,7 @@ func open(mode: Mode, email: String = "") -> void:
 	_action.text = tr(ACTIONS[mode])
 	_set_busy(false)
 	_set_status("", SOFT_COLOR)
+	_show_failure("", -1)
 	show()
 	if not OS.has_feature("mobile"):
 		_email.grab_focus.call_deferred()
@@ -97,6 +104,8 @@ func close() -> void:
 	_email.text = ""
 	_password.text = ""
 	_nick.text = ""
+	_password.secret = true  # the next time the password is hidden again
+	_show_failure("", -1)
 	hide()
 	closed.emit()
 
@@ -107,6 +116,51 @@ func mode() -> Mode:
 
 func status_text() -> String:
 	return _status.text
+
+
+## The small grey line under the message ("Code: HTTP 400 ..."), "" when there is none.
+func detail_text() -> String:
+	return _detail.text
+
+
+func report_visible() -> bool:
+	return _report.visible
+
+
+## Mode the extra button leads to (Mode value), -1 while it is hidden.
+func alt_mode() -> int:
+	return _alt_mode if _alt.visible else -1
+
+
+func password_hidden() -> bool:
+	return _password.secret
+
+
+## What "Report to support" copies: version, the action, the server code and the player ID.
+## No address, password or token.
+func report_text() -> String:
+	var player: String = Online.uid()
+	return (
+		"Bimbleguard %s | %s | %s | id %s"
+		% [
+			str(ProjectSettings.get_setting("application/config/version", "?")),
+			KINDS[_mode],
+			_last_detail if _last_detail != "" else "-",
+			player if player != "" else "-"
+		]
+	)
+
+
+## Copies the report to the clipboard.
+func send_report() -> void:
+	DisplayServer.clipboard_set(report_text())
+	_set_status(tr("EMAIL_REPORT_COPIED"), OK_COLOR)
+
+
+## The extra button of an error: sign in with the typed address instead.
+func take_alt() -> void:
+	if _alt_mode >= 0 and not _busy:
+		open(_alt_mode as Mode, _email.text)
 
 
 ## Fills the fields (tests, screenshots).
@@ -142,13 +196,33 @@ func submit() -> void:
 		elif offer_guest and str(result["error"]) == "offline":
 			text += "\n" + tr("EMAIL_OFFLINE_HINT")
 		_set_status(text, ERROR_COLOR)
+		var error: String = str(result["error"])
+		var next_mode: int = -1
+		var alt_key: String = "EMAIL_ALT_SIGNIN"
+		if error == "credential_in_use" and _mode != Mode.SIGN_IN:
+			next_mode = Mode.SIGN_IN
+		elif error == "reauth_required" and _mode != Mode.SIGN_IN:
+			next_mode = Mode.SIGN_IN
+			alt_key = "EMAIL_ALT_REAUTH"
+		_show_failure(str(result.get("detail", "")), next_mode, alt_key)
 		return
+	_show_failure("", -1)
 	_email.text = ""
 	_password.text = ""
 	_nick.text = ""
 	hide()
 	succeeded.emit(KINDS[_mode], result)
 	closed.emit()
+
+
+func _show_failure(detail: String, alt_mode: int, alt_key: String = "EMAIL_ALT_SIGNIN") -> void:
+	_last_detail = detail
+	_detail.text = tr("EMAIL_CODE") % detail if detail != "" else ""
+	_detail.visible = detail != ""
+	_report.visible = detail != ""
+	_alt_mode = alt_mode
+	_alt.visible = alt_mode >= 0
+	_alt.text = tr(alt_key)
 
 
 func _build() -> void:
@@ -209,6 +283,18 @@ func _build() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.custom_minimum_size = Vector2(700, 48)
 	box.add_child(_status)
+	var detail_row := HBoxContainer.new()
+	detail_row.add_theme_constant_override("separation", 12)
+	box.add_child(detail_row)
+	_detail = _label("", 15, Color(0.6, 0.64, 0.72))
+	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+	_detail.visible = false
+	detail_row.add_child(_detail)
+	_report = _button(tr("EMAIL_REPORT"), send_report, true, 260)
+	_report.custom_minimum_size.y = 56.0
+	_report.visible = false
+	detail_row.add_child(_report)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 12)
@@ -217,6 +303,9 @@ func _build() -> void:
 	_forgot = _button(tr("EMAIL_FORGOT"), _on_forgot_pressed, true, 240)
 	_forgot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	buttons.add_child(_forgot)
+	_alt = _button("", take_alt, true, 300)
+	_alt.visible = false
+	buttons.add_child(_alt)
 	_cancel = _button(tr("COMMON_CANCEL"), close, true, 190)
 	buttons.add_child(_cancel)
 	_action = _button("", submit, false, 280)
@@ -246,7 +335,7 @@ func _set_busy(on: bool) -> void:
 	_email.editable = not on
 	_password.editable = not on
 	_nick.editable = not on
-	for button: Button in [_reveal, _forgot, _cancel, _action]:
+	for button: Button in [_reveal, _forgot, _cancel, _action, _alt, _report]:
 		button.disabled = on
 
 

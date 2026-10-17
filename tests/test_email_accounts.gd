@@ -126,7 +126,8 @@ func _test_email_auth_service() -> void:
 		"INVALID_EMAIL": "invalid_email",
 		"CREDENTIAL_TOO_OLD_LOGIN_AGAIN": "reauth_required",
 		"TOO_MANY_ATTEMPTS_TRY_LATER : blocked": "too_many_attempts",
-		"OPERATION_NOT_ALLOWED": "not_available",
+		"OPERATION_NOT_ALLOWED": "link_disabled",
+		"ADMIN_ONLY_OPERATION": "signup_closed",
 		"SOMETHING_NEW": "server",
 	}
 	var wrong: Array[String] = []
@@ -155,7 +156,7 @@ func _test_email_auth_service() -> void:
 		"USER_DISABLED": "disabled",
 		"TOO_MANY_ATTEMPTS_TRY_LATER : Access temporarily disabled": "too_many_attempts",
 		"INVALID_EMAIL": "invalid_email",
-		"OPERATION_NOT_ALLOWED": "not_available",
+		"OPERATION_NOT_ALLOWED": "signin_disabled",
 	}
 	wrong.clear()
 	for message: String in sign_cases:

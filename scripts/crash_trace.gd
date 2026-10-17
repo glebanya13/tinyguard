@@ -11,6 +11,8 @@ extends RefCounted
 const PATH := "user://last_session.json"
 ## Seconds between two notes in a battle.
 const INTERVAL := 5.0
+## Last failed account request (what a tester sends to support): operation and server code.
+const AUTH_PATH := "user://last_auth_error.json"
 ## States that mean "the run did not end in an orderly way".
 const ABNORMAL: Array[String] = ["battle", "background"]
 
@@ -58,3 +60,28 @@ static func write(state: String, details: Dictionary = {}) -> void:
 	var file := FileAccess.open(PATH, FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(note))
+
+
+## Remembers the last failed account request: `op` ("link", "signup", ...) and the `detail`
+## text of AuthErrors.detail (no address, password or token in it). One tiny file.
+static func note_auth_error(op: String, detail: String) -> void:
+	var note := {"op": op, "detail": detail, "time": Time.get_unix_time_from_system()}
+	var file := FileAccess.open(AUTH_PATH, FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(note))
+
+
+## "last auth error: link HTTP 400 OPERATION_NOT_ALLOWED (3 min ago)" or "" when none.
+static func last_auth_text() -> String:
+	if not FileAccess.file_exists(AUTH_PATH):
+		return ""
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(AUTH_PATH))
+	if not parsed is Dictionary:
+		return ""
+	var note: Dictionary = parsed
+	var ago: int = maxi(
+		int((Time.get_unix_time_from_system() - float(note.get("time", 0))) / 60.0), 0
+	)
+	return (
+		"last auth error: %s %s (%d min ago)" % [note.get("op", "?"), note.get("detail", "?"), ago]
+	)

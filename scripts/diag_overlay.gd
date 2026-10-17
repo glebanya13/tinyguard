@@ -124,6 +124,9 @@ func text() -> String:
 				% [_guard.level, QualityGuard.MAX_LEVEL, tier, found]
 			)
 		)
+	var auth_note: String = CrashTrace.last_auth_text()
+	if auth_note != "":
+		lines.append(auth_note)
 	lines.append(device_line())
 	return "\n".join(lines)
 
