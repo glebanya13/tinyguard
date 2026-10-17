@@ -33,8 +33,7 @@ var offer_guest: bool = false
 
 var _mode: Mode = Mode.LINK
 var _busy: bool = false
-var _safe: MarginContainer
-var _scroll: ScrollContainer
+var _frame: DialogFrame
 var _nick: LineEdit
 var _title: Label
 var _note: Label
@@ -65,13 +64,14 @@ func _process(_delta: float) -> void:
 		return
 	# Landscape keyboards cover half the screen: lift the dialog above it.
 	var keyboard: float = ScreenUtil.keyboard_height(get_viewport())
-	var margins: Vector4 = ScreenUtil.safe_margins(get_viewport())
-	_safe.add_theme_constant_override("margin_bottom", int(maxf(margins.w, keyboard)))
+	if not is_equal_approx(_frame.bottom_extra, keyboard):
+		_frame.bottom_extra = keyboard
+		_frame.refit()
 	_note.visible = keyboard <= 0.0
-	if keyboard > 0.0 and _scroll != null:
+	if keyboard > 0.0:
 		var focused: Control = get_viewport().gui_get_focus_owner()
 		if focused != null and is_ancestor_of(focused):
-			_scroll.ensure_control_visible(focused)
+			_frame.scroll.ensure_control_visible(focused)
 
 
 ## Opens the dialog in `mode`; `email` pre-fills the address (e.g. for the reset).
@@ -226,27 +226,9 @@ func _show_failure(detail: String, alt_mode: int, alt_key: String = "EMAIL_ALT_S
 
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.9)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-	_safe = MarginContainer.new()
-	_safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_safe)
-	# Scrolls when the on-screen keyboard leaves less room than the form needs.
-	_scroll = ScrollContainer.new()
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_safe.add_child(_scroll)
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_scroll.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(760, 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	_frame = DialogFrame.attach(self, 760.0, 0.9)
+	var box := _frame.body
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
 
 	_title = _label("", 32, GOLD)
 	box.add_child(_title)

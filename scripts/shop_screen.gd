@@ -164,7 +164,6 @@ func _build() -> void:
 	_message.custom_minimum_size = Vector2(0, 28)
 	column.add_child(_message)
 	_confirm = _build_confirm()
-	add_child(_confirm)
 
 
 func _build_header() -> Control:
@@ -263,23 +262,11 @@ func _build_side() -> Control:
 
 
 func _build_confirm() -> Control:
-	var overlay := Control.new()
+	var overlay := DialogFrame.attach(self, 620.0, 0.7)
 	overlay.name = "Confirm"
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.hide()
-	var shade := ColorRect.new()
-	shade.color = Color(0.04, 0.06, 0.14, 0.7)
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(shade)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(620, 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	var box := overlay.body
 	box.add_theme_constant_override("separation", 14)
-	panel.add_child(box)
 	_confirm_text = _label("", 30, Color.WHITE)
 	_confirm_text.name = "ConfirmText"
 	_confirm_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

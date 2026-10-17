@@ -45,7 +45,11 @@ func _run() -> void:
 	check(main.get_node("HUD/Root/Banner").visible, "first-wave banner shown")
 	# Forge: from the pause menu (resumes the game) and with K.
 	await tap_key(KEY_P)
-	(main.get_node("HUD/Root/EndScreen/EndPanel/Content/ForgeButton") as Button).pressed.emit()
+	(
+		(main.get_node("HUD/Root/EndScreen").find_child("ForgeButton", true, false) as Button)
+		. pressed
+		. emit()
+	)
 	await process_frame
 	check(not paused and main.cards.forge_open, "forge opened from the pause menu")
 	check(main.get_node("HUD/Root/CommandCard").visible, "forge card shown")
@@ -71,7 +75,15 @@ func _run() -> void:
 	check(
 		(
 			paused
-			and main.get_node("HUD/Root/EndScreen/EndPanel/Content/Stars").get_child_count() == 3
+			and (
+				(
+					main
+					. get_node("HUD/Root/EndScreen")
+					. find_child("Stars", true, false)
+					. get_child_count()
+				)
+				== 3
+			)
 		),
 		"victory with stars"
 	)

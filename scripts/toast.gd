@@ -41,7 +41,8 @@ static func show_on(parent: Control, title: String, text: String) -> Toast:
 	var slot: int = parent.get_tree().get_nodes_in_group(GROUP).size()
 	toast.add_to_group(GROUP)
 	parent.add_child(toast)
-	toast.position = Vector2(parent.size.x / 2.0 - WIDTH / 2.0, TOP + slot * STEP - 40.0)
+	var center_x: float = parent.size.x / 2.0 + ScreenUtil.screen_center_shift(parent)
+	toast.position = Vector2(center_x - WIDTH / 2.0, TOP + slot * STEP - 40.0)
 	toast.modulate.a = 0.0
 	var tween: Tween = toast.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_property(toast, "modulate:a", 1.0, 0.25)

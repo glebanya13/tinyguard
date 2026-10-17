@@ -47,10 +47,7 @@ var _sites: Array[Node3D] = []
 ## Level id of each site button (same order as _site_buttons).
 var _site_ids: Array[int] = []
 var _selected: int = 0
-var _records: Control = null
-var _records_list: VBoxContainer = null
-var _records_title: Label = null
-var _records_status: Label = null
+var _records: RecordsPanel = null
 var _account: AccountPanel = null
 var _settings: SettingsPanel = null
 var _sync_button: Button = null
@@ -84,8 +81,8 @@ var _crown_icon: TextureRect = null
 @onready var _play_button: Button = $UI/Root/Info/Content/PlayButton
 @onready var _endless_button: Button = $UI/Root/Info/Content/EndlessButton
 @onready var _treasury: Control = $UI/Root/Treasury
-@onready var _free_label: Label = $UI/Root/Treasury/Panel/Content/Header/FreePill/Row/Label
-@onready var _cards: GridContainer = $UI/Root/Treasury/Panel/Content/Cards
+@onready var _free_label: Label = $UI/Root/Treasury/Content/Header/FreePill/Row/Label
+@onready var _cards: GridContainer = $UI/Root/Treasury/Content/Cards
 @onready var _ui_root: Control = $UI/Root
 
 
@@ -97,6 +94,7 @@ func _ready() -> void:
 	LevelCatalog.tutorial = false
 	LevelCatalog.daily_key = ""
 	SafeArea.attach(_ui_root)
+	_frame_treasury()
 	_build_sites()
 	_build_account_ui()
 	_build_card()
@@ -104,12 +102,10 @@ func _ready() -> void:
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
 	_sound_button.pressed.connect(_on_sound_pressed)
-	$UI/Root/Treasury/Panel/Content/Footer/CloseButton.pressed.connect(_treasury.hide)
-	$UI/Root/Treasury/Panel/Content/Footer/ResetButton.pressed.connect(_on_reset_pressed)
+	_treasury.find_child("CloseButton", true, false).pressed.connect(_treasury.hide)
+	_treasury.find_child("ResetButton", true, false).pressed.connect(_on_reset_pressed)
 	_update_sound_icon()
 	_refresh_stars()
-	Online.leaderboard_loaded.connect(_on_leaderboard_loaded)
-	Online.status_changed.connect(_on_online_status)
 	Online.cloud_loaded.connect(_on_cloud_loaded)
 	_select(clampi(LevelCatalog.selected_id, 1, LevelCatalog.unlocked()))
 	_ui_root.resized.connect(_fit_camera)
@@ -117,6 +113,15 @@ func _ready() -> void:
 	if LevelCatalog.open_records and Online.is_configured():
 		_open_records()  # back from the end screen of a Record Run
 	LevelCatalog.open_records = false
+
+
+## The treasury card is made in the scene; its content moves into the common dialog frame
+## (dim over the whole screen, panel centred on the screen).
+func _frame_treasury() -> void:
+	var frame := DialogFrame.attach(_treasury, 1040.0, 0.6)
+	var content: Control = _treasury.get_node("Content")
+	content.reparent(frame.body, false)
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 
 func _process(_delta: float) -> void:
@@ -137,7 +142,7 @@ func _notification(what: int) -> void:
 		elif _treasury.visible:
 			_treasury.hide()
 		elif _records and _records.visible:
-			_records.hide()
+			_records.close()
 		elif _settings.visible:
 			_settings.close()
 		elif _account.visible:
@@ -468,83 +473,10 @@ func _on_reset_pressed() -> void:
 
 func _open_records() -> void:
 	if _records == null:
-		_build_records_panel()
-	_records_title.text = (
-		tr("MAP_RECORDS_TITLE") % tr(str(LevelCatalog.get_level(_selected)["name"]))
-	)
-	_records_status.text = tr("MAP_LOADING")
-	for child in _records_list.get_children():
-		child.queue_free()
-	_records.show()
-	Online.fetch_leaderboard(_selected)
-
-
-## Online panel (only when Firebase is configured): nickname, top 10 of the
-## selected level's endless siege, cloud save / load.
-func _build_records_panel() -> void:
-	_records = Control.new()
-	_records.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_ui_root.add_child(_records)
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.6)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_records.add_child(dim)
-	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(640, 560)
-	panel.position = Vector2(-320, -280)
-	_records.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
-	_records_title = UiKit.ribbon("")
-	box.add_child(_records_title)
-	var name_label := Label.new()
-	name_label.text = tr("MAP_YOUR_NAME") % Online.player_name()
-	box.add_child(name_label)
-	_records_list = VBoxContainer.new()
-	_records_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(_records_list)
-	_records_status = Label.new()
-	_records_status.theme_type_variation = &"CaptionLabel"
-	box.add_child(_records_status)
-	var buttons := HBoxContainer.new()
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 10)
-	box.add_child(buttons)
-	for spec: Array in [
-		[tr("MAP_TO_CLOUD"), Online.cloud_save, true],
-		[tr("MAP_FROM_CLOUD"), Online.cloud_load, true],
-		[tr("MAP_CLOSE"), _records.hide, false]
-	]:
-		var button := Button.new()
-		button.text = spec[0]
-		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(180, 84)
-		if spec[2]:
-			button.theme_type_variation = &"SecondaryButton"
-		button.pressed.connect(spec[1])
-		buttons.add_child(button)
-
-
-func _on_leaderboard_loaded(level_id: int, entries: Array) -> void:
-	if _records == null or level_id != _selected:
-		return
-	for child in _records_list.get_children():
-		child.queue_free()
-	_records_status.text = ("" if not entries.is_empty() else tr("MAP_NO_RECORDS"))
-	for i in entries.size():
-		var row := Label.new()
-		row.text = tr("MAP_RECORD_ROW") % [i + 1, entries[i]["name"], entries[i]["wave"]]
-		row.add_theme_font_size_override("font_size", 19)
-		if i == 0:
-			row.add_theme_color_override("font_color", GOLD)
-		_records_list.add_child(row)
-
-
-func _on_online_status(text: String) -> void:
-	if _records_status:
-		_records_status.text = text
+		_records = RecordsPanel.new()
+		_records.online = Online
+		_ui_root.add_child(_records)
+	_records.open(_selected, tr(str(LevelCatalog.get_level(_selected)["name"])))
 
 
 func _on_cloud_loaded(ok: bool) -> void:

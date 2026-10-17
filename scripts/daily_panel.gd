@@ -37,6 +37,8 @@ func open() -> void:
 	if _online_on():
 		if not online.daily_loaded.is_connected(_on_board):
 			online.daily_loaded.connect(_on_board)
+		if not online.daily_failed.is_connected(_on_board_failed):
+			online.daily_failed.connect(_on_board_failed)
 		online.fetch_daily(day)
 
 
@@ -51,19 +53,9 @@ func _build() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.7)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(720, 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	var frame := DialogFrame.attach(self, 720.0, 0.7)
+	var box := frame.body
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
 
 	var level: Dictionary = LevelCatalog.get_level(Daily.level_for(day))
 	var preset: Dictionary = Daily.preset_for(day)
@@ -135,6 +127,12 @@ func _on_board(board_day: String, entries: Array) -> void:
 		if i == 0:
 			row.add_theme_color_override("font_color", GOLD)
 		_board.add_child(row)
+
+
+func _on_board_failed(board_day: String, reason: String) -> void:
+	if _status == null or not is_instance_valid(_status) or board_day != day:
+		return
+	_status.text = tr(RecordsPanel.FAIL_KEYS.get(reason, "MAP_REC_FAILED"))
 
 
 func _label(text: String, size: int, color: Color = Color(1, 0.96, 0.87)) -> Label:

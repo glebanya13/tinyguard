@@ -13,6 +13,9 @@ const RECORD_SECTION := "record_queue"
 const RETRY_MAX := 300.0
 const MAX_RETRIES := 8
 
+## Seconds a table request may take in all before it is reported as failed.
+var fetch_timeout: float = 9.0
+
 var _ctx: OnlineContext
 var _retry_delay: float = 5.0
 var _retries: int = 0
@@ -181,14 +184,47 @@ func send_score(path_format: String, board: Variant, wave: int, owner_uid: Strin
 	return "refused"
 
 
+## Top of a level's table: leaderboard_loaded(level, entries) (an empty list = nobody yet) or
+## leaderboard_failed(level, reason), reason as in query_board(). Always answers, never hangs.
 func fetch_leaderboard(level_id: int) -> void:
+	var board: Dictionary = await query_board("leaderboards/level_%d" % level_id)
+	if board["state"] == "ok":
+		_ctx.leaderboard_loaded.emit(level_id, board["entries"])
+	else:
+		_ctx.leaderboard_failed.emit(level_id, board["state"])
+
+
+## Runs the top query of the collection `scores` under `parent` with a hard deadline
+## (fetch_timeout, the retries of the client included) and sorts the outcome:
+## {"state": "ok" | "disabled" (no Firebase) | "offline" (no reply) | "denied" (401/403)
+## | "error" (other HTTP error) | "timeout", "entries": [...]}.
+func query_board(parent: String) -> Dictionary:
 	if not _ctx.is_configured():
-		_ctx.leaderboard_loaded.emit(level_id, [])
-		return
-	var reply: Dictionary = await _ctx.firestore.run_query(
-		"leaderboards/level_%d" % level_id, top_query(), false
+		return {"state": "disabled", "entries": []}
+	var race := BoardRace.new()
+	if _ctx.host != null and _ctx.host.is_inside_tree():
+		var timer: SceneTreeTimer = _ctx.host.get_tree().create_timer(fetch_timeout)
+		timer.timeout.connect(race.finish.bind({"state": "timeout", "entries": []}))
+	_run_board(parent, race)
+	if race.result.is_empty():
+		await race.done
+	return race.result
+
+
+func _run_board(parent: String, race: BoardRace) -> void:
+	var reply: Dictionary = await _ctx.firestore.run_query(parent, top_query(), false)
+	var state := "ok"
+	if not bool(reply["ok"]):
+		var code: int = int(reply.get("code", 0))
+		if bool(reply.get("network", false)) or code == 0:
+			state = "offline"
+		elif code == 401 or code == 403:
+			state = "denied"
+		else:
+			state = "error"
+	race.finish(
+		{"state": state, "entries": parse_leaderboard(reply["json"]) if state == "ok" else []}
 	)
-	_ctx.leaderboard_loaded.emit(level_id, parse_leaderboard(reply["json"]) if reply["ok"] else [])
 
 
 ## Firestore structured query: the best LEADERBOARD_SIZE scores.
@@ -208,3 +244,15 @@ func _schedule_retry() -> void:
 	var delay: float = _retry_delay
 	_retry_delay = minf(_retry_delay * 2.0, RETRY_MAX)
 	_ctx.host.get_tree().create_timer(delay).timeout.connect(flush_records)
+
+
+## The first of "the reply came" and "the deadline passed" wins; the other is ignored.
+class BoardRace:
+	extends RefCounted
+	signal done
+	var result: Dictionary = {}
+
+	func finish(outcome: Dictionary) -> void:
+		if result.is_empty():
+			result = outcome
+			done.emit()

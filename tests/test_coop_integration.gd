@@ -527,7 +527,9 @@ func _test_silence() -> void:
 		seconds += 1.0 / 30.0
 	check(host.ends == ["lost"], "after 30 s the match ends: %s" % [host.ends])
 	check(bool(host.main.battle_end.ended), "battle screen shows the end")
-	var message: Label = host.main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
+	var message: Label = host.main.get_node("HUD/Root/EndScreen").find_child(
+		"MessageLabel", true, false
+	)
 	check(message.text == TranslationServer.translate("COOP_END_LOST"), "message: connection lost")
 	check(LevelCatalog.stars(_level) == 0, "nothing was saved for the cut match")
 	_free_sides(sides)
@@ -545,7 +547,9 @@ func _test_partner_leaves() -> void:
 		await process_frame
 	check(host.ends == ["partner_left"], "host heard the farewell: %s" % [host.ends])
 	check(bool(host.main.battle_end.ended), "host sees the end screen")
-	var message: Label = host.main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
+	var message: Label = host.main.get_node("HUD/Root/EndScreen").find_child(
+		"MessageLabel", true, false
+	)
 	check(message.text == TranslationServer.translate("COOP_END_LEFT"), "message: partner left")
 	var left: Variant = server_value(
 		host, "rooms/%s/net/guest" % host.main.get("coop_config")["code"]
@@ -577,7 +581,9 @@ func _test_desync() -> void:
 		"the match stopped at the first checkpoint (%d, %d)" % [host.sim.tick, guest.sim.tick]
 	)
 	for side: Peer in sides:
-		var message: Label = side.main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
+		var message: Label = side.main.get_node("HUD/Root/EndScreen").find_child(
+			"MessageLabel", true, false
+		)
 		check(
 			message.text == TranslationServer.translate("COOP_END_DESYNC"),
 			"message on slot %d" % side.slot

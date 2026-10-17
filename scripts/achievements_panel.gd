@@ -34,19 +34,10 @@ func _build() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.7)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(760, 600)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	var frame := DialogFrame.attach(self, 760.0, 0.7)
+	frame.min_height = 600.0
+	var box := frame.body
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
 	var header := HBoxContainer.new()
 	box.add_child(header)
 	var title := _label(

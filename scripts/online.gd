@@ -20,6 +20,10 @@ extends Node
 ## Never logged: tokens, emails, passwords, raw replies, profile contents.
 
 signal leaderboard_loaded(level_id: int, entries: Array)
+## The table of a level could not be loaded (reason: disabled, offline, denied, error, timeout).
+signal leaderboard_failed(level_id: int, reason: String)
+## Same for the table of a day.
+signal daily_failed(day: String, reason: String)
 signal status_changed(text: String)
 ## The board of a daily challenge day arrived (best first; empty when offline).
 signal daily_loaded(day: String, entries: Array)
@@ -119,6 +123,8 @@ func _init() -> void:
 	_ctx.coop = OnlineCoop.new(_ctx)
 	# Signals go up: the services emit on the context, the facade re-emits them.
 	_ctx.leaderboard_loaded.connect(leaderboard_loaded.emit)
+	_ctx.leaderboard_failed.connect(leaderboard_failed.emit)
+	_ctx.daily_failed.connect(daily_failed.emit)
 	_ctx.status_changed.connect(status_changed.emit)
 	_ctx.daily_loaded.connect(daily_loaded.emit)
 	_ctx.cloud_loaded.connect(cloud_loaded.emit)
