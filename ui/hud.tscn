@@ -91,16 +91,16 @@ theme = ExtResource("2_theme")
 [node name="TopBar" type="HBoxContainer" parent="Root"]
 layout_mode = 0
 offset_left = 16.0
-offset_top = 12.0
+offset_top = 16.0
 offset_right = 616.0
-offset_bottom = 52.0
+offset_bottom = 64.0
 mouse_filter = 2
 theme_override_constants/separation = 8
 
 [node name="WavePill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudChip"
+theme_type_variation = &"HudChipBlue"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/WavePill"]
 layout_mode = 2
@@ -108,7 +108,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/WavePill/Row"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_flag")
@@ -118,7 +118,7 @@ stretch_mode = 5
 [node name="WaveLabel" type="Label" parent="Root/TopBar/WavePill/Row"]
 custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"NumberLabel"
 text = "0/0"
 
 [node name="GoldPill" type="PanelContainer" parent="Root/TopBar"]
@@ -132,7 +132,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/GoldPill/Row"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_coin")
@@ -142,13 +142,13 @@ stretch_mode = 5
 [node name="GoldLabel" type="Label" parent="Root/TopBar/GoldPill/Row"]
 custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"NumberLabel"
 text = "0"
 
 [node name="WoodPill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudChip"
+theme_type_variation = &"HudChipWood"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/WoodPill"]
 layout_mode = 2
@@ -156,7 +156,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/WoodPill/Row"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_wood")
@@ -166,13 +166,13 @@ stretch_mode = 5
 [node name="WoodLabel" type="Label" parent="Root/TopBar/WoodPill/Row"]
 custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"NumberLabel"
 text = "0"
 
 [node name="LivesPill" type="PanelContainer" parent="Root/TopBar"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudChip"
+theme_type_variation = &"HudChipRed"
 
 [node name="Row" type="HBoxContainer" parent="Root/TopBar/LivesPill"]
 layout_mode = 2
@@ -180,7 +180,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/LivesPill/Row"]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_heart")
@@ -190,7 +190,7 @@ stretch_mode = 5
 [node name="LivesLabel" type="Label" parent="Root/TopBar/LivesPill/Row"]
 custom_minimum_size = Vector2(28, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"NumberLabel"
 text = "0"
 
 [node name="TopRight" type="HBoxContainer" parent="Root"]
@@ -198,10 +198,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -154.0
-offset_top = 8.0
+offset_left = -192.0
+offset_top = 16.0
 offset_right = -16.0
-offset_bottom = 64.0
+offset_bottom = 100.0
 grow_horizontal = 0
 mouse_filter = 2
 theme_override_constants/separation = 10
@@ -211,7 +211,7 @@ alignment = 2
 custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"SecondaryButton"
 
 [node name="Icon" type="TextureRect" parent="Root/TopRight/SpeedButton"]
 layout_mode = 1
@@ -242,7 +242,8 @@ offset_right = -2.0
 offset_bottom = 2.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_font_sizes/font_size = 18
+theme_type_variation = &"NumberLabel"
+theme_override_font_sizes/font_size = 16
 text = "×1"
 horizontal_alignment = 2
 
@@ -250,6 +251,7 @@ horizontal_alignment = 2
 custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 focus_mode = 0
+theme_type_variation = &"SecondaryButton"
 
 [node name="Icon" type="TextureRect" parent="Root/TopRight/PauseButton"]
 layout_mode = 1
@@ -272,8 +274,8 @@ visible = false
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 64.0
-offset_bottom = 96.0
+offset_top = 72.0
+offset_bottom = 120.0
 grow_horizontal = 2
 mouse_filter = 2
 alignment = 1
@@ -281,7 +283,7 @@ alignment = 1
 [node name="Pill" type="PanelContainer" parent="Root/Hint"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"HudChip"
+theme_type_variation = &"HudChipBlue"
 
 [node name="Row" type="HBoxContainer" parent="Root/Hint/Pill"]
 layout_mode = 2
@@ -307,8 +309,8 @@ visible = false
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 104.0
-offset_bottom = 200.0
+offset_top = 120.0
+offset_bottom = 232.0
 grow_horizontal = 2
 mouse_filter = 2
 theme_override_constants/separation = -2
@@ -330,16 +332,15 @@ stretch_mode = 5
 
 [node name="Title" type="Label" parent="Root/Banner/Row"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.86, 0.45, 1)
-theme_override_constants/outline_size = 10
-theme_override_font_sizes/font_size = 44
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 48
 text = "HUD_BANNER_PLACEHOLDER"
 
 [node name="Subtitle" type="Label" parent="Root/Banner"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.95, 0.82, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 24
+theme_type_variation = &"HeadingLabel"
+theme_override_colors/font_color = Color(1, 0.97, 0.88, 1)
+theme_override_font_sizes/font_size = 22
 text = ""
 horizontal_alignment = 1
 
@@ -365,7 +366,7 @@ offset_right = -176.0
 offset_bottom = -20.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_styles/panel = SubResource("card")
+theme_type_variation = &"CardPanel"
 
 [node name="Content" type="VBoxContainer" parent="Root/CommandCard"]
 layout_mode = 2
@@ -377,14 +378,13 @@ theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="Root/CommandCard/Content/Head"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"HeadingLabel"
 text = "HUD_KNIGHT"
 
 [node name="Stats" type="Label" parent="Root/CommandCard/Content/Head"]
 layout_mode = 2
 size_flags_vertical = 8
-theme_override_font_sizes/font_size = 16
+theme_type_variation = &"CaptionLabel"
 text = ""
 
 [node name="Hint" type="Label" parent="Root/CommandCard/Content"]
@@ -463,9 +463,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(1, 0.96, 0.87, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 30
+theme_type_variation = &"NumberLabel"
+theme_override_font_sizes/font_size = 32
 text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -510,22 +509,23 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -330.0
+offset_left = -296.0
 offset_top = -250.0
-offset_right = 330.0
+offset_right = 296.0
 offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Content" type="VBoxContainer" parent="Root/EndScreen/EndPanel"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 alignment = 1
 
 [node name="MessageLabel" type="Label" parent="Root/EndScreen/EndPanel/Content"]
 layout_mode = 2
-theme_override_constants/outline_size = 10
-theme_override_font_sizes/font_size = 56
+size_flags_horizontal = 4
+theme_type_variation = &"RibbonLabel"
+theme_override_font_sizes/font_size = 32
 text = "HUD_VICTORY"
 horizontal_alignment = 1
 
@@ -538,7 +538,8 @@ alignment = 1
 [node name="Stats" type="Label" parent="Root/EndScreen/EndPanel/Content"]
 custom_minimum_size = Vector2(600, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_type_variation = &"StatsLabel"
+theme_override_colors/font_color = Color(1, 0.97, 0.88, 1)
 text = ""
 horizontal_alignment = 1
 autowrap_mode = 3

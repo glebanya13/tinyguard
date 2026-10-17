@@ -20,15 +20,13 @@ signal forge_pressed
 signal records_pressed
 signal joystick_changed(vector: Vector2)
 
-const VICTORY_COLOR := Color(0.98, 0.8, 0.4)
-const DEFEAT_COLOR := Color(1.0, 0.5, 0.45)
 const BANNER_COLOR := Color(1.0, 0.86, 0.45)
 const BOSS_COLOR := Color(1.0, 0.55, 0.5)
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
-const COST_COLOR := Color(0.2, 0.13, 0.05)
-const GAIN_COLOR := Color(0.08, 0.36, 0.1)
-const PAUSE_COLOR := Color(1.0, 0.96, 0.87)
+const COST_COLOR := Color(1.0, 0.97, 0.88)
+const CAPTION_COLOR := Color(0.24, 0.15, 0.06)
+const GAIN_COLOR := Color(0.56, 0.96, 0.5)
 const WARN_COLOR := Color(1.0, 0.62, 0.55)
 const INFO_COLOR := Color(0.62, 0.86, 1.0)
 ## Command card buttons: 84 px is ~48 dp on a 1080p phone (720 px tall canvas).
@@ -38,6 +36,7 @@ const CARD_ICON_HEIGHT := 46.0
 const CARD_CAPTION_SIZE := Vector2(100, 130)
 const CARD_CAPTION_ICON_HEIGHT := 60.0
 const CARD_CAPTION_FONT := 17
+const PLAIN := preload("res://ui/plain_style.tres")
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
@@ -119,6 +118,7 @@ var _touch: bool = OS.has_feature("mobile")
 
 func _ready() -> void:
 	_drop_outlines()
+	_end_screen.z_index = 10  # above the chips, which are layered by kind
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
 	_continue_button.pressed.connect(continue_pressed.emit)
@@ -241,6 +241,7 @@ func show_hint(text: String) -> void:
 ## new banner replaces the one on screen.
 func show_banner(title: String, subtitle: String = "", boss: bool = false) -> void:
 	_banner_title.text = title
+	_banner_title.add_theme_font_size_override("font_size", 48 if title.length() <= 14 else 32)
 	_banner_title.add_theme_color_override("font_color", BOSS_COLOR if boss else BANNER_COLOR)
 	_banner_subtitle.text = subtitle
 	_banner_subtitle.visible = subtitle != ""
@@ -277,6 +278,7 @@ func popup(text: String, screen_pos: Vector2, color: Color, icon: Texture2D = nu
 	label.add_theme_constant_override("separation", 2)
 	var text_label := Label.new()
 	text_label.text = text
+	text_label.theme_type_variation = &"NumberLabel"
 	text_label.add_theme_color_override("font_color", color)
 	text_label.add_theme_font_size_override("font_size", 28)
 	label.add_child(text_label)
@@ -336,7 +338,8 @@ func set_speed(multiplier: int) -> void:
 ## Victory/defeat screen with 0..3 stars and a stats summary. Its buttons work
 ## while the tree is paused.
 func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String = "") -> void:
-	_show_menu(text, VICTORY_COLOR if victory else DEFEAT_COLOR)
+	_show_menu(text, &"RibbonLabelGold" if victory else &"RibbonLabelRed")
+	_restart_button.theme_type_variation = &""
 	_stats.text = stats
 	_stats.show()
 	_continue_button.hide()
@@ -383,7 +386,8 @@ func set_coop_mode(on: bool) -> void:
 	_coop_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_coop_label = Label.new()
 	_coop_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_coop_label.add_theme_font_size_override("font_size", 26)
+	_coop_label.theme_type_variation = &"HeadingLabel"
+	_coop_label.add_theme_font_size_override("font_size", 22)
 	_coop_label.add_theme_color_override("font_color", WARN_COLOR)
 	_coop_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_coop_notice.add_child(_coop_label)
@@ -410,12 +414,13 @@ func is_coop_notice_visible() -> bool:
 
 ## Pause menu: continue, restart, back to the map.
 func show_pause_menu() -> void:
-	_show_menu(tr("HUD_PAUSE"), PAUSE_COLOR)
+	_show_menu(tr("HUD_PAUSE"), &"RibbonLabel")
+	_restart_button.theme_type_variation = &"SecondaryButton"
 	_stars.hide()
 	_stats.hide()
 	_continue_button.show()
 	_forge_button.show()
-	_sound_button.show()
+	_sound_button.hide()  # the sound switch lives in the settings dialog: keeps the menu short
 	_settings_button.show()
 	_update_sound_label()
 
@@ -430,11 +435,11 @@ func hide_pause_menu() -> void:
 	_joystick.visible = _joystick_visible
 
 
-func _show_menu(text: String, color: Color) -> void:
+func _show_menu(text: String, ribbon: StringName) -> void:
 	if not _end_screen.visible:
 		_joystick_visible = _joystick.visible
 	_message_label.text = text
-	_message_label.add_theme_color_override("font_color", color)
+	_message_label.theme_type_variation = ribbon
 	_restart_button.disabled = false
 	_map_button.disabled = false
 	_card.hide()
@@ -463,6 +468,7 @@ func _make_button(spec: Dictionary) -> Button:
 	var button := Button.new()
 	button.custom_minimum_size = CARD_BUTTON_SIZE
 	button.focus_mode = Control.FOCUS_NONE
+	button.theme_type_variation = &"SlotButton"
 	var id: StringName = spec["id"]
 	button.pressed.connect(command_pressed.emit.bind(id))
 	if SHORTCUTS.has(id):
@@ -483,17 +489,24 @@ func _make_button(spec: Dictionary) -> Button:
 	var caption := Label.new()
 	caption.name = "Caption"
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_color_override("font_color", COST_COLOR)
+	caption.add_theme_color_override("font_color", CAPTION_COLOR)
 	caption.add_theme_constant_override("outline_size", 0)
 	caption.add_theme_font_size_override("font_size", CARD_CAPTION_FONT)
+	caption.clip_text = true
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(caption)
 	var cost := HBoxContainer.new()
 	cost.name = "Cost"
 	cost.alignment = BoxContainer.ALIGNMENT_CENTER
 	cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cost.add_theme_constant_override("separation", 1)
-	stack.add_child(cost)
+	cost.add_theme_constant_override("separation", 2)
+	var pill := PanelContainer.new()
+	pill.name = "CostPill"
+	pill.theme_type_variation = &"PricePill"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pill.add_child(cost)
+	stack.add_child(pill)
 	return button
 
 
@@ -510,11 +523,14 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 	var cost: HBoxContainer = button.find_child("Cost", true, false)
 	for child in cost.get_children():
 		child.free()
+	var pill: Control = cost.get_parent()
+	pill.visible = spec.has("label") or spec.get("gold", 0) > 0 or spec.get("wood", 0) > 0
+	pill.add_theme_stylebox_override("panel", PLAIN if spec.has("label") else null)
 	if spec.has("label"):
 		var label: String = spec["label"]
 		if _touch and label == "Esc":
 			label = tr("HUD_CLOSE")
-		cost.add_child(_cost_label(label))
+		cost.add_child(_cost_label(label, CAPTION_COLOR))
 		return
 	# Income (selling) in green instead of a "+" sign: both numbers fit the button.
 	var color: Color = GAIN_COLOR if spec.get("gain", false) else COST_COLOR
@@ -539,7 +555,7 @@ func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:
 ## Text on the dark panels needs no outline (it matches the panel colour), and an
 ## outline doubles the draw calls of every label: it is a separate glyph batch.
 func _drop_outlines() -> void:
-	for panel: Control in [$Root/TopBar, $Root/TopRight, _card, _hint_pill]:
+	for panel: Control in [_card, _hint_pill]:
 		for label: Node in panel.find_children("*", "Label", true, false):
 			label.add_theme_constant_override("outline_size", 0)
 	for panel: Control in [$Root/TopBar, $Root/TopRight]:
