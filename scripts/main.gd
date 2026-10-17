@@ -483,6 +483,9 @@ func _start_diagnostics() -> void:
 	diag.setup(_sim, _wave_manager, int(level["id"]), guard)
 	guard.level_lowered.connect(_on_quality_lowered)
 	_report_battle_start()
+	if CrashTrace.take_notice():
+		# The last run died in a battle: the guard already starts lower, tell the player once.
+		_hud.show_toast(tr("CRASH_NOTICE_TITLE"), tr("CRASH_NOTICE_BODY"))
 
 
 ## Breadcrumbs for the crash report (no personal data): what kind of battle this is.

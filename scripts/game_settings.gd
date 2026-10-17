@@ -31,14 +31,18 @@ const GFX_MEDIUM := 2
 const GFX_HIGH := 3
 const GFX_NAMES: Array[String] = ["auto", "low", "medium", "high"]
 ## Phones with less physical RAM than this (MB) start on the low tier. A "3 GB" phone reports
-## about 2.7-2.9 GB, a "4 GB" one about 3.6-3.8 GB (the kernel keeps a part).
-const LOW_RAM_MB := 3300
+## about 2.7-2.9 GB, a "4 GB" one about 3.6-3.9 GB (the kernel keeps a part). 4 GB and less is
+## low: Android keeps a quarter of it for itself and kills a game that asks for more.
+const LOW_RAM_MB := 4400
+## Phones with less than this (a "2-3 GB" phone) start one notch lower still.
+const VERY_LOW_RAM_MB := 3300
 ## Phones with at least this much RAM (MB) and no weak GPU start on the high tier.
 const HIGH_RAM_MB := 5400
 ## GPU names (lower case) of entry-level chips: old Mali-4xx/T, G31/G51/G52/G71, Adreno 3xx-5xx
-## and 610-613, PowerVR. A heuristic: the player can always pick the tier by hand.
+## and 610-613/619 (Redmi Note 12 4G / 5G), PowerVR. A heuristic: the player can always
+## pick the tier by hand.
 const WEAK_GPU_PATTERN := (
-	"mali-(4\\d\\d|t\\d+|g31|g51|g52|g71)" + "|adreno \\(tm\\) ?([345]\\d\\d|61[0123])\\b|powervr"
+	"mali-(4\\d\\d|t\\d+|g31|g51|g52|g71)" + "|adreno \\(tm\\) ?([345]\\d\\d|61[01239])\\b|powervr"
 )
 ## Locale used when the system language has no translation.
 const FALLBACK_LOCALE := "en"
