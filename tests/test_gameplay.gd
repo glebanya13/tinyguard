@@ -61,7 +61,11 @@ func _run() -> void:
 	var bm: BuildManager = main.get_node("BuildManager")
 	var hero: Hero = main.get_node("Level/Hero")
 	var level: Dictionary = main.level
-	check(gs.gold == 0 and gs.wood == 0, "start with 0 gold / 0 wood")
+	var start: Dictionary = level["start"]
+	check(
+		gs.gold == int(start["gold"]) and gs.wood == int(start["wood"]),
+		"start with the level's gold / wood (%d/%d)" % [gs.gold, gs.wood]
+	)
 	check(
 		get_nodes_in_group(TowerSlot.GROUP).size() == level["slots"].size(),
 		"slots built: %d" % level["slots"].size()
@@ -156,6 +160,7 @@ func _run() -> void:
 	await tap_key(KEY_2)
 	await frames(5)
 	check(slot.is_free(), "cannot build without gold")
+	var gold_start: int = gs.gold
 	gs.add_gold(200)
 	gs.add_wood(200)
 	await tap_key(KEY_2)
@@ -163,7 +168,10 @@ func _run() -> void:
 	check(
 		not slot.is_free() and slot.tower.data.display_name == "TOWER_CANNON_NAME", "cannon built"
 	)
-	check(gs.gold == 160 and gs.wood >= 170, "paid 40 gold + 30 wood (%d/%d)" % [gs.gold, gs.wood])
+	check(
+		gs.gold == gold_start + 160 and gs.wood >= 170,
+		"paid 40 gold + 30 wood (%d/%d)" % [gs.gold, gs.wood]
+	)
 	await frames(30)
 	await tap_key(KEY_U)
 	await frames(5)
@@ -285,6 +293,7 @@ func _run() -> void:
 	Engine.time_scale = 4.0
 	var guard: int = 0
 	while guard < 24 and not _all_paths_seen(used, paths):
+		gs.lives = 999  # nothing defends the castle here: the walk must not end in defeat
 		wm.start_next_wave()
 		for i in 25:
 			await frames(20)

@@ -11,8 +11,11 @@ paths have joined) with his sword (as an extra "tower"). The player builds in
 a fixed tower order and upgrades when every slot is taken. Three ways to pick
 slots are played: "balanced" (round-robin over the paths, the sensible one),
 "greedy" (most path covered first) and "turtle" (only the 40% of slots
-nearest to the castle, everything else into upgrades: must not beat balanced).
-It is an estimate: real players also fight with the hero and call waves early.
+nearest to the castle, everything else into upgrades: must not beat balanced). A fourth,
+"skilled" player plays like balanced and also fights with the hero (whirlwind, strongest target,
+forge, wall repair): he must do better than balanced.
+It is an estimate: real players also call waves early; the simulation is cliff-edged (a tiny change
+of hp_growth can turn a win on the last wave into a defeat), so tune one number at a time.
 
 Difficulty (--diff 0|1|2: Normal / Hard / Nightmare, multipliers from "difficulty" in
 resources/balance.json) and the Record Run (--record: free mode, every wave harder, rules from
@@ -553,6 +556,8 @@ def main() -> None:
             else:
                 print(f"{lv['id']}: " + "  ".join(
                     f"{k} {v}/{start}" + (" ПРОИГРЫШ" if v <= 0 else "") for k, v in results.items()))
+        elif not record and "skilled" in results and results["skilled"] + max(1, start // 10) < results["balanced"]:
+            print(f"   !! уровень {lv['id']}: «умелый» бот хуже обычного")
         elif not record and "turtle" in results and results["turtle"] > results["balanced"] + max(2, start // 5):
             print(f"   !! уровень {lv['id']}: «черепаха» у замка лучше расстановки по дорогам")
 

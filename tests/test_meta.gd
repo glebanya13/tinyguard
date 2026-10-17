@@ -40,7 +40,8 @@ func _run() -> void:
 	var main := current_scene
 	var gs: GameState = main.get_node("GameState")
 	var wm: WaveManager = main.get_node("WaveManager")
-	check(gs.gold == 15, "perk gives starting gold (%d)" % gs.gold)
+	var level_gold: int = int(LevelCatalog.get_level(1)["start"]["gold"])
+	check(gs.gold == level_gold + 15, "perk gives starting gold (%d)" % gs.gold)
 	check(wm.plan.endless and wm.get_total_waves() > 1000, "endless plan")
 	check(
 		wm.plan.is_boss_wave(10) and not wm.plan.is_boss_wave(15), "endless bosses every 10 waves"

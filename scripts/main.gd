@@ -363,6 +363,10 @@ func _apply_perks(perks: Dictionary) -> void:
 	start["lives"] = maxi(
 		roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1
 	)
+	if LevelCatalog.tutorial:
+		# The tutorial teaches chopping and earning the first gold: it starts with empty hands.
+		start["gold"] = 0
+		start["wood"] = 0
 	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
 	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
 	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
