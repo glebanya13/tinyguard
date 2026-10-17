@@ -34,16 +34,21 @@ static func for_day(day: String) -> Array[Dictionary]:
 		var template: Dictionary = templates[pool[pick]]
 		pool.remove_at(pick)
 		var targets: Array = template["targets"]
-		var target: int = int(targets[Daily.hash_text("target:%s:%d" % [day, slot]) % targets.size()])
-		out.append(
-			{
-				"slot": slot,
-				"id": str(template["id"]),
-				"metric": str(template["metric"]),
-				"target": target,
-				"key": str(template["key"]),
-				"reward": int(rewards[slot]) if slot < rewards.size() else 0,
-			}
+		var target: int = int(
+			targets[Daily.hash_text("target:%s:%d" % [day, slot]) % targets.size()]
+		)
+		(
+			out
+			. append(
+				{
+					"slot": slot,
+					"id": str(template["id"]),
+					"metric": str(template["metric"]),
+					"target": target,
+					"key": str(template["key"]),
+					"reward": int(rewards[slot]) if slot < rewards.size() else 0,
+				}
+			)
 		)
 	return out
 

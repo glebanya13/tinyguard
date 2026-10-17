@@ -121,7 +121,13 @@ func _show_sparks(item: Dictionary) -> void:
 	for child in _sparks.get_children():
 		child.queue_free()
 	var tint: Color = Color.html(str(item.get("tint", "#ffffff")))
-	var spots: Array[Vector2] = [Vector2(0.5, 0.5), Vector2(0.28, 0.32), Vector2(0.72, 0.36), Vector2(0.4, 0.72), Vector2(0.66, 0.7)]
+	var spots: Array[Vector2] = [
+		Vector2(0.5, 0.5),
+		Vector2(0.28, 0.32),
+		Vector2(0.72, 0.36),
+		Vector2(0.4, 0.72),
+		Vector2(0.66, 0.7)
+	]
 	var sizes: Array[float] = [120.0, 60.0, 72.0, 52.0, 64.0]
 	for i in spots.size():
 		var star := TextureRect.new()

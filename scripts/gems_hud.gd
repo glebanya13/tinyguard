@@ -13,13 +13,14 @@ const FLAG_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const BUTTON_HEIGHT := 84.0
 const COLUMN_WIDTH := 230.0
 
+## What the last visit paid (Economy.on_app_open()), for tests.
+var visit: Dictionary = {}
+
 var _ui_root: Control = null
 var _chip_label: Label = null
 var _streak_button: Button = null
 var _panel: StreakPanel = null
 var _column: VBoxContainer = null
-## What the last visit paid (Economy.on_app_open()), for tests.
-var visit: Dictionary = {}
 
 
 ## `top_right` is the map's top row; the chip goes first in it. `pay_visit` false: show
@@ -97,9 +98,7 @@ func panel() -> StreakPanel:
 func _pay_visit() -> void:
 	visit = Economy.on_app_open()
 	if int(visit["backfill"]) > 0:
-		Toast.show_on(
-			_ui_root, tr("BACKFILL_TOAST"), tr("GEMS_PLUS") % int(visit["backfill"])
-		)
+		Toast.show_on(_ui_root, tr("BACKFILL_TOAST"), tr("GEMS_PLUS") % int(visit["backfill"]))
 	var streak: Dictionary = visit["streak"]
 	if int(streak.get("reward", 0)) > 0:
 		var state: Dictionary = streak["state"]

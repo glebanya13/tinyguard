@@ -10,11 +10,11 @@ extends RefCounted
 ## State: {last: "yyyy-mm-dd" of the last check-in, len: days in a row, best: longest,
 ##         grace: week number (day index / 7) of the missed day last forgiven}
 
+enum Result { FIRST, SAME_DAY, NEXT, FORGIVEN, RESET, CLOCK_BACK }
+
 const SECTION := "streak"
 const WEEK := 7
 const MAX_LEN := 1000
-
-enum Result { FIRST, SAME_DAY, NEXT, FORGIVEN, RESET, CLOCK_BACK }
 
 
 static func empty() -> Dictionary:

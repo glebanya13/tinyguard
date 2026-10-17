@@ -1,5 +1,6 @@
 // Firestore rules for the gem wallet and the day streak (users/{uid}.wallet / .streak,
-// schemaVersion 3), against the local emulator. Run through `npm test`.
+// schemaVersion 3), against the local emulator. Own project id: the files run in parallel and
+// every file clears its own Firestore data. Run through `npm test`.
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { after, before, beforeEach, test } = require("node:test");
@@ -34,7 +35,7 @@ const wallet = (extra = {}) => ({
 
 before(async () => {
   env = await initializeTestEnvironment({
-    projectId: "demo-bimbleguard",
+    projectId: "demo-bimbleguard-wallet",
     firestore: { rules: readFileSync(join(ROOT, "firestore.rules"), "utf8") },
   });
 });

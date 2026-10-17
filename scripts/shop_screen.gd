@@ -28,7 +28,7 @@ const CATEGORY_KEYS := {
 const RARITY_KEYS := {
 	"common": "SHOP_RARITY_COMMON", "rare": "SHOP_RARITY_RARE", "epic": "SHOP_RARITY_EPIC"
 }
-const CARD_SIZE := Vector2(178, 150)
+const CARD_SIZE := Vector2(178, 166)
 const COLUMNS := 4
 const PREVIEW_SIZE := 300.0
 
@@ -112,9 +112,7 @@ func confirm_buy() -> Dictionary:
 		_message.add_theme_color_override("font_color", SOFT_COLOR)
 		_refresh()
 		_celebrate(_selected, before, int(result["gems"]))
-		Toast.show_on(
-			self, tr("SHOP_BOUGHT"), tr(str(Cosmetics.get_item(_selected)["key"]))
-		)
+		Toast.show_on(self, tr("SHOP_BOUGHT"), tr(str(Cosmetics.get_item(_selected)["key"])))
 	else:
 		_message.add_theme_color_override("font_color", ERROR_COLOR)
 		_message.text = tr("SHOP_NO_FUNDS") if result["reason"] == "funds" else tr("SHOP_UNKNOWN")
@@ -425,7 +423,9 @@ func _update_card(id: String) -> void:
 			status.add_child(icon)
 			var affordable: bool = Economy.balance() >= int(item["price"])
 			status.add_child(
-				_label(str(int(item["price"])), 24, Color.WHITE if affordable else ERROR_COLOR, true)
+				_label(
+					str(int(item["price"])), 24, Color.WHITE if affordable else ERROR_COLOR, true
+				)
 			)
 		Shop.State.OWNED:
 			status.add_child(_label(tr("SHOP_OWNED"), 20, SOFT_COLOR, true))
@@ -468,7 +468,10 @@ func _celebrate(id: String, from_gems: int, to_gems: int) -> void:
 			fly.chain().tween_callback(gem.queue_free)
 	var count: Tween = create_tween()
 	count.tween_method(
-		func(value: float) -> void: _balance.text = str(roundi(value)), float(from_gems), float(to_gems), 0.5
+		func(value: float) -> void: _balance.text = str(roundi(value)),
+		float(from_gems),
+		float(to_gems),
+		0.5
 	)
 
 

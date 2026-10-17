@@ -48,9 +48,7 @@ static func is_valid_id(id: String) -> bool:
 		return false
 	for i in id.length():
 		var c: int = id.unicode_at(i)
-		var ok: bool = (
-			(c >= 97 and c <= 122) or (c >= 48 and c <= 58) or c == 95 or c == 45  # a-z 0-9 :
-		)
+		var ok: bool = (c >= 97 and c <= 122) or (c >= 48 and c <= 58) or c == 95 or c == 45  # a-z 0-9 :
 		if not ok:
 			return false
 	return true
@@ -170,7 +168,9 @@ static func sanitize(raw: Variant) -> Dictionary:
 		for entry: Variant in log:
 			if entry is Dictionary and (w["log"] as Array).size() < limit("log_size"):
 				var e: Dictionary = entry
-				w["log"].append({"t": int(e.get("t", 0)), "k": str(e.get("k", "")), "d": int(e.get("d", 0))})
+				w["log"].append(
+					{"t": int(e.get("t", 0)), "k": str(e.get("k", "")), "d": int(e.get("d", 0))}
+				)
 	return w
 
 
@@ -178,7 +178,9 @@ static func sanitize(raw: Variant) -> Dictionary:
 ## purchase is kept (max per key), so nothing is paid twice and nothing is lost. The
 ## worn items come from `prefer_b` side when it is the newer one; an item that is not
 ## owned is taken off. `today` ("yyyy-mm-dd") compacts old dated claims.
-static func merge(a: Dictionary, b: Dictionary, prefer_b: bool = false, today: String = "") -> Dictionary:
+static func merge(
+	a: Dictionary, b: Dictionary, prefer_b: bool = false, today: String = ""
+) -> Dictionary:
 	var out: Dictionary = empty()
 	for field in ["claims", "buys"]:
 		var u: Dictionary = (a[field] as Dictionary).duplicate()
@@ -186,7 +188,7 @@ static func merge(a: Dictionary, b: Dictionary, prefer_b: bool = false, today: S
 			u[key] = maxi(int(u.get(key, 0)), int(b[field][key]))
 		out[field] = u
 	out["equipped"] = ((b if prefer_b else a)["equipped"] as Dictionary).duplicate()
-	for slot: String in ((a if prefer_b else b)["equipped"] as Dictionary):
+	for slot: String in (a if prefer_b else b)["equipped"] as Dictionary:
 		if not out["equipped"].has(slot):
 			out["equipped"][slot] = (a if prefer_b else b)["equipped"][slot]
 	for slot: String in (out["equipped"] as Dictionary).keys():

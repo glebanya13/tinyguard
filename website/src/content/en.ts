@@ -338,6 +338,11 @@ export const en: Content = {
                 "Sync between devices",
                 "Firestore (user profile)",
               ],
+              [
+                "Gem balance (an in-game currency, never sold for money), earned rewards, bought cosmetics and chosen skins, day streak",
+                "Sync between devices",
+                "Firestore (user profile)",
+              ],
               ["Profile creation and update time", "Order of merging data", "Firestore"],
               [
                 "Start time of an Endless Siege run and time of the last nickname change (without the nickname itself)",

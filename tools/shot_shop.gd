@@ -48,7 +48,9 @@ func _give(amount: int, key: String) -> void:
 
 
 func _run() -> void:
-	GameSettings.set_language(OS.get_environment("SHOT_LANG") if OS.get_environment("SHOT_LANG") != "" else "ru")
+	GameSettings.set_language(
+		OS.get_environment("SHOT_LANG") if OS.get_environment("SHOT_LANG") != "" else "ru"
+	)
 	for id in [1, 2, 3]:
 		LevelCatalog.complete(id, 3)
 	var online: Node = root.get_node("Online")
@@ -59,7 +61,8 @@ func _run() -> void:
 	Shop.buy("tower_forest")
 	Shop.buy("flag_violet")
 	Shop.buy("fx_azure")
-	Shop.equip("hero_frost") if Shop.buy("hero_frost") else null
+	if Shop.buy("hero_frost"):
+		Shop.equip("hero_frost")
 
 	# The map: gem chip, Shop button, streak plaque, the visit's toast.
 	LevelCatalog.selected_id = 3
@@ -74,7 +77,9 @@ func _run() -> void:
 
 	# The shop, one tab at a time.
 	for category in ["hero", "tower", "flag", "fx"]:
-		var shop: ShopScreen = (load("res://scenes/shop.tscn") as PackedScene).instantiate() as ShopScreen
+		var shop: ShopScreen = (
+			(load("res://scenes/shop.tscn") as PackedScene).instantiate() as ShopScreen
+		)
 		shop.auto_leave = false
 		_swap(shop)
 		await _frames(10)

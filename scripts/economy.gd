@@ -132,7 +132,9 @@ static func backfill() -> int:
 	var cfg: Dictionary = Wallet.data()["siege"]
 	for id: String in prog["endless"]:
 		@warning_ignore("integer_division")
-		var steps: int = mini(int(prog["endless"][id]) / int(cfg["every_waves"]), int(cfg["max_steps"]))
+		var steps: int = mini(
+			int(prog["endless"][id]) / int(cfg["every_waves"]), int(cfg["max_steps"])
+		)
 		for step in range(1, steps + 1):
 			paid += _claim(w, "sg%sw%d" % [id, step], siege_reward(step), false)
 	for def in Achievements.all():

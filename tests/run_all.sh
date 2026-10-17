@@ -130,6 +130,9 @@ echo "== gems: wallet / streak / quests"
 run "$GODOT" --headless --path . --script res://tests/test_wallet.gd
 run "$GODOT" --headless --path . --script res://tests/test_streak.gd
 run "$GODOT" --headless --path . --script res://tests/test_quests.gd
+run "$GODOT" --headless --path . --script res://tests/test_economy_balance.gd
+run "$GODOT" --headless --path . --script res://tests/test_shop.gd
+run "$GODOT" --headless --path . --script res://tests/test_shop_ui.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd

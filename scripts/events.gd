@@ -35,4 +35,6 @@ static func active(day: String) -> Dictionary:
 ## Reward multiplier on a day (1.0 without an event).
 static func reward_mult(day: String) -> float:
 	var event: Dictionary = active(day)
-	return clampf(float(event.get("reward_mult", 1.0)), 1.0, MAX_MULT) if not event.is_empty() else 1.0
+	return (
+		clampf(float(event.get("reward_mult", 1.0)), 1.0, MAX_MULT) if not event.is_empty() else 1.0
+	)

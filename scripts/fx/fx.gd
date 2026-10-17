@@ -235,7 +235,9 @@ func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 		return
 	var at: Vector3 = slot.global_position
 	_ring(at, 0.4, 2.0, Color(1, 0.95, 0.8, 0.9), 0.5)
-	_burst(at + Vector3.UP * 0.3, 6 if full() else 3, 1.8, 1.6, 0.18, 0.03, _spark, _spark, 0.7, 3.0)
+	_burst(
+		at + Vector3.UP * 0.3, 6 if full() else 3, 1.8, 1.6, 0.18, 0.03, _spark, _spark, 0.7, 3.0
+	)
 
 
 func _on_tower_upgraded(slot: TowerSlot, tower: Tower) -> void:

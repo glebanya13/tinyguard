@@ -243,6 +243,18 @@ describe("creating a room", () => {
     await assertFails(set(p, { uid: "host1", name: "A", ready: 9 }));
     await assertSucceeds(set(p, { uid: "host1", name: "Аня", ready: 1 }));
   });
+
+  test("players/host: the cosmetic skin id is a short lower-case id", async () => {
+    await set(ref(db("host1"), "rooms/ABCDE/meta"), metaOf("host1"));
+    const p = ref(db("host1"), "rooms/ABCDE/players/host");
+    await assertSucceeds(set(p, { uid: "host1", name: "A", ready: 1, skin: "hero_ember" }));
+    await assertSucceeds(set(p, { uid: "host1", name: "A", ready: 1, skin: "" }));
+    await assertFails(set(p, { uid: "host1", name: "A", ready: 1, skin: "x".repeat(33) }));
+    await assertFails(set(p, { uid: "host1", name: "A", ready: 1, skin: "Hero Ember" }));
+    await assertFails(set(p, { uid: "host1", name: "A", ready: 1, skin: "<b>" }));
+    await assertFails(set(p, { uid: "host1", name: "A", ready: 1, skin: 5 }));
+    await assertFails(set(p, { uid: "host1", name: "A", ready: 1, skin: { a: 1 } }));
+  });
 });
 
 describe("reading", () => {

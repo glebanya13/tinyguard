@@ -153,7 +153,9 @@ func join(raw_code: String, nickname: String, simv: int) -> Dictionary:
 	if not cleaned["ok"]:
 		return {"ok": false, "reason": _reason(cleaned)}
 	var reply: Dictionary = await transport.write(
-		"rooms/%s/players/guest" % room, {"uid": me, "name": _clean(nickname), "ready": 0, "skin": own_skin()}, true
+		"rooms/%s/players/guest" % room,
+		{"uid": me, "name": _clean(nickname), "ready": 0, "skin": own_skin()},
+		true
 	)
 	if reply["code"] == 412:
 		return {"ok": false, "reason": "full"}

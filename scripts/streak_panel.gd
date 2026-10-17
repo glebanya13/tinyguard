@@ -66,7 +66,10 @@ func _build() -> void:
 	var event: Dictionary = Events.active(day)
 	if not event.is_empty():
 		var banner := _label(
-			tr("EVENT_BANNER") % [tr(str(event["name_key"])), str(snappedf(float(event["reward_mult"]), 0.1))],
+			(
+				tr("EVENT_BANNER")
+				% [tr(str(event["name_key"])), str(snappedf(float(event["reward_mult"]), 0.1))]
+			),
 			22,
 			Color(1.0, 0.86, 0.45),
 			true
@@ -118,7 +121,9 @@ func _build_days(today_cell: int) -> Control:
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		gem.add_child(icon)
-		gem.add_child(_label(str(int(rewards[i - 1])), 26, GOLD if i == Streak.WEEK else Color.WHITE, true))
+		gem.add_child(
+			_label(str(int(rewards[i - 1])), 26, GOLD if i == Streak.WEEK else Color.WHITE, true)
+		)
 		v.add_child(gem)
 		if i == Streak.WEEK:
 			v.add_child(_label(tr("STREAK_GIFT"), 14, GOLD, true))
