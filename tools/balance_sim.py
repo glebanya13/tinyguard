@@ -35,8 +35,17 @@ DT = 0.1
 # Perk "Меткие стрелки" etc. are not counted: a fresh player.
 TOWER_BONUS = 1.0
 WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
-HERO = {"damage_levels": [14.0], "range_levels": [1.4], "interval_levels": [0.5],
-        "splash_levels": [0.0], "slow_levels": [1.0]}
+# Sword per forge level (scripts/hero.gd: sword_damage_levels, sword_upgrade_*); only the "skilled" player forges.
+SWORD_DAMAGE = [14.0, 22.0, 32.0, 45.0]
+SWORD_GOLD = [40, 90, 160]
+SWORD_WOOD = [30, 60, 100]
+HERO = {"damage_levels": SWORD_DAMAGE, "range_levels": [1.4] * 4, "interval_levels": [0.5] * 4,
+        "splash_levels": [0.0] * 4, "slow_levels": [1.0] * 4}
+WHIRL_RADIUS, WHIRL_MULT, WHIRL_COOLDOWN = 2.2, 1.6, 12.0  # scripts/hero.gd
+REPAIR_LIVES, REPAIR_WOOD = 2, 25  # scripts/game_state.gd
+# A human is not a machine: the skilled hero spends this share of the time actually fighting.
+SKILLED_HERO_UPTIME = 0.85
+BIG_HP = 150.0  # the skilled player switches towers to "strongest" when something this tough is in range
 HERO_SPEED = 3.2  # m/s, scripts/hero.gd
 HERO_FROM_CASTLE = 3.0  # metres before the castle gate where the hero stands on the approach in use
 GATE_REACH = 1.5  # a path ending this close (taxicab) to the castle centre ends at a castle gate
@@ -77,7 +86,9 @@ NEVER = 100000
 # The balanced player keeps this many anti-air towers within this radius of the castle.
 AIR_GUARD_TOWERS = 3
 AIR_GUARD_RADIUS = 9.0
-STRATEGIES = ("balanced", "greedy", "turtle")
+STRATEGIES = ("balanced", "greedy", "turtle", "skilled")
+# Strategies that read the banner (lane plan), keep the castle ring for flyers and place towers by lane.
+SMART = ("balanced", "skilled")
 # Sanity checks (--sanity): nobody may win by doing nothing or with a single tower.
 SANITY = {"afk": 0, "one": 1}
 
@@ -238,7 +249,7 @@ def order_slots(lv: dict, drawn: list, strategy: str) -> list:
         return sorted(lv["slots"], key=lambda s: math.dist(s, lv["castle"]))
     if strategy == "greedy":
         return sorted(lv["slots"], key=lambda s: -sum(cover(s, p) for p in drawn))
-    # balanced: the best slot of every path in turn (a slot counts for the path it covers most)
+    # balanced / skilled: the best slot of every path in turn (a slot counts for the path it covers most)
     rest = list(lv["slots"])
     out = []
     while rest:
@@ -253,6 +264,7 @@ def order_slots(lv: dict, drawn: list, strategy: str) -> list:
 def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int = 0, record: bool = False) -> int:
     """Lives left after the campaign level; in the record run (`record`) the wave the castle fell on."""
     w = lv["waves"]
+    skilled = strategy == "skilled"
     d = DIFFS[diff]
     hp_scale, count_scale = d["hp"], d["count"]
     reward_mult = d["reward"] * (REC["reward_mult"] if record else 1.0) * w.get("reward_mult", 1.0)
@@ -265,7 +277,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     lives_start = lives
     towers = []  # dicts: kind, level, x, z, cd
     hx, hz = lv["hero"]
-    hero = {"kind": "hero", "level": 0, "x": hx, "z": hz, "cd": 0.0}
+    hero = {"kind": "hero", "level": 0, "x": hx, "z": hz, "cd": 0.0, "whirl": 0.0}
 
     hero_goal = [hx, hz]
 
@@ -274,12 +286,14 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         round the castle takes time: HERO_SPEED, 30% longer than the straight line)."""
         walkers = [en for en in enemies if not ENEMIES[en["kind"]].get("flying", False)]
         if walkers:
-            en = min(walkers, key=lambda en: en["route"].length - en["d"])
+            # the skilled hero goes where it hurts: a heavy hitter counts as being closer
+            bite = (lambda en: 3.0 * (ENEMIES[en["kind"]]["base_damage"] - 1)) if skilled else (lambda en: 0.0)
+            en = min(walkers, key=lambda en: en["route"].length - en["d"] - bite(en))
             x, z = en["route"].at(en["route"].length - HERO_FROM_CASTLE)
             hero_goal[0], hero_goal[1] = x + 0.8, z
         gx, gz = hero_goal
         dist = math.dist((hero["x"], hero["z"]), (gx, gz))
-        step = HERO_SPEED * DT / 1.3
+        step = HERO_SPEED * DT / (1.15 if skilled else 1.3)
         if dist <= step:
             hero["x"], hero["z"] = gx, gz
         elif dist > 0:
@@ -297,7 +311,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
 
     def air_guard() -> bool:
         """Flyers cross the map in a straight line: balanced keeps archers near the castle."""
-        if strategy != "balanced" or wave + 2 < (REC["mix"][5][0] if record else w.get("bat_from", NEVER)):
+        if strategy not in SMART or wave + 2 < (REC["mix"][5][0] if record else w.get("bat_from", NEVER)):
             return False
         near = [tw for tw in towers if math.dist((tw["x"], tw["z"]), lv["castle"]) < AIR_GUARD_RADIUS
                 and TOWERS[tw["kind"]].get("hits_air", True)]
@@ -305,7 +319,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
 
     def pick_slot():
         """The player reads the banner: the next tower goes where the coming waves walk."""
-        if strategy != "balanced" or not lanes_cfg:
+        if strategy not in SMART or not lanes_cfg:
             return free_slots[0]
         if air_guard():
             return min(free_slots, key=lambda sl: math.dist(sl, lv["castle"]))
@@ -323,10 +337,25 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         return max(pool, key=lambda sl: sum(wl * c for wl, c in zip(want, cover_table[tuple(sl)])))
 
     def shop():
-        nonlocal gold, wood
+        nonlocal gold, wood, lives
         changed = True
         while changed:
             changed = False
+            if skilled:
+                # wall repair at the forge when lives are lost and there is wood to spare
+                if lives_start - lives >= REPAIR_LIVES and wood >= REPAIR_WOOD + 30 and lives > 0:
+                    wood -= REPAIR_WOOD
+                    lives = min(lives + REPAIR_LIVES, lives_start)
+                    changed = True
+                    continue
+                lvl = hero["level"]
+                if lvl < 3 and len(towers) >= len(slots) and min(tw["level"] for tw in towers) >= min(lvl + 1, 2):
+                    if gold >= SWORD_GOLD[lvl] and wood >= SWORD_WOOD[lvl]:
+                        gold -= SWORD_GOLD[lvl]
+                        wood -= SWORD_WOOD[lvl]
+                        hero["level"] += 1
+                        changed = True
+                        continue
             if len(towers) < slot_cap:
                 kind = BUILD_ORDER[len(towers) % len(BUILD_ORDER)]
                 if air_guard():
@@ -432,6 +461,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                 tw["cd"] = 0.15
                 continue
             prio = 3 if tw["kind"] == "hero" else int(d.get("default_priority", 0))
+            if skilled and any(en["max"] >= BIG_HP for en in in_range):
+                prio = 2 if tw["kind"] not in ("frost",) else prio
             goal = lambda en: en["route"].length - en["d"]
             key = {0: goal, 1: lambda en: -goal(en), 2: lambda en: -en["hp"],
                    3: lambda en: math.dist(en["pos"], (tw["x"], tw["z"]))}[prio]
@@ -464,7 +495,19 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                 if d["slow_levels"][lvl] < 1.0:
                     en["slow"] = min(en["slow"], d["slow_levels"][lvl])
                     en["slow_t"] = d.get("slow_duration", 1.6)
-            tw["cd"] = d["interval_levels"][lvl]
+            tw["cd"] = d["interval_levels"][lvl] / (SKILLED_HERO_UPTIME if skilled and tw["kind"] == "hero" else 1.0)
+        if skilled:
+            hero["whirl"] -= DT
+            if hero["whirl"] <= 0:
+                around = [en for en in enemies if math.dist(en["pos"], (hero["x"], hero["z"])) <= WHIRL_RADIUS]
+                if len(around) >= 3 or any(en["max"] >= BIG_HP for en in around):
+                    dmg = HERO["damage_levels"][hero["level"]] * WHIRL_MULT
+                    for en in around:
+                        e = ENEMIES[en["kind"]]
+                        en["hp"] -= max(dmg - e.get("armor", 0), 1.0)
+                    hero["whirl"] = WHIRL_COOLDOWN / SKILLED_HERO_UPTIME
+                else:
+                    hero["whirl"] = 0.2
         for en in [en for en in enemies if en["hp"] <= 0]:
             e = ENEMIES[en["kind"]]
             gold += int(e["reward"] * en["rmult"] * reward_mult)
@@ -474,6 +517,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                     add_enemy(enemies, "slime_mini", en["mult"], None, None, max(en["d"] - 0.35 * k, 0.0), en["route"])
         if not record and wave >= w["count"] and not spawners and not enemies:
             break
+    play.last_wave = wave  # the wave the battle ended on (for tuning scripts)
     if record:
         reached = wave if lives <= 0 else RECORD_WAVE_LIMIT
         if verbose:
