@@ -116,21 +116,39 @@ func text() -> String:
 			)
 		)
 	if _guard != null:
-		(
-			lines
-			. append(
-				(
-					"quality notch %d/%d  tier %s (detected %s)"
-					% [
-						_guard.level,
-						QualityGuard.MAX_LEVEL,
-						GameSettings.GFX_NAMES[GameSettings.graphics_tier()],
-						GameSettings.GFX_NAMES[GameSettings.detected_tier()],
-					]
-				)
+		var tier: String = GameSettings.GFX_NAMES[GameSettings.graphics_tier()]
+		var found: String = GameSettings.GFX_NAMES[GameSettings.detected_tier()]
+		lines.append(
+			(
+				"quality notch %d/%d  tier %s (detected %s)"
+				% [_guard.level, QualityGuard.MAX_LEVEL, tier, found]
 			)
 		)
+	lines.append(device_line())
 	return "\n".join(lines)
+
+
+## Where the game runs: GPU, RAM, window, density, refresh rate and the safe-area insets
+## (what a tester reports from a phone; public for tests).
+static func device_line() -> String:
+	var physical: int = int(OS.get_memory_info().get("physical", -1))
+	var safe: Vector4 = ScreenUtil.safe_margins(Engine.get_main_loop().root)
+	var window: Vector2i = DisplayServer.window_get_size()
+	return (
+		"%s | %d MB | %dx%d %d dpi %d Hz | safe %d,%d,%d,%d"
+		% [
+			RenderingServer.get_video_adapter_name(),
+			physical / 1048576 if physical > 0 else -1,
+			window.x,
+			window.y,
+			DisplayServer.screen_get_dpi(),
+			roundi(DisplayServer.screen_get_refresh_rate()),
+			safe.x,
+			safe.y,
+			safe.z,
+			safe.w,
+		]
+	)
 
 
 func _static_mb() -> float:

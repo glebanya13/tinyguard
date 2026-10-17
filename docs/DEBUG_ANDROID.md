@@ -132,3 +132,9 @@ prev run ended in battle: level 3 wave 41 enemies 220 mem 310 MB fps 12
   (`LEVEL=3 MINUTES=30 godot --path . --resolution 960x540 --script res://tools/soak_test.gd`).
 - `tools/soak_reload.gd` — многократный заход на уровень и возврат на карту (утечки между уровнями).
 - Результаты и выводы: `docs/SOAK_REPORT.md`.
+
+## Строка устройства и качество графики (2026-10-17)
+
+Оверлей диагностики (5 тапов по версии в настройках) показывает строку `GPU | ОЗУ | окно dpi Гц | safe l,t,r,b`
+и `quality notch N/4 tier <выбранный> (detected <найденный>)`. Присылайте её вместе с отчётом о тестировании
+(`docs/DEVICE_TEST_CHECKLIST.md`). Выбор «Качество графики» (авто/низкое/среднее/высокое) — Настройки -> Общие.

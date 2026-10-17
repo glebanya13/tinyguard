@@ -17,7 +17,7 @@
 | `version/name` / `version/code` | `0.5.0` / `5` | **`code` увеличивать на каждую выкладку**; `name` = `config/version` |
 | Иконки | `res://icon.png`, адаптивные `ui/app/icon_foreground.png`, `icon_background.png` | |
 | Ориентация | `project.godot`: `window/handheld/orientation=4` (сенсорная альбомная) | проверяется `validate_project.py` |
-| Архитектуры | только `arm64-v8a` | все Android 2020+; `armeabi-v7a` отключён ради размера |
+| Архитектуры | только `arm64-v8a` | все Android 2020+; `armeabi-v7a` отключён ради размера (+~25 МБ AAB за ABI; охват и решение: `docs/DEVICE_COMPATIBILITY.md`, разд. 1) |
 | Разрешения | только `INTERNET` | модуль `Online` (Firebase REST); `validate_project.py` падает при других |
 | `include_filter` | `firebase.cfg` | файл не в git, но должен попасть в сборку, если лежит рядом |
 | `exclude_filter` | tools, tests, docs, wip, firebase, assets/blender, `*.md`… | не тянуть лишнее в APK |
