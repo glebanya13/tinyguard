@@ -21,9 +21,10 @@ const JOY_RADIUS_RATIO := 0.4
 const JOY_LIFT: Array[float] = [0.0, 24.0, 72.0]
 ## Distance of the joystick from the bottom edge when no compass is reserved above the corner.
 const JOY_FREE_BOTTOM: Array[float] = [16.0, 56.0, 112.0]
-## Compass panel size by size setting (small / medium / large).
+## Compass panel size by size setting (small / medium / large): the map in it is the field seen
+## turned like the screen, a diamond, so the panel is nearly square (see LaneMap).
 const MAP_SIZES: Array[Vector2] = [
-	Vector2(176.0, 112.0), Vector2(236.0, 150.0), Vector2(296.0, 188.0)
+	Vector2(150.0, 150.0), Vector2(196.0, 186.0), Vector2(240.0, 224.0)
 ]
 const PIN_SIZE := Vector2(84.0, 84.0)
 const GAP := 8.0

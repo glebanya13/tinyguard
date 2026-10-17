@@ -25,6 +25,10 @@ func _ready() -> void:
 	_create.pressed.connect(func() -> void: _dialog.open(EmailAuthDialog.Mode.REGISTER))
 	_sign_in.pressed.connect(func() -> void: _dialog.open(EmailAuthDialog.Mode.SIGN_IN))
 	_guest.pressed.connect(_on_guest_pressed)
+	# A soft notice under the buttons: crash reports are on by default and can be turned off.
+	var notice := UiKit.caption(tr("WELCOME_CRASH_NOTE"))
+	notice.name = "CrashNotice"
+	_guest.get_parent().add_child(notice)
 
 
 func _notification(what: int) -> void:

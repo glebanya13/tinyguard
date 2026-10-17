@@ -4,8 +4,9 @@ extends Control
 ##  - for a few seconds a pulsing ring over a portal that is on screen;
 ##  - for the whole wave an arrow on the screen edge towards every road the wave uses,
 ##    on screen or not, blinking, with the side written next to it ("From the north!");
-##  - a compass in the corner (the castle, the roads of the map from above, the roads of
-##    this wave lit, the others dim) that opens with every wave for a few seconds and
+##  - a compass in the corner (the map from above, see LaneMap: the castle, the roads of
+##    this wave lit and pulsing, the others dim, the portals on the rim with the side written)
+##    that opens with every wave for a few seconds and
 ##    by the button under the pause button.
 ## It only draws: the wave plan, the camera and the level are handed in.
 
@@ -23,8 +24,8 @@ const RING_RADIUS := 34.0
 const LABEL_SIZE := 22
 const COLOR := Color(1.0, 0.66, 0.28)
 const OUTLINE := Color(0.2, 0.1, 0.28)
-const MUTED := Color(0.72, 0.78, 0.92, 0.38)
-const PANEL_PAD := 14.0
+const PANEL_ALPHA := 0.72
+const ROAD_DIM := Color(0.74, 0.8, 0.94, 0.6)
 const BUTTON_ICON: Texture2D = preload("res://ui/icons/compass.png")
 
 var camera: Camera3D = null
@@ -44,13 +45,10 @@ var _arrow_age: float = 0.0
 var _compass_left: float = 0.0
 var _pinned: bool = false
 var _stopped: bool = false
-## The roads of the level in screen orientation, fitted to the compass panel (0..1 box).
-var _compass_routes: Array[PackedVector2Array] = []
-var _compass_built_for: int = -1
+var _map := LaneMap.new()
 var _panel_style: StyleBoxFlat = null
 var _button: Button = null
-## Panel size and the settings (GameSettings): see apply_settings().
-var _panel_size: Vector2 = HudLayout.MAP_SIZES[1]
+## Compass mode from the settings (GameSettings): see apply_settings().
 var _mode: int = HudLayout.MAP_WAVE
 
 
@@ -58,10 +56,10 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel_style = StyleBoxFlat.new()
-	_panel_style.bg_color = Color(0.07, 0.1, 0.26, 0.8)
-	_panel_style.border_color = Color(0.96, 0.72, 0.24, 0.9)
-	_panel_style.set_border_width_all(3)
-	_panel_style.set_corner_radius_all(16)
+	_panel_style.bg_color = Color(0.07, 0.1, 0.26, PANEL_ALPHA)
+	_panel_style.border_color = Color(0.96, 0.72, 0.24, 0.75)
+	_panel_style.set_border_width_all(2)
+	_panel_style.set_corner_radius_all(8)
 	_button = Button.new()
 	_button.name = "CompassButton"
 	_button.focus_mode = Control.FOCUS_NONE
@@ -179,8 +177,6 @@ func compass_visible() -> bool:
 ## Re-reads the compass size and mode from the settings (the settings dialog calls it live).
 func apply_settings() -> void:
 	_mode = GameSettings.minimap_mode()
-	_panel_size = HudLayout.MAP_SIZES[GameSettings.minimap_size()]
-	_compass_built_for = -1
 	_pinned = _mode == HudLayout.MAP_SHOW
 	if _button != null:
 		_button.visible = _mode != HudLayout.MAP_HIDE and not _stopped
@@ -298,91 +294,76 @@ func _draw_label(text: String, tip: Vector2, area: Rect2, alpha: float) -> void:
 
 
 func _draw_compass() -> void:
-	_build_compass()
-	if _compass_routes.is_empty():
+	var box: Rect2 = HudLayout.current(size)["map"]
+	var font: Font = get_theme_default_font()
+	_map.build(level, box.size, font)
+	if _map.routes.is_empty():
 		return
+	_map.set_lit(_lanes)
 	var fade: float = 1.0
 	if not _pinned:
 		fade = clampf(_compass_left, 0.0, 1.0)
-	var panel: Rect2 = HudLayout.current(size)["map"]
-	var origin: Vector2 = panel.position
-	_panel_style.bg_color.a = 0.8 * fade
-	_panel_style.border_color.a = 0.9 * fade
-	draw_style_box(_panel_style, panel)
-	var inner := Rect2(
-		origin + Vector2.ONE * PANEL_PAD, _panel_size - Vector2.ONE * PANEL_PAD * 2.0
-	)
+	var frame := Rect2(box.position + _map.frame.position, _map.frame.size)
+	_panel_style.bg_color.a = PANEL_ALPHA * fade
+	_panel_style.border_color.a = 0.75 * fade
+	draw_style_box(_panel_style, frame)
+	# Everything below is cached in the frame's own pixels: nothing is allocated per frame.
+	# Order = fewest draw calls: lines, then the textured badges, then the text.
+	draw_set_transform(frame.position)
 	var pulse: float = 0.5 + 0.5 * sin(_age * 6.0)
-	# Dim roads first, the roads of this wave on top. Every kind is one draw_multiline
-	# (square caps fill the joints): a draw call per road made the compass 40 calls.
-	var dim := PackedVector2Array()
-	var lit_outline := PackedVector2Array()
-	var lit_core := PackedVector2Array()
-	var glow: Color = Color(COLOR, fade * (0.75 + 0.25 * pulse))
-	for lane in _compass_routes.size():
-		var points := PackedVector2Array()
-		for p: Vector2 in _compass_routes[lane]:
-			points.append(inner.position + p * inner.size)
-		if _lanes.has(lane):
-			_add_segments(lit_outline, points, 4.5)
-			_add_segments(lit_core, points, 3.0)
-		else:
-			_add_segments(dim, points, 2.0)
-	if not dim.is_empty():
-		draw_multiline(dim, Color(MUTED, MUTED.a * fade), 4.0)
-	if not lit_outline.is_empty():
-		draw_multiline(lit_outline, Color(OUTLINE, fade), 9.0)
-		draw_multiline(lit_core, glow, 6.0)
-	for lane: int in _lanes:
-		if lane < _compass_routes.size():
-			var start: Vector2 = inner.position + _compass_routes[lane][0] * inner.size
-			draw_circle(start, 7.0 + 2.5 * pulse, glow)
-	# The castle at the end of the first road.
-	var gate: Vector2 = (
-		inner.position + _compass_routes[0][_compass_routes[0].size() - 1] * inner.size
+	var glow: Color = Color(COLOR, fade * (0.78 + 0.22 * pulse))
+	if LaneMap.screen_oriented:
+		var field: PackedVector2Array = _map.field_outline()
+		field.append(field[0])
+		draw_polyline(field, Color(ROAD_DIM, 0.4 * fade), 1.5)
+	draw_multiline(_map.dim, Color(ROAD_DIM, ROAD_DIM.a * fade), 4.0)
+	if not _map.lit_outline.is_empty():
+		draw_multiline(_map.lit_outline, Color(OUTLINE, fade), 10.0)
+		draw_multiline(_map.lit_core, glow, 6.0)
+		draw_multiline(_map.lit_air, Color(COLOR, 0.9 * fade), 2.5)
+	var atlas: Texture2D = LaneMap.atlas()
+	# A dark pill behind every side name (the same texture as the dots: no extra draw call).
+	for label: Dictionary in _map.labels:
+		var pill: Rect2 = (label["rect"] as Rect2).grow_individual(5.0, 1.0, 5.0, 1.0)
+		draw_texture_rect_region(
+			atlas, pill, LaneMap.DOT_REGION, Color(0.04, 0.06, 0.16, 0.8 * fade)
+		)
+	for lane in _map.portals.size():
+		var at: Vector2 = _map.portals[lane]
+		var lit: bool = _lanes.has(lane)
+		var radius: float = (6.5 + 2.0 * pulse) if lit else 4.5
+		if lit:
+			_draw_badge(atlas, LaneMap.DOT_REGION, at, radius + 2.0, Color(OUTLINE, fade))
+		_draw_badge(atlas, LaneMap.DOT_REGION, at, radius, glow if lit else Color(ROAD_DIM, fade))
+	_draw_badge(
+		atlas, LaneMap.CASTLE_REGION, _map.castle, LaneMap.CASTLE_SIZE * 0.5, Color(1, 1, 1, fade)
 	)
-	var castle := Rect2(gate - Vector2(8.0, 8.0), Vector2(16.0, 16.0))
-	draw_rect(castle.grow(2.0), Color(0.98, 0.8, 0.4, fade))
-	draw_rect(castle, Color(0.35, 0.5, 0.95, fade))
+	for label: Dictionary in _map.labels:
+		var rect: Rect2 = label["rect"]
+		var color := Color(0.88, 0.91, 1.0, fade)
+		if _lanes.has(int(label["lane"])):
+			color = Color(1.0, 0.82, 0.5, fade)
+		var baseline: Vector2 = rect.position + Vector2(0.0, rect.size.y * 0.8)
+		draw_string(
+			font,
+			baseline,
+			str(label["text"]),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			LaneMap.LABEL_SIZE,
+			color
+		)
+	draw_set_transform(Vector2.ZERO)
 
 
-## Appends the segments of a polyline to `out` (pairs of points), each lengthened by `cap`
-## at both ends so that the joints of a thick multiline have no notches.
-func _add_segments(out: PackedVector2Array, points: PackedVector2Array, cap: float) -> void:
-	for i in points.size() - 1:
-		var dir: Vector2 = (points[i + 1] - points[i]).normalized() * cap
-		out.append(points[i] - dir)
-		out.append(points[i + 1] + dir)
+## One badge of the atlas (all of them share one texture, so they are one draw call).
+func _draw_badge(atlas: Texture2D, region: Rect2, at: Vector2, half: float, color: Color) -> void:
+	draw_texture_rect_region(
+		atlas, Rect2(at - Vector2.ONE * half, Vector2.ONE * half * 2.0), region, color
+	)
 
 
-## Roads of the level seen from above in screen orientation (up = the top of the screen),
-## fitted into the 0..1 box of the compass panel with the aspect ratio kept.
-func _build_compass() -> void:
-	var id: int = int(level.get("id", 0))
-	if _compass_built_for == id:
-		return
-	_compass_built_for = id
-	_compass_routes.clear()
-	if level.is_empty():
-		return
-	var flat: Array[PackedVector2Array] = []
-	var low := Vector2(INF, INF)
-	var high := Vector2(-INF, -INF)
-	for route: PackedVector2Array in LevelCatalog.routes(level):
-		var turned := PackedVector2Array()
-		for p: Vector2 in route:
-			var q := Vector2(p.dot(LevelCatalog.SCREEN_RIGHT), -p.dot(LevelCatalog.SCREEN_UP))
-			turned.append(q)
-			low = low.min(q)
-			high = high.max(q)
-		flat.append(turned)
-	var extent: Vector2 = (high - low).max(Vector2.ONE)
-	var inner: Vector2 = _panel_size - Vector2.ONE * PANEL_PAD * 2.0
-	var scale: float = minf(inner.x / extent.x, inner.y / extent.y)
-	var used: Vector2 = extent * scale
-	var shift: Vector2 = (inner - used) * 0.5
-	for route: PackedVector2Array in flat:
-		var fitted := PackedVector2Array()
-		for q: Vector2 in route:
-			fitted.append(((q - low) * scale + shift) / inner)
-		_compass_routes.append(fitted)
+## Geometry of the compass (public for tests); built for the current panel box.
+func compass_map() -> LaneMap:
+	_map.build(level, HudLayout.current(size)["map"].size, get_theme_default_font())
+	return _map

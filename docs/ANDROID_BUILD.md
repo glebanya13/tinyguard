@@ -105,3 +105,65 @@ SHA-256 отпечаток `CC:6E:CB:E8:BA:C1:CC:3B:95:FB:0A:D5:C8:B9:2A:8D:90:F
 **Если Gradle падает на «The file name must end with .xml or .png»** (проверено 2026-10-17): Godot проиндексировал
 служебную папку `android/build` и создал в ней файлы `*.import`. Нужно: `touch android/.gdignore` (папка
 `android/` не коммитится), удалить сгенерированные `find android -name "*.import" -delete` и собрать заново.
+
+## Crashlytics: подготовка шаблона Gradle (2026-10-17)
+
+Отчёты о сбоях (Firebase Crashlytics) есть **только в Gradle-сборках**: пресеты «Android Play (AAB)»
+и «Android Debug (Gradle)» (APK, `use_gradle_build=true`). Пресет «Android» (обычный APK из готового
+шаблона, без Gradle) остаётся как был: Crashlytics в нём нет, игра работает без него (проверено: он
+собирается). Решение владельца и границы: `CLAUDE.md` (только Crashlytics, без Analytics и рекламы).
+
+Каталог `android/` не коммитится, поэтому всё готовит скрипт (идемпотентный, только stdlib Python):
+
+```bash
+python3 tools/prepare_android_build.py            # подготовить; повтор безопасен
+python3 tools/prepare_android_build.py --check    # проверить, что всё на месте
+```
+
+Что он делает: распаковывает `android_source.zip` из export templates в `android/build` (если там
+пусто), пишет `android/.build_version` и `android/.gdignore`, **копирует `google-services.json`** в
+`android/build/`, правит `settings.gradle` и `build.gradle` (плагины `com.google.gms.google-services`
+4.4.4 и `com.google.firebase.crashlytics` 3.0.6 — google-services строго перед crashlytics;
+зависимости `firebase-bom:34.19.0`, `firebase-crashlytics`, `firebase-crashlytics-ndk`;
+`nativeSymbolUploadEnabled false`, `mappingFileUploadEnabled false`) и `src/main/AndroidManifest.xml`
+(мета-данные: `firebase_crashlytics_collection_enabled=false`, `firebase_data_collection_default_enabled=false`,
+Analytics выключен: `firebase_analytics_collection_deactivated=true`, `google_analytics_adid_collection_enabled=false`,
+все `google_analytics_default_allow_*=false`). Манифест правится в `src/main`, а не в `src/release|debug`:
+эти два Godot перезаписывает при каждом экспорте.
+
+**`google-services.json`** — файл владельца с публичным конфигом клиента Firebase; в репозиторий **не
+коммитится** (`.gitignore`). Взять: Firebase Console → Project settings → Your apps → (Android-приложение
+`com.bimbleguard.app`) → `google-services.json`. Скрипт ищет его в `$GOOGLE_SERVICES_JSON`,
+`./google-services.json`, `~/Downloads/google-services.json` или по `--google-services ПУТЬ`
+и проверяет, что в нём есть клиент `com.bimbleguard.app`.
+
+Версии проверены на совместимость с шаблоном 4.7.2 (AGP 8.6.1, Gradle 8.11.1, Kotlin 2.1.21, JDK 17):
+обе сборки (AAB и debug APK) собрались. Менять версии осознанно и сверяться с
+`./gradlew :dependencies --configuration standardReleaseRuntimeClasspath` (в `android/build`):
+в дереве есть `firebase-crashlytics(-ndk)`, installations, sessions, datatransport и
+`firebase-measurement-connector` (только интерфейсы); **`firebase-analytics` и
+`play-services-measurement` не подтягиваются**.
+
+Сборка (пути и подпись как выше; `JAVA_HOME` — JDK 17):
+
+```bash
+python3 tools/prepare_android_build.py
+godot --headless --path . --export-release "Android Play (AAB)" build/bimbleguard.aab   # Play
+godot --headless --path . --export-debug "Android Debug (Gradle)" build/bimbleguard-debug.apk  # тест
+```
+
+Проверка собранного (результаты 2026-10-17):
+
+| Проверка | Как | Результат |
+|---|---|---|
+| Размер AAB | `ls -l build/bimbleguard.aab` | было 50 861 198 Б (до Crashlytics), стало 52 587 796 Б (+1,73 МБ, +3,4 %); debug APK (Gradle) 107 441 021 Б, обычный APK 53 033 392 Б |
+| Разрешения | `aapt2 dump badging` (APK) | `INTERNET` и `ACCESS_NETWORK_STATE` (второе добавляет Firebase; в пресетах только INTERNET) |
+| Классы в dex | `dexdump` | `com/google/firebase/crashlytics/FirebaseCrashlytics`, sessions, installations; нативные `libcrashlytics*.so` (arm64-v8a) |
+| Манифест | `aapt2 dump xmltree --file AndroidManifest.xml` | сбор Crashlytics и Analytics выключены, перечисленные мета-данные на месте; `FirebaseInitProvider`, `ComponentDiscoveryService`, `SessionLifecycleService` добавлены библиотеками |
+| Подпись AAB | `jarsigner -verify` | jar verified; SHA-256 `CC:6E:CB:E8:BA:C1:CC:3B:95:FB:0A:D5:C8:B9:2A:8D:90:F7:4C:20:75:5F:49:B3:60:B5:82:02:91:40:63:51` (= ключ загрузки) |
+| Подпись debug APK | `apksigner verify --print-certs` | ключ Android Debug |
+| `google-services` | значения клиента попали в ресурсы AAB | `google_app_id`, `project_id`, `google_api_key`… |
+
+**На устройстве и в эмуляторе не запускалось: реальная отправка отчётов не проверена.** Вызовы из
+GDScript идут через `JavaClassWrapper` (`scripts/crash_reporter.gd`, `scripts/exit_reasons.gd`) и
+проверены только на компьютере (no-op и подставной объект в `tests/test_exit_reasons.gd`).

@@ -120,6 +120,7 @@ run "$GODOT" --headless --path . --script res://tests/test_i18n.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_fx.gd
 run "$GODOT" --headless --path . --script res://tests/test_quality_guard.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_memory_budget.gd
+run "$GODOT" --headless --path . --script res://tests/test_exit_reasons.gd
 echo "== co-op network (fake transport)"
 run "$GODOT" --headless --path . --script res://tests/test_coop_net.gd
 run "$GODOT" --headless --path . --script res://tests/test_coop_lobby_ui.gd
@@ -139,6 +140,7 @@ run "$GODOT" --headless --path . --script res://tests/test_shop_ui.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd
+run "$GODOT" --headless --path . --script res://tests/test_email_errors.gd
 run "$GODOT" --headless --path . --script res://tests/test_signup_flow.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd

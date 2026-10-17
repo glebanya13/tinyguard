@@ -620,5 +620,29 @@ CREDITS_ICONS,"Иконки: игра использует иконки с са�
 CREDITS_ICONS_LICENSE,"Лицензия иконок: Creative Commons Attribution 3.0 (CC BY 3.0), creativecommons.org/licenses/by/3.0","Icon license: Creative Commons Attribution 3.0 (CC BY 3.0), creativecommons.org/licenses/by/3.0"
 CREDITS_FONTS,"Шрифты: Rubik (The Rubik Project Authors) и Nunito (The Nunito Project Authors), лицензия SIL Open Font License 1.1.","Fonts: Rubik (The Rubik Project Authors) and Nunito (The Nunito Project Authors), SIL Open Font License 1.1."
 CREDITS_OWN,"Остальная графика, модели и звуки сделаны авторами игры.","All other art, models and sounds are made by the authors of the game."
+ERR_LINK_DISABLED,"Привязка почты сейчас выключена в проекте. Прогресс на месте. Сообщи в поддержку код ниже","Linking an email is switched off in the project right now. Your progress is safe. Send the code below to support"
+ERR_SIGNUP_DISABLED,"Регистрация по почте выключена в проекте. Сообщи в поддержку код ниже","Email sign-up is switched off in the project. Send the code below to support"
+ERR_SIGNIN_DISABLED,"Вход по почте выключен в проекте. Сообщи в поддержку код ниже","Email sign-in is switched off in the project. Send the code below to support"
+ERR_RESET_DISABLED,"Сброс пароля сейчас выключен в проекте. Сообщи в поддержку код ниже","Password reset is switched off in the project. Send the code below to support"
+ERR_VERIFY_DISABLED,"Письма с подтверждением сейчас выключены. Сообщи в поддержку код ниже","Confirmation emails are switched off. Send the code below to support"
+ERR_SIGNUP_CLOSED,Регистрация отключена владельцем проекта. Игра работает как гость; прогресс на месте,Sign-up is turned off by the project owner. The game works as a guest; your progress is safe
+ERR_KEY_RESTRICTED,"Ключ приложения ограничен, вход по почте не работает. Сообщи в поддержку код ниже","The app key is restricted, so email sign-in does not work. Send the code below to support"
+ERR_CONFIG_MISSING,"Вход по почте не настроен на сервере. Сообщи в поддержку код ниже","Email sign-in is not set up on the server. Send the code below to support"
+EMAIL_CODE,Код: %s,Code: %s
+EMAIL_REPORT,Сообщить в поддержку,Report to support
+EMAIL_REPORT_COPIED,Код скопирован. Вставь его в сообщение поддержке,Code copied. Paste it into your message to support
+EMAIL_ALT_SIGNIN,Войти с этой почтой,Sign in with this email
+EMAIL_ALT_REAUTH,Войти заново,Sign in again
+MAP_DIR_N,С,N
+MAP_DIR_NE,СВ,NE
+MAP_DIR_E,В,E
+MAP_DIR_SE,ЮВ,SE
+MAP_DIR_S,Ю,S
+MAP_DIR_SW,ЮЗ,SW
+MAP_DIR_W,З,W
+MAP_DIR_NW,СЗ,NW
 CRASH_NOTICE_TITLE,Прошлый запуск закрылся неожиданно,The last run closed unexpectedly
 CRASH_NOTICE_BODY,Качество графики понижено для стабильной игры.,Graphics quality was lowered to keep the game stable.
+SET_CRASH_ON,Отправлять отчёты о сбоях: вкл.,Send crash reports: on
+SET_CRASH_OFF,Отправлять отчёты о сбоях: выкл.,Send crash reports: off
+WELCOME_CRASH_NOTE,"Отчёты о сбоях анонимны и помогают чинить игру; их можно выключить в настройках.","Crash reports are anonymous and help us fix the game; you can turn them off in the settings."

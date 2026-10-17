@@ -69,3 +69,6 @@ website/dist-ssr
 
 # Firebase CLI cache
 /.firebase/
+
+# Firebase client config for the Gradle build (Crashlytics); owner's file, see docs/ANDROID_BUILD.md
+google-services.json

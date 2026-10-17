@@ -58,7 +58,13 @@ func sign_in_email(email: String, password: String) -> Dictionary:
 		await _ctx.sync_finished  # a sync of the old account must not meet the new session
 	_ctx.switching = true
 	var reply: Dictionary = await _ctx.auth.sign_in_email(check["email"], password)
-	var result := {"ok": false, "error": str(reply["error"]), "switched": false, "synced": false}
+	var result := {
+		"ok": false,
+		"error": str(reply["error"]),
+		"detail": str(reply.get("detail", "")),
+		"switched": false,
+		"synced": false
+	}
 	if reply["ok"]:
 		if reply["switched"]:
 			_forget_nickname_of_old_account()
@@ -107,7 +113,7 @@ func register_email(email: String, password: String, nickname: String = "") -> D
 	_ctx.switching = false
 	if not reply["ok"]:
 		_ctx.email_busy = false
-		return {"ok": false, "error": str(reply["error"])}
+		return {"ok": false, "error": str(reply["error"]), "detail": str(reply.get("detail", ""))}
 	Onboarding.mark_welcome_done()
 	_ctx.last_error = ""
 	_ctx.expired_announced = false

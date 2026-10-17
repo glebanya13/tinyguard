@@ -186,7 +186,10 @@ Identity Toolkit REST, без SDK и без Cloud Functions.
 | `TOO_MANY_ATTEMPTS_TRY_LATER`, HTTP 429 | `too_many_attempts` | «Слишком много попыток…» |
 | `CREDENTIAL_TOO_OLD_LOGIN_AGAIN`, `TOKEN_EXPIRED`, `INVALID_ID_TOKEN` | `reauth_required` | «Нужен свежий вход…» |
 | `USER_DISABLED` | `disabled` | «Этот аккаунт заблокирован» |
-| `OPERATION_NOT_ALLOWED` | `not_available` | «Вход по почте сейчас недоступен» |
+| `OPERATION_NOT_ALLOWED` | `link_disabled` / `signup_disabled` / `signin_disabled` / `reset_disabled` / `verify_disabled` (по запросу) | «Привязка почты / регистрация / вход / сброс выключены в проекте…» + код |
+| `ADMIN_ONLY_OPERATION` | `signup_closed` | «Регистрация отключена владельцем проекта» (в консоли выключено создание аккаунтов) |
+| `PERMISSION_DENIED`, `API_KEY_SERVICE_BLOCKED`, `API_KEY_*_BLOCKED`, `API_KEY_INVALID` | `key_restricted` | «Ключ приложения ограничен…» |
+| `CONFIGURATION_NOT_FOUND` | `config_missing` | «Вход по почте не настроен на сервере» |
 | нет сети / 5xx | `offline` / `server` | «Нет связи…» / «Сервер не отвечает…» |
 
 Клиент проверяет до запроса: почта (одна `@`, точка в домене, ≤ 254), пароль 6–128 символов
@@ -337,3 +340,32 @@ best-effort после смены. Оффлайн ник сохраняется 
 В `scripts/game_info.gd` `PRIVACY_URL` пуст: панель показывает краткую сводку. Для Google Play
 нужен публичный URL политики: опубликуйте `docs/PRIVACY.md` (например Firebase Hosting на
 Spark) и впишите адрес.
+
+
+### Как понять причину по коду (`detail`)
+
+Любой отказ регистрации, привязки, входа, сброса, письма подтверждения и lookup возвращает
+рядом с ключом ошибки строку `detail` (`AuthErrors.detail`): `HTTP <код> <слова>`, где слова это
+`error.message` (первое слово), `error.status` и `reason` из `error.errors[]` / `error.details[]`.
+В неё попадают только слова из ЗАГЛАВНЫХ букв, цифр и `_`, поэтому почта, пароль и токены
+пройти не могут (проверяет `tests/test_email_errors.gd`). Диалог показывает её мелким серым
+«Код: …» и кнопку «Сообщить в поддержку» (копирует версию, действие, код и ID игрока в буфер
+обмена). Последний код пишется в `user://last_auth_error.json` и показывается в оверлее
+диагностики строкой `last auth error: link HTTP 400 OPERATION_NOT_ALLOWED (3 min ago)`.
+
+| Код от тестера | Причина | Что делать |
+|---|---|---|
+| `HTTP 400 OPERATION_NOT_ALLOWED` | провайдер Email/Password выключен (или запрос не разрешён) | Authentication → Sign-in method → Email/Password включить |
+| `HTTP 400 ADMIN_ONLY_OPERATION` | выключено создание аккаунтов | Authentication → Settings → User actions → Enable create (sign-up) |
+| `HTTP 403 PERMISSION_DENIED API_KEY_SERVICE_BLOCKED` | у API-ключа в Google Cloud ограничены API | Credentials → ключ → API restrictions: добавить Identity Toolkit API и Token Service API |
+| `HTTP 403 ... API_KEY_ANDROID_APP_BLOCKED` / `...HTTP_REFERRER_BLOCKED` | ограничение приложения (package/сертификат или referrer) | Application restrictions: None (REST из Godot не шлёт сертификат) |
+| `HTTP 400 API_KEY_INVALID` / `INVALID_API_KEY` | в `firebase.cfg` неверный ключ | поправить ключ |
+| `HTTP 400 CONFIGURATION_NOT_FOUND` | в проекте не включён Authentication | Authentication → Get started |
+| `HTTP 400 CREDENTIAL_TOO_OLD_LOGIN_AGAIN` | старый вход | кнопка «Войти заново» |
+| `HTTP 400 EMAIL_EXISTS` | почта занята | кнопка «Войти с этой почтой» (профили сольются) |
+| `HTTP 400 (no body)` / `HTTP 5xx` | прокси или сбой Google | повторить позже |
+| `no reply (offline or timeout)` | нет связи | сеть |
+
+Если привязка гостя отказана (`accounts:update`), локальное состояние не меняется: uid, сессия,
+прогресс и запись в облаке остаются как были; новая «битая» сессия не создаётся. Сообщения не
+раскрывают, зарегистрирована ли почта (неверный вход всегда «Неверная почта или пароль»).
