@@ -21,7 +21,9 @@ Difficulty (--diff 0|1|2: Normal / Hard / Nightmare, multipliers from "difficult
 resources/balance.json) and the Record Run (--record: free mode, every wave harder, rules from
 "record" in the same file; the result is the wave the castle falls on) are played as well.
 
-Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [level_id ...]
+Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [--no-wood-economy] [level_id ...]
+  --no-wood-economy  the campaign without buying wood and lumberjacks (the numbers from before
+                     docs/ECONOMY_V2.md stage 1)
   --table  one line per level: result of every strategy (lives left / wave lost on)
   --sanity the "afk" (no tower at all) and "one" (a single tower) players: both must lose
 """
@@ -46,6 +48,9 @@ HERO = {"damage_levels": SWORD_DAMAGE, "range_levels": [1.4] * 4, "interval_leve
         "splash_levels": [0.0] * 4, "slow_levels": [1.0] * 4}
 WHIRL_RADIUS, WHIRL_MULT, WHIRL_COOLDOWN = 2.2, 1.6, 12.0  # scripts/hero.gd
 REPAIR_LIVES, REPAIR_WOOD = 2, 25  # scripts/game_state.gd
+# The villagers' wood economy (resources/villager_trade.tres, docs/ECONOMY_V2.md stage 1): on in
+# the campaign only, off in the Record Run and the daily challenge. `--no-wood-economy` plays
+# the campaign without it (the numbers from before the feature).
 # A human is not a machine: the skilled hero spends this share of the time actually fighting.
 SKILLED_HERO_UPTIME = 0.85
 BIG_HP = 150.0  # the skilled player switches towers to "strongest" when something this tough is in range
@@ -75,6 +80,15 @@ def tres(path: str) -> dict:
         elif nums and not value.startswith(("ExtResource", '"')):
             out[key] = float(nums[0])
     return out
+
+
+_TRADE = tres("resources/villager_trade.tres")
+LOT_WOOD = int(_TRADE["wood_per_lot"])
+BUY_START, BUY_GROWTH, BUY_MAX_LOTS = _TRADE["buy_start_gold"], _TRADE["buy_growth"], int(_TRADE["buy_max_lots"])
+HIRE_GOLD, HIRE_MAX = int(_TRADE["hire_gold"]), int(_TRADE["hire_max"])
+HIRE_WOOD_PER_SECOND = _TRADE["hire_wood_per_minute"] / 60.0
+GOLD_RESERVE = 70  # gold a player keeps (about two towers) before he spends any on wood or a hire
+WOOD_ECONOMY = "--no-wood-economy" not in sys.argv
 
 
 TOWERS = {k: tres(f"resources/towers/{k}.tres") for k in ("archer", "cannon", "frost", "lightning")}
@@ -107,6 +121,10 @@ def deal(dealt: dict, kind: str, weights: list, wave: int) -> int:
             best, best_score = k, score
     counts[best] += 1
     return best
+
+
+def buy_price(bought: int) -> int:
+    return max(1, rnd(BUY_START * BUY_GROWTH ** bought))
 
 
 def rnd(x: float) -> int:
@@ -278,6 +296,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     slots = order_slots(lv, drawn, strategy)
     gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], max(rnd(lv["start"]["lives"] * d["lives"]), 1)
     lives_start = lives
+    economy = WOOD_ECONOMY and not record
+    hired = bought = 0  # lumberjacks hired / lots of wood bought
     towers = []  # dicts: kind, level, x, z, cd
     hx, hz = lv["hero"]
     hero = {"kind": "hero", "level": 0, "x": hx, "z": hz, "cd": 0.0, "whirl": 0.0}
@@ -339,6 +359,26 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         want = [a + 0.5 * leaked_on.get(k, 0) for k, a in enumerate(want)]
         return max(pool, key=lambda sl: sum(wl * c for wl, c in zip(want, cover_table[tuple(sl)])))
 
+    def top_up(need_gold: int, need_wood: int) -> bool:
+        """An item is short of wood. A sensible player spends only the gold left over after the
+        item and a reserve: first a lumberjack (the cheaper wood in the long run), then lots of
+        wood. True: the wood is there now."""
+        nonlocal gold, wood, bought, hired
+        if not economy:
+            return False
+        if hired < HIRE_MAX and gold - need_gold >= HIRE_GOLD + GOLD_RESERVE:
+            gold -= HIRE_GOLD
+            hired += 1
+        lots = math.ceil((need_wood - wood) / LOT_WOOD)
+        lots = min(lots, BUY_MAX_LOTS - bought)
+        cost = sum(buy_price(bought + i) for i in range(lots))
+        if lots <= 0 or gold - need_gold < cost + GOLD_RESERVE:
+            return False
+        gold -= cost
+        wood += lots * LOT_WOOD
+        bought += lots
+        return wood >= need_wood
+
     def shop():
         nonlocal gold, wood, lives
         changed = True
@@ -364,7 +404,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                 if air_guard():
                     kind = "archer"
                 d = TOWERS[kind]
-                if gold >= d["cost_gold"] and wood >= d["cost_wood"]:
+                if gold >= d["cost_gold"] and (wood >= d["cost_wood"] or top_up(d["cost_gold"], d["cost_wood"])):
                     gold -= d["cost_gold"]
                     wood -= d["cost_wood"]
                     x, z = pick_slot()
@@ -376,7 +416,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                 d = TOWERS[tw["kind"]]
                 if tw["level"] < 2:
                     g, wd = d["upgrade_gold"][tw["level"]], d["upgrade_wood"][tw["level"]]
-                    if gold >= g and wood >= wd:
+                    if gold >= g and (wood >= wd or top_up(g, wd)):
                         gold -= g
                         wood -= wd
                         tw["level"] += 1
@@ -408,7 +448,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     next_wave_at, wave = w["first_delay"], 0
     while True:
         t += DT
-        wood += WOOD_PER_SECOND * DT
+        wood += (WOOD_PER_SECOND + hired * HIRE_WOOD_PER_SECOND) * DT
         shop()
         steer_hero(enemies)
         if (record or wave < w["count"]) and t >= next_wave_at:
@@ -471,7 +511,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                    3: lambda en: math.dist(en["pos"], (tw["x"], tw["z"]))}[prio]
             target = min(in_range, key=key)
             splash = d["splash_levels"][lvl]
-            chain = int(d.get("chain_levels", [0, 0, 0])[lvl])
+            chain = int(d.get("chain_levels", [0, 0, 0, 0])[lvl])
             if splash:
                 hit = [en for en in enemies if math.dist(en["pos"], target["pos"]) <= splash
                        and not ENEMIES[en["kind"]].get("flying", False)]
