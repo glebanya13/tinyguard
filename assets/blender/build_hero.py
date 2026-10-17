@@ -30,7 +30,7 @@ def build_legs():
         tg.deform(boot, lambda c: Vector((c.x, c.y, max(c.z, -0.055))))  # flat sole
         cuff = tg.cylinder(f"cuff{sx}", 0.066, 0.07, 0.045, (x, 0, 0.095), "leather", verts=14)
         band = tg.torus(f"band{sx}", 0.068, 0.009, (x, 0, 0.14), "gold", seg=16, minor_seg=6)
-        leg = tg.cylinder(f"leg{sx}", 0.056, 0.06, 0.14, (x, 0, 0.12), "cream", verts=12)
+        leg = tg.cylinder(f"leg{sx}", 0.056, 0.06, 0.14, (x, 0, 0.12), "steel", verts=12)
         part = tg.join([boot, cuff, band, leg], "LegR" if sx < 0 else "LegL")
         tg.pivot(part, (x, 0, 0.24))
         legs.append(part)
@@ -38,14 +38,14 @@ def build_legs():
 
 
 def build_skirt():
-    skirt = tg.lathe("skirt", [(0.20, 0.205), (0.21, 0.23), (0.19, 0.30), (0.165, 0.38)], "cream", steps=20)
+    skirt = tg.lathe("skirt", [(0.20, 0.205), (0.21, 0.23), (0.19, 0.30), (0.165, 0.38)], "armor_dark", steps=20)
     hem = tg.torus("hem", 0.203, 0.013, (0, 0, 0.212), "gold", seg=24, minor_seg=6)
     return [skirt, hem]
 
 
 def build_body():
     torso = tg.lathe("torso", [(0.15, 0.36), (0.175, 0.42), (0.19, 0.50), (0.182, 0.58), (0.15, 0.645), (0.085, 0.69)],
-                     "armor", steps=20)
+                     "steel", steps=16)
     tg.deform(torso, lambda c: Vector((c.x, c.y * 0.82, c.z)))
     tg.add_subsurf(torso, 1)
     tg.shade(torso, 60)
@@ -53,12 +53,22 @@ def build_body():
     buckle = tg.box("buckle", (0.065, 0.025, 0.05), (0, -0.145, 0.40), "gold", bevel=0.008)
     gem = tg.sphere("crest", (0.085, 0.03, 0.10), (0, -0.152, 0.53), "gold", seg=8, rings=4)
     gem_core = tg.sphere("crest_core", (0.04, 0.02, 0.05), (0, -0.165, 0.535), "armor_dark", seg=8, rings=4)
+    tabard = tg.box("tabard", (0.17, 0.03, 0.30), (0, -0.147, 0.49), "armor", bevel=0.012)
+    tg.deform(tabard, lambda c: Vector((c.x, c.y + 0.05 * c.x * c.x / 0.0072 * 0.1, c.z)))
+    trim = [tg.box(f"trim{s}", (0.016, 0.034, 0.30), (0.093 * s, -0.147, 0.49), "gold", bevel=0.005) for s in (-1, 1)]
+    hemline = tg.box("tabard_hem", (0.2, 0.034, 0.02), (0, -0.147, 0.34), "gold", bevel=0.005)
+    # Crown emblem on the tabard: band + three points.
+    emb = [tg.box("emb_band", (0.09, 0.016, 0.024), (0, -0.168, 0.485), "gold", bevel=0.004)]
+    for i, ex in enumerate((-0.04, 0.0, 0.04)):
+        emb.append(tg.cylinder(f"emb_pt{i}", 0.014, 0.004, 0.045 + (0.02 if ex == 0 else 0), (ex, -0.168, 0.5), "gold",
+                               verts=6))
+    emb.append(tg.sphere("emb_gem", (0.03, 0.02, 0.03), (0, -0.172, 0.455), "ruby", seg=8, rings=4))
     neck = tg.cylinder("neck", 0.055, 0.05, 0.07, (0, 0.0, 0.66), "skin", verts=12)
-    parts = [torso, belt, buckle, gem, gem_core, neck, *build_skirt()]
+    parts = [torso, belt, buckle, tabard, *trim, hemline, *emb, neck, *build_skirt()]
     for sx in (-1, 1):
-        pad = tg.sphere(f"pauldron{sx}", (0.17, 0.16, 0.12), (0.19 * sx, 0.0, 0.635), "armor", seg=16, rings=8)
+        pad = tg.sphere(f"pauldron{sx}", (0.21, 0.19, 0.15), (0.2 * sx, 0.0, 0.64), "steel", seg=16, rings=8)
         tg.deform(pad, lambda c: Vector((c.x, c.y, max(c.z, -0.02))))
-        rim = tg.torus(f"pauldron_rim{sx}", 0.083, 0.011, (0.19 * sx, 0.0, 0.618), "gold", seg=20, minor_seg=6,
+        rim = tg.torus(f"pauldron_rim{sx}", 0.103, 0.013, (0.2 * sx, 0.0, 0.622), "gold", seg=20, minor_seg=6,
                        scale=(1, 0.95, 1))
         clasp = tg.sphere(f"clasp{sx}", (0.04, 0.03, 0.04), (0.11 * sx, -0.11, 0.655), "gold", seg=10, rings=6)
         parts += [pad, rim, clasp]
@@ -67,9 +77,31 @@ def build_body():
     return body
 
 
+def build_crown():
+    """Golden crown on the helmet (tall points, ruby gem) and a tall red plume behind it."""
+    z0 = 1.075
+    parts = [tg.cylinder("crown_band", 0.152, 0.178, 0.085, (0, 0.012, z0), "gold", verts=18)]
+    parts.append(tg.torus("crown_rim", 0.153, 0.011, (0, 0.012, z0 - 0.036), "gold", seg=18, minor_seg=5))
+    n = 5
+    for i in range(n):
+        a = math.radians(360 / n * i + 180 / n)
+        px, py = 0.172 * math.sin(a), 0.012 + 0.172 * math.cos(a)
+        front = abs(math.sin(a)) < 0.2 and math.cos(a) < 0
+        h = 0.14 if front else 0.105
+        parts.append(tg.cylinder(f"crown_pt{i}", 0.05, 0.012, h, (px, py, z0 + 0.037 + h / 2), "gold", verts=6))
+        parts.append(tg.sphere(f"crown_ball{i}", (0.055, 0.055, 0.055), (px, py, z0 + 0.04 + h), "ruby" if front else "gold",
+                               seg=8, rings=4))
+    parts.append(tg.sphere("crown_gem", (0.05, 0.03, 0.05), (0, 0.012 - 0.172, z0 + 0.005), "ruby", seg=10, rings=6))
+    for i, (y, z, rx, k) in enumerate([(0.15, 1.22, -12, 0.2), (0.19, 1.34, -26, 0.21), (0.25, 1.44, -42, 0.2),
+                                       (0.33, 1.50, -62, 0.17)]):
+        parts.append(tg.sphere(f"plume{i}", (0.085, 0.14, k), (0, y, z), "ruby" if i % 2 == 0 else "berry", seg=10,
+                               rings=5, rot=(rx, 0, 0)))
+    return parts
+
+
 def build_head():
     c = HEAD_C
-    head = tg.sphere("skull", (HEAD_R.x * 2, HEAD_R.y * 2, HEAD_R.z * 2), c, "skin", seg=26, rings=14)
+    head = tg.sphere("skull", (HEAD_R.x * 2, HEAD_R.y * 2, HEAD_R.z * 2), c, "skin", seg=22, rings=12)
     # Fuller cheeks, slightly narrower top: a friendlier chibi face.
     tg.deform(head, lambda v: Vector((v.x * (1.0 + 0.06 * max(0.0, -(v.z) / HEAD_R.z)), v.y, v.z)))
     parts = [head]
@@ -106,7 +138,7 @@ def build_head():
         parts.append(side)
 
     # Open-face helmet: dome cut by a plane tilted towards the back.
-    dome = tg.sphere("helmet", (0.455, 0.43, 0.43), (0, 0.012, 0.935), "armor", seg=24, rings=14)
+    dome = tg.sphere("helmet", (0.455, 0.43, 0.43), (0, 0.012, 0.935), "steel", seg=20, rings=12)
     bm = bmesh.new()
     bm.from_mesh(dome.data)
     plane_co = Vector((0, -0.2, 1.035)) - dome.location
@@ -128,12 +160,7 @@ def build_head():
     bm.free()
     tg.add_solidify(dome, 0.016)
     tg.shade(dome, 60)
-    crest = tg.sphere("crest_fin", (0.034, 0.36, 0.15), (0, 0.035, 1.14), "gold", seg=12, rings=6)
-    parts += [dome, crest]
-    # Plume sweeping back from the crest.
-    for i, (y, z, rx, m) in enumerate([(0.10, 1.22, -30, "cream"), (0.19, 1.18, -48, "armor"), (0.25, 1.11, -66, "cream")]):
-        plume = tg.sphere(f"plume{i}", (0.07, 0.2, 0.075), (0, y, z), m, seg=10, rings=5, rot=(rx, 0, 0))
-        parts.append(plume)
+    parts += [dome, *build_crown()]
 
     head_obj = tg.join(parts, "Head")
     tg.pivot(head_obj, (0, 0, 0.70))
@@ -175,21 +202,21 @@ def build_arm(side: int):
     """side -1 = hero's right (-X, sword), +1 = left (+X, shield)."""
     sx = side
     sh = Vector((0.205 * sx, 0.0, 0.615))
-    upper = tg.sphere("upper", (0.1, 0.1, 0.19), (0.228 * sx, 0, 0.535), "cream", seg=12, rings=8, rot=(0, -8 * sx, 0))
-    fore = tg.sphere("fore", (0.108, 0.108, 0.13), (0.245 * sx, -0.025, 0.44), "armor", seg=12, rings=8)
+    upper = tg.sphere("upper", (0.1, 0.1, 0.19), (0.228 * sx, 0, 0.535), "armor_dark", seg=12, rings=8, rot=(0, -8 * sx, 0))
+    fore = tg.sphere("fore", (0.108, 0.108, 0.13), (0.245 * sx, -0.025, 0.44), "steel", seg=12, rings=8)
     cuff = tg.torus("cuff", 0.05, 0.011, (0.247 * sx, -0.03, 0.395), "gold", seg=14, minor_seg=6)
     glove = tg.sphere("glove", (0.105, 0.1, 0.1), (0.25 * sx, -0.045, 0.355), "leather", seg=12, rings=8)
     arm = tg.join([upper, fore, cuff, glove], "ArmR" if side < 0 else "ArmL")
     if side > 0:
-        disc = tg.lathe("shield", [(0.0, 0.03), (0.08, 0.026), (0.14, 0.016), (0.155, 0.0)], "armor", steps=24)
-        rim = tg.torus("shield_rim", 0.152, 0.014, (0, 0, 0.004), "gold", seg=28, minor_seg=6)
-        boss = tg.sphere("shield_boss", (0.07, 0.07, 0.04), (0, 0, 0.032), "gold", seg=12, rings=6)
-        cross_v = tg.box("shield_cross_v", (0.035, 0.2, 0.012), (0, 0, 0.027), "cream", bevel=0.005)
-        cross_h = tg.box("shield_cross_h", (0.2, 0.035, 0.012), (0, 0, 0.027), "cream", bevel=0.005)
+        disc = tg.lathe("shield", [(0.0, 0.04), (0.1, 0.034), (0.18, 0.02), (0.2, 0.0)], "armor", steps=24)
+        rim = tg.torus("shield_rim", 0.197, 0.018, (0, 0, 0.004), "gold", seg=28, minor_seg=6)
+        boss = tg.sphere("shield_boss", (0.07, 0.07, 0.05), (0, 0, 0.04), "ruby", seg=12, rings=6)
+        cross_v = tg.box("shield_cross_v", (0.05, 0.27, 0.014), (0, 0, 0.034), "gold", bevel=0.005)
+        cross_h = tg.box("shield_cross_h", (0.27, 0.05, 0.014), (0, 0, 0.034), "gold", bevel=0.005)
         shield = tg.join([disc, rim, cross_v, cross_h, boss], "Shield")
         # Face outwards and a little to the front.
         shield.rotation_euler = (0, math.radians(90), math.radians(-38))
-        shield.location = (0.33, -0.05, 0.43)
+        shield.location = (0.34, -0.05, 0.45)
         tg.apply_all_transforms(shield)
         arm = tg.join([arm, shield], "ArmL")
     tg.pivot(arm, sh)
@@ -197,7 +224,7 @@ def build_arm(side: int):
 
 
 def build_cape():
-    cols, rows = 10, 6
+    cols, rows = 16, 8
     verts, faces = [], []
     for j in range(rows + 1):
         v = j / rows
@@ -212,8 +239,10 @@ def build_cape():
             a = j * (cols + 1) + i
             faces.append((a, a + 1, a + cols + 2, a + cols + 1))
     cape = tg.from_pydata("Cape", verts, faces, "cape")
+    cape.data.materials.append(tg.swatch("gold"))
+    for p in cape.data.polygons[(rows - 1) * cols:]:
+        p.material_index = 1
     tg.add_solidify(cape, 0.014, inner_mat="cream")
-    tg.add_subsurf(cape, 1)
     tg.shade(cape, 70)
     collar = tg.torus("collar", 0.135, 0.02, (0, 0.025, 0.665), "gold", seg=20, minor_seg=6, scale=(1, 0.8, 1))
     tg.deform(collar, lambda v: Vector((v.x, max(v.y, -0.04), v.z)))
