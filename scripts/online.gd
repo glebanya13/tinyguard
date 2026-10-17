@@ -228,6 +228,11 @@ func account_type() -> String:
 	return _ctx.session.account_type()
 
 
+## Firebase uid of the signed-in account, "" when there is none.
+func uid() -> String:
+	return _ctx.auth.uid
+
+
 func start_new_guest() -> Dictionary:
 	return await _ctx.session.start_new_guest()
 

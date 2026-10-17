@@ -309,34 +309,21 @@ func _on_speed_changed(speed: int) -> void:
 
 ## What a replay needs to know about the battle it reproduces.
 func _journal_header() -> Dictionary:
-	var header := {
-		"sim_version": Sim.VERSION,
-		"tick_rate": Sim.TICK_RATE,
-		"level": int(level["id"]),
-		"endless": _endless,
-		"seed": _sim.seed_value,
-		"perks": _current_perks(),
-	}
-	if _difficulty > 0:
-		header["difficulty"] = _difficulty
-	if _record:
-		header["record"] = 1
-	if _daily_key != "":
-		header["daily"] = _daily_key
-	if _coop_on():
-		header["coop"] = 1
-		header["delay"] = int(coop_config["delay"])
-	return header
+	return BattleSetup.journal_header(
+		level,
+		_endless,
+		_sim.seed_value,
+		_current_perks(),
+		_difficulty,
+		_record,
+		_daily_key,
+		coop_config
+	)
 
 
-## Difficulty of this battle: the player's choice on the map; co-op takes the host's choice
-## from the room; the record run and the daily challenge are always Normal.
+## Difficulty of this battle (see BattleSetup.chosen_difficulty).
 func _chosen_difficulty() -> int:
-	if _coop_on():
-		return int(coop_config.get("difficulty", 0))
-	if _endless:
-		return 0
-	return LevelCatalog.difficulty
+	return BattleSetup.chosen_difficulty(coop_config, _endless, LevelCatalog.difficulty)
 
 
 ## Health, enemy count and kill gold of the difficulty (the lives are in _apply_perks).
@@ -348,24 +335,14 @@ func _apply_difficulty() -> void:
 
 ## The player's permanent perks by name.
 func _current_perks() -> Dictionary:
-	var out := {}
-	for key: StringName in PERK_KEYS:
-		# Co-op is an even start: nobody brings perks to the match.
-		out[String(key)] = 0 if _coop_on() else Perks.value(key)
-	return out
+	return BattleSetup.current_perks(PERK_KEYS, _coop_on())
 
 
 ## Starting resources, lives and damage bonuses from `perks`. A replay applies
 ## the perks of its journal header (not the local save), so every client plays
 ## the same battle; call it before the battle clock starts.
 func _apply_perks(perks: Dictionary) -> void:
-	var start: Dictionary = level["start"].duplicate()
-	start["lives"] = maxi(
-		roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1
-	)
-	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
-	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
-	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
+	var start: Dictionary = BattleSetup.start_resources(level, _difficulty, perks)
 	_game_state.configure(start)
 	_game_state.reset()
 	_hero.damage_multiplier = 1.0 + float(perks.get("sword", 0.0))

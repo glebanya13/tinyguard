@@ -118,6 +118,49 @@ Main (Node3D, main.gd)               — строит уровень из дан
 (не коммитится, есть `firebase.example.cfg`), правила — `firestore.rules`.
 Без конфига `Online.is_configured()` = false, кнопка «Рекорды» скрыта.
 
+### Структура сервисов `Online` (2026-10-17)
+
+`scripts/online.gd` (~360 строк) — **фасад**: единственный autoload, прежний публичный API
+(методы, сигналы, свойства `auth`, `firestore`, `rtdb`, `auto_sync`, `retry_base` и т. д. —
+свойства проброшены в контекст). Работа выполняется обычными `RefCounted`-классами
+(не autoload), которые делят общий `OnlineContext` (`scripts/online_context.gd`: ключи и
+URL, `auth`/`firestore`/`rtdb`, флаги занятости, сигналы и ссылки на остальные сервисы).
+Связь «вниз» — вызовы методов сервисов; «вверх» — сигналы контекста, фасад переизлучает
+их под прежними именами.
+
+| Класс (`scripts/`) | Ответственность |
+|---|---|
+| `OnlineSession` (`online_session.gd`) | `start`, `needs_welcome`, `choose_guest`, тип аккаунта, `start_new_guest`, `wipe_local`, запомненный uid |
+| `OnlineSync` (`online_sync.gd`) | `sync_now` (read-merge-write `users/{uid}`), `sync_state`, авто-синхронизация с отложкой и back-off, `cloud_save/load` |
+| `OnlineNicknames` (`online_nicknames.gd`) | резерв ника одной транзакцией, 24-часовые часы смены, переименование рекордов |
+| `OnlineAccounts` (`online_accounts.gd`) | почта: регистрация, привязка, вход, выход, письма, сброс пароля; удаление аккаунта |
+| `OnlineRecords` (`online_records.gd`) | `start_run`, очередь рекорда с повторами, `send_score`, таблицы уровней, разбор ответов |
+| `OnlineDaily` (`online_daily.gd`) | очередь результата дня, таблица дня |
+| `OnlineCoop` (`online_coop.gd`) | транспорт Realtime Database, очистка комнат при удалении аккаунта |
+
+```
+Online (facade, autoload)
+  └─ OnlineContext (state + signals) ◄── shared by:
+       OnlineSession ──► OnlineSync ──► OnlineNicknames
+       OnlineAccounts ─► OnlineSync, OnlineNicknames, OnlineSession, OnlineCoop
+       OnlineRecords ◄── OnlineDaily (send_score)
+       OnlineSync/Records/Accounts ─► AuthService (+ AuthErrors), FirestoreClient, RtdbClient
+```
+
+Сервисы обращаются друг к другу только через публичные методы (`ctx.sync.sync_now()` и т. п.);
+не должны кешировать `ctx.auth`/`ctx.firestore` через `await` (`Online.setup` подменяет их).
+`AuthService` дополнительно разделён: таблицы кодов ошибок и разбор ответа — `AuthErrors`
+(`auth_errors.gd`), запросы и токены — `AuthService`. Правила боя (заголовок журнала,
+сложность, перки, стартовые ресурсы) — `BattleSetup` (`battle_setup.gd`), `main.gd` лишь вызывает.
+На фасаде отключено только `max-public-methods` (он обязан отдавать весь старый API).
+
+### Изоляция тестов
+
+`tests/run_all.sh` запускает каждый тест с отдельными пустыми `HOME` и `XDG_DATA_HOME`:
+`user://` (сохранения, сессии, логи) у каждого процесса свой, поэтому прогоны не мешают друг
+другу, параллельному `run_all.sh` и обычному запуску игры (настоящий `progress.cfg` не трогается).
+`--only <regex>` запускает подмножество: `tests/run_all.sh <godot> --only 'accounts|records'`.
+
 ## Сохранение
 
 `LevelCatalog.data()` — кэш `ConfigFile`; `commit()` пишет атомарно (`.tmp` →
