@@ -599,3 +599,8 @@ SET_MAP_SHOW,Всегда,Always
 SET_MAP_HIDE,Скрыть,Hide
 SET_MAP_WAVE,С волной,On waves
 SET_PREVIEW_NOTE,Так будут стоять кнопки в бою. Изменения применяются сразу.,This is where the controls sit in battle. Changes apply at once.
+SET_TAB_CREDITS,Авторы,Credits
+CREDITS_ICONS,"Иконки: игра использует иконки с сайта game-icons.net, авторы: Lorc, Delapouite, Carl Olsen. Иконки перекрашены и обработаны.","Icons: the game uses icons from game-icons.net by Lorc, Delapouite and Carl Olsen. The icons were recoloured and edited."
+CREDITS_ICONS_LICENSE,"Лицензия иконок: Creative Commons Attribution 3.0 (CC BY 3.0), creativecommons.org/licenses/by/3.0","Icon license: Creative Commons Attribution 3.0 (CC BY 3.0), creativecommons.org/licenses/by/3.0"
+CREDITS_FONTS,"Шрифты: Rubik (The Rubik Project Authors) и Nunito (The Nunito Project Authors), лицензия SIL Open Font License 1.1.","Fonts: Rubik (The Rubik Project Authors) and Nunito (The Nunito Project Authors), SIL Open Font License 1.1."
+CREDITS_OWN,"Остальная графика, модели и звуки сделаны авторами игры.","All other art, models and sounds are made by the authors of the game."

@@ -1,9 +1,49 @@
 # Credits / Лицензии сторонних материалов
 
-Сторонние материалы: только шрифты под SIL OFL 1.1. Лицензии лежат рядом с файлами.
-Весь UI-арт (атлас панелей и кнопок, иконки, эмблемы биомов) нарисован собственными
-скриптами и внешних картинок не содержит. Раньше использовались наборы Kenney (CC0): с
-2026-10-17 они не нужны, файлы и скрипт сборки удалены.
+Сторонние материалы: шрифты под SIL OFL 1.1 (лицензии рядом с файлами) и силуэты иконок с
+game-icons.net под CC BY 3.0 (разрешены владельцем 2026-10-17 при обязательной атрибуции, см.
+ниже). Атлас панелей и кнопок, остальные иконки и эмблемы биомов нарисованы собственными
+скриптами. Раньше использовались наборы Kenney (CC0): с 2026-10-17 они не нужны, файлы и
+скрипт сборки удалены.
+
+## game-icons.net, Creative Commons Attribution 3.0 (CC BY 3.0)
+
+- Источник: https://game-icons.net (архив https://game-icons.net/archives/000000/transparent/game-icons.net.svg.zip,
+  скачан 2026-10-17 с официальной страницы). Лицензия: https://creativecommons.org/licenses/by/3.0/ ,
+  текст архива: `tools/icon_src/LICENSE-game-icons.txt`.
+- Что взято: только силуэты в `tools/icon_src/*.svg` (имя файла = `автор__название`). Силуэты
+  перекрашены (градиент, блик, тень) и обработаны скриптом `tools/make_ui_icons.py`; готовые PNG в
+  `ui/icons/`. Исходные файлы не менялись.
+- Атрибуция (обязательна): **Icons made by Lorc, Delapouite and Carl Olsen. Available on https://game-icons.net**
+  (изменены: перекрашены).
+- Где показано: в игре «Настройки -> Авторы» (`scripts/settings_panel.gd`, строки `CREDITS_*`),
+  на сайте страница «Terms of Use / Условия использования», раздел Credits / Авторы
+  (`website/src/content/{en,ru}.ts`), здесь.
+
+| Иконка (`ui/icons/`) | Силуэт | Автор |
+|---|---|---|
+| chest | locked-chest | Lorc |
+| crown | crown | Lorc |
+| gear | cog | Lorc |
+| flag | flying-flag | Lorc |
+| hourglass | hourglass | Lorc |
+| hammer (кузница) | anvil-impact | Lorc |
+| axe | wood-axe | Lorc |
+| lock | padlock | Lorc |
+| map | treasure-map | Lorc |
+| compass | compass | Lorc |
+| tower_archer | pocket-bow | Lorc |
+| tower_cannon | cannon | Lorc |
+| tower_frost | snowflake-1 | Lorc |
+| tower_lightning | lightning-storm | Lorc |
+| trophy | trophy-cup | Delapouite |
+| sound_on / sound_off | speaker / speaker-off | Delapouite |
+| wood | wood-pile | Delapouite |
+| shop | shop | Delapouite |
+| flame | flame | Carl Olsen |
+
+Остальные иконки (монета, самоцвет, звезда, сердце, меч, щит, стрелки, облако, друзья и др.)
+нарисованы `tools/make_ui_icons.py` без внешних источников.
 
 ## Rubik (шрифт), SIL Open Font License 1.1
 
@@ -31,7 +71,7 @@
 ## Собственные файлы
 
 - `ui/theme_atlas.png` и `ui/theme.tres` - `tools/make_ui_atlas.py` (Pillow, детерминированно).
-- `ui/icons/*.png` (кроме порталов башен и врагов) - `tools/make_ui_icons.py`; `tower_*.png` -
-  `tools/make_tower_icons.py`; портреты врагов - рендер моделей (`tools/render_icons.gd`).
+- `ui/icons/*.png` (включая `tower_*.png`, кроме портретов врагов) - `tools/make_ui_icons.py`;
+  портреты врагов - рендер моделей (`tools/render_icons.gd`).
 - `ui/biomes/*.png` - эмблемы биомов карточки уровня, `tools/make_biome_art.py`.
 - `ui/app/backdrop.jpg` - размытый и затемнённый фрагмент `assets/brand/logo.png` (фон лобби и ввода ника).
