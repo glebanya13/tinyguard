@@ -1,11 +1,19 @@
-# gdlint:disable=max-public-methods,max-returns,max-file-lines
+# gdlint:disable=max-public-methods
 extends Node
 ## Optional online features over Firebase REST APIs (no SDK, no native
-## plugins). Autoload "Online": a facade over AuthService (guest sign-in,
-## sessions), FirestoreClient (profile sync, leaderboards, nicknames)
-## and PlayerProfile (local/cloud merge). Without res://firebase.cfg
-## (docs/FIREBASE.md) everything online is disabled and the game, the local
-## profile and the onboarding work offline.
+## plugins). Autoload "Online": the only autoload and a thin FACADE with the public
+## API of the game; the work is done by plain services that share an OnlineContext:
+##   OnlineSession   boot, welcome choice, account type, wiping this device
+##   OnlineSync      profile sync (read-merge-write), sync state, auto-sync
+##   OnlineNicknames nickname reservation and its 24 hour clock
+##   OnlineAccounts  email sign-up / link / sign-in / sign-out, deletion
+##   OnlineRecords   endless records, retry queue, level leaderboards
+##   OnlineDaily     daily challenge result queue and board
+##   OnlineCoop      Realtime Database transport and room cleanup
+## Over them sit AuthService, FirestoreClient and RtdbClient (REST). Signals of the
+## services come up through the context and are re-emitted here under the old names.
+## Without res://firebase.cfg (docs/FIREBASE.md) everything online is disabled and the
+## game, the local profile and the onboarding work offline.
 ## Sent: the anonymous uid, the reserved nickname, progression and settings,
 ## endless records. An email and password go only to Firebase Auth, only when
 ## the player links or signs in, and are never stored on the device.
@@ -27,77 +35,97 @@ signal sync_finished(result: Dictionary)
 signal session_expired
 
 const CONFIG_PATH := "res://firebase.cfg"
-const LEADERBOARD_SIZE := 10
-const NAME_MAX := 16
-## Leaderboard name of players without a reserved nickname (firestore.rules).
-const ANONYMOUS_NAME := "Рыцарь"  # i18n:keep (server-side name)
-## Rounds of read-merge-write when another device writes in between.
-const MAX_SYNC_ROUNDS := 3
-## Local save section of the endless record queue (run start + unsent record).
-const RECORD_SECTION := "record_queue"
-## Local save section of the unsent daily result (day + wave + account).
-const DAILY_SECTION := "daily_queue"
-## Pause after the last local change before the profile goes to the cloud (seconds).
-const SYNC_DEBOUNCE := 3.0
-## Minimum time between two automatic syncs (keeps a device far below Spark's 20k
-## writes a day), and the longest wait after failed ones.
-const SYNC_MIN_GAP := 10.0
-const SYNC_RETRY_MAX := 300.0
-## Pause between two verification mails requested from the profile (seconds).
-const VERIFY_COOLDOWN := 60.0
-const RETRY_MAX := 300.0
-const MAX_RETRIES := 8
-## Minimum time between nickname changes (firestore.rules enforce the same 24 hours).
-const NICKNAME_CHANGE_SECONDS := 86400
-const _PROFILE_TIMES: Array[String] = ["createdAt", "nicknameChangedAt"]
-const STATE_TEXT := {
-	"off": "SYNC_OFF",
-	"syncing": "SYNC_SYNCING",
-	"synced": "SYNC_SYNCED",
-	"pending": "SYNC_PENDING",
-	"offline": "SYNC_OFFLINE",
-	"session_lost": "SYNC_SESSION_LOST",
-	"newer": "SYNC_NEWER",
-	"disabled": "SYNC_DISABLED",
-}
+const LEADERBOARD_SIZE := OnlineRecords.LEADERBOARD_SIZE
+const NAME_MAX := OnlineRecords.NAME_MAX
+const ANONYMOUS_NAME := OnlineRecords.ANONYMOUS_NAME
+const RECORD_SECTION := OnlineRecords.RECORD_SECTION
+const DAILY_SECTION := OnlineDaily.DAILY_SECTION
+const STATE_TEXT := OnlineSync.STATE_TEXT
 
-var api_key: String = ""
-var project_id: String = ""
-var auth := AuthService.new()
-var firestore := FirestoreClient.new()
+var api_key: String:
+	get:
+		return _ctx.api_key
+	set(value):
+		_ctx.api_key = value
+var project_id: String:
+	get:
+		return _ctx.project_id
+	set(value):
+		_ctx.project_id = value
+var auth: AuthService:
+	get:
+		return _ctx.auth
+	set(value):
+		_ctx.auth = value
+var firestore: FirestoreClient:
+	get:
+		return _ctx.firestore
+	set(value):
+		_ctx.firestore = value
 ## Realtime Database URL for co-op (firebase.cfg "database_url"); "" = co-op off.
-var database_url: String = ""
+var database_url: String:
+	get:
+		return _ctx.database_url
+	set(value):
+		_ctx.database_url = value
 ## Transport of the co-op layer (CoopLobby / CoopSession); null without database_url.
-var rtdb: RtdbClient = null
+var rtdb: RtdbClient:
+	get:
+		return _ctx.rtdb
+	set(value):
+		_ctx.rtdb = value
 ## The first start() finished (signed in and synced, or failed offline).
-var startup_done: bool = false
+var startup_done: bool:
+	get:
+		return _ctx.startup_done
+	set(value):
+		_ctx.startup_done = value
 ## First retry delay of an unsent record, seconds (tests shorten it).
-var retry_base: float = 5.0
+var retry_base: float:
+	get:
+		return _ctx.retry_base
+	set(value):
+		_ctx.retry_base = value
 ## Syncs the profile by itself a few seconds after local progress changed (tests of
 ## other features keep it off; _ready switches it on).
-var auto_sync: bool = false
-var sync_debounce: float = SYNC_DEBOUNCE
-var sync_min_gap: float = SYNC_MIN_GAP
+var auto_sync: bool:
+	get:
+		return _ctx.auto_sync
+	set(value):
+		_ctx.auto_sync = value
+var sync_debounce: float:
+	get:
+		return _ctx.sync_debounce
+	set(value):
+		_ctx.sync_debounce = value
+var sync_min_gap: float:
+	get:
+		return _ctx.sync_min_gap
+	set(value):
+		_ctx.sync_min_gap = value
 
+var _ctx := OnlineContext.new()
 var _transport: HttpTransport = null
-var _started: bool = false
-var _retry_delay: float = 5.0
-var _retries: int = 0
-var _record_busy: bool = false
-var _daily_busy: bool = false
-var _sync_busy: bool = false
-var _reserve_busy: bool = false
-## A link / sign-in / sign-out request is running (one at a time).
-var _email_busy: bool = false
-## The account is being switched: no sync may run on a half-switched session.
-var _switching: bool = false
-## Error of the last sync ("" after a success).
-var _last_error: String = ""
-var _auto_sync_waiting: bool = false
-var _auto_failures: int = 0
-var _last_auto_sync_msec: int = -1000000
-var _verify_ready_msec: int = 0
-var _expired_announced: bool = false
+
+
+func _init() -> void:
+	_ctx.host = self
+	_ctx.session = OnlineSession.new(_ctx)
+	_ctx.sync = OnlineSync.new(_ctx)
+	_ctx.nicknames = OnlineNicknames.new(_ctx)
+	_ctx.accounts = OnlineAccounts.new(_ctx)
+	_ctx.records = OnlineRecords.new(_ctx)
+	_ctx.daily = OnlineDaily.new(_ctx)
+	_ctx.coop = OnlineCoop.new(_ctx)
+	# Signals go up: the services emit on the context, the facade re-emits them.
+	_ctx.leaderboard_loaded.connect(leaderboard_loaded.emit)
+	_ctx.status_changed.connect(status_changed.emit)
+	_ctx.daily_loaded.connect(daily_loaded.emit)
+	_ctx.cloud_loaded.connect(cloud_loaded.emit)
+	_ctx.sync_state_changed.connect(sync_state_changed.emit)
+	_ctx.account_changed.connect(account_changed.emit)
+	_ctx.sync_finished.connect(sync_finished.emit)
+	_ctx.session_expired.connect(session_expired.emit)
 
 
 func _ready() -> void:
@@ -114,21 +142,38 @@ func _ready() -> void:
 	database_url = db_url
 	setup(key, project, HttpTransport.new())
 	auto_sync = true
-	LevelCatalog.on_committed = _on_local_committed
+	LevelCatalog.on_committed = _ctx.sync.on_local_committed
 
 
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Phone call, home button, task switcher: the process may be killed any moment.
-			_save_everything()
-			_schedule_auto_sync(0.0)
+			LevelCatalog.flush()
+			_ctx.sync.schedule_auto_sync(0.0)
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			LevelCatalog.flush()
 		NOTIFICATION_WM_CLOSE_REQUEST:
-			_save_everything()  # the tree quits by itself right after this
+			LevelCatalog.flush()  # the tree quits by itself right after this
 		NOTIFICATION_APPLICATION_RESUMED:
-			_schedule_auto_sync(0.0)
+			_ctx.sync.schedule_auto_sync(0.0)
+
+
+## Parsing helpers of the leaderboard replies (see OnlineRecords).
+static func parse_leaderboard(json: Variant) -> Array:
+	return OnlineRecords.parse_leaderboard(json)
+
+
+static func parse_save(json: Variant) -> String:
+	return OnlineRecords.parse_save(json)
+
+
+static func clean_name(value: String) -> String:
+	return OnlineRecords.clean_name(value)
+
+
+static func state_text(state: String) -> String:
+	return OnlineSync.state_text(state)
 
 
 ## (Re)wires the services. Tests pass a fake transport and a made-up project.
@@ -138,1073 +183,180 @@ func setup(key: String, project: String, transport: HttpTransport) -> void:
 	_transport = transport
 	if transport.get_parent() == null:
 		add_child(transport)
-	api_key = key
-	project_id = project
-	auth = AuthService.new()
-	auth.api_key = key
-	auth.transport = transport
-	auth.changed.connect(_on_auth_changed)
-	firestore = FirestoreClient.new()
-	firestore.project_id = project
-	firestore.transport = transport
-	firestore.auth = auth
-	if rtdb != null:
-		rtdb.queue_free()
-		rtdb = null
-	if database_url != "" and key != "":
-		rtdb = RtdbClient.new()
-		add_child(rtdb)
-		if not rtdb.configure(database_url, auth):
-			rtdb.queue_free()
-			rtdb = null
-	_started = false
-	startup_done = false
-	_last_error = ""
-	auto_sync = false
-	_sync_busy = false
-	_email_busy = false
-	_switching = false
-	_auto_sync_waiting = false
+	_ctx.api_key = key
+	_ctx.project_id = project
+	_ctx.auth = AuthService.new()
+	_ctx.auth.api_key = key
+	_ctx.auth.transport = transport
+	_ctx.auth.changed.connect(_ctx.session.on_auth_changed)
+	_ctx.firestore = FirestoreClient.new()
+	_ctx.firestore.project_id = project
+	_ctx.firestore.transport = transport
+	_ctx.firestore.auth = _ctx.auth
+	_ctx.coop.configure(key)
+	_ctx.started = false
+	_ctx.startup_done = false
+	_ctx.last_error = ""
+	_ctx.auto_sync = false
+	_ctx.sync_busy = false
+	_ctx.email_busy = false
+	_ctx.switching = false
+	_ctx.sync.reset()
 
 
 func is_configured() -> bool:
-	return api_key != "" and project_id != ""
+	return _ctx.is_configured()
 
 
-## Boot: restores the session, migrates old saves, signs in as a guest if
-## needed and syncs the profile. Idempotent; never blocks the offline game: the
-## local profile is read straight from the save, the cloud catches up in the
-## background. `allow_new_account` false (the boot scene) stops before creating any
-## account on a clean first launch: the player picks "create account", "sign in" or
-## "play as guest" on the welcome screen first (needs_welcome()).
+# --- session ---
+
+
 func start(allow_new_account: bool = true) -> void:
-	if _started:
-		return
-	_started = true
-	var cfg: ConfigFile = LevelCatalog.data()
-	auth.restore(str(cfg.get_value(PlayerProfile.SECTION, "account_uid", "")))
-	auth.adopt_legacy(
-		str(cfg.get_value("online", "uid", "")), str(cfg.get_value("online", "refresh_token", ""))
-	)
-	PlayerProfile.touch_local()  # migrates a schema-0 save (reads [online] name)
-	if cfg.has_section("online"):
-		cfg.erase_section("online")  # the refresh token must not stay in plain text
-		LevelCatalog.commit()
-	_remember_uid()
-	if not allow_new_account and needs_welcome():
-		startup_done = true
-		sync_state_changed.emit(sync_state())
-		return
-	await _first_sync()
+	await _ctx.session.start(allow_new_account)
 
 
-## Clean first launch with Firebase: no account, no saved session, and the player has
-## not yet chosen how to play (Onboarding.welcome_done()).
 func needs_welcome() -> bool:
-	return (
-		is_configured()
-		and not auth.has_session()
-		and not auth.is_session_lost()
-		and not Onboarding.welcome_done()
-	)
+	return _ctx.session.needs_welcome()
 
 
-## "Play without an account" on the welcome screen: remembers the choice (also
-## offline) and starts as a guest. The guest account is created in the background.
 func choose_guest() -> void:
-	Onboarding.mark_welcome_done()
-	await _first_sync()
-
-
-func _first_sync() -> void:
-	if is_configured():
-		await sync_now()
-		flush_records()
-		flush_daily()
-		refresh_email_status()
-	startup_done = true
-	sync_state_changed.emit(sync_state())
-
-
-## "off" (no Firebase), "syncing", "synced", "pending", "offline",
-## "session_lost", "newer", "disabled".
-func sync_state() -> String:
-	if not is_configured():
-		return "off"
-	if _sync_busy:
-		return "syncing"
-	if _last_error in ["session_lost", "newer", "disabled"]:
-		return _last_error
-	if _last_error in ["offline", "server"]:
-		return "offline"  # also with nothing pending: the profile says it syncs later
-	if not PlayerProfile.is_pending():
-		return "synced"
-	return "pending"
-
-
-static func state_text(state: String) -> String:
-	return TranslationServer.translate(str(STATE_TEXT.get(state, "")))
+	await _ctx.session.choose_guest()
 
 
 ## "local" (no Firebase), "guest", "email" or "none" (not signed in yet).
 func account_type() -> String:
-	if not is_configured():
-		return "local"
-	return auth.account_type if auth.uid != "" else "none"
+	return _ctx.session.account_type()
 
 
-## Reads the cloud profile, merges it with the local one and writes the
-## result back (never overwrites newer cloud progress: progression only grows,
-## and the write is conditional on the document not changing in between).
-## One sync at a time: concurrent callers get the running one's result.
-## {"ok", "error", "changed" (local progress changed)}.
-func sync_now() -> Dictionary:
-	if not is_configured():
-		return {"ok": false, "error": "not_configured", "changed": false}
-	if _switching:
-		return {"ok": false, "error": "busy", "changed": false}
-	if _sync_busy:
-		return await sync_finished
-	_sync_busy = true
-	sync_state_changed.emit("syncing")
-	var result: Dictionary = await _sync()
-	_last_error = "" if result["ok"] else str(result["error"])
-	_sync_busy = false
-	sync_state_changed.emit(sync_state())
-	if _last_error == "session_lost" and not _expired_announced:
-		_expired_announced = true
-		session_expired.emit()
-	sync_finished.emit(result)
-	return result
+## Firebase uid of the signed-in account, "" when there is none.
+func uid() -> String:
+	return _ctx.auth.uid
 
 
-## Nickname screen: validates, reserves the name in Firestore (one atomic
-## commit, checked by firestore.rules: nicknames/{key} is create-only) and
-## stores it. {"ok", "reason", "error",
-## "saved_locally"}. reason: reserved, local (no Firebase), offline (kept on
-## the device as unverified, reserved at the next sync), taken, invalid,
-## rate_limited, busy.
-func reserve_nickname(raw: String) -> Dictionary:
-	var check: Dictionary = NicknameRules.validate(raw)
-	if not check["ok"]:
-		return {"ok": false, "reason": "invalid", "error": check["error"], "saved_locally": false}
-	if _reserve_busy:
-		return {"ok": false, "reason": "busy", "error": "", "saved_locally": false}
-	_reserve_busy = true
-	var result: Dictionary = await _reserve_flow(check)
-	_reserve_busy = false
-	return result
-
-
-## Deletes the account from the client (Spark plan, no Cloud Functions): the
-## player's own Firestore documents (profile, nickname and its index entry,
-## records, legacy save), then the Firebase Auth user (accounts:delete), then
-## the local data. Safe to repeat after a partial failure. Without Firebase or
-## an account only the local data is erased.
-## {"ok", "reason", "scope" ("cloud" | "local")}.
-func delete_account() -> Dictionary:
-	if not is_configured() or auth.uid == "":
-		_wipe_local()
-		return {"ok": true, "reason": "", "scope": "local"}
-	var signed: Dictionary = await auth.ensure_token(false)
-	if not signed["ok"]:
-		return {"ok": false, "reason": signed["error"], "scope": ""}
-	if rtdb != null:
-		# Co-op rooms (uid, nickname, commands) first: the rules need the signed-in user.
-		var rooms: Dictionary = await CoopLobby.new(rtdb).purge_user()
-		if not rooms["ok"]:
-			return {"ok": false, "reason": "offline", "scope": ""}
-	var plan: Dictionary = await _deletion_writes(auth.uid)
-	if not plan["ok"]:
-		return {"ok": false, "reason": plan["reason"], "scope": ""}
-	var writes: Array = plan["writes"]
-	var deleted: Dictionary = await firestore.commit(writes)
-	if not deleted["ok"] and int(deleted.get("code", 0)) == 403 and plan["trace_included"]:
-		# The server thinks the nickname trace is younger than 24 hours (clock skew):
-		# delete everything else; the trace is inert once the Auth user is gone.
-		writes = writes.filter(func(w: Dictionary) -> bool: return not _is_trace_delete(w))
-		deleted = await firestore.commit(writes)
-	if not deleted["ok"]:
-		return {"ok": false, "reason": _reply_error(deleted), "scope": ""}
-	var removed: Dictionary = await auth.delete_account()
-	if not removed["ok"]:
-		return {"ok": false, "reason": removed["error"], "scope": ""}
-	_wipe_local()
-	return {"ok": true, "reason": "", "scope": "cloud"}
-
-
-## The deletes that remove everything stored under `uid`. The rules only let
-## the owner delete an existing nickname index document, so it is looked up first.
-## nicknameTrace/{uid} (the 24 hour nickname clock) may only be deleted once 24 hours
-## have passed since the last change, so it is included only then.
-## {"ok", "reason", "writes", "trace_included"}.
-func _deletion_writes(uid: String) -> Dictionary:
-	var writes: Array = []
-	var trace_included := false
-	var profile_path: String = "publicProfiles/" + uid
-	var public_doc: Dictionary = await firestore.get_doc(profile_path)
-	if not public_doc["ok"] and not public_doc["missing"]:
-		return {
-			"ok": false,
-			"reason": _reply_error(public_doc),
-			"writes": writes,
-			"trace_included": false
-		}
-	if public_doc["ok"]:
-		var key: String = str(public_doc["fields"].get("nicknameNormalized", ""))
-		var name_doc: Dictionary = await firestore.get_doc("nicknames/" + key)
-		if not name_doc["ok"] and not name_doc["missing"]:
-			return {
-				"ok": false,
-				"reason": _reply_error(name_doc),
-				"writes": writes,
-				"trace_included": false
-			}
-		if name_doc["ok"] and str(name_doc["fields"].get("uid", "")) == uid:
-			writes.append(firestore.write_delete("nicknames/" + key))
-		writes.append(firestore.write_delete(profile_path))
-	var trace: Dictionary = await firestore.get_doc("nicknameTrace/" + uid)
-	if not trace["ok"] and not trace["missing"]:
-		return {
-			"ok": false, "reason": _reply_error(trace), "writes": writes, "trace_included": false
-		}
-	if trace["ok"] and _nickname_clock_expired(int(trace["fields"].get("changedAt", 0))):
-		writes.append(firestore.write_delete("nicknameTrace/" + uid))
-		trace_included = true
-	writes.append(firestore.write_delete("runs/" + uid))
-	writes.append(firestore.write_delete("users/" + uid))
-	writes.append(firestore.write_delete("saves/" + uid))
-	for level: Dictionary in LevelCatalog.levels():
-		var scores: String = "leaderboards/level_%d/scores/%s" % [int(level["id"]), uid]
-		writes.append(firestore.write_delete(scores))
-	# The daily board only takes today's (or, just after midnight, yesterday's) result.
-	var today: String = Daily.today_key()
-	for day: String in [today, Daily.yesterday_key(today)]:
-		writes.append(firestore.write_delete("daily/%s/scores/%s" % [day, uid]))
-	return {"ok": true, "reason": "", "writes": writes, "trace_included": trace_included}
+func start_new_guest() -> Dictionary:
+	return await _ctx.session.start_new_guest()
 
 
 ## Erases only this device's data (profile, progress, session).
 func erase_local_data() -> void:
-	_wipe_local()
+	_ctx.session.wipe_local()
 
 
-## Explicit choice when the old session cannot be restored: new guest account.
-func start_new_guest() -> Dictionary:
-	var result: Dictionary = await auth.start_new_guest()
-	if result["ok"]:
-		var p: Dictionary = PlayerProfile.local()
-		p["nicknameVerified"] = false
-		PlayerProfile.save_local(p)
-		_last_error = ""
-		sync_now()
-	return result
+# --- sync ---
 
 
-## Links an email and password to the current guest account (accounts:update):
-## the uid, the profile and the progress stay, the account can then be opened on
-## another device. {"ok", "error"}; error is an EmailRules message key. The
-## password lives only in this call (never stored, never logged).
-func link_email(email: String, password: String) -> Dictionary:
-	var check: Dictionary = _check_credentials(email, password, true)
-	if not check["ok"]:
-		return check
-	if auth.uid == "":
-		return await register_email(email, password)  # no guest yet: a clean sign-up
-	if _email_busy:
-		return {"ok": false, "error": "busy"}
-	_email_busy = true
-	var result: Dictionary = await auth.link_email(check["email"], password)
-	if result["ok"]:
-		Onboarding.mark_welcome_done()
-		_expired_announced = false
-		var mail: Dictionary = await auth.send_verification()  # the game never waits for the answer
-		result["verification"] = mail["ok"]
-		auth.changed.emit()
-	_email_busy = false
-	if result["ok"]:
-		await sync_now()  # the progress of the guest goes to the account at once
-	return result
+func sync_state() -> String:
+	return _ctx.sync.sync_state()
 
 
-## Signs in with email and password. On another device this switches to that
-## account: its cloud profile is merged with the local one (progress only grows:
-## best stars and records, most open levels; the account's nickname wins, the
-## nickname of the abandoned guest is dropped). Signing in again to the account
-## that is already open only refreshes the login (needed before deleting it).
-## {"ok", "error", "switched", "synced" (the merge reached the cloud)}.
-func sign_in_email(email: String, password: String) -> Dictionary:
-	var check: Dictionary = _check_credentials(email, password, false)
-	if not check["ok"]:
-		return {"ok": false, "error": check["error"], "switched": false, "synced": false}
-	if _email_busy:
-		return {"ok": false, "error": "busy", "switched": false, "synced": false}
-	_email_busy = true
-	if _sync_busy:
-		await sync_finished  # a sync of the old account must not meet the new session
-	_switching = true
-	var reply: Dictionary = await auth.sign_in_email(check["email"], password)
-	var result := {"ok": false, "error": str(reply["error"]), "switched": false, "synced": false}
-	if reply["ok"]:
-		if reply["switched"]:
-			_forget_nickname_of_old_account()
-		_last_error = ""
-		_expired_announced = false
-		Onboarding.mark_welcome_done()
-		result.merge({"ok": true, "error": "", "switched": reply["switched"]}, true)
-	_switching = false
-	if reply["ok"]:
-		var synced: Dictionary = await sync_now()
-		result["synced"] = synced["ok"]
-		startup_done = true
-		refresh_email_status()
-	_email_busy = false
-	return result
+func sync_now() -> Dictionary:
+	return await _ctx.sync.sync_now()
 
 
-## Registers an email account (email + password, optionally the nickname). On a clean
-## first launch it is accounts:signUp; a guest that already has a uid is linked
-## instead (accounts:update), so its uid and all its progress stay. A verification
-## mail is requested right away; the game is never blocked by an unverified email.
-## The nickname is reserved after the account exists; a taken one sends the player to
-## the nickname screen. {"ok", "error", "message" (nickname text, optional),
-## "nickname" (reserve_nickname reason or ""), "verification" (mail requested),
-## "synced"}. The password lives only in this call.
-func register_email(email: String, password: String, nickname: String = "") -> Dictionary:
-	var check: Dictionary = _check_credentials(email, password, true)
-	if not check["ok"]:
-		return check
-	var nick: Dictionary = {}
-	if nickname.strip_edges() != "":
-		nick = NicknameRules.validate(nickname)
-		if not nick["ok"]:
-			return {"ok": false, "error": "nickname_invalid", "message": str(nick["message"])}
-	if _email_busy:
-		return {"ok": false, "error": "busy"}
-	_email_busy = true
-	_switching = true
-	if _sync_busy:
-		await sync_finished
-	var reply: Dictionary = {}
-	if auth.uid == "":
-		reply = await auth.sign_up_email(check["email"], password)
-	else:
-		reply = await auth.link_email(check["email"], password)
-	_switching = false
-	if not reply["ok"]:
-		_email_busy = false
-		return {"ok": false, "error": str(reply["error"])}
-	Onboarding.mark_welcome_done()
-	_last_error = ""
-	_expired_announced = false
-	var out := {"ok": true, "error": "", "nickname": "", "verification": false, "synced": false}
-	var mail: Dictionary = await auth.send_verification()
-	out["verification"] = mail["ok"]
-	_email_busy = false
-	if not nick.is_empty():
-		var reserved: Dictionary = await reserve_nickname(nickname)
-		out["nickname"] = str(reserved["reason"])
-		if reserved["reason"] in ["taken", "invalid", "rate_limited"]:
-			Onboarding.set_local_nickname(nick["nickname"], nick["normalized"], false)
-			Onboarding.flag_nickname_conflict()
-	var synced: Dictionary = await sync_now()
-	out["synced"] = synced["ok"]
-	startup_done = true
-	sync_state_changed.emit(sync_state())
-	return out
+func cloud_save() -> void:
+	await _ctx.sync.cloud_save()
 
 
-## Mails the confirmation link again (the profile's button; at most once a minute).
-## {"ok", "error"}: cooldown, not_configured (no email account), plus the AuthService errors.
-func send_verification() -> Dictionary:
-	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
-		return {"ok": false, "error": "not_configured"}
-	if Time.get_ticks_msec() < _verify_ready_msec:
-		return {"ok": false, "error": "cooldown"}
-	_verify_ready_msec = Time.get_ticks_msec() + int(VERIFY_COOLDOWN * 1000.0)
-	var result: Dictionary = await auth.send_verification()
-	if not result["ok"]:
-		_verify_ready_msec = 0
-	return result
+func cloud_load() -> void:
+	await _ctx.sync.cloud_load()
 
 
-## Reads whether the account's email is confirmed (cached on the device, so the
-## profile shows the last known state offline). Background; failures keep the cache.
-func refresh_email_status() -> void:
-	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
-		return
-	if not auth.has_session():
-		return
-	await auth.refresh_account_info()
-	account_changed.emit()
-
-
-## "" | "verified" | "unverified": the email state of an email account (cached).
-func email_status() -> String:
-	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
-		return ""
-	return "verified" if auth.email_verified else "unverified"
-
-
-## "a***@gmail.com" when the address is known in this run, else "". Never stored.
-func masked_email() -> String:
-	var mail: String = auth.email
-	var at: int = mail.find("@")
-	if at < 1:
-		return ""
-	return mail.substr(0, 1) + "***" + mail.substr(at)
-
-
-## True when the soft "create an account so you do not lose progress" reminder is due:
-## a guest (or a player who skipped the choice) with at least one win.
-func account_reminder_due() -> bool:
-	if not is_configured() or auth.account_type == AuthService.TYPE_EMAIL:
-		return false
-	return Onboarding.reminder_due(PlayerProfile.local())
-
-
-## Sends the password reset mail. Unknown addresses look like success on purpose.
-## {"ok", "error"}.
-func send_password_reset(email: String) -> Dictionary:
-	if not is_configured():
-		return {"ok": false, "error": "not_configured"}
-	var check: Dictionary = EmailRules.check_email(email)
-	if not check["ok"]:
-		return {"ok": false, "error": check["error"]}
-	return await auth.send_password_reset(check["email"])
-
-
-## Signs out of an email account: unsaved progress is pushed first (without a
-## connection the sign-out is refused so nothing is lost), then this device
-## forgets the session and its local data; the progress stays in the cloud under
-## the email. A guest cannot sign out (its only copy would be lost).
-## {"ok", "error"}.
-func sign_out() -> Dictionary:
-	if not is_configured() or auth.account_type != AuthService.TYPE_EMAIL:
-		return {"ok": false, "error": "guest_cannot_sign_out"}
-	if _email_busy:
-		return {"ok": false, "error": "busy"}
-	_email_busy = true
-	var synced: Dictionary = await sync_now()
-	if not synced["ok"] and PlayerProfile.is_pending():
-		_email_busy = false
-		return {"ok": false, "error": "unsynced"}
-	_wipe_local()
-	_email_busy = false
-	return {"ok": true, "error": ""}
-
-
-# --- API used by the map and the level (kept from the first version) ---
+# --- nicknames ---
 
 
 func player_name() -> String:
-	return str(PlayerProfile.local()["nickname"])
+	return _ctx.nicknames.player_name()
 
 
-## Sets a new nickname if it is valid; it is reserved on the next sync.
 func set_player_name(value: String) -> void:
-	var check: Dictionary = NicknameRules.validate(value)
-	if not check["ok"] or check["normalized"] == str(PlayerProfile.local()["nicknameNormalized"]):
-		return
-	Onboarding.set_local_nickname(check["nickname"], check["normalized"], false)
-	if is_configured():
-		sync_now()
+	_ctx.nicknames.set_player_name(value)
 
 
-## Marks the start of an endless run on the server (runs/{uid}, server time). The
-## rules accept a record of wave N only (N-1)*15 s after this moment, so call it
-## when the run begins. Fire and forget; without a connection the run simply
-## has no online record. Returns true if the start was stored.
-## A run that did not start online can never reach the table later: the rules
-## accept only startedAt == request.time, so it cannot be written back-dated. Its
-## record stays a local record (LevelCatalog.save_endless) and is not queued.
+func reserve_nickname(raw: String) -> Dictionary:
+	return await _ctx.nicknames.reserve_nickname(raw)
+
+
+# --- accounts ---
+
+
+func link_email(email: String, password: String) -> Dictionary:
+	return await _ctx.accounts.link_email(email, password)
+
+
+func sign_in_email(email: String, password: String) -> Dictionary:
+	return await _ctx.accounts.sign_in_email(email, password)
+
+
+func register_email(email: String, password: String, nickname: String = "") -> Dictionary:
+	return await _ctx.accounts.register_email(email, password, nickname)
+
+
+func send_verification() -> Dictionary:
+	return await _ctx.accounts.send_verification()
+
+
+func refresh_email_status() -> void:
+	await _ctx.accounts.refresh_email_status()
+
+
+func email_status() -> String:
+	return _ctx.accounts.email_status()
+
+
+func masked_email() -> String:
+	return _ctx.accounts.masked_email()
+
+
+func account_reminder_due() -> bool:
+	return _ctx.accounts.account_reminder_due()
+
+
+func send_password_reset(email: String) -> Dictionary:
+	return await _ctx.accounts.send_password_reset(email)
+
+
+func sign_out() -> Dictionary:
+	return await _ctx.accounts.sign_out()
+
+
+func delete_account() -> Dictionary:
+	return await _ctx.accounts.delete_account()
+
+
+# --- records and boards ---
+
+
 func start_run(level_id: int) -> bool:
-	if not is_configured():
-		return false
-	var signed: Dictionary = await auth.ensure_token(true)
-	if not signed["ok"]:
-		return false
-	var data := {"level": "level_%d" % level_id}
-	var write: Dictionary = firestore.write_set("runs/" + auth.uid, data, ["startedAt"])
-	var reply: Dictionary = await firestore.commit([write])
-	if reply["ok"]:
-		# The new startedAt replaces the old one on the server, so a still queued
-		# record of the previous run would be judged against it: drop it.
-		var cfg: ConfigFile = LevelCatalog.data()
-		if cfg.has_section(RECORD_SECTION):
-			cfg.erase_section(RECORD_SECTION)
-		cfg.set_value(RECORD_SECTION, "run_level", level_id)
-		cfg.set_value(RECORD_SECTION, "run_uid", auth.uid)
-		LevelCatalog.commit()
-		_retry_delay = retry_base
-	return reply["ok"]
+	return await _ctx.records.start_run(level_id)
 
 
-## Sends the endless record of a level (the rules keep only higher records, stamp
-## the time with the server clock and check it against start_run()).
-## The name is the reserved nickname, else ANONYMOUS_NAME.
-## The record is queued in the local save when the run did start online, and sent
-## with retries (exponential delay) if the network fails meanwhile.
 func submit_record(level_id: int, wave: int) -> void:
-	if not is_configured() or wave <= 0:
-		return
-	var cfg: ConfigFile = LevelCatalog.data()
-	var run_ok: bool = (
-		int(cfg.get_value(RECORD_SECTION, "run_level", -1)) == level_id
-		and str(cfg.get_value(RECORD_SECTION, "run_uid", "")) == auth.uid
-		and auth.uid != ""
-	)
-	if not run_ok:
-		return  # no server-side run start: the rules would refuse it (see start_run)
-	if wave > int(cfg.get_value(RECORD_SECTION, "wave", 0)):
-		cfg.set_value(RECORD_SECTION, "wave", wave)
-		LevelCatalog.commit()
-	await flush_records()
+	await _ctx.records.submit_record(level_id, wave)
 
 
-## True while a record waits for the network.
 func has_pending_record() -> bool:
-	return int(LevelCatalog.data().get_value(RECORD_SECTION, "wave", 0)) > 0
+	return _ctx.records.has_pending_record()
 
 
-## Sends the queued record once. Network/server failures keep it and schedule a
-## retry (delay doubles up to RETRY_MAX, at most MAX_RETRIES in a row); a refusal by
-## the rules (4xx) drops it. Never sends twice at the same time.
 func flush_records() -> void:
-	if _record_busy or not is_configured() or not has_pending_record():
-		return
-	_record_busy = true
-	var cfg: ConfigFile = LevelCatalog.data()
-	var level_id: int = int(cfg.get_value(RECORD_SECTION, "run_level", -1))
-	var wave: int = int(cfg.get_value(RECORD_SECTION, "wave", 0))
-	var owner_uid: String = str(cfg.get_value(RECORD_SECTION, "run_uid", ""))
-	var result: String = await _send_record(level_id, wave, owner_uid)
-	_record_busy = false
-	match result:
-		"sent":
-			cfg.set_value(RECORD_SECTION, "wave", null)
-			LevelCatalog.commit()
-			_retry_delay = retry_base
-			_retries = 0
-			status_changed.emit(tr("ONLINE_RECORD_SENT"))
-		"refused":
-			cfg.set_value(RECORD_SECTION, "wave", null)
-			LevelCatalog.commit()
-			status_changed.emit(tr("ONLINE_RECORD_FAILED"))
-		_:
-			_schedule_record_retry()
-
-
-func _send_record(level_id: int, wave: int, owner_uid: String) -> String:
-	var signed: Dictionary = await auth.ensure_token(true)
-	if not signed["ok"]:
-		return "retry"
-	if auth.uid != owner_uid:
-		return "refused"  # another account is signed in now
-	var p: Dictionary = PlayerProfile.local()
-	var nick: String = str(p["nickname"]) if bool(p["nicknameVerified"]) else ANONYMOUS_NAME
-	var path: String = "leaderboards/level_%d/scores/%s" % [level_id, auth.uid]
-	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
-	var reply: Dictionary = await firestore.commit([write])
-	if reply["ok"]:
-		return "sent"
-	var code: int = int(reply.get("code", 0))
-	if reply.get("network", false) or code >= 500 or code == 429:
-		return "retry"
-	return "refused"
-
-
-func _schedule_record_retry() -> void:
-	if _retries >= MAX_RETRIES or not is_inside_tree():
-		_retries = 0
-		return  # the next start() tries again
-	_retries += 1
-	var delay: float = _retry_delay
-	_retry_delay = minf(_retry_delay * 2.0, RETRY_MAX)
-	get_tree().create_timer(delay).timeout.connect(flush_records)
-
-
-## Queues the daily challenge result of `day` (UTC date) and sends it. The rules accept
-## it only on that very day (server clock, one hour of grace after midnight) and only
-## above the earlier result; a result that misses the day is dropped, not retried
-## forever. One attempt per call: the queue is tried again at the next launch and the
-## next result (no timers, so the record queue's retries are not touched).
-func submit_daily(day: String, wave: int) -> void:
-	if not is_configured() or wave <= 0 or not Daily.is_valid_key(day) or auth.uid == "":
-		return
-	var cfg: ConfigFile = LevelCatalog.data()
-	var same_day: bool = str(cfg.get_value(DAILY_SECTION, "day", "")) == day
-	if not same_day or wave > int(cfg.get_value(DAILY_SECTION, "wave", 0)):
-		cfg.set_value(DAILY_SECTION, "day", day)
-		cfg.set_value(DAILY_SECTION, "wave", wave)
-		cfg.set_value(DAILY_SECTION, "uid", auth.uid)
-		LevelCatalog.commit()
-	await flush_daily()
-
-
-func has_pending_daily() -> bool:
-	return int(LevelCatalog.data().get_value(DAILY_SECTION, "wave", 0)) > 0
-
-
-## Sends the queued daily result once. Kept on network / server failures, dropped when
-## the rules refuse it (wrong day, not higher) or another account is signed in.
-func flush_daily() -> void:
-	if _daily_busy or not is_configured() or not has_pending_daily():
-		return
-	_daily_busy = true
-	var cfg: ConfigFile = LevelCatalog.data()
-	var day: String = str(cfg.get_value(DAILY_SECTION, "day", ""))
-	var wave: int = int(cfg.get_value(DAILY_SECTION, "wave", 0))
-	var owner_uid: String = str(cfg.get_value(DAILY_SECTION, "uid", ""))
-	var result: String = await _send_daily(day, wave, owner_uid)
-	_daily_busy = false
-	if result == "retry":
-		return
-	if cfg.has_section(DAILY_SECTION):
-		cfg.erase_section(DAILY_SECTION)
-	LevelCatalog.commit()
-	if result == "sent":
-		status_changed.emit(tr("ONLINE_DAILY_SENT"))
-
-
-func _send_daily(day: String, wave: int, owner_uid: String) -> String:
-	var signed: Dictionary = await auth.ensure_token(true)
-	if not signed["ok"]:
-		return "retry"
-	if auth.uid != owner_uid:
-		return "refused"
-	var p: Dictionary = PlayerProfile.local()
-	var nick: String = str(p["nickname"]) if bool(p["nicknameVerified"]) else ANONYMOUS_NAME
-	var path: String = "daily/%s/scores/%s" % [day, auth.uid]
-	var write: Dictionary = firestore.write_set(path, {"name": nick, "wave": wave}, ["updated"])
-	var reply: Dictionary = await firestore.commit([write])
-	if reply["ok"]:
-		return "sent"
-	var code: int = int(reply.get("code", 0))
-	if reply.get("network", false) or code >= 500 or code == 429:
-		return "retry"
-	return "refused"
-
-
-## Top of the board of `day` (daily_loaded).
-func fetch_daily(day: String) -> void:
-	if not is_configured() or not Daily.is_valid_key(day):
-		daily_loaded.emit(day, [])
-		return
-	var query := {
-		"from": [{"collectionId": "scores"}],
-		"orderBy": [{"field": {"fieldPath": "wave"}, "direction": "DESCENDING"}],
-		"limit": LEADERBOARD_SIZE,
-	}
-	var reply: Dictionary = await firestore.run_query("daily/" + day, query, false)
-	daily_loaded.emit(day, parse_leaderboard(reply["json"]) if reply["ok"] else [])
+	await _ctx.records.flush_records()
 
 
 func fetch_leaderboard(level_id: int) -> void:
-	if not is_configured():
-		leaderboard_loaded.emit(level_id, [])
-		return
-	var query := {
-		"from": [{"collectionId": "scores"}],
-		"orderBy": [{"field": {"fieldPath": "wave"}, "direction": "DESCENDING"}],
-		"limit": LEADERBOARD_SIZE,
-	}
-	var reply: Dictionary = await firestore.run_query(
-		"leaderboards/level_%d" % level_id, query, false
-	)
-	leaderboard_loaded.emit(level_id, parse_leaderboard(reply["json"]) if reply["ok"] else [])
+	await _ctx.records.fetch_leaderboard(level_id)
 
 
-## Syncs the profile now (the button "В облако").
-func cloud_save() -> void:
-	var result: Dictionary = await sync_now()
-	status_changed.emit(tr("ONLINE_SAVED") if result["ok"] else _error_text(result))
+func submit_daily(day: String, wave: int) -> void:
+	await _ctx.daily.submit_daily(day, wave)
 
 
-## Merges the cloud profile into the local one (the button "Из облака");
-## cloud_loaded(true) when local progress changed.
-func cloud_load() -> void:
-	var result: Dictionary = await sync_now()
-	var changed: bool = result["ok"] and result["changed"]
-	if result["ok"]:
-		status_changed.emit(tr("ONLINE_UPDATED") if changed else tr("ONLINE_SAME"))
-	else:
-		status_changed.emit(_error_text(result))
-	cloud_loaded.emit(changed)
+func has_pending_daily() -> bool:
+	return _ctx.daily.has_pending_daily()
 
 
-## Firestore runQuery reply -> [{name, wave}], best first.
-static func parse_leaderboard(json: Variant) -> Array:
-	var out: Array = []
-	if not json is Array:
-		return out
-	for row: Variant in json:
-		if not row is Dictionary or not (row as Dictionary).has("document"):
-			continue
-		var document: Variant = row["document"]
-		if not document is Dictionary:
-			continue
-		var fields: Dictionary = FirestoreClient.decode_fields(
-			(document as Dictionary).get("fields", {})
-		)
-		var name: String = clean_name(str(fields.get("name", "")))
-		var wave: Variant = fields.get("wave", 0)
-		out.append({"name": name if name != "" else "?", "wave": int(wave) if wave is int else 0})
-	return out
+func flush_daily() -> void:
+	await _ctx.daily.flush_daily()
 
 
-## Legacy cloud save document (saves/{uid}) -> progress text ("" if missing).
-static func parse_save(json: Variant) -> String:
-	if not json is Dictionary:
-		return ""
-	var fields: Dictionary = FirestoreClient.decode_fields((json as Dictionary).get("fields", {}))
-	return str(fields.get("progress", ""))
-
-
-## Legacy free-form name cleanup (control characters dropped, cut to NAME_MAX).
-## New names go through NicknameRules.
-static func clean_name(value: String) -> String:
-	var out := ""
-	for ch in value.strip_edges():
-		var code: int = ch.unicode_at(0)
-		# Controls, zero-width and bidi override characters from a server reply.
-		var invisible: bool = (
-			code < 32
-			or (code >= 0x7F and code <= 0x9F)
-			or (code >= 0x200B and code <= 0x200F)
-			or (code >= 0x2028 and code <= 0x202E)
-			or (code >= 0x2060 and code <= 0x206F)
-			or code == 0xFEFF
-		)
-		if not invisible:
-			out += ch
-	return out.substr(0, NAME_MAX)
-
-
-func _sync() -> Dictionary:
-	var signed: Dictionary = await auth.ensure_token(true)
-	if not signed["ok"]:
-		return {"ok": false, "error": signed["error"], "changed": false}
-	_remember_uid()
-	var local: Dictionary = PlayerProfile.touch_local()
-	if signed["created"] and bool(local["nicknameVerified"]):
-		# A new guest account replaced a dead one: reserve the name again.
-		local["nicknameVerified"] = false
-		PlayerProfile.save_local(local)
-	if str(local["nickname"]) != "" and not bool(local["nicknameVerified"]):
-		if not bool(local["nicknameConflict"]):
-			var reserved: Dictionary = await _reserve(str(local["nickname"]))
-			if reserved["reason"] in ["taken", "invalid"]:
-				Onboarding.flag_nickname_conflict()
-				status_changed.emit(tr("ONLINE_NAME_TAKEN") % local["nickname"])
-	var start_hash: String = PlayerProfile.content_hash(PlayerProfile.local())
-	var result: Dictionary = {"ok": false, "error": "server", "changed": false}
-	for round_index in MAX_SYNC_ROUNDS:
-		result = await _sync_round(start_hash)
-		if not result.get("retry", false):
-			break
-		# Precondition failed: someone wrote in between. Read and merge again.
-	result.erase("retry")
-	return result
-
-
-## One read-merge-write round. "retry" is set when the conditional write lost a race.
-func _sync_round(start_hash: String) -> Dictionary:
-	var got: Dictionary = await firestore.get_doc("users/" + auth.uid)
-	if not got["ok"] and not got["missing"]:
-		return {"ok": false, "error": _reply_error(got), "changed": false}
-	var cloud: Dictionary = {}
-	var from_legacy := false
-	var public_doc: Dictionary = await firestore.get_doc("publicProfiles/" + auth.uid)
-	if not public_doc["ok"] and not public_doc["missing"]:
-		return {"ok": false, "error": _reply_error(public_doc), "changed": false}
-	if got["ok"]:
-		cloud = PlayerProfile.from_cloud(got["fields"])
-	else:
-		var legacy: Dictionary = await firestore.get_doc("saves/" + auth.uid)
-		if legacy["ok"]:
-			cloud = PlayerProfile.from_legacy_text(str(legacy["fields"].get("progress", "")))
-			from_legacy = not cloud.is_empty()
-	if cloud.get("newer", false):
-		return {"ok": false, "error": "newer", "changed": false}
-	if public_doc["ok"]:
-		if cloud.is_empty():
-			cloud = PlayerProfile.from_cloud({"schemaVersion": PlayerProfile.SCHEMA_VERSION})
-		cloud["nickname"] = str(public_doc["fields"].get("nickname", ""))
-		cloud["nicknameNormalized"] = str(public_doc["fields"].get("nicknameNormalized", ""))
-		cloud["nicknameVerified"] = cloud["nickname"] != ""
-	var merged: Dictionary = PlayerProfile.local()
-	if not cloud.is_empty():
-		merged = PlayerProfile.merge(merged, cloud)
-	PlayerProfile.save_local(merged)
-	LevelCatalog.apply_sound()
-	var result := {
-		"ok": true, "error": "", "changed": PlayerProfile.content_hash(merged) != start_hash
-	}
-	if got["ok"] and PlayerProfile.content_hash(cloud) == PlayerProfile.content_hash(merged):
-		PlayerProfile.mark_synced(merged)
-		return result
-	var written: Dictionary = await firestore.commit(
-		[_profile_write(merged, got["ok"], str(got["update_time"]))]
-	)
-	if written["ok"]:
-		PlayerProfile.mark_synced(merged)
-		if from_legacy:
-			await firestore.delete_doc("saves/" + auth.uid)  # held a plain-text token
-	elif int(written["code"]) in [400, 404, 409]:
-		result.merge({"ok": false, "error": "server", "retry": true}, true)
-	else:
-		result.merge({"ok": false, "error": _reply_error(written)}, true)
-	return result
-
-
-## users/{uid} write: client fields only (updateMask), server timestamps, and
-## a precondition (document unchanged since read / does not exist yet).
-func _profile_write(p: Dictionary, exists: bool, update_time: String) -> Dictionary:
-	var transforms: Array = [{"fieldPath": "updatedAt", "setToServerValue": "REQUEST_TIME"}]
-	var write := {
-		"update":
-		{
-			"name": firestore.doc_name("users/" + auth.uid),
-			"fields": PlayerProfile.to_cloud_fields(p),
-		},
-		"updateMask": {"fieldPaths": PlayerProfile.SYNC_KEYS.duplicate()},
-		"updateTransforms": transforms,
-	}
-	if exists:
-		write["currentDocument"] = {"updateTime": update_time}
-	else:
-		transforms.append({"fieldPath": "createdAt", "setToServerValue": "REQUEST_TIME"})
-		write["currentDocument"] = {"exists": false}
-	return write
-
-
-## Reserves the nickname for the signed-in player and stores it as verified.
-## One atomic commit: create nicknames/{key} (fails when taken), release the
-## old key, write publicProfiles/{uid}. {"ok", "reason"}: "", invalid, taken,
-## rate_limited, offline, server, denied.
-func _reserve(nickname: String) -> Dictionary:
-	var check: Dictionary = NicknameRules.validate(nickname)
-	if not check["ok"]:
-		return {"ok": false, "reason": "invalid"}
-	var key: String = check["normalized"]
-	var uid: String = auth.uid
-	var current: Dictionary = await firestore.get_doc("publicProfiles/" + uid)
-	if not current["ok"] and not current["missing"]:
-		return {"ok": false, "reason": _reply_error(current)}
-	var old_key := ""
-	if current["ok"]:
-		old_key = str(current["fields"].get("nicknameNormalized", ""))
-		if old_key == key:  # already reserved (e.g. from another device)
-			var stored: String = str(current["fields"].get("nickname", nickname))
-			Onboarding.set_local_nickname(stored, key, true)
-			return {"ok": true, "reason": ""}
-	var blocked: String = await _nickname_clock_block(current, uid)
-	if blocked != "":
-		return {"ok": false, "reason": blocked}
-	var writes: Array = []
-	if old_key != "":
-		writes.append(firestore.write_delete("nicknames/" + old_key))
-	var index := {"uid": uid, "nickname": check["nickname"]}
-	writes.append(firestore.write_create("nicknames/" + key, index, ["createdAt"]))
-	var profile := {"nickname": check["nickname"], "nicknameNormalized": key}
-	# The trace keeps the 24 hour clock when the profile is deleted (firestore.rules).
-	writes.append(firestore.write_set("nicknameTrace/" + uid, {}, ["changedAt"]))
-	if old_key == "":
-		writes.append(firestore.write_create("publicProfiles/" + uid, profile, _PROFILE_TIMES))
-	else:
-		var time_fields: Array[String] = ["nicknameChangedAt"]
-		writes.append(firestore.write_update("publicProfiles/" + uid, profile, time_fields))
-	var reply: Dictionary = await firestore.commit(writes)
-	if not reply["ok"]:
-		return {"ok": false, "reason": await _reserve_failure(reply, key, uid)}
-	Onboarding.set_local_nickname(check["nickname"], key, true)
-	_rename_records(check["nickname"])
-	return {"ok": true, "reason": ""}
-
-
-## Why a nickname commit was refused: the name is taken (another uid owns the
-## index document) or something else. The rules answer 403 for both.
-func _reserve_failure(reply: Dictionary, key: String, uid: String) -> String:
-	var code: int = int(reply.get("code", 0))
-	if code == 409:  # precondition: the index document exists
-		return "taken"
-	if code != 403:
-		return _reply_error(reply)
-	var owner: Dictionary = await firestore.get_doc("nicknames/" + key)
-	if owner["ok"] and str(owner["fields"].get("uid", "")) != uid:
-		return "taken"
-	return "denied"
-
-
-## "" if the 24 hour nickname clock allows a (re)reservation now, else "rate_limited" or an
-## error reason. With a profile its nicknameChangedAt counts; without one (deleted and
-## recreated?) the nicknameTrace document does.
-func _nickname_clock_block(current: Dictionary, uid: String) -> String:
-	if current["ok"]:
-		var changed_at: int = int(current["fields"].get("nicknameChangedAt", 0))
-		return "" if _nickname_clock_expired(changed_at) else "rate_limited"
-	var trace: Dictionary = await firestore.get_doc("nicknameTrace/" + uid)
-	if not trace["ok"] and not trace["missing"]:
-		return _reply_error(trace)
-	if trace["ok"] and not _nickname_clock_expired(int(trace["fields"].get("changedAt", 0))):
-		return "rate_limited"
-	return ""
-
-
-func _nickname_clock_expired(changed_at: int) -> bool:
-	return Time.get_unix_time_from_system() >= changed_at + NICKNAME_CHANGE_SECONDS
-
-
-func _is_trace_delete(write: Dictionary) -> bool:
-	return str(write.get("delete", "")).contains("/nicknameTrace/")
-
-
-## Best effort: the player's old endless records show the new nickname.
-func _rename_records(nickname: String) -> void:
-	var endless: Dictionary = PlayerProfile.local()["progression"]["endless"]
-	var no_times: Array[String] = []
-	for id: String in endless:
-		var path: String = "leaderboards/level_%d/scores/%s" % [int(id), auth.uid]
-		await firestore.commit([firestore.write_update(path, {"name": nickname}, no_times)])
-
-
-func _reserve_flow(check: Dictionary) -> Dictionary:
-	var out := {"ok": false, "reason": "", "error": "", "saved_locally": false}
-	if not is_configured():
-		Onboarding.set_local_nickname(check["nickname"], check["normalized"], false)
-		out.merge({"ok": true, "reason": "local", "saved_locally": true}, true)
-		return out
-	var signed: Dictionary = await auth.ensure_token(true)
-	var reply: Dictionary = {"ok": false, "reason": "offline"}
-	if signed["ok"]:
-		reply = await _reserve(check["nickname"])
-	if reply["ok"]:
-		out.merge({"ok": true, "reason": "reserved"}, true)
-		sync_now()
-	elif reply["reason"] in ["taken", "invalid", "rate_limited"]:
-		out["reason"] = reply["reason"]
-		out["error"] = reply["reason"]
-	else:
-		# No connection or the server is unavailable: keep the name on the device
-		# (unverified) and reserve it at the next sync.
-		Onboarding.set_local_nickname(check["nickname"], check["normalized"], false)
-		out.merge({"reason": "offline", "saved_locally": true}, true)
-	return out
-
-
-## {"ok", "error", "email"}: client-side checks before any request is sent.
-func _check_credentials(email: String, password: String, new_password: bool) -> Dictionary:
-	if not is_configured():
-		return {"ok": false, "error": "not_configured"}
-	var mail: Dictionary = EmailRules.check_email(email)
-	if not mail["ok"]:
-		return mail
-	var word: Dictionary = (
-		EmailRules.check_new_password(password)
-		if new_password
-		else EmailRules.check_password(password)
-	)
-	if not word["ok"]:
-		return word
-	return mail
-
-
-## After switching to another account the nickname of the old guest (reserved
-## under its uid) is not ours any more: the account's own nickname comes with the
-## next sync, and an account without one is asked for a name.
-func _forget_nickname_of_old_account() -> void:
-	var p: Dictionary = PlayerProfile.local()
-	p["nickname"] = ""
-	p["nicknameNormalized"] = ""
-	p["nicknameVerified"] = false
-	p["nicknameConflict"] = false
-	PlayerProfile.save_local(p)
-
-
-## Flushes everything that lives only in memory (the save file cache).
-func _save_everything() -> void:
-	LevelCatalog.flush()
-
-
-## LevelCatalog wrote the save: if the synced part of the profile changed, send it to
-## the cloud after a short pause (a burst of changes becomes one write).
-func _on_local_committed() -> void:
-	if not auto_sync or not is_configured() or _switching or _sync_busy:
-		return
-	if _auto_sync_waiting or not auth.has_session():
-		return
-	if PlayerProfile.is_pending():
-		_schedule_auto_sync(sync_debounce)
-
-
-func _schedule_auto_sync(delay: float) -> void:
-	if not auto_sync or not is_configured() or _auto_sync_waiting or not is_inside_tree():
-		return
-	if not auth.has_session() or not PlayerProfile.is_pending():
-		return
-	_auto_sync_waiting = true
-	var since: float = float(Time.get_ticks_msec() - _last_auto_sync_msec) / 1000.0
-	var wait: float = maxf(delay, sync_min_gap - since)
-	if _auto_failures > 0:
-		wait = maxf(wait, minf(30.0 * pow(2.0, _auto_failures - 1), SYNC_RETRY_MAX))
-	if wait > 0.0:
-		await get_tree().create_timer(wait).timeout
-	_auto_sync_waiting = false
-	if _switching or not PlayerProfile.is_pending():
-		return
-	_last_auto_sync_msec = Time.get_ticks_msec()
-	var result: Dictionary = await sync_now()
-	if result["ok"]:
-		_auto_failures = 0
-	elif str(result["error"]) in ["offline", "server"]:
-		_auto_failures = mini(_auto_failures + 1, 5)
-		_schedule_auto_sync(0.0)  # waits with the growing back-off
-	else:
-		_auto_failures = 0
-
-
-func _wipe_local() -> void:
-	auth.forget()
-	LevelCatalog.erase_all()
-	LevelCatalog.tutorial = false
-	_started = false
-	startup_done = false
-	_last_error = ""
-	_expired_announced = false
-	_auto_failures = 0
-	sync_state_changed.emit(sync_state())
-
-
-func _remember_uid() -> void:
-	var cfg: ConfigFile = LevelCatalog.data()
-	if str(cfg.get_value(PlayerProfile.SECTION, "account_uid", "")) != auth.uid:
-		cfg.set_value(PlayerProfile.SECTION, "account_uid", auth.uid)
-		LevelCatalog.commit()
-
-
-func _on_auth_changed() -> void:
-	_remember_uid()
-	account_changed.emit()
-
-
-static func _reply_error(reply: Dictionary) -> String:
-	if reply.get("network", false):
-		return "offline"
-	var code: int = int(reply.get("code", 0))
-	if code == 401 or code == 403:
-		return "denied"
-	return "server"
-
-
-func _error_text(result: Dictionary) -> String:
-	match str(result.get("error", "")):
-		"offline":
-			return tr("ONLINE_ERR_OFFLINE")
-		"newer":
-			return tr("ONLINE_ERR_NEWER")
-		"session_lost":
-			return tr("ONLINE_ERR_SESSION_LOST")
-		"not_configured":
-			return tr("ONLINE_ERR_NOT_CONFIGURED")
-	return tr("ONLINE_ERR_GENERIC")
+func fetch_daily(day: String) -> void:
+	await _ctx.daily.fetch_daily(day)

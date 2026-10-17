@@ -313,23 +313,30 @@ func _draw_compass() -> void:
 		origin + Vector2.ONE * PANEL_PAD, _panel_size - Vector2.ONE * PANEL_PAD * 2.0
 	)
 	var pulse: float = 0.5 + 0.5 * sin(_age * 6.0)
-	# Dim roads first, the roads of this wave on top.
-	for pass_index in 2:
-		for lane in _compass_routes.size():
-			var lit: bool = _lanes.has(lane)
-			if lit != (pass_index == 1):
-				continue
-			var points := PackedVector2Array()
-			for p: Vector2 in _compass_routes[lane]:
-				points.append(inner.position + p * inner.size)
-			if lit:
-				var glow: Color = Color(COLOR, fade * (0.75 + 0.25 * pulse))
-				draw_polyline(points, Color(OUTLINE, fade), 9.0)
-				draw_polyline(points, glow, 6.0)
-				draw_circle(points[0], 7.0 + 2.5 * pulse, glow)
-			else:
-				draw_polyline(points, Color(MUTED, MUTED.a * fade), 4.0)
-				draw_circle(points[0], 4.0, Color(MUTED, MUTED.a * fade))
+	# Dim roads first, the roads of this wave on top. Every kind is one draw_multiline
+	# (square caps fill the joints): a draw call per road made the compass 40 calls.
+	var dim := PackedVector2Array()
+	var lit_outline := PackedVector2Array()
+	var lit_core := PackedVector2Array()
+	var glow: Color = Color(COLOR, fade * (0.75 + 0.25 * pulse))
+	for lane in _compass_routes.size():
+		var points := PackedVector2Array()
+		for p: Vector2 in _compass_routes[lane]:
+			points.append(inner.position + p * inner.size)
+		if _lanes.has(lane):
+			_add_segments(lit_outline, points, 4.5)
+			_add_segments(lit_core, points, 3.0)
+		else:
+			_add_segments(dim, points, 2.0)
+	if not dim.is_empty():
+		draw_multiline(dim, Color(MUTED, MUTED.a * fade), 4.0)
+	if not lit_outline.is_empty():
+		draw_multiline(lit_outline, Color(OUTLINE, fade), 9.0)
+		draw_multiline(lit_core, glow, 6.0)
+	for lane: int in _lanes:
+		if lane < _compass_routes.size():
+			var start: Vector2 = inner.position + _compass_routes[lane][0] * inner.size
+			draw_circle(start, 7.0 + 2.5 * pulse, glow)
 	# The castle at the end of the first road.
 	var gate: Vector2 = (
 		inner.position + _compass_routes[0][_compass_routes[0].size() - 1] * inner.size
@@ -337,6 +344,15 @@ func _draw_compass() -> void:
 	var castle := Rect2(gate - Vector2(8.0, 8.0), Vector2(16.0, 16.0))
 	draw_rect(castle.grow(2.0), Color(0.98, 0.8, 0.4, fade))
 	draw_rect(castle, Color(0.35, 0.5, 0.95, fade))
+
+
+## Appends the segments of a polyline to `out` (pairs of points), each lengthened by `cap`
+## at both ends so that the joints of a thick multiline have no notches.
+func _add_segments(out: PackedVector2Array, points: PackedVector2Array, cap: float) -> void:
+	for i in points.size() - 1:
+		var dir: Vector2 = (points[i + 1] - points[i]).normalized() * cap
+		out.append(points[i] - dir)
+		out.append(points[i + 1] + dir)
 
 
 ## Roads of the level seen from above in screen orientation (up = the top of the screen),

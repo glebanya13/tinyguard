@@ -22,7 +22,7 @@ def build_base(rng: random.Random):
     tg.shade(body, 30)
     parts.append(body)
     # Hand-placed look: stones protruding from the wall.
-    for i in range(14):
+    for i in range(9):
         a = rng.uniform(0, 2 * math.pi)
         z = rng.uniform(0.12, 0.7)
         if abs(math.atan2(math.sin(a + math.pi / 2), math.cos(a + math.pi / 2))) < 0.5 and z < 0.4:
@@ -63,8 +63,8 @@ def build_base(rng: random.Random):
         merlon = tg.box(f"merlon{i}", (0.15, 0.09, 0.13), (0.37 * math.cos(a), 0.37 * math.sin(a), 0.92),
                         "stone", bevel=0.018, bevel_seg=2, rot=(0, 0, math.degrees(a) + 90))
         parts.append(merlon)
-    for i in range(12):
-        a = 2 * math.pi * i / 12
+    for i in range(8):
+        a = 2 * math.pi * i / 8
         corbel = tg.box(f"corbel{i}", (0.07, 0.07, 0.06), (0.36 * math.cos(a), 0.36 * math.sin(a), 0.77),
                         "stone_dark", bevel=0.01, bevel_seg=1, rot=(0, 0, math.degrees(a)))
         parts.append(corbel)
@@ -134,7 +134,7 @@ def build_levels():
     lv2 = []
     for z in (0.3, 0.62):
         r = 0.345 - (z - 0.2) * 0.03
-        lv2.append(tg.torus(f"lv2_band{z}", r + 0.012, 0.018, (0, 0, z), "gold", seg=24, minor_seg=6))
+        lv2.append(tg.torus(f"lv2_band{z}", r + 0.012, 0.018, (0, 0, z), "gold", seg=16, minor_seg=4))
     for a in (90, 270):
         rad = math.radians(a - 90)
         x, y = 0.352 * math.cos(rad), 0.352 * math.sin(rad)
@@ -145,7 +145,7 @@ def build_levels():
         lv2.append(ban)
         lv2.append(tg.sphere(f"lv2_emblem{a}", (0.06, 0.06, 0.08), (x * 1.04, y * 1.04, 0.57), "gold", seg=8, rings=4,
                              rot=(0, 0, a)))
-    lv3 = [tg.torus("lv3_crown", 0.42, 0.022, (0, 0, 0.99), "gold", seg=28, minor_seg=6)]
+    lv3 = [tg.torus("lv3_crown", 0.42, 0.022, (0, 0, 0.99), "gold", seg=20, minor_seg=4)]
     for i in range(8):
         a = 2 * math.pi * (i + 0.5) / 8
         lv3.append(tg.cylinder(f"lv3_spike{i}", 0.035, 0.0, 0.11, (0.37 * math.cos(a), 0.37 * math.sin(a), 0.985),
@@ -343,6 +343,7 @@ def _clear() -> None:
 
 def build() -> list:
     out = []
+    tg.MAX_BEVEL_SEG = 1  # triangle budget: one bevel segment on every box
     for kind in ("archer", "cannon", "frost", "lightning"):
         _clear()
         out.append(build_tower_kind(kind, random.Random(3)))

@@ -40,12 +40,24 @@ def tree_round(rng):
 
 def tree_round_lite(rng):
     """Cheaper round tree (~400 tris) for the distant forest."""
-    trunk = tg.lathe("trunk", [(0.11, 0.0), (0.07, 0.1), (0.05, 0.62)], "wood", steps=6)
+    trunk = tg.lathe("trunk", [(0.11, 0.0), (0.07, 0.1), (0.05, 0.62)], "wood", steps=5)
     parts = [trunk]
     for i, (x, y, z, s, m) in enumerate([(0, 0, 0.95, 0.66, "leaf"), (0.17, -0.06, 0.8, 0.46, "leaf_dark"),
                                          (-0.12, 0.1, 1.15, 0.42, "leaf_light")]):
         parts.append(blob(f"canopy{i}", (s, s, s * 0.88), (x, y, z), m, seed=rng.randint(0, 99), noise=0.035,
-                          seg=10, rings=6))
+                          seg=8, rings=5))
+    return tg.join(parts, "Tree")
+
+
+def tree_pine_lite(rng):
+    """Cheaper pine (~170 tris) for the distant forest."""
+    trunk = tg.cylinder("trunk", 0.07, 0.05, 0.35, (0, 0, 0), "wood_dark", verts=5)
+    parts = [trunk]
+    for i, (z, r, h, m) in enumerate([(0.25, 0.42, 0.55, "pine"), (0.62, 0.33, 0.48, "pine_light"),
+                                      (0.95, 0.23, 0.48, "pine")]):
+        tier = tg.lathe(f"tier{i}", [(0.0, z), (r, z + 0.03), (r * 0.5, z + h * 0.55), (0.0, z + h)], m, steps=7)
+        tg.shade(tier, 40)
+        parts.append(tier)
     return tg.join(parts, "Tree")
 
 
@@ -62,8 +74,8 @@ def tree_pine(rng):
     return tg.join(parts, "Tree")
 
 
-def rock(name, rng, seed, size=(0.45, 0.36, 0.3), moss=True):
-    r = tg.sphere(name, size, (0, 0, size[2] * 0.3), "rock", seg=9, rings=6)
+def rock(name, rng, seed, size=(0.45, 0.36, 0.3), moss=True, seg=9, rings=6):
+    r = tg.sphere(name, size, (0, 0, size[2] * 0.3), "rock", seg=seg, rings=rings)
     tg.displace_noise(r, 0.04, 0.12, seed=seed)
     tg.deform(r, lambda c: Vector((c.x, c.y, max(c.z, -size[2] * 0.25))))
     tg.shade(r, 35)
@@ -74,6 +86,39 @@ def rock(name, rng, seed, size=(0.45, 0.36, 0.3), moss=True):
         tg.displace_noise(m, 0.015, 0.08, seed=seed + 50)
         parts.append(m)
     return tg.join(parts, name)
+
+
+def rock_lite(rng):
+    """Map-decor rock (~50 tris): a lumpy low-poly stone."""
+    return rock("Rock", rng, 30, (0.42, 0.34, 0.28), moss=False, seg=7, rings=4)
+
+
+def rock_cluster_lite(rng):
+    """Map-decor stone pair (~100 tris)."""
+    a = rock("ra", rng, 31, (0.34, 0.28, 0.24), moss=False, seg=7, rings=4)
+    b = rock("rb", rng, 32, (0.2, 0.18, 0.15), moss=False, seg=6, rings=3)
+    b.location = (0.22, 0.1, 0)
+    tg.apply_all_transforms(b)
+    return tg.join([a, b], "Rock")
+
+
+def bush_lite(rng):
+    """Map-decor bush (~130 tris): two leafy blobs, no berries."""
+    parts = []
+    for i, (x, y, z, s, m) in enumerate([(0, 0, 0.16, 0.38, "leaf"), (0.15, 0.04, 0.12, 0.27, "leaf_dark")]):
+        parts.append(blob(f"b{i}", (s, s, s * 0.85), (x, y, z), m, seed=40 + i, noise=0.025, seg=8, rings=5))
+    return tg.join(parts, "Bush")
+
+
+def flowers_lite(rng):
+    """Map-decor flower clump (~100 tris): a leafy tuft with three coloured heads."""
+    parts = [blob("leafy", (0.2, 0.2, 0.09), (0, 0, 0.02), "leaf_dark", seed=60, noise=0.012, seg=7, rings=3)]
+    for i in range(3):
+        a = 2 * math.pi * i / 3 + rng.uniform(-0.3, 0.3)
+        x, y = 0.07 * math.cos(a), 0.07 * math.sin(a)
+        petal = rng.choice(["flower_pink", "flower_white", "flower_yellow"])
+        parts.append(tg.sphere(f"head{i}", (0.07, 0.07, 0.04), (x, y, 0.09), petal, seg=5, rings=2))
+    return tg.join(parts, "Flowers")
 
 
 def rock_cluster(rng):

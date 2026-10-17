@@ -209,13 +209,18 @@ def cylinder(name, r_bottom, r_top, height, loc=(0, 0, 0), mat=None, verts=16, r
     return obj
 
 
+# Upper limit of box bevel segments (a bevel with 2 segments is ~2.5x the triangles of 1);
+# build_tower / build_castle lower it to fit the frame triangle budget.
+MAX_BEVEL_SEG = 99
+
+
 def box(name, size, loc=(0, 0, 0), mat=None, bevel=0.0, bevel_seg=2, rot=(0, 0, 0)):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=[math.radians(a) for a in rot])
     obj = _finish_new(name, mat, smooth=False)
     obj.scale = size
     apply_transform(obj)
     if bevel > 0:
-        add_bevel(obj, bevel, bevel_seg)
+        add_bevel(obj, bevel, min(bevel_seg, MAX_BEVEL_SEG))
     shade(obj, 35)
     return obj
 

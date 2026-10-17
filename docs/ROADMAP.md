@@ -79,7 +79,10 @@ RU + EN (`translations/strings.csv`), экран настроек.
 - [x] Числа баланса из кода в данные (ревью M3).
 - [x] Туториал, подсказки, тап по деревьям — без `get_nodes_in_group` (реестры `Sim`).
 - [ ] Утечки при выходе тестов (`AudioStreamPlaybackWAV`): причина — headless-аудио, в игре не воспроизводится; см. `docs/CODE_REVIEW.md` (M2).
-- [x] Размер репозитория: меры и варианты — `docs/REPO_SIZE.md`.
+- [x] Размер репозитория: меры и варианты — `docs/REPO_SIZE.md`; `tools/slim_repo.sh` (dry-run). Сама очистка истории — по решению владельца.
+- [x] `Online` разбит на сервисы за фасадом (`OnlineSession/Sync/Nicknames/Accounts/Records/Daily/Coop`), `AuthErrors`, `BattleSetup`.
+- [x] Изоляция тестов (`user://` на процесс) и `run_all.sh --only <regex>`.
+- [ ] `hud.gd`, `level_select.gd`, `account_panel.gd` — после слияния редизайна интерфейса; `AccountPanel` -> `Online.uid()`.
 - [ ] Лимиты звёзд/уровней перков в `firestore.rules` (ревью M5).
 - [ ] Остальные пункты `docs/CODE_REVIEW.md`.
 
