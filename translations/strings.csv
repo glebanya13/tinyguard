@@ -514,3 +514,11 @@ ACC_EMAIL_UNVERIFIED,Почта не подтверждена: открой пи
 ACC_EMAIL_RESEND,Отправить письмо ещё раз,Send the email again
 ACC_EMAIL_SENT,Письмо отправлено. Загляни и в «Спам».,Email sent. Check Spam too.
 ACC_EMAIL_COOLDOWN,Подожди минуту перед новым письмом.,Wait a minute before another email.
+GEMS_PLUS,Самоцветы: +%d,Gems: +%d
+END_GEMS,Самоцветы: +%d,Gems: +%d
+QUEST_TOAST,Задание выполнено!,Quest complete!
+QUEST_WAVE,Пройди волну %d,Clear wave %d
+QUEST_KILLS,Победи врагов: %d,Defeat %d enemies
+QUEST_TOWERS,Построй башен: %d,Build %d towers
+QUEST_UPGRADES,Улучши башни: %d,Upgrade towers: %d
+EVENT_TEST_NAME,Тестовое событие,Test event

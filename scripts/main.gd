@@ -463,7 +463,19 @@ func _start_tracker() -> void:
 	add_child(_tracker)
 	_tracker.attach(_wave_manager, _build_manager, _game_state, _hero)
 	_tracker.unlocked.connect(
-		func(def: Dictionary) -> void: _hud.show_toast(tr("ACH_TOAST"), tr(str(def["key"])))
+		func(def: Dictionary) -> void:
+			_hud.show_toast(
+				tr("ACH_TOAST"),
+				tr(str(def["key"])) + "  " + tr("GEMS_PLUS") % Economy.achievement_reward(def)
+			)
+	)
+	var quests := QuestTracker.new()
+	quests.name = "QuestTracker"
+	add_child(quests)
+	quests.attach(_wave_manager, _build_manager, _game_state)
+	quests.quest_done.connect(
+		func(def: Dictionary, gems: int) -> void:
+			_hud.show_toast(tr("QUEST_TOAST"), Quests.text(def) + "  " + tr("GEMS_PLUS") % gems)
 	)
 
 

@@ -67,6 +67,7 @@ func setup(
 	_hud = hud
 	_victory_sound = victory_sound
 	_defeat_sound = defeat_sound
+	Economy.reset_tally()  # the end screen shows the gems earned in this battle
 	if endless and daily_key == "":
 		_record_at_start = LevelCatalog.endless_record(int(level["id"]))
 	wave_manager.wave_cleared.connect(_on_wave_cleared)
@@ -83,6 +84,7 @@ func _on_wave_cleared(wave: int) -> void:
 	waves_cleared = maxi(waves_cleared, wave)
 	if _endless and _daily_key == "":
 		LevelCatalog.save_endless(int(_level["id"]), waves_cleared)
+		Economy.award_siege(int(_level["id"]), waves_cleared)
 
 
 ## The app goes to the background or closes: writes the save and sends a siege record that
@@ -121,6 +123,7 @@ func on_all_waves_cleared() -> void:
 	var before: int = Perks.earned_stars()
 	var crown_before: int = LevelCatalog.crown(int(_level["id"]))
 	LevelCatalog.complete(int(_level["id"]), stars, difficulty)
+	Economy.award_level_win(int(_level["id"]), stars, difficulty)
 	var gained: int = Perks.earned_stars() - before
 	_victory_sound.play()
 	var line: String = tr("END_STARS_TOTAL") % [Perks.earned_stars(), Perks.max_stars()]
@@ -132,7 +135,7 @@ func on_all_waves_cleared() -> void:
 		line = tr("END_DIFFICULTY") % tr(str(Balance.difficulty(difficulty)["name"])) + "\n" + line
 		if LevelCatalog.crown(int(_level["id"])) > crown_before:
 			line += "\n" + tr("END_CROWN_NEW")
-	end_game(tr("HUD_VICTORY"), true, stars, line + "\n")
+	end_game(tr("HUD_VICTORY"), true, stars, line + _gems_line() + "\n")
 
 
 func on_defeated() -> void:
@@ -159,6 +162,7 @@ func _end_record_run() -> void:
 	var record: bool = LevelCatalog.save_endless(id, waves_cleared)
 	if record:
 		Online.submit_record(id, waves_cleared)
+	Economy.award_siege(id, waves_cleared, record)
 	var title: String = tr("END_NEW_RECORD") % waves_cleared if record else tr("END_SIEGE_OVER")
 	var line: String = tr("END_RECORD_WAVE") % [waves_cleared, maxi(old_record, waves_cleared)]
 	if not record and old_record > 0:
@@ -166,6 +170,7 @@ func _end_record_run() -> void:
 	elif record and old_record > 0:
 		line += "\n" + tr("END_RECORD_BEATEN") % old_record
 	line += "\n" + tr("END_RECORD_STARS") % [Perks.endless_stars(id), Perks.ENDLESS_MAX_STARS]
+	line += _gems_line()
 	_hud.set_record_end(Online.is_configured())
 	end_game(title, record, 0, line + "\n")
 
@@ -176,11 +181,13 @@ func _end_daily() -> void:
 		_daily_key, waves_cleared, _sim.tick, _commands.journal
 	)
 	Online.submit_daily(_daily_key, waves_cleared)
+	Economy.award_daily(_daily_key, waves_cleared)
 	var title: String = tr("DAILY_END_BEST") if result["new_best"] else tr("DAILY_END_OVER")
 	var line: String = tr("DAILY_END_STATS") % [waves_cleared, Daily.best_wave(_daily_key)]
 	line += "\n" + tr("DAILY_END_STREAK") % result["streak"]
 	if result["star"]:
 		line += "\n" + tr("DAILY_END_STAR")
+	line += _gems_line()
 	end_game(title, bool(result["new_best"]), 0, line + "\n")
 
 
@@ -204,6 +211,11 @@ func end_game(message: String, victory: bool, stars: int = 0, prefix: String = "
 	_hud.show_end_screen(message, victory, stars, prefix + _stats_summary())
 	_tree.paused = true
 	finished.emit(victory, stars)
+
+
+## "+N gems" for the battle (a new line), "" when nothing was earned.
+func _gems_line() -> String:
+	return "\n" + tr("END_GEMS") % Economy.tally() if Economy.tally() > 0 else ""
 
 
 func _stats_summary() -> String:

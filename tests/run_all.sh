@@ -94,6 +94,10 @@ run "$GODOT" --headless --path . --script res://tests/test_daily.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_daily_replay.gd
 run "$GODOT" --headless --path . --script res://tests/test_daily_online.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_achievements.gd
+echo "== gems: wallet / streak / quests"
+run "$GODOT" --headless --path . --script res://tests/test_wallet.gd
+run "$GODOT" --headless --path . --script res://tests/test_streak.gd
+run "$GODOT" --headless --path . --script res://tests/test_quests.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd

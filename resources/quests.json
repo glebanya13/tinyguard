@@ -1,0 +1,9 @@
+{
+	"_comment": "Daily quests (scripts/quests.gd). Every UTC day 3 different templates are drawn from the date alone (hash), so all devices see the same list and nothing needs the network. metric: wave = highest wave cleared in one battle (campaign or siege), kills = enemies killed that day, towers = towers built that day, upgrades = tower upgrades that day. targets: the day picks one by hash. key: translation key of the text ('%d' = the target). Rewards per slot: resources/economy.json (quests.rewards). Progress is counted from battle signals, never from the simulation.",
+	"templates": [
+		{"id": "wave", "metric": "wave", "targets": [4, 6, 8, 10], "key": "QUEST_WAVE"},
+		{"id": "kills", "metric": "kills", "targets": [40, 60, 90, 130], "key": "QUEST_KILLS"},
+		{"id": "towers", "metric": "towers", "targets": [3, 4, 5, 6], "key": "QUEST_TOWERS"},
+		{"id": "upgrades", "metric": "upgrades", "targets": [2, 3, 4, 5], "key": "QUEST_UPGRADES"}
+	]
+}

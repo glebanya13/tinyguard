@@ -147,4 +147,6 @@ static func check() -> Array[Dictionary]:
 		mask |= 1 << int(def["bit"])
 	profile["achievements"] = mask
 	PlayerProfile.save_local(profile)
+	for def in fresh:
+		Economy.award_achievement(def)  # gems, once per achievement (claim "ach:<id>")
 	return fresh

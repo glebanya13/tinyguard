@@ -171,10 +171,15 @@ func _check_battle() -> void:
 	waves.wave_cleared.emit(2)
 	await process_frame
 	check(got.has("slayer"), "1500 kills: 'slayer' signalled %s" % [got])
-	check(get_nodes_in_group(Toast.GROUP).size() == toasts_before + 1, "a toast is shown")
-	var toast: Toast = get_nodes_in_group(Toast.GROUP)[-1]
-	var shown: String = (toast.find_child("Text", true, false) as Label).text
-	check(shown == TranslationServer.translate("ACH_SLAYER"), "the toast names the achievement")
+	check(get_nodes_in_group(Toast.GROUP).size() > toasts_before, "a toast is shown")
+	var shown: Array[String] = []
+	for node in get_nodes_in_group(Toast.GROUP):
+		shown.append((node.find_child("Text", true, false) as Label).text)
+	var name: String = TranslationServer.translate("ACH_SLAYER")
+	var named: bool = false
+	for line in shown:
+		named = named or line.begins_with(name)  # the gems of the reward follow the name
+	check(named, "the toast names the achievement %s" % [shown])
 	waves.wave_cleared.emit(3)
 	check(got.count("slayer") == 1, "never signalled twice")
 
