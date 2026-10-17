@@ -127,7 +127,7 @@ func _check_shop() -> void:
 		Shop.state(flag) == Shop.State.EQUIPPED and action.text == tr("SHOP_TAKE_OFF"),
 		"worn at once, the button says Take off"
 	)
-	await _frames(40)  # the animation runs out
+	await create_timer(1.0).timeout  # the animation runs out (real time)
 	check((shop.find_child("Balance", true, false) as Label).text == "30", "the balance shows 30")
 	shop.press_action()
 	check(

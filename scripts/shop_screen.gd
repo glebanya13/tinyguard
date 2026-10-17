@@ -28,7 +28,7 @@ const CATEGORY_KEYS := {
 const RARITY_KEYS := {
 	"common": "SHOP_RARITY_COMMON", "rare": "SHOP_RARITY_RARE", "epic": "SHOP_RARITY_EPIC"
 }
-const CARD_SIZE := Vector2(178, 166)
+const CARD_SIZE := Vector2(190, 166)
 const COLUMNS := 4
 const PREVIEW_SIZE := 300.0
 
@@ -181,6 +181,7 @@ func _build_header() -> Control:
 	var pill := PanelContainer.new()
 	pill.theme_type_variation = &"HudPill"
 	pill.name = "BalancePill"
+	pill.custom_minimum_size = Vector2(190, 64)
 	var inner := HBoxContainer.new()
 	inner.add_theme_constant_override("separation", 8)
 	pill.add_child(inner)
@@ -344,7 +345,7 @@ func _make_card(item: Dictionary) -> Control:
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		swatches.add_child(chip)
 	box.add_child(swatches)
-	var name_label := _label(tr(str(item["key"])), 20, RARITY_COLORS[str(item["rarity"])])
+	var name_label := _label(tr(str(item["key"])), 18, RARITY_COLORS[str(item["rarity"])])
 	name_label.name = "Name"
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

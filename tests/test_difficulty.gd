@@ -134,14 +134,14 @@ func _check_crowns() -> void:
 
 func _check_profile() -> void:
 	var p: Dictionary = PlayerProfile.local()
-	check(int(p["schemaVersion"]) == 2, "schema 2")
+	check(int(p["schemaVersion"]) == PlayerProfile.SCHEMA_VERSION, "current schema")
 	check(p["progression"]["crowns"] == {"1": 2}, "crown is in the profile")
 	# An old (schema 1) profile without crowns migrates.
 	var old: Dictionary = PlayerProfile.empty()
 	old["schemaVersion"] = 1
 	(old["progression"] as Dictionary).erase("crowns")
 	var migrated: Dictionary = PlayerProfile.migrate(old)
-	check(int(migrated["schemaVersion"]) == 2, "schema 1 migrates to 2")
+	check(int(migrated["schemaVersion"]) == PlayerProfile.SCHEMA_VERSION, "schema 1 migrates")
 	check(migrated["progression"].get("crowns") == {}, "migration adds crowns")
 	# The cloud is not trusted.
 	var cloud: Dictionary = PlayerProfile.from_cloud(

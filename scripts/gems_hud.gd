@@ -31,6 +31,7 @@ func mount(ui_root: Control, top_right: Container, pay_visit: bool = true) -> vo
 	chip.name = "GemsChip"
 	chip.theme_type_variation = &"HudPill"
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.custom_minimum_size = Vector2(130, 60)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
