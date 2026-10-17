@@ -141,6 +141,7 @@ run "$GODOT" --headless --path . --script res://tests/test_signup_flow.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hud_layout.gd
+run "$GODOT" --headless --path . --script res://tests/test_map_layout.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_end_to_map.gd
 

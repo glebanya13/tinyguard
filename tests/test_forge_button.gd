@@ -90,12 +90,12 @@ func _run() -> void:
 
 	# Pause menu -> Forge.
 	var pause: Button = hud.get_node("Root/TopRight/PauseButton")
-	check(await _topmost(pause),"pause button is under the finger")
+	check(await _topmost(pause), "pause button is under the finger")
 	await _click(pause)
 	check(paused, "click on Pause pauses")
 	var forge: Button = hud.get_node("Root/EndScreen/EndPanel/Content/ForgeButton")
 	check(forge.is_visible_in_tree(), "Forge button is shown in the pause menu")
-	check(await _topmost(forge),"Forge button is under the finger (nothing covers it)")
+	check(await _topmost(forge), "Forge button is under the finger (nothing covers it)")
 	await _click(forge)
 	check(not paused, "click on Forge resumes the game")
 	check(main.cards.forge_open, "click on Forge opens the forge card")
@@ -173,7 +173,9 @@ func _run() -> void:
 
 	# Trade buttons go through the same hit test.
 	var villagers: Villagers = main.get("villagers")
-	var near: Villager = villagers.get_child(0) as Villager if villagers.get_child_count() > 0 else null
+	var near: Villager = (
+		villagers.get_child(0) as Villager if villagers.get_child_count() > 0 else null
+	)
 	if near != null:
 		hero.global_position = near.global_position + Vector3(0.5, 0.0, 0.0)
 		for i in 20:
