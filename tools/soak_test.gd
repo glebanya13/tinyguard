@@ -12,7 +12,7 @@ extends SceneTree
 ## CSV columns: see HEADER. One line "SOAK_SUMMARY ..." at the end.
 
 const HEADER := (
-	"level,game_min,wave,enemies,proj,towers,objects,nodes,orphans,static_mb,vram_mb,"
+	"level,game_min,wave,enemies,proj,towers,objects,nodes,orphans,static_mb,vram_mb,tex_mb,buf_mb,"
 	+ "draws,script_ms,frame_ms,frame_max_ms,step_ms,step_max_ms,rss_mb,journal"
 )
 
@@ -167,6 +167,14 @@ func _sample(
 	var static_mb: float = Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
 	var vram_mb: float = Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0
 	var draws: float = Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+	var tex_mb: float = (
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TEXTURE_MEM_USED)
+		/ 1048576.0
+	)
+	var buf_mb: float = (
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_BUFFER_MEM_USED)
+		/ 1048576.0
+	)
 	var script_ms: float = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 	var rss: float = _rss_mb()
 	var row := PackedFloat64Array(
@@ -194,7 +202,7 @@ func _sample(
 	_rows.append(row)
 	print(
 		(
-			"%d,%.1f,%d,%d,%d,%d,%d,%d,%d,%.1f,%.1f,%d,%.2f,%.1f,%.1f,%.3f,%.3f,%.1f,%d"
+			"%d,%.1f,%d,%d,%d,%d,%d,%d,%d,%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.1f,%.1f,%.3f,%.3f,%.1f,%d"
 			% [
 				_level,
 				row[0],
@@ -207,6 +215,8 @@ func _sample(
 				int(orphans),
 				static_mb,
 				vram_mb,
+				tex_mb,
+				buf_mb,
 				int(draws),
 				script_ms,
 				row[12],
