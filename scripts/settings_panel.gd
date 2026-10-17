@@ -179,9 +179,6 @@ func _build_general() -> void:
 	_crash_button.custom_minimum_size.y = 84.0
 	_box.add_child(_crash_button)
 	_update_crash_text()
-	var crash_note := UiKit.caption(tr("SET_CRASH_NOTE"))
-	crash_note.name = "CrashReportsNote"
-	_box.add_child(crash_note)
 
 	if GameInfo.PRIVACY_URL != "":
 		var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)

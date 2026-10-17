@@ -613,5 +613,4 @@ CRASH_NOTICE_TITLE,Прошлый запуск закрылся неожидан
 CRASH_NOTICE_BODY,Качество графики понижено для стабильной игры.,Graphics quality was lowered to keep the game stable.
 SET_CRASH_ON,Отправлять отчёты о сбоях: вкл.,Send crash reports: on
 SET_CRASH_OFF,Отправлять отчёты о сбоях: выкл.,Send crash reports: off
-SET_CRASH_NOTE,"Если игра вылетит, анонимный отчёт (модель телефона, версия Android, память) поможет нам это исправить. Личные данные не отправляются.","If the game crashes, an anonymous report (phone model, Android version, memory) helps us fix it. No personal data is sent."
 WELCOME_CRASH_NOTE,"Отчёты о сбоях анонимны и помогают чинить игру; их можно выключить в настройках.","Crash reports are anonymous and help us fix the game; you can turn them off in the settings."
