@@ -22,7 +22,9 @@ const JOY_LIFT: Array[float] = [0.0, 24.0, 72.0]
 ## Distance of the joystick from the bottom edge when no compass is reserved above the corner.
 const JOY_FREE_BOTTOM: Array[float] = [16.0, 56.0, 112.0]
 ## Compass panel size by size setting (small / medium / large).
-const MAP_SIZES: Array[Vector2] = [Vector2(176.0, 112.0), Vector2(236.0, 150.0), Vector2(296.0, 188.0)]
+const MAP_SIZES: Array[Vector2] = [
+	Vector2(176.0, 112.0), Vector2(236.0, 150.0), Vector2(296.0, 188.0)
+]
 const PIN_SIZE := Vector2(84.0, 84.0)
 const GAP := 8.0
 const ATTACK_SIZE := 132.0
@@ -32,18 +34,15 @@ const SPIN_SIZE := 92.0
 ## Rects ("joystick", "map", "pin", "attack", "spin", "top_right", "top_left") for a HUD root
 ## of `size` and the given settings (indices as in GameSettings).
 static func rects(
-	size: Vector2,
-	joy_size: int,
-	joy_pos: int,
-	joy_side: int,
-	map_size: int,
-	map_mode: int
+	size: Vector2, joy_size: int, joy_pos: int, joy_side: int, map_size: int, map_mode: int
 ) -> Dictionary:
 	joy_size = clampi(joy_size, 0, 2)
 	joy_pos = clampi(joy_pos, 0, 2)
 	map_size = clampi(map_size, 0, 2)
 	var out := {}
-	var attack := Rect2(size.x - 24.0 - ATTACK_SIZE, size.y - 24.0 - ATTACK_SIZE, ATTACK_SIZE, ATTACK_SIZE)
+	var attack := Rect2(
+		size.x - 24.0 - ATTACK_SIZE, size.y - 24.0 - ATTACK_SIZE, ATTACK_SIZE, ATTACK_SIZE
+	)
 	var spin := Rect2(size.x - 44.0 - SPIN_SIZE, size.y - 176.0 - SPIN_SIZE, SPIN_SIZE, SPIN_SIZE)
 	out["attack"] = attack
 	out["spin"] = spin

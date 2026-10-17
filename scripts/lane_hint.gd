@@ -206,7 +206,7 @@ func _draw() -> void:
 	if _arrow_left > 0.0 and not _lanes.is_empty():
 		_draw_edge_arrows(safe)
 	if compass_visible():
-		_draw_compass(safe)
+		_draw_compass()
 
 
 func _draw_rings(safe: Vector4) -> void:
@@ -297,7 +297,7 @@ func _draw_label(text: String, tip: Vector2, area: Rect2, alpha: float) -> void:
 # --- compass ------------------------------------------------------------------
 
 
-func _draw_compass(safe: Vector4) -> void:
+func _draw_compass() -> void:
 	_build_compass()
 	if _compass_routes.is_empty():
 		return
@@ -309,7 +309,9 @@ func _draw_compass(safe: Vector4) -> void:
 	_panel_style.bg_color.a = 0.8 * fade
 	_panel_style.border_color.a = 0.9 * fade
 	draw_style_box(_panel_style, panel)
-	var inner := Rect2(origin + Vector2.ONE * PANEL_PAD, _panel_size - Vector2.ONE * PANEL_PAD * 2.0)
+	var inner := Rect2(
+		origin + Vector2.ONE * PANEL_PAD, _panel_size - Vector2.ONE * PANEL_PAD * 2.0
+	)
 	var pulse: float = 0.5 + 0.5 * sin(_age * 6.0)
 	# Dim roads first, the roads of this wave on top.
 	for pass_index in 2:

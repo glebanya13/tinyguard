@@ -54,9 +54,19 @@ func _math() -> void:
 						for ms in 3:
 							for mode in 3:
 								combos += 1
-								var tag := "%dx%d inset=%s js%d jp%d s%d ms%d m%d" % [
-									canvas.x, canvas.y, inset != Vector4.ZERO, js, jp, side, ms, mode
-								]
+								var tag := (
+									"%dx%d inset=%s js%d jp%d s%d ms%d m%d"
+									% [
+										canvas.x,
+										canvas.y,
+										inset != Vector4.ZERO,
+										js,
+										jp,
+										side,
+										ms,
+										mode
+									]
+								)
 								var r: Dictionary = HudLayout.rects(size, js, jp, side, ms, mode)
 								var joy: Rect2 = r["joystick"]
 								var items: Array = ["joystick", "attack", "spin"]
@@ -74,13 +84,22 @@ func _math() -> void:
 											bad.append("%s: map over %s" % [tag, key])
 									if joy.intersects(r["map"]) or joy.intersects(r["pin"]):
 										bad.append("%s: joystick over the compass" % tag)
-	check(bad.is_empty(), "%d layouts: no overlaps, all inside the screen %s" % [combos, ", ".join(bad.slice(0, 4))])
+	check(
+		bad.is_empty(),
+		"%d layouts: no overlaps, all inside the screen %s" % [combos, ", ".join(bad.slice(0, 4))]
+	)
 	var sides: Array[float] = []
 	for js in 3:
-		sides.append((HudLayout.rects(Vector2(1280, 720), js, 1, 0, 1, 2)["joystick"] as Rect2).size.x)
+		sides.append(
+			(HudLayout.rects(Vector2(1280, 720), js, 1, 0, 1, 2)["joystick"] as Rect2).size.x
+		)
 	check(sides[0] < sides[1] and sides[1] < sides[2], "joystick sizes grow")
-	var low: float = (HudLayout.rects(Vector2(1280, 720), 1, 0, 0, 1, 1)["joystick"] as Rect2).position.y
-	var high: float = (HudLayout.rects(Vector2(1280, 720), 1, 2, 0, 1, 1)["joystick"] as Rect2).position.y
+	var low: float = (
+		(HudLayout.rects(Vector2(1280, 720), 1, 0, 0, 1, 1)["joystick"] as Rect2).position.y
+	)
+	var high: float = (
+		(HudLayout.rects(Vector2(1280, 720), 1, 2, 0, 1, 1)["joystick"] as Rect2).position.y
+	)
 	check(high < low, "a higher joystick sits higher")
 	var right: Rect2 = HudLayout.rects(Vector2(1280, 720), 1, 1, 1, 1, 2)["joystick"]
 	check(right.position.x > 640.0, "the right side puts it on the right")
@@ -102,7 +121,9 @@ func _live() -> void:
 		await process_frame
 		var want: Rect2 = HudLayout.current(hud.get_node("Root").size)["joystick"]
 		var got := Rect2(joy.position, joy.size)
-		check(got.is_equal_approx(want), "joystick %d placed by HudLayout %s vs %s" % [js, got, want])
+		check(
+			got.is_equal_approx(want), "joystick %d placed by HudLayout %s vs %s" % [js, got, want]
+		)
 		check(
 			is_equal_approx(float(joy.get("radius")), want.size.x * HudLayout.JOY_RADIUS_RATIO),
 			"radius scales with the size"
@@ -129,6 +150,10 @@ func _live() -> void:
 	panel._on_tab(1)
 	panel.open()
 	var button: Button = panel.find_child("Opt_joystick_size_2", true, false)
-	check(button != null and button.custom_minimum_size.y >= 84.0, "option buttons are at least 84 px")
+	check(
+		button != null and button.custom_minimum_size.y >= 84.0, "option buttons are at least 84 px"
+	)
 	button.pressed.emit()
-	check(fired[0] == 1 and GameSettings.joystick_size() == 2, "an option saves and announces itself")
+	check(
+		fired[0] == 1 and GameSettings.joystick_size() == 2, "an option saves and announces itself"
+	)

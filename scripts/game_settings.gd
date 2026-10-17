@@ -13,6 +13,16 @@ const FX_OFF := 0
 const FX_MIN := 1
 const FX_FULL := 2
 const FX_NAMES: Array[String] = ["off", "min", "full"]
+## Thumb controls (index settings, saved in settings.cfg, device-local): joystick size
+## 0 small / 1 medium / 2 large, position 0 lower / 1 standard / 2 higher, side 0 left /
+## 1 right; road compass size 0..2 and mode 0 show / 1 hide / 2 at the start of a wave.
+const LAYOUT_DEFAULTS := {
+	"joystick_size": 1,
+	"joystick_pos": 1,
+	"joystick_side": 0,
+	"minimap_size": 1,
+	"minimap_mode": 2,
+}
 ## Locale used when the system language has no translation.
 const FALLBACK_LOCALE := "en"
 const SUPPORTED_LOCALES: Array[String] = ["ru", "en"]
@@ -99,18 +109,6 @@ static func set_diagnostics(on: bool) -> void:
 	cfg.load(config_path)
 	cfg.set_value("ui", "diagnostics", on)
 	cfg.save(config_path)
-
-
-## Thumb controls (index settings, saved in settings.cfg, device-local): joystick size
-## 0 small / 1 medium / 2 large, position 0 lower / 1 standard / 2 higher, side 0 left /
-## 1 right; road compass size 0..2 and mode 0 show / 1 hide / 2 at the start of a wave.
-const LAYOUT_DEFAULTS := {
-	"joystick_size": 1,
-	"joystick_pos": 1,
-	"joystick_side": 0,
-	"minimap_size": 1,
-	"minimap_mode": 2,
-}
 
 
 static func layout_value(key: String) -> int:

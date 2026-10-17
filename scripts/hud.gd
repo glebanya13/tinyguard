@@ -1,3 +1,4 @@
+# gdlint: disable=max-public-methods
 class_name Hud
 extends CanvasLayer
 ## Compact wave, gold, wood and lives chips, speed and pause buttons, a short

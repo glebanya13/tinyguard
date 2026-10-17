@@ -3,7 +3,6 @@ extends RefCounted
 ## Safe area (display cutouts) and on-screen keyboard size in canvas units, for
 ## the full-screen onboarding UI. Desktop builds report no insets.
 
-
 ## Screenshot tools and tests set this to fake a display cutout (canvas units).
 static var fake_margins: Vector4 = Vector4.ZERO
 

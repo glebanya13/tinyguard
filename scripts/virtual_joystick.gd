@@ -74,4 +74,13 @@ func _draw() -> void:
 	draw_circle(_knob, knob_r + 4.0, ring)
 	draw_circle(_knob, knob_r, Color(0.96, 0.7, 0.2))
 	draw_circle(_knob - Vector2(0.0, knob_r * 0.18), knob_r * 0.74, Color(1.0, 0.86, 0.4))
-	draw_arc(_knob, knob_r * 0.62, deg_to_rad(200.0), deg_to_rad(290.0), 12, Color(1, 1, 1, 0.7), 4.0, true)
+	draw_arc(
+		_knob,
+		knob_r * 0.62,
+		deg_to_rad(200.0),
+		deg_to_rad(290.0),
+		12,
+		Color(1, 1, 1, 0.7),
+		4.0,
+		true
+	)
