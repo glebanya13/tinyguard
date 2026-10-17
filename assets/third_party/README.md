@@ -1,5 +1,5 @@
 # Third-party assets
 
-CC0 / OFL materials allowed by the owner on 2026-10-15. Sources, licenses, file lists and
-modifications: `docs/CREDITS.md`. Rebuild the derived UI atlas and glyph icons with
-`python3 -I tools/build_ui_atlas.py <dir with uipack/, adventure/, gicons/>`.
+Only fonts (SIL OFL 1.1): `nunito/OFL.txt` here, `assets/fonts/rubik/OFL.txt` next to the
+font. Sources and notes: `docs/CREDITS.md`. All UI art is drawn by our own scripts
+(`tools/make_ui_atlas.py`, `tools/make_ui_icons.py`, `tools/make_biome_art.py`).
