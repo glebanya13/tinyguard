@@ -171,6 +171,20 @@ func _test_tiers() -> void:
 	root.add_child(guard2)
 	guard2.setup(sun2, root)
 	check(guard2.level == 0 and sun2.shadow_enabled, "high tier: nothing lowered")
+	GameSettings.set_graphics(GameSettings.GFX_MEDIUM)
+	var sun3 := DirectionalLight3D.new()
+	sun3.shadow_enabled = true
+	var guard3 := QualityGuard.new()
+	root.add_child(sun3)
+	root.add_child(guard3)
+	guard3.setup(sun3, root)
+	check(guard3.level == 0 and sun3.shadow_enabled, "medium tier: shadows stay (smaller map)")
+	check(
+		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d.mobile", 9) == 0,
+		"MSAA is off by default on phones (Godot issues 97967 / 124258)"
+	)
+	sun3.free()
+	guard3.free()
 	GameSettings.set_graphics(GameSettings.GFX_AUTO)
 	GameSettings._detected = 0
 	QualityGuard.reset_session()

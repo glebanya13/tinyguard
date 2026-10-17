@@ -18,6 +18,9 @@ const COOLDOWN_SECONDS := 5.0
 ## A single frame counts for at most this much (a hitch is not a trend).
 const FRAME_CLAMP_MS := 100.0
 const MAX_LEVEL := 4
+## Sun shadow map sizes (pixels) of the medium and the other tiers.
+const SHADOW_SIZE_MEDIUM := 1024
+const SHADOW_SIZE_HIGH := 2048
 
 ## Notches taken this session (shared by the battles of one run of the game).
 static var session_level: int = 0
@@ -53,8 +56,12 @@ func setup(sun: DirectionalLight3D, viewport: Viewport) -> void:
 	_viewport = viewport
 	level = 0
 	var tier: int = GameSettings.graphics_tier()
-	if tier == GameSettings.GFX_MEDIUM and _viewport != null:
-		_viewport.msaa_3d = Viewport.MSAA_DISABLED  # medium: sharp edges cost bandwidth
+	# Medium: a quarter of the shadow texels. (MSAA is off on phones from project.godot:
+	# open Godot issues #97967 / #124258 report growing native memory with 3D MSAA on Android.)
+	if OS.has_feature("mobile"):
+		RenderingServer.directional_shadow_atlas_set_size(
+			SHADOW_SIZE_MEDIUM if tier == GameSettings.GFX_MEDIUM else SHADOW_SIZE_HIGH, true
+		)
 	var start: int = maxi(session_level, start_level_for(tier))
 	while level < start:
 		level += 1
