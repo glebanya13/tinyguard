@@ -479,6 +479,9 @@ func _start_diagnostics() -> void:
 	var diag := DiagOverlay.new()
 	add_child(diag)
 	diag.setup(_sim, _wave_manager, int(level["id"]), guard)
+	if CrashTrace.take_notice():
+		# The last run died in a battle: the guard already starts lower, tell the player once.
+		_hud.show_toast(tr("CRASH_NOTICE_TITLE"), tr("CRASH_NOTICE_BODY"))
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:

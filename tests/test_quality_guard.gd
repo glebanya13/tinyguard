@@ -26,6 +26,8 @@ func _run() -> void:
 	_test_guard()
 	_test_tiers()
 	_test_trace_and_overlay()
+	_test_ladder()
+	_test_crash_penalty()
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
 
@@ -128,7 +130,14 @@ func _test_tiers() -> void:
 	check(GameSettings.classify_device(8000, "Adreno (TM) 506", true) == low, "Adreno 5xx: low")
 	check(GameSettings.classify_device(8000, "Adreno (TM) 612", true) == low, "Adreno 612: low")
 	check(GameSettings.classify_device(8000, "PowerVR Rogue GE8320", true) == low, "PowerVR: low")
-	check(GameSettings.classify_device(3700, "Mali-G57 MC2", true) == mid, "4 GB phone: medium")
+	check(GameSettings.classify_device(3700, "Mali-G57 MC2", true) == low, "4 GB phone: low")
+	check(GameSettings.classify_device(4700, "Mali-G57 MC2", true) == mid, "5 GB phone: medium")
+	# Redmi Note 12: 4G (Snapdragon 685, Adreno 610) and 5G (Snapdragon 4 Gen 1, Adreno 619).
+	check(GameSettings.classify_device(7400, "Adreno (TM) 610", true) == low, "Note 12 4G, 8 GB")
+	check(GameSettings.classify_device(3800, "Adreno (TM) 610", true) == low, "Note 12 4G, 4 GB")
+	check(GameSettings.classify_device(7400, "Adreno (TM) 619", true) == low, "Note 12 5G, 8 GB")
+	check(GameSettings.classify_device(3800, "Adreno (TM) 619", true) == low, "Note 12 5G, 4 GB")
+	check(GameSettings.classify_device(5600, "Mali-G68 MC4", true) == high, "Note 12 Pro: high")
 	check(GameSettings.classify_device(5600, "Adreno (TM) 618", true) == high, "6 GB mid GPU: high")
 	check(GameSettings.classify_device(11000, "Adreno (TM) 740", true) == high, "flagship: high")
 	check(GameSettings.classify_device(-1, "", true) == mid, "unknown device: medium")
@@ -208,6 +217,7 @@ func _test_trace_and_overlay() -> void:
 	CrashTrace.previous = {}
 	check(CrashTrace.read_previous().is_empty(), "an orderly exit leaves no complaint")
 
+	_reset_crash()
 	check(not GameSettings.diagnostics(), "diagnostics are hidden by default")
 	GameSettings.set_diagnostics(true)
 	check(GameSettings.diagnostics(), "diagnostics can be switched on")
@@ -221,3 +231,104 @@ func _test_trace_and_overlay() -> void:
 	sim.free()
 	GameSettings.set_diagnostics(false)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(CrashTrace.PATH))
+
+
+func _reset_crash() -> void:
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CrashTrace.PATH))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CrashTrace.COUNT_PATH))
+	CrashTrace._read = false
+	CrashTrace.previous = {}
+	CrashTrace._count = 0
+	CrashTrace._count_wave = 0
+	CrashTrace._notice_pending = false
+
+
+func _test_ladder() -> void:
+	_reset_crash()
+	var low: int = GameSettings.GFX_LOW
+	check(QualityGuard.start_level_for(GameSettings.GFX_HIGH) == 0, "high tier starts at 0")
+	check(QualityGuard.start_level_for(low) == 3, "low tier starts at 3")
+	check(QualityGuard.start_level_for(low, 2800) == 4, "a 3 GB phone starts at 4")
+	check(QualityGuard.start_level_for(low, 3800) == 3, "a 4 GB phone starts at 3")
+	check(QualityGuard.start_level_for(low, 2800, 2) == 6, "after crashes it starts lower still")
+	check(QualityGuard.start_level_for(GameSettings.GFX_HIGH, 8000, 1) == 1, "penalty on high")
+	check(QualityGuard.start_level_for(low, 2000, 2) == QualityGuard.MAX_LEVEL, "clamped")
+	check(
+		(
+			MemoryWatch.parse_kb_line(
+				"MemTotal: 3000 kB\nMemAvailable:  409600 kB\n", "MemAvailable"
+			)
+			== 400
+		),
+		"meminfo parse"
+	)
+	check(MemoryWatch.parse_kb_line("x: 1 kB", "MemAvailable") == -1, "missing key")
+	check(MemoryWatch.pressure(-1) == 0 and MemoryWatch.pressure(2000) == 0, "plenty of memory")
+	check(MemoryWatch.pressure(MemoryWatch.LOW_AVAILABLE_MB - 1) == 1, "low memory")
+	check(MemoryWatch.pressure(MemoryWatch.CRITICAL_AVAILABLE_MB - 1) == 2, "critical memory")
+	GameSettings.set_graphics(GameSettings.GFX_HIGH)
+	QualityGuard.reset_session()
+	var sun := DirectionalLight3D.new()
+	var forest := Node3D.new()
+	forest.add_to_group(&"qg_forest")
+	var decor := Node3D.new()
+	decor.add_to_group(&"qg_decor")
+	var viewport := SubViewport.new()
+	var guard := QualityGuard.new()
+	for node: Node in [sun, forest, decor, viewport, guard]:
+		root.add_child(node)
+	guard.setup(sun, viewport)
+	guard.check_memory(1000)
+	check(guard.level == 0, "enough memory: nothing")
+	guard.check_memory(MemoryWatch.LOW_AVAILABLE_MB - 10)
+	check(guard.level == 1, "low memory: one notch")
+	guard.check_memory(MemoryWatch.LOW_AVAILABLE_MB - 10)
+	check(guard.level == 1, "cool-down holds the second notch back")
+	guard.lower()
+	guard.lower()
+	check(
+		viewport.scaling_3d_scale < 1.0 and viewport.msaa_3d == Viewport.MSAA_DISABLED, "3D scale"
+	)
+	guard.check_memory(MemoryWatch.CRITICAL_AVAILABLE_MB - 10)
+	check(guard.level == QualityGuard.MAX_LEVEL, "critical memory: the last notch")
+	check(not forest.visible and not decor.visible, "forest and decor hidden")
+	check(is_equal_approx(viewport.scaling_3d_scale, 0.6), "minimum resolution scale")
+	check(GameSettings.effects_now() == GameSettings.FX_OFF, "no effects")
+	QualityGuard.reset_session()
+	GameSettings.set_graphics(GameSettings.GFX_AUTO)
+	for node: Node in [sun, forest, decor, viewport, guard]:
+		node.free()
+
+
+func _test_crash_penalty() -> void:
+	_reset_crash()
+	check(CrashTrace.penalty() == 0 and not CrashTrace.take_notice(), "clean start: no penalty")
+	CrashTrace.write("battle", {"level": 2, "wave": 10, "avail_mb": 120, "rss_mb": 900})
+	CrashTrace._read = false
+	CrashTrace.previous = {}
+	check(CrashTrace.penalty() == 1, "died in a battle: one notch")
+	check("avail 120 MB" in CrashTrace.previous_text(), "memory is in the note")
+	check(CrashTrace.take_notice() and not CrashTrace.take_notice(), "the message is shown once")
+	check(
+		QualityGuard.start_level_for(GameSettings.GFX_HIGH, 8000, CrashTrace.penalty()) == 1,
+		"starts lower"
+	)
+	CrashTrace.write("battle", {"level": 2, "wave": 10})
+	CrashTrace._read = false
+	CrashTrace.previous = {}
+	CrashTrace.penalty()
+	CrashTrace.write("battle", {"level": 2, "wave": 12})
+	CrashTrace._read = false
+	CrashTrace.previous = {}
+	check(CrashTrace.penalty() == 2, "twice in a row: two notches")
+	CrashTrace.write("battle", {"level": 2, "wave": 12})
+	CrashTrace._read = false
+	CrashTrace.previous = {}
+	check(CrashTrace.penalty() == CrashTrace.MAX_PENALTY, "the penalty is capped")
+	CrashTrace.write("map", {"level": 2, "wave": 3})
+	check(
+		CrashTrace.penalty() == CrashTrace.MAX_PENALTY, "a short orderly battle does not clear it"
+	)
+	CrashTrace.write("map", {"level": 2, "wave": 13})
+	check(CrashTrace.penalty() == 0, "an orderly end past the death wave clears it")
+	_reset_crash()
