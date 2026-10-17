@@ -35,6 +35,7 @@ const LANGUAGE_KEYS: Dictionary = {
 var _box: VBoxContainer
 var _sound_button: Button
 var _fx_button: Button
+var _crash_button: Button
 var _preview: Control
 var _version_taps: int = 0
 var _last_version_tap_ms: int = 0
@@ -173,6 +174,12 @@ func _build_general() -> void:
 		gfx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		graphics.add_child(gfx)
 
+	_crash_button = _button("", _on_crash_pressed, true, 0)
+	_crash_button.name = "CrashReportsToggle"
+	_crash_button.custom_minimum_size.y = 84.0
+	_box.add_child(_crash_button)
+	_update_crash_text()
+
 	if GameInfo.PRIVACY_URL != "":
 		var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
 		privacy.name = "Link_privacy"
@@ -309,6 +316,17 @@ func _on_sound_pressed() -> void:
 
 func _update_sound_text() -> void:
 	_sound_button.text = tr("SET_SOUND_ON") if LevelCatalog.sound_on() else tr("SET_SOUND_OFF")
+
+
+func _on_crash_pressed() -> void:
+	var on: bool = not GameSettings.crash_reports()
+	GameSettings.set_crash_reports(on)
+	CrashReporter.set_enabled(on)  # at once, no restart
+	_update_crash_text()
+
+
+func _update_crash_text() -> void:
+	_crash_button.text = tr("SET_CRASH_ON") if GameSettings.crash_reports() else tr("SET_CRASH_OFF")
 
 
 func _on_graphics(choice: int) -> void:

@@ -5,6 +5,8 @@ extends Node3D
 ## tutorial hook), BattleEnd (statistics, victory / defeat) and CoopHooks (co-op match).
 
 const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
+## A breadcrumb and a key for the crash report every this many waves.
+const CRASH_LOG_WAVE_STEP := 5
 ## Perks recorded in the journal header and applied by a replay.
 const PERK_KEYS: Array[StringName] = [
 	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls"
@@ -479,9 +481,31 @@ func _start_diagnostics() -> void:
 	var diag := DiagOverlay.new()
 	add_child(diag)
 	diag.setup(_sim, _wave_manager, int(level["id"]), guard)
+	guard.level_lowered.connect(_on_quality_lowered)
+	_report_battle_start()
 	if CrashTrace.take_notice():
 		# The last run died in a battle: the guard already starts lower, tell the player once.
 		_hud.show_toast(tr("CRASH_NOTICE_TITLE"), tr("CRASH_NOTICE_BODY"))
+
+
+## Breadcrumbs for the crash report (no personal data): what kind of battle this is.
+func _report_battle_start() -> void:
+	var mode: String = "campaign"
+	if _coop_on():
+		mode = "coop"
+	elif _daily_key != "":
+		mode = "daily"
+	elif _endless:
+		mode = "endless"
+	var preset: String = ""
+	if _daily_key != "":
+		preset = str(Daily.preset_for(_daily_key).get("id", ""))
+	CrashReporter.battle_started(int(level["id"]), mode, _difficulty, preset)
+
+
+func _on_quality_lowered(notch: int) -> void:
+	CrashReporter.set_key("quality_notch", notch)
+	CrashReporter.log_line("quality notch lowered to %d" % notch)
 
 
 func _spawn_fx(scene: PackedScene, at: Vector3) -> void:
@@ -562,6 +586,9 @@ func _on_battle_finished() -> void:
 
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
+	if wave % CRASH_LOG_WAVE_STEP == 0:
+		CrashReporter.set_key("wave", wave)
+		CrashReporter.log_line("wave %d" % wave)
 	_hud.set_wave(wave, 0 if _endless else total)
 	_wave_boom.play()
 	if boss:
@@ -609,6 +636,7 @@ func _leave_to(scene_path: String) -> void:
 	if _leaving:
 		return
 	_leaving = true
+	CrashReporter.log_line("leaving the battle: %s" % scene_path.get_file())
 	set_process(false)
 	_sim.running = false
 	if _fx != null and is_instance_valid(_fx):

@@ -7,6 +7,8 @@ extends CanvasLayer
 
 const REFRESH := 0.5
 const FONT_SIZE := 15
+## A new memory peak is reported to the crash report when it grows by this much (MB).
+const PEAK_STEP_MB := 25
 
 var _label: Label = null
 var _guard: QualityGuard = null
@@ -20,6 +22,7 @@ var _frame_max: float = 0.0
 var _frames: int = 0
 var _last_usec: int = 0
 var _fps: int = 0
+var _peak_mb: int = 0
 
 
 func _init() -> void:
@@ -41,6 +44,7 @@ func _process(delta: float) -> void:
 	if _trace_timer >= CrashTrace.INTERVAL:
 		_trace_timer = 0.0
 		_write_trace("battle")
+		_report_health()
 	_timer += real
 	if _timer < REFRESH or _frames == 0:
 		return
@@ -127,6 +131,8 @@ func text() -> String:
 	var auth_note: String = CrashTrace.last_auth_text()
 	if auth_note != "":
 		lines.append(auth_note)
+	if ExitReasons.last_text != "":
+		lines.append(ExitReasons.last_text)
 	lines.append(device_line())
 	return "\n".join(lines)
 
@@ -152,6 +158,15 @@ static func device_line() -> String:
 			safe.w,
 		]
 	)
+
+
+## A long enough run clears the streak of bad exits; a new memory peak goes to the crash report.
+func _report_health() -> void:
+	ExitReasons.tick()
+	var mem: int = roundi(_static_mb())
+	if mem >= _peak_mb + PEAK_STEP_MB:
+		_peak_mb = mem
+		CrashReporter.set_key("peak_mem_mb", mem)
 
 
 func _static_mb() -> float:

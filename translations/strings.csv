@@ -632,3 +632,6 @@ MAP_DIR_W,З,W
 MAP_DIR_NW,СЗ,NW
 CRASH_NOTICE_TITLE,Прошлый запуск закрылся неожиданно,The last run closed unexpectedly
 CRASH_NOTICE_BODY,Качество графики понижено для стабильной игры.,Graphics quality was lowered to keep the game stable.
+SET_CRASH_ON,Отправлять отчёты о сбоях: вкл.,Send crash reports: on
+SET_CRASH_OFF,Отправлять отчёты о сбоях: выкл.,Send crash reports: off
+WELCOME_CRASH_NOTE,"Отчёты о сбоях анонимны и помогают чинить игру; их можно выключить в настройках.","Crash reports are anonymous and help us fix the game; you can turn them off in the settings."

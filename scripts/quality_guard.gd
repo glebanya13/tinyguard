@@ -81,7 +81,9 @@ func setup(sun: DirectionalLight3D, viewport: Viewport) -> void:
 		)
 	var physical: int = int(OS.get_memory_info().get("physical", -1))
 	var ram_mb: int = physical / 1048576 if physical > 0 else -1
+	# Runs the system killed or that crashed lower the start too (CrashTrace, ExitReasons).
 	var start: int = maxi(session_level, start_level_for(tier, ram_mb, CrashTrace.penalty()))
+	start = maxi(start, ExitReasons.start_notch())
 	while level < start:
 		level += 1
 		_apply(level)

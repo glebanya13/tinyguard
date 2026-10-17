@@ -284,7 +284,7 @@ export const en: Content = {
   privacy: {
     eyebrow: "Document",
     title: "Privacy Policy",
-    lead: "The game works offline. We do not use ads, analytics, tracking or geolocation and do not ask for a phone number or your real name. E-mail is needed only for an account; you can play without one.",
+    lead: "The game works offline. We do not use ads, behavioural analytics, tracking or geolocation and do not ask for a phone number or your real name. The one exception is anonymous crash reports (Firebase Crashlytics, Android only): they are on by default and can be turned off in the game settings. E-mail is needed only for an account; you can play without one.",
     sections: [
       {
         id: "short",
@@ -355,6 +355,11 @@ export const en: Content = {
                 "Firebase Realtime Database",
               ],
               [
+                "**Crash reports** (Firebase Crashlytics; on by default, turn off in Settings, Send crash reports; Android only): crash log and stack trace; de-identified game breadcrumbs (level number, mode, difficulty, wave number, graphics quality step, memory peak); why the previous run ended according to Android (for example, killed by the system for low memory) with its memory use; device model and manufacturer, Android version, memory size and state, free storage, game version; the Crashlytics installation identifier (Firebase Installation ID: random, not linked to your account or e-mail)",
+                "To find and fix crashes and freezes, especially on weak phones",
+                "Firebase Crashlytics (Google); Google keeps it for 90 days by default",
+              ],
+              [
                 "Session refresh token",
                 "To keep you signed in",
                 "Only on your device, in an encrypted file",
@@ -392,7 +397,7 @@ export const en: Content = {
         blocks: [
           {
             t: "p",
-            text: "Ads, analytics, crash reporters, advertising identifiers, geolocation, contacts, camera, microphone, payment data, children's data beyond the above, sharing data with advertising or data broker networks. Data is not sold.",
+            text: "Ads, behavioural analytics (Firebase Analytics and the like), advertising identifiers, geolocation, contacts, camera, microphone, payment data, children's data beyond the above, sharing data with advertising or data broker networks. Data is not sold.",
           },
         ],
       },
@@ -402,7 +407,7 @@ export const en: Content = {
         blocks: [
           {
             t: "p",
-            text: "Only Google (Firebase Authentication, Cloud Firestore and, for co-op, Realtime Database) as a processor on our behalf; e-mail confirmation and password reset messages are sent by Firebase. We do not see your password after it is sent to Firebase. Google may process technical request data (for example, the IP address) under its own rules: [Firebase privacy](https://firebase.google.com/support/privacy). There are no other recipients.",
+            text: "Only Google (Firebase Authentication, Cloud Firestore, Firebase Crashlytics for crash reports and, for co-op, Realtime Database) as a processor on our behalf; e-mail confirmation and password reset messages are sent by Firebase. We do not see your password after it is sent to Firebase. Google may process technical request data (for example, the IP address) under its own rules: [Firebase privacy](https://firebase.google.com/support/privacy). There are no other recipients.",
           },
         ],
       },
@@ -415,6 +420,7 @@ export const en: Content = {
             items: [
               "**Delete everything**: Profile, Delete account (see the [account deletion](/delete-account/) page). This removes the nickname and its uniqueness entry, the public profile, the private profile, the cloud save, records on all levels, the run start time and the user in Firebase Authentication (with the linked e-mail), then the data on the device. If you signed in long ago, the game asks you to sign in again and then repeat the deletion. Internet is required (the cloud part cannot be deleted offline); without the online mode only local data is erased.",
               "**Sign out**: Profile, Sign out (for an account with an e-mail): data on the device is erased, cloud data stays under your e-mail. Forgot your password: Sign in, Forgot password. A guest cannot sign out: to keep your progress, create an account (it attaches to the same ID, progress stays).",
+              "**Crash reports**: turn off Settings, Send crash reports (takes effect at once, no restart). Reports already sent are not linked to your account or nickname; to have them deleted, write to the contact below with the phone model and the approximate time: they are deleted by hand or expire with Google's retention period.",
               "**Fix your nickname**: Profile, change name (no more than once per 24 hours).",
               "**Get your data**: progress is a file on your device; on request to the contact below the cloud copy can be exported by uid (Profile shows it).",
               "If an account is deleted less than 24 hours after a nickname change, a record remains (only the uid and the change time, no nickname): the rules do not allow deleting it earlier, and the Authentication user is already gone. It has no nickname and is useless without an account; the operator may delete such records manually.",

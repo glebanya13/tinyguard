@@ -4,7 +4,7 @@
 
 ## Стек и ограничения
 
-- **Только Godot 4.x + GDScript.** Никакого C#, GDExtension, нативных плагинов.
+- **Только Godot 4.x + GDScript.** Никакого C#, GDExtension, нативных плагинов (единственное исключение — Crashlytics ниже).
 - **Версия Godot: 4.7.2** (`config/features` в `project.godot`). `*.import` записаны в формате 4.7 и
   коммитятся; редактор 4.7 их больше не переписывает. Версию меняем только осознанным коммитом
   «обновление Godot» вместе с переимпортом (`godot --headless --import`) всех `*.import` и `*.uid`.
@@ -16,6 +16,15 @@
   рекорды осады, облачное сохранение; см. `docs/FIREBASE.md`). Игра обязана полностью
   работать офлайн и без `firebase.cfg`. План Firebase — Spark: **без Cloud Functions**, вся
   серверная гарантия — в `firestore.rules` (тесты: `firebase/rules-tests`). Кооператив (2 игрока, lockstep через Realtime Database, только REST; владелец разрешил 2026-10-14, план — `docs/MULTIPLAYER.md`) — через модуль сети; игра обязана работать и без него. Без аналитики и рекламных SDK, без своих серверов и P2P/GDExtension.
+- **Исключение: Firebase Crashlytics** (владелец разрешил 2026-10-17, задача «вылеты и лаги, тестер не
+  может прислать логи»). Разрешён **только Crashlytics** (отчёты о сбоях) в Gradle-сборке Android
+  (`tools/prepare_android_build.py`, `docs/ANDROID_BUILD.md`): без Analytics, рекламы, Messaging и
+  любых других SDK, без своего Kotlin/Java-плагина. **Новых autoload нельзя**: доступ из GDScript —
+  статический `CrashReporter` через `JavaClassWrapper`/`Engine.get_singleton`; причины гибели
+  прошлого запуска — `ExitReasons` (ApplicationExitInfo). Сбор выключен в манифесте и включается
+  кодом, только если игрок не отказался в настройках; без персональных данных (никаких uid, почты,
+  ников в ключах и логах), игра обязана работать без Crashlytics (десктоп, тесты, APK без Gradle).
+  Данные: `docs/PRIVACY.md`, `docs/DATA_SAFETY.md`.
 - **Без внешних ассетов** из магазинов и сети без явного разрешения владельца;
   всё — примитивы Godot или собственные модели из `assets/blender/`. Исключение: внешние UI-иконки
   CC0 разрешены владельцем 2026-10-15; иконки CC BY 3.0 (game-icons.net) разрешены владельцем

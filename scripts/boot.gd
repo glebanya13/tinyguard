@@ -13,6 +13,10 @@ var _routed: bool = false
 
 func _ready() -> void:
 	GameSettings.apply_language()
+	# Crash reports (Crashlytics, Android Gradle build): off in the manifest, on here unless the
+	# player said no. Then why the previous run ended (a memory kill leaves no crash report).
+	CrashReporter.init(GameSettings.crash_reports())
+	ExitReasons.run_startup(GameSettings.crash_reports())
 	$Center/Box/Title.text = GameInfo.TITLE
 	LevelCatalog.apply_sound()
 	LevelCatalog.tutorial = false
