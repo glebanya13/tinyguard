@@ -14,6 +14,7 @@ const PATHS := [
 	"res://resources/perks/sword.tres",
 	"res://resources/perks/towers.tres",
 	"res://resources/perks/axe.tres",
+	"res://resources/perks/swift.tres",
 ]
 const ENDLESS_WAVES_PER_STAR := 10
 const ENDLESS_MAX_STARS := 5

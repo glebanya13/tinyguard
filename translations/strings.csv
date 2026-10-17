@@ -221,6 +221,8 @@ PERK_WALLS_NAME,Крепкие стены,Sturdy walls
 PERK_WALLS_DESC,Жизни замка: %s,Castle lives: %s
 PERK_TOWERS_NAME,Меткие стрелки,Sharp shooters
 PERK_TOWERS_DESC,Урон башен: %s,Tower damage: %s
+PERK_SWIFT_NAME,Быстрые ноги,Swift feet
+PERK_SWIFT_DESC,Скорость героя: %s,Hero speed: %s
 PERK_SWORD_NAME,Закалка,Tempering
 PERK_SWORD_DESC,Урон меча: %s,Sword damage: %s
 PERK_GOLD_START_NAME,Казна,Treasury

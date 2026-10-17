@@ -116,6 +116,13 @@
   (круглый бейдж с иконкой нарисован в самой текстуре), `SlotButton` (кремовая карточка башни),
   `PricePill`.
 - Безопасные зоны: `SafeArea.attach(root)` (отступы `ScreenUtil.safe_margins`); HUD и карта подключены.
+- Окна и диалоги: только через `DialogFrame.attach(host, ширина, затемнение)`
+  (`scripts/dialog_frame.gd`). Затемнение — на ВЕСЬ экран (top-level Control, игнорирует
+  безопасную зону родителя, ловит касания), панель по центру ЭКРАНА, ширина = min(заданная,
+  экран − вырезы − 2×16), высота с прокруткой, `footer` — кнопки, всегда на виду. Не делайте
+  `ColorRect` + `CenterContainer` внутри корня со смещением на вырез: рядом с вырезом остаётся
+  светлая полоса, окно съезжает. Проверка: `tests/test_dialog_layout.gd` (10 экранов × 4 выреза
+  × RU/EN), скриншоты — `tools/shot_dialogs.gd`.
 - Круглые кнопки HUD (атака, вихрь) - первые три региона атласа (0,0), (130,0), (260,0).
 - Скриншоты: `tools/shot_ui.gd`, `shot_welcome.gd`, `shot_cards.gd`, `shot_controls.gd`,
   `shot_store.gd`; до/после - `docs/screenshots/theme2_*`.

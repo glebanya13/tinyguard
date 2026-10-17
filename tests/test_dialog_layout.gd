@@ -451,7 +451,7 @@ func _content(frame: DialogFrame, notch: Vector4) -> PackedStringArray:
 	var room := Rect2(
 		Vector2(notch.x, notch.y), screen - Vector2(notch.x + notch.z, notch.y + notch.w)
 	)
-	for node: Node in frame.body.find_children("*", "Control", true, false):
+	for node: Node in frame.panel.find_children("*", "Control", true, false):
 		var c := node as Control
 		if not c.is_visible_in_tree() or c.modulate.a < 0.05:
 			continue

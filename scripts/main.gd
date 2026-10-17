@@ -9,7 +9,7 @@ const LEVEL_SELECT_SCENE := "res://scenes/level_select.tscn"
 const CRASH_LOG_WAVE_STEP := 5
 ## Perks recorded in the journal header and applied by a replay.
 const PERK_KEYS: Array[StringName] = [
-	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls"
+	&"sword", &"axe", &"towers", &"gold_start", &"wood_start", &"walls", &"swift"
 ]
 const BUILD_FX := preload("res://scenes/fx/build_fx.tscn")
 const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
@@ -354,6 +354,7 @@ func _apply_perks(perks: Dictionary) -> void:
 	_game_state.reset()
 	_hero.damage_multiplier = 1.0 + float(perks.get("sword", 0.0))
 	_hero.wood_bonus = int(perks.get("axe", 0))
+	_hero.speed_bonus = float(perks.get("swift", 0.0))
 	_build_manager.damage_multiplier = 1.0 + float(perks.get("towers", 0.0))
 
 

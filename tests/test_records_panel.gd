@@ -42,7 +42,9 @@ func _setup(configured: bool = true) -> void:
 	_fake = Fakes.FakeFirebase.new()
 	_transport = Fakes.FakeTransport.new()
 	_transport.handler = _fake.handle
-	_online.setup("test-key" if configured else "", "test-project" if configured else "", _transport)
+	_online.setup(
+		"test-key" if configured else "", "test-project" if configured else "", _transport
+	)
 	_online.auth.backoff_scale = 0.0
 	_online.firestore.backoff_scale = 0.0
 	_online._ctx.records.fetch_timeout = 0.4
@@ -107,7 +109,10 @@ func _run() -> void:
 	_fake.forced_raw.clear()
 	_fake.docs["leaderboards/level_1/scores/u9"] = {"name": "Аня", "wave": 7}
 	panel._retry.pressed.emit()
-	check(panel.state == RecordsPanel.STATE_LOADING and not panel.is_retry_visible(), "Retry loads again")
+	check(
+		panel.state == RecordsPanel.STATE_LOADING and not panel.is_retry_visible(),
+		"Retry loads again"
+	)
 	await _settle(panel)
 	check(panel.rows() == 1 and not panel.is_retry_visible(), "Retry: the table appears")
 	panel.queue_free()
@@ -135,11 +140,16 @@ func _run() -> void:
 	check(waited < 3.0, "a hanging request ends by the deadline (%.1f s)" % waited)
 	check(panel.status_text() == tr("MAP_REC_FAILED"), "timeout: 'could not load'")
 	check(panel.is_retry_visible(), "timeout: Retry offered")
-	check(OnlineRecords.new(OnlineContext.new()).fetch_timeout >= 8.0, "the real deadline is 8-10 s")
+	check(
+		OnlineRecords.new(OnlineContext.new()).fetch_timeout >= 8.0, "the real deadline is 8-10 s"
+	)
 	_transport.hang_fragment = ""
 	panel._retry.pressed.emit()
 	await _settle(panel)
-	check(panel.state == RecordsPanel.STATE_DONE and not panel.is_retry_visible(), "Retry after a hang works")
+	check(
+		panel.state == RecordsPanel.STATE_DONE and not panel.is_retry_visible(),
+		"Retry after a hang works"
+	)
 	panel.queue_free()
 	await _frames(2)
 
@@ -149,7 +159,10 @@ func _run() -> void:
 	panel = _panel()
 	panel.open(LEVEL, "Зелёная долина")
 	await _settle(panel)
-	check(panel.status_text() == tr("MAP_REC_FAILED") and panel.is_retry_visible(), "500: message and Retry")
+	check(
+		panel.status_text() == tr("MAP_REC_FAILED") and panel.is_retry_visible(),
+		"500: message and Retry"
+	)
 	panel.queue_free()
 	await _frames(2)
 
@@ -159,14 +172,20 @@ func _run() -> void:
 	panel.open(LEVEL, "Зелёная долина")
 	await _settle(panel)
 	check(panel.status_text() == tr("MAP_REC_DISABLED"), "no Firebase: says so")
-	check(not panel.is_retry_visible() and _transport.calls.is_empty(), "no Firebase: no Retry, no request")
+	check(
+		not panel.is_retry_visible() and _transport.calls.is_empty(),
+		"no Firebase: no Retry, no request"
+	)
 	panel.queue_free()
 	await _frames(2)
 
 	# 8. English texts exist and differ.
 	GameSettings.set_language("en")
 	check(tr("MAP_REC_OFFLINE") == "Internet needed", "English: offline text")
-	check(tr("MAP_RETRY") == "Retry" and tr("MAP_NO_RECORDS").begins_with("No records"), "English texts")
+	check(
+		tr("MAP_RETRY") == "Retry" and tr("MAP_NO_RECORDS").begins_with("No records"),
+		"English texts"
+	)
 	GameSettings.set_language("ru")
 
 	# 9. The cloud buttons: a result line, free again; they never block the panel.
@@ -175,14 +194,25 @@ func _run() -> void:
 	panel.open(LEVEL, "Зелёная долина")
 	await _settle(panel)
 	panel._to_cloud.pressed.emit()
-	check(panel._to_cloud.disabled and panel.note_text() == tr("SYNC_SYNCING"), "to cloud: busy line")
-	check(panel.visible and not panel._frame.dim.mouse_filter == Control.MOUSE_FILTER_IGNORE, "the panel stays usable")
+	check(
+		panel._to_cloud.disabled and panel.note_text() == tr("SYNC_SYNCING"), "to cloud: busy line"
+	)
+	check(
+		panel.visible and not panel._frame.dim.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"the panel stays usable"
+	)
 	for i in 240:
 		if not panel._to_cloud.disabled:
 			break
 		await process_frame
-	check(not panel._to_cloud.disabled and not panel._from_cloud.disabled, "to cloud: buttons free again")
-	check(panel.note_text() != "" and panel.note_text() != tr("SYNC_SYNCING"), "to cloud: a result is shown ('%s')" % panel.note_text())
+	check(
+		not panel._to_cloud.disabled and not panel._from_cloud.disabled,
+		"to cloud: buttons free again"
+	)
+	check(
+		panel.note_text() != "" and panel.note_text() != tr("SYNC_SYNCING"),
+		"to cloud: a result is shown ('%s')" % panel.note_text()
+	)
 	_fake.offline = true
 	panel._from_cloud.pressed.emit()
 	for i in 240:
@@ -190,7 +220,10 @@ func _run() -> void:
 			break
 		await process_frame
 	check(not panel._from_cloud.disabled, "from cloud offline: buttons free again")
-	check(panel.note_text() != "" and panel.note_text() != tr("SYNC_SYNCING"), "from cloud offline: an error is shown ('%s')" % panel.note_text())
+	check(
+		panel.note_text() != "" and panel.note_text() != tr("SYNC_SYNCING"),
+		"from cloud offline: an error is shown ('%s')" % panel.note_text()
+	)
 	panel.queue_free()
 	await _frames(2)
 

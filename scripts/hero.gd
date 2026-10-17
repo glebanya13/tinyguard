@@ -24,7 +24,7 @@ signal wood_gathered(amount: int, at: Vector3)
 
 const GROUP := &"heroes"
 
-## Metres per second.
+## Metres per second (without the "swift feet" perk, see walk_speed()).
 @export var speed: float = 3.2
 ## Radians per second the model turns towards the walking direction.
 @export var turn_speed: float = 12.0
@@ -80,9 +80,11 @@ var walk_grid: WalkGrid = null
 
 ## Forge level of the sword, 0-based.
 var sword_level: int = 0
-## Permanent bonuses from perks: sword damage multiplier, extra wood per chop.
+## Permanent bonuses from perks: sword damage multiplier, extra wood per chop, extra walking
+## speed (0.18 = +18 %; the command validator reads walk_speed(), so it follows the perk).
 var damage_multiplier: float = 1.0
 var wood_bonus: int = 0
+var speed_bonus: float = 0.0
 
 var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
@@ -148,10 +150,15 @@ func _physics_process(delta: float) -> void:
 		try_attack()
 	if _attack_left > 0.0:
 		direction *= 0.3  # plant the feet while swinging
-	velocity = direction * speed
+	velocity = direction * walk_speed()
 	move_and_slide()
 	position.y = 0.0
 	_animate(direction, delta)
+
+
+## Walking speed with the perk, metres per second.
+func walk_speed() -> float:
+	return speed * (1.0 + speed_bonus)
 
 
 ## Walk to `target` until within `reach` metres, then call `on_arrive`.

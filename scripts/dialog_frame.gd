@@ -17,6 +17,8 @@ extends Control
 ## Free space kept between a panel and the screen edge / the safe area.
 const MARGIN := 16.0
 const DIM_COLOR := Color(0.04, 0.06, 0.14)
+## Gap between the scrolling content and the footer.
+const COLUMN_GAP := 10
 
 ## Preferred width of the panel (shrinks on a narrow screen).
 var preferred_width: float = 640.0
@@ -28,6 +30,8 @@ var dim: ColorRect = null
 var panel: PanelContainer = null
 ## Put the dialog content here (a VBoxContainer inside a vertical ScrollContainer).
 var body: VBoxContainer = null
+## Optional rows under the scrolling content that stay in view (the Close / Done buttons).
+var footer: VBoxContainer = null
 
 var scroll: ScrollContainer = null
 var _placing: bool = false
@@ -79,11 +83,20 @@ func _init() -> void:
 	panel = PanelContainer.new()
 	panel.name = "Panel"
 	add_child(panel)
+	var column := VBoxContainer.new()
+	column.name = "Column"
+	column.add_theme_constant_override("separation", COLUMN_GAP)
+	panel.add_child(column)
 	scroll = ScrollContainer.new()
 	scroll.name = "Scroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	panel.add_child(scroll)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(scroll)
+	footer = VBoxContainer.new()
+	footer.name = "Footer"
+	footer.add_theme_constant_override("separation", COLUMN_GAP)
+	column.add_child(footer)
 	body = VBoxContainer.new()
 	body.name = "Body"
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -120,16 +133,23 @@ func _place() -> void:
 	dim.position = Vector2.ZERO
 	dim.size = screen
 	var margins: Vector2 = panel.get_theme_stylebox("panel").get_minimum_size()
+	var foot: Vector2 = (
+		footer.get_combined_minimum_size() if footer.get_child_count() > 0 else Vector2.ZERO
+	)
+	var gap: float = COLUMN_GAP if foot.y > 0.0 else 0.0
+	footer.visible = foot.y > 0.0
 	# Wider than preferred when the content cannot be narrower (rows of buttons), within the room.
-	var wanted_width: float = maxf(preferred_width, body.get_combined_minimum_size().x + margins.x)
+	var wanted_width: float = maxf(
+		preferred_width, maxf(body.get_combined_minimum_size().x, foot.x) + margins.x
+	)
 	var width: float = minf(wanted_width, room(viewport, bottom_extra).size.x)
 	# The content is laid out at the final width first, to know how tall it wants to be.
 	scroll.custom_minimum_size = Vector2(width - margins.x, 0.0)
-	var need: float = body.get_combined_minimum_size().y + margins.y
+	var need: float = body.get_combined_minimum_size().y + margins.y + foot.y + gap
 	var rect: Rect2 = fit_rect(
 		screen, room(viewport, bottom_extra), Vector2(width, maxf(need, min_height))
 	)
-	scroll.custom_minimum_size = rect.size - margins
+	scroll.custom_minimum_size = rect.size - margins - Vector2(0.0, foot.y + gap)
 	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	panel.position = rect.position
 	panel.size = rect.size

@@ -48,6 +48,7 @@ var _sites: Array[Node3D] = []
 var _site_ids: Array[int] = []
 var _selected: int = 0
 var _records: RecordsPanel = null
+var _treasury_frame: DialogFrame = null
 var _account: AccountPanel = null
 var _settings: SettingsPanel = null
 var _sync_button: Button = null
@@ -118,10 +119,13 @@ func _ready() -> void:
 ## The treasury card is made in the scene; its content moves into the common dialog frame
 ## (dim over the whole screen, panel centred on the screen).
 func _frame_treasury() -> void:
-	var frame := DialogFrame.attach(_treasury, 1040.0, 0.6)
+	var frame := DialogFrame.attach(_treasury, 1200.0, 0.6)
+	_treasury_frame = frame
 	var content: Control = _treasury.get_node("Content")
 	content.reparent(frame.body, false)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Close and refund stay in view when the cards scroll.
+	content.get_node("Footer").reparent(frame.footer, false)
 
 
 func _process(_delta: float) -> void:
@@ -404,6 +408,12 @@ func _fill_cards() -> void:
 	_free_label.text = tr("MAP_FREE_STARS") % Perks.free_stars()
 	for perk: PerkData in Perks.all():
 		_cards.add_child(_perk_card(perk))
+	# Four columns (two rows) when the screen is wide enough for them, else three.
+	var margins: Vector2 = _treasury_frame.panel.get_theme_stylebox("panel").get_minimum_size()
+	var room: float = DialogFrame.room(get_viewport()).size.x - margins.x
+	_cards.columns = 4
+	if _cards.get_combined_minimum_size().x > room:
+		_cards.columns = 3
 	_refresh_stars()
 
 
