@@ -225,25 +225,31 @@ def ribbon(size, scheme):
 	return img
 
 
-def chip(size, ring):
-	"""HUD chip: dark pill with a round badge on the left (ring colour = resource)."""
+def chip(size, tint):
+	"""HUD chip: a flat dark capsule (no round badge, no ring); `tint` nudges the body colour."""
 	w, h = size
 	img = Image.new("RGBA", size, (0, 0, 0, 0))
 	r = h // 2
 	pill = (0, 0, w, h)
 	fill(img, rr_mask(size, pill, r), NAVY)
 	i1 = inset(pill, 3)
-	fill(img, rr_mask(size, i1, r - 3), (46, 66, 148), (24, 36, 92), i1[1], i1[3])
-	sh = (i1[0] + r, i1[1] + 2, i1[2] - 8, i1[1] + 5)
-	white_alpha(img, rr_mask(size, sh, 2), 60, fade=False)
-	# badge
-	badge = (0, 0, h, h)
-	fill(img, rr_mask(size, badge, r), NAVY)
-	b1 = inset(badge, 3)
-	fill(img, rr_mask(size, b1, r - 3), ring[0], ring[1], b1[1], b1[3])
-	b2 = inset(badge, 8)
-	fill(img, rr_mask(size, b2, r - 8), (22, 32, 82), (40, 56, 128), b2[1], b2[3])
-	white_alpha(img, rr_mask(size, (b1[0] + 6, b1[1] + 1, b1[2] - 6, b1[1] + 3), 1), 150, fade=False)
+	top = lerp((40, 58, 134), tint, 0.16)
+	bottom = lerp((22, 34, 90), tint, 0.10)
+	fill(img, rr_mask(size, i1, r - 3), top, bottom, i1[1], i1[3])
+	sh = (i1[0] + r, i1[1] + 2, i1[2] - r, i1[1] + 5)
+	white_alpha(img, rr_mask(size, sh, 2), 50, fade=False)
+	return img
+
+
+def tabbar(size):
+	"""Bottom tab bar: a dark rounded strip with a thin light top edge."""
+	w, h = size
+	img = Image.new("RGBA", size, (0, 0, 0, 0))
+	box = (0, 0, w, h)
+	fill(img, rr_mask(size, box, 24), NAVY)
+	i1 = inset(box, 3)
+	fill(img, rr_mask(size, i1, 21), (38, 56, 130), (18, 28, 76), i1[1], i1[3])
+	white_alpha(img, rr_mask(size, (i1[0] + 14, i1[1] + 2, i1[2] - 14, i1[1] + 4), 1), 90, fade=False)
 	return img
 
 
@@ -322,7 +328,12 @@ def build():
 	for cname, sc in (("blue", BLUE), ("green", GREEN), ("red", RED), ("gold", GOLD)):
 		items.append(("ribbon_" + cname, ribbon((192, 76), sc)))
 	for cname, sc in (("gold", GOLD), ("wood", WOOD), ("red", RED), ("blue", BLUE)):
-		items.append(("chip_" + cname, chip((160, 48), sc)))
+		items.append(("chip_" + cname, chip((96, 48), sc[1])))
+	for cname, sc in (("blue", BLUE), ("green", GREEN), ("gold", GOLD)):
+		for state in ("up", "hover", "down"):
+			items.append((f"node_{cname}_{state}", round_button((112, 112), sc, state)))
+	items.append(("node_grey_up", round_button((112, 112), GREY, "up")))
+	items.append(("tabbar", tabbar((96, 96))))
 	items.append(("pill", pill((64, 32))))
 	items.append(("bar_bg", bar((96, 28), "bg")))
 	items.append(("bar_fill", bar((96, 28), "fill")))
@@ -384,6 +395,16 @@ def theme_text(r):
 			cm = BTN_CM["down" if st == "down" else "up"]
 			subs.append(sb(f"{c}_{st}", r[f"btn_{c}_{st}"], BTN_M, cm))
 	subs.append(sb("grey", r["btn_grey_up"], BTN_M, BTN_CM["up"]))
+	# square icon buttons (top bar of the map): tight paddings so a 72 px button is square
+	for st in ("up", "hover", "down"):
+		pad = (8, 12, 8, 12) if st == "down" else (8, 8, 8, 16)
+		subs.append(sb(f"icon_blue_{st}", r[f"btn_blue_{st}"], BTN_M, pad))
+	# segmented choice (difficulty): same art, tight paddings so three fit a narrow card
+	seg = (8, 6, 8, 10)
+	for st in ("up", "hover"):
+		subs.append(sb(f"seg_dark_{st}", r[f"btn_dark_{st}"], BTN_M, seg))
+	subs.append(sb("seg_green_down", r["btn_green_down"], BTN_M, (8, 10, 8, 6)))
+	subs.append(sb("seg_grey", r["btn_grey_up"], BTN_M, seg))
 	subs.append(sb("panel", r["panel"], (32, 32, 32, 38), (32, 24, 32, 40)))
 	subs.append(sb("panel_gold", r["panel_gold"], (32, 32, 32, 38), (32, 24, 32, 40)))
 	subs.append(sb("card", r["card"], (24, 24, 24, 24), (16, 12, 16, 12)))
@@ -397,14 +418,31 @@ def theme_text(r):
 			sb(f"ribbon_{c}", r[f"ribbon_{c}"], (64, 12, 64, 12), (56, 14, 56, 24), (RIBBON_SHIFT, -RIBBON_SHIFT) if RIBBON_SHIFT else None)
 		)
 	for c in ("gold", "wood", "red", "blue"):
-		subs.append(sb(f"chip_{c}", r[f"chip_{c}"], (54, 24, 24, 24), (11, 4, 18, 4)))
+		subs.append(sb(f"chip_{c}", r[f"chip_{c}"], (24, 24, 24, 24), (8, 4, 16, 4)))
+	for c in ("blue", "green", "gold"):
+		for st in ("up", "hover", "down"):
+			subs.append(sb(f"node_{c}_{st}", r[f"node_{c}_{st}"], (0, 0, 0, 0), (0, 0, 0, 0)))
+	subs.append(sb("node_grey", r["node_grey_up"], (0, 0, 0, 0), (0, 0, 0, 0)))
+	subs.append(sb("tabbar", r["tabbar"], (32, 32, 32, 32), (12, 8, 12, 8)))
 	subs.append(sb("pill", r["pill"], (16, 16, 16, 16), (12, 2, 12, 2)))
 	subs.append(sb("bar_bg", r["bar_bg"], (14, 14, 14, 14), (0, 0, 0, 0)))
 	subs.append(sb("bar_fill", r["bar_fill"], (14, 14, 14, 14), (0, 0, 0, 0)))
 	subs.append(sb("toast", r["toast"], (28, 28, 28, 32), (24, 12, 24, 20)))
-	flat = (
-		'[sub_resource type="StyleBoxEmpty" id="focus"]\n'
-	)
+	tab = ""
+	for name, color in (
+		("tab_normal", "Color(1, 1, 1, 0)"),
+		("tab_hover", "Color(1, 1, 1, 0.12)"),
+		("tab_down", "Color(1, 0.78, 0.25, 0.32)"),
+	):
+		tab += (
+			f'[sub_resource type="StyleBoxFlat" id="{name}"]\n'
+			f"bg_color = {color}\n"
+			"corner_radius_top_left = 16\ncorner_radius_top_right = 16\n"
+			"corner_radius_bottom_right = 16\ncorner_radius_bottom_left = 16\n"
+			"content_margin_left = 4.0\ncontent_margin_top = 4.0\n"
+			"content_margin_right = 4.0\ncontent_margin_bottom = 4.0\n\n"
+		)
+	flat = '[sub_resource type="StyleBoxEmpty" id="focus"]\n\n' + tab
 	body = "\n".join(subs)
 	head = (
 		'[gd_resource type="Theme" load_steps=60 format=3]\n\n'
@@ -416,7 +454,7 @@ def theme_text(r):
 		"variation_opentype = {\n2003265652: 800.0\n}\n\n"
 		'[sub_resource type="FontVariation" id="font_display"]\n'
 		'base_font = ExtResource("font_display_file")\n'
-		"variation_opentype = {\n2003265652: 900.0\n}\n\n"
+		"variation_opentype = {\n2003265652: 900.0\n}\nspacing_space = 6\n\n"
 		'[sub_resource type="FontVariation" id="font_button"]\n'
 		'base_font = ExtResource("font_display_file")\n'
 		"variation_opentype = {\n2003265652: 800.0\n}\nspacing_space = 5\n\n"
@@ -464,6 +502,31 @@ def theme_text(r):
 		'ToggleButton/styles/hover = SubResource("dark_hover")',
 		'ToggleButton/styles/pressed = SubResource("green_down")',
 		'ToggleButton/styles/hover_pressed = SubResource("green_down")',
+		btn_type("IconButton", "Button", "icon_blue"),
+		'SegmentButton/base_type = &"Button"',
+		'SegmentButton/styles/normal = SubResource("seg_dark_up")',
+		'SegmentButton/styles/hover = SubResource("seg_dark_hover")',
+		'SegmentButton/styles/pressed = SubResource("seg_green_down")',
+		'SegmentButton/styles/hover_pressed = SubResource("seg_green_down")',
+		'SegmentButton/styles/disabled = SubResource("seg_grey")',
+		# bottom tab bar of the map: icon over a caption, flat
+		'TabButton/base_type = &"Button"',
+		'TabButton/styles/normal = SubResource("tab_normal")',
+		'TabButton/styles/hover = SubResource("tab_hover")',
+		'TabButton/styles/pressed = SubResource("tab_down")',
+		'TabButton/styles/hover_pressed = SubResource("tab_down")',
+		'TabButton/styles/disabled = SubResource("tab_normal")',
+		"TabButton/font_sizes/font_size = 16",
+		"TabButton/constants/outline_size = 2",
+		"TabButton/constants/icon_max_width = 44",
+		"TabButton/constants/h_separation = 0",
+		# level nodes on the island: round badges
+		btn_type("NodeBlue", "Button", "node_blue"),
+		btn_type("NodeGreen", "Button", "node_green"),
+		btn_type("NodeGold", "Button", "node_gold"),
+		'NodeBlue/styles/disabled = SubResource("node_grey")',
+		'NodeGreen/styles/disabled = SubResource("node_grey")',
+		'NodeGold/styles/disabled = SubResource("node_grey")',
 		# slot card (tower build / upgrade card): dark text on cream
 		'SlotButton/base_type = &"Button"',
 		'SlotButton/styles/normal = SubResource("slot")',
@@ -535,6 +598,8 @@ def theme_text(r):
 		'GoldPanel/styles/panel = SubResource("panel_gold")',
 		'ToastPanel/base_type = &"PanelContainer"',
 		'ToastPanel/styles/panel = SubResource("toast")',
+		'TabBarPanel/base_type = &"PanelContainer"',
+		'TabBarPanel/styles/panel = SubResource("tabbar")',
 		'PricePill/base_type = &"PanelContainer"',
 		'PricePill/styles/panel = SubResource("pill")',
 		'HudChip/base_type = &"PanelContainer"',

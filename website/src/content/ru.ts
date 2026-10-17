@@ -635,6 +635,20 @@ export const ru: Content = {
         ],
       },
       {
+        id: "credits",
+        title: "Авторы",
+        blocks: [
+          {
+            t: "p",
+            text: "Иконки в игре сделаны на основе работ с сайта game-icons.net, авторы: Lorc, Delapouite и Carl Olsen, лицензия CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). Иконки перекрашены и изменены. Icons made by Lorc, Delapouite and Carl Olsen. Available on https://game-icons.net",
+          },
+          {
+            t: "p",
+            text: "Шрифты: Rubik и Nunito, лицензия SIL Open Font License 1.1. Остальная графика, модели и звуки сделаны авторами игры.",
+          },
+        ],
+      },
+      {
         id: "changes",
         title: "Изменения",
         blocks: [

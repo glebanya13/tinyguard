@@ -95,6 +95,9 @@ func _map_shot() -> void:
 	LevelCatalog.selected_id = 5
 	change_scene_to_file("res://scenes/level_select.tscn")
 	await _frames(60)
+	for toast in get_nodes_in_group(Toast.GROUP):
+		toast.queue_free()  # the visit's reward toasts cover the island
+	await _frames(4)
 	await _shot("map")
 
 
@@ -199,6 +202,8 @@ func _treasury_shot() -> void:
 	LevelCatalog.selected_id = 4
 	change_scene_to_file(Onboarding.MAP_SCENE)
 	await _frames(60)
+	for toast in get_nodes_in_group(Toast.GROUP):
+		toast.queue_free()
 	current_scene.call("_open_treasury")
 	await _frames(20)
 	await _shot("treasury")

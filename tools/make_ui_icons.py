@@ -1,44 +1,56 @@
 #!/usr/bin/env python3
-"""Draws the UI icon set ui/icons/*.png (256x256, one style) with Pillow only: thick navy
-outline, volume gradient, light edge on the top-left, darker lower edge, soft shadow below,
-saturated palette of the logo. Deterministic, no external art.
+"""Draws the UI icon set ui/icons/*.png (256x256, one style), deterministic.
+
+Style ("theme 3"): saturated colour, a vertical gradient, a light rim on the top-left and a
+darker rim on the bottom-right, a soft gloss on the upper half and a soft drop shadow. NO thick
+dark outline and NO ring badge: an icon stands on its own on the capsule / button. A part only
+gets a hair-thin edge in a darker shade of its own colour so that it does not melt into a
+button of a similar hue.
+
+Two sources of shapes:
+  * silhouettes from game-icons.net (tools/icon_src/*.svg, CC BY 3.0, authors in the file
+    names and in docs/CREDITS.md), recoloured here; they need `rsvg-convert` (librsvg) to
+    rasterise, only when icons are rebuilt - the PNGs are committed;
+  * simple shapes drawn with Pillow (coin, gem, star, heart, arrows, ...).
 
   python3 -I tools/make_ui_icons.py            # all icons
   python3 -I tools/make_ui_icons.py star gear  # only these
 
-The tower / enemy portraits (tower_*.png, slime*.png, boss, stone_golem, ...) are renders of
-the game models and are not touched here.
+The enemy portraits (slime*.png, boss, stone_golem, ...) are renders of the game models and
+are not touched here.
 """
 
+import io
 import math
 import os
+import subprocess
 import sys
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "ui", "icons")
+OUT = os.environ.get("ICON_OUT") or os.path.join(ROOT, "ui", "icons")
+SRC = os.path.join(ROOT, "tools", "icon_src")
 N = 256
 SS = 4
 W = N * SS
-NAVY = (18, 28, 69)
+SHADOW = (8, 14, 44)
+EDGE_PX = 2
 
 # palette: (top, bottom)
-GOLD = ((255, 238, 112), (246, 160, 22))
+GOLD = ((255, 240, 128), (240, 150, 18))
 GOLD_D = ((236, 178, 40), (190, 112, 12))
-RED = ((255, 128, 128), (212, 40, 70))
-BLUE = ((120, 178, 255), (44, 98, 205))
-GREEN = ((150, 236, 120), (46, 168, 76))
-BROWN = ((214, 150, 84), (140, 84, 40))
-BROWN_D = ((170, 108, 56), (104, 60, 26))
+RED = ((255, 138, 128), (206, 36, 66))
+BLUE = ((130, 190, 255), (40, 96, 210))
+GREEN = ((160, 240, 120), (40, 160, 70))
+BROWN = ((226, 160, 92), (128, 74, 34))
 WOOD_END = ((255, 232, 176), (232, 182, 104))
-SILVER = ((255, 255, 255), (178, 196, 230))
-STEEL = ((236, 244, 255), (140, 160, 200))
-GREY = ((206, 214, 232), (132, 144, 176))
-CREAM = ((255, 250, 232), (240, 216, 160))
-PURPLE = ((196, 150, 255), (110, 62, 205))
-GLASS = ((220, 246, 255), (130, 196, 240))
-SKIN = ((255, 220, 180), (232, 160, 112))
+SILVER = ((255, 255, 255), (170, 190, 228))
+STEEL = ((240, 247, 255), (132, 152, 196))
+CREAM = ((255, 250, 232), (236, 206, 148))
+PURPLE = ((200, 156, 255), (108, 60, 206))
+ORANGE = ((255, 226, 110), (255, 92, 24))
+CYAN = ((200, 246, 255), (56, 168, 236))
 DARK = ((70, 84, 130), (36, 46, 92))
 
 
@@ -112,10 +124,6 @@ def rounded(mask, r):
 	return mask.filter(ImageFilter.GaussianBlur(k)).point(lambda v: 255 if v > 128 else 0)
 
 
-def smooth(mask):
-	return mask.filter(ImageFilter.GaussianBlur(1.2)).point(lambda v: 255 if v > 128 else 0)
-
-
 def add(*ms):
 	out = ms[0]
 	for m in ms[1:]:
@@ -127,6 +135,10 @@ def sub(a, b):
 	return ImageChops.subtract(a, b)
 
 
+def both(a, b):
+	return ImageChops.multiply(a, b)
+
+
 def rot(mask, angle, center=(128, 128), scale=1.0):
 	m = mask.rotate(angle, resample=Image.BICUBIC, center=(center[0] * SS, center[1] * SS))
 	if scale != 1.0:
@@ -136,16 +148,47 @@ def rot(mask, angle, center=(128, 128), scale=1.0):
 	return m
 
 
+def svg_mask(name, box=(22, 22, 234, 230), rotate=0.0, flip=False):
+	"""Silhouette of a game-icons.net SVG, scaled to fit `box` (final px), centred."""
+	path = os.path.join(SRC, name + ".svg")
+	png = subprocess.run(
+		["rsvg-convert", "-w", str(W), "-h", str(W), path], capture_output=True, check=True
+	).stdout
+	m = Image.open(io.BytesIO(png)).convert("RGBA").getchannel("A")
+	if flip:
+		m = m.transpose(Image.FLIP_LEFT_RIGHT)
+	if rotate:
+		m = m.rotate(rotate, resample=Image.BICUBIC, expand=False)
+	bbox = m.getbbox()
+	m = m.crop(bbox)
+	bw, bh = (box[2] - box[0]) * SS, (box[3] - box[1]) * SS
+	k = min(bw / m.width, bh / m.height)
+	m = m.resize((max(1, int(m.width * k)), max(1, int(m.height * k))), Image.LANCZOS)
+	out = blank()
+	out.paste(m, (int(box[0] * SS + (bw - m.width) / 2), int(box[1] * SS + (bh - m.height) / 2)))
+	return out
+
+
 # ---- rendering --------------------------------------------------------------------------
 
 
 class Part:
-	def __init__(self, mask, colors, outline=4, shine=True, flat=False):
+	def __init__(self, mask, colors, outline=2, shine=True, flat=False):
 		self.mask, self.colors, self.outline, self.shine, self.flat = mask, colors, outline, shine, flat
 
 
-def gradient(box, top, bottom):
-	x0, y0, x1, y1 = box
+def ramp(box, y0, y1, a0, a1):
+	"""L image: alpha a0 at y0 easing to a1 at y1 (final px), constant outside."""
+	col = Image.new("L", (1, W))
+	px = col.load()
+	for y in range(W):
+		t = min(1.0, max(0.0, (y / SS - y0) / max(1e-6, y1 - y0)))
+		px[0, y] = int(a0 + (a1 - a0) * t)
+	return col.resize((W, W), Image.NEAREST)
+
+
+def gradient(bbox, top, bottom):
+	x0, y0, x1, y1 = bbox
 	col = Image.new("RGBA", (1, W))
 	px = col.load()
 	h = max(1, y1 - y0)
@@ -161,20 +204,18 @@ _GRAD = {}
 def grad_for(mask, colors):
 	bbox = mask.getbbox()
 	if bbox is None:
-		return None
+		return None, None
 	key = (bbox, colors)
 	if key not in _GRAD:
 		_GRAD[key] = gradient(bbox, colors[0], colors[1])
-	return _GRAD[key]
+	return _GRAD[key], bbox
 
 
 def dilate(mask, px):
 	if px <= 0:
 		return mask
 	k = px * SS
-	return mask.filter(ImageFilter.GaussianBlur(k * 0.55)).point(lambda v: 255 if v > 14 else 0).filter(
-		ImageFilter.GaussianBlur(0.8)
-	)
+	return mask.filter(ImageFilter.GaussianBlur(k * 0.55)).point(lambda v: 255 if v > 14 else 0)
 
 
 def shift(mask, dx, dy):
@@ -182,101 +223,99 @@ def shift(mask, dx, dy):
 
 
 def composite(img, mask, rgb, alpha=255):
-	layer = Image.new("RGBA", (W, W), rgb + (255,))
+	layer = Image.new("RGBA", (W, W), tuple(rgb) + (255,))
 	a = mask.point(lambda v: v * alpha // 255) if alpha != 255 else mask
 	layer.putalpha(a)
 	img.alpha_composite(layer)
 
 
-def render(parts, rotate=0.0, outer=8):
+def dim(rgb, k):
+	return tuple(int(c * k) for c in rgb)
+
+
+def render(parts, shadow=True):
 	img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
 	total = add(*[p.mask for p in parts])
-	outer_mask = dilate(total, outer)
-	# soft shadow
-	sh = shift(outer_mask, 0, 9).filter(ImageFilter.GaussianBlur(7 * SS / 2))
-	composite(img, sh, (6, 12, 40), 105)
-	composite(img, outer_mask, NAVY)
+	if shadow:
+		sh = shift(total, 0, 7).filter(ImageFilter.GaussianBlur(5 * SS / 2))
+		composite(img, sh, SHADOW, 110)
 	for p in parts:
 		if p.outline:
-			composite(img, dilate(p.mask, p.outline), shade_navy())
-		g = grad_for(p.mask, p.colors)
+			composite(img, dilate(p.mask, EDGE_PX), dim(p.colors[1], 0.5), 235)
+		g, bbox = grad_for(p.mask, p.colors)
 		layer = g.copy()
-		layer.putalpha(ImageChops.multiply(layer.getchannel("A"), p.mask))
+		layer.putalpha(both(layer.getchannel("A"), p.mask))
 		img.alpha_composite(layer)
 		if p.flat:
 			continue
-		# darker lower rim
-		low = sub(p.mask, shift(p.mask, 0, -9))
-		composite(img, ImageChops.multiply(low, p.mask), (20, 20, 70), 70)
+		# darker rim on the bottom / right
+		lo = both(sub(p.mask, shift(p.mask, -5, -6)).filter(ImageFilter.GaussianBlur(1.5)), p.mask)
+		composite(img, lo, dim(p.colors[1], 0.55), 120)
 		if p.shine:
-			hi = sub(p.mask, shift(p.mask, 8, 10))
-			hi = hi.filter(ImageFilter.GaussianBlur(2.5))
-			composite(img, ImageChops.multiply(hi, p.mask), (255, 255, 255), 175)
+			hi = both(sub(p.mask, shift(p.mask, 5, 6)).filter(ImageFilter.GaussianBlur(1.5)), p.mask)
+			composite(img, hi, (255, 255, 255), 190)
+			# soft gloss on the upper half
+			y0, y1 = bbox[1] / SS, bbox[3] / SS
+			gloss = ramp(bbox, y0, y0 + (y1 - y0) * 0.55, 70, 0)
+			composite(img, both(gloss, p.mask), (255, 255, 255), 255)
 	return img.resize((N, N), Image.LANCZOS)
 
 
-def shade_navy():
-	return (24, 34, 82)
-
-
-# ---- icons ------------------------------------------------------------------------------
+# ---- drawn icons -----------------------------------------------------------------------
 
 
 def i_star():
-	m = rounded(poly(star_pts(128, 134, 104, 46)), 5)
-	return [Part(m, GOLD, outline=0)]
+	m = rounded(poly(star_pts(128, 134, 108, 48)), 6)
+	return [Part(m, GOLD, outline=2)]
 
 
 def i_star_empty():
-	m = rounded(poly(star_pts(128, 134, 104, 46)), 5)
-	return [Part(m, ((196, 206, 232), (120, 132, 170)), outline=0)]
+	m = rounded(poly(star_pts(128, 134, 108, 48)), 6)
+	return [Part(m, ((206, 214, 238), (126, 138, 176)), outline=2, shine=False)]
 
 
 def i_coin():
-	outer = ellipse((26, 26, 230, 230))
+	outer = ellipse((22, 22, 234, 234))
 	inner = ellipse((58, 58, 198, 198))
 	star = rounded(poly(star_pts(128, 132, 52, 24)), 3)
 	return [
 		Part(outer, GOLD),
-		Part(inner, ((240, 176, 36), (255, 224, 96)), outline=3, shine=False),
-		Part(star, ((255, 246, 190), (255, 204, 70)), outline=3, shine=False),
+		Part(inner, ((236, 170, 30), (255, 226, 100)), outline=2, shine=False),
+		Part(star, ((255, 252, 214), (255, 206, 70)), outline=0, shine=False),
 	]
+
+
+def i_gem():
+	top_l, top_r = (60, 70), (196, 70)
+	left, right, tip = (16, 112), (240, 112), (128, 232)
+	table_l, table_r = (92, 112), (164, 112)
+	mid_top = (128, 70)
+	body = rounded(poly([top_l, top_r, right, tip, left]), 4)
+	facets = [
+		([top_l, mid_top, table_l], ((236, 252, 255), (170, 232, 255))),
+		([mid_top, top_r, table_r], ((150, 226, 255), (90, 200, 250))),
+		([top_l, table_l, left], ((120, 214, 255), (72, 176, 240))),
+		([top_r, right, table_r], ((70, 176, 240), (40, 130, 220))),
+		([mid_top, table_r, table_l], ((220, 250, 255), (140, 220, 255))),
+		([left, table_l, tip], ((70, 170, 238), (34, 120, 214))),
+		([table_l, table_r, tip], ((110, 206, 252), (50, 150, 232))),
+		([table_r, right, tip], ((40, 128, 216), (24, 86, 180))),
+	]
+	parts = [Part(body, ((120, 210, 255), (30, 110, 200)))]
+	for pts, col in facets:
+		parts.append(Part(poly(pts), col, outline=0, flat=True))
+	parts.append(Part(ellipse((70, 82, 96, 106)), ((255, 255, 255), (230, 250, 255)), outline=0, flat=True))
+	return parts
 
 
 def i_heart():
 	m = add(ellipse((28, 40, 142, 154)), ellipse((114, 40, 228, 154)), poly([(34, 112), (222, 112), (128, 228)]))
 	m = rounded(m, 8)
-	return [Part(m, RED, outline=0)]
-
-
-def i_wood():
-	logs = []
-	body = rrect((30, 96, 200, 214), 22)
-	end = ellipse((150, 96, 234, 214))
-	ring1 = ellipse((172, 124, 214, 186))
-	ring2 = ellipse((184, 142, 202, 168))
-	bark = stroke([(60, 128), (150, 128)], 7)
-	bark2 = stroke([(52, 168), (140, 168)], 7)
-	top = rrect((46, 40, 176, 130), 20)
-	top_end = ellipse((124, 40, 200, 130))
-	t_ring = ellipse((144, 62, 182, 108))
-	logs += [
-		Part(top, BROWN_D),
-		Part(top_end, WOOD_END),
-		Part(t_ring, ((246, 206, 140), (214, 160, 90)), outline=3, shine=False),
-		Part(body, BROWN),
-		Part(bark, BROWN_D, outline=0, flat=True),
-		Part(bark2, BROWN_D, outline=0, flat=True),
-		Part(end, WOOD_END),
-		Part(ring1, ((246, 206, 140), (214, 160, 90)), outline=3, shine=False),
-		Part(ring2, ((226, 176, 108), (190, 130, 66)), outline=3, shine=False),
-	]
-	return logs
+	return [Part(m, RED)]
 
 
 def _vsword():
-	blade = poly([(128, 18), (150, 60), (150, 150), (106, 150), (106, 60)])
-	blade = rounded(blade, 2)
+	blade = rounded(poly([(128, 18), (150, 60), (150, 150), (106, 150), (106, 60)]), 2)
 	fuller = rrect((124, 52, 132, 140), 4)
 	guard = rrect((70, 148, 186, 172), 11)
 	grip = rrect((115, 170, 141, 214), 8)
@@ -301,118 +340,59 @@ def i_sword():
 
 
 def i_axe():
-	handle = rrect((118, 40, 142, 232), 10)
-	head = poly([(138, 52), (214, 40), (222, 150), (138, 132)])
-	head = rounded(head, 5)
-	edge = stroke([(214, 48), (220, 144)], 9)
-	back = rrect((100, 50, 140, 104), 8)
-	return rot_parts(
-		[Part(handle, BROWN), Part(back, STEEL), Part(head, STEEL), Part(edge, ((255, 255, 255), (214, 226, 248)), outline=0, flat=True)],
-		-35,
-		0.92,
-	)
+	m = svg_mask("lorc__wood-axe", (28, 24, 228, 232))
+	return [Part(m, STEEL)]
 
 
 def i_hammer():
-	handle = rrect((118, 80, 142, 236), 10)
-	head = rrect((52, 28, 204, 108), 16)
-	band = rrect((52, 54, 204, 70), 4)
-	return rot_parts([Part(handle, BROWN), Part(head, STEEL), Part(band, GREY, outline=0, flat=True)], 35)
+	m = svg_mask("lorc__anvil-impact", (20, 24, 236, 232))
+	return [Part(m, ((255, 236, 200), (170, 150, 150)))]
 
 
 def i_crown():
-	body = poly([(30, 196), (22, 70), (84, 126), (128, 44), (172, 126), (234, 70), (226, 196)])
-	body = rounded(body, 5)
-	band = rrect((30, 176, 226, 220), 14)
-	gems = [
-		Part(ellipse((112, 178, 144, 214)), RED, outline=3),
-		Part(ellipse((60, 182, 86, 212)), BLUE, outline=3),
-		Part(ellipse((170, 182, 196, 212)), GREEN, outline=3),
-	]
-	tips = [Part(ellipse((c - 15, y - 15, c + 15, y + 15)), ((255, 250, 220), (255, 214, 90)), outline=3) for c, y in ((22, 68), (128, 40), (234, 68))]
-	return [Part(body, GOLD), Part(band, GOLD_D)] + gems + tips
+	m = svg_mask("lorc__crown", (14, 40, 242, 216))
+	return [Part(m, GOLD)]
 
 
 def i_trophy():
-	cup = rounded(poly([(60, 40), (196, 40), (186, 118), (150, 162), (106, 162), (70, 118)]), 6)
-	rim = rrect((52, 30, 204, 58), 12)
-	h1 = arc((14, 46, 90, 126), 90, 270, 16)
-	h2 = arc((166, 46, 242, 126), 270, 450, 16)
-	stem = rrect((110, 156, 146, 200), 6)
-	base = rrect((70, 196, 186, 232), 12)
-	star = rounded(poly(star_pts(128, 96, 34, 15)), 2)
-	return [
-		Part(h1, GOLD_D, outline=3),
-		Part(h2, GOLD_D, outline=3),
-		Part(stem, GOLD_D),
-		Part(base, GOLD),
-		Part(cup, GOLD),
-		Part(rim, GOLD),
-		Part(star, ((255, 252, 220), (255, 216, 96)), outline=3, shine=False),
-	]
+	m = svg_mask("delapouite__trophy-cup", (22, 14, 234, 242))
+	return [Part(m, GOLD)]
 
 
 def i_hourglass():
-	top = rrect((46, 24, 210, 56), 12)
-	bot = rrect((46, 200, 210, 232), 12)
-	glass = poly([(70, 52), (186, 52), (186, 80), (140, 128), (186, 176), (186, 204), (70, 204), (70, 176), (116, 128), (70, 80)])
-	glass = rounded(glass, 4)
-	sand_t = poly([(86, 66), (170, 66), (150, 90), (106, 90)])
-	sand_b = poly([(90, 196), (166, 196), (140, 160), (116, 160)])
-	stream = rrect((124, 100, 132, 168), 3)
-	return [
-		Part(glass, GLASS),
-		Part(sand_t, GOLD, outline=0, flat=True),
-		Part(sand_b, GOLD, outline=0, flat=True),
-		Part(stream, GOLD, outline=0, flat=True),
-		Part(top, BROWN),
-		Part(bot, BROWN),
-	]
+	m = svg_mask("lorc__hourglass", (44, 14, 212, 242))
+	return [Part(m, ((255, 232, 140), (226, 140, 28)))]
 
 
 def i_flag():
-	pole = rrect((52, 24, 74, 236), 10)
-	banner = poly([(70, 36), (214, 52), (186, 98), (214, 144), (70, 128)])
-	banner = rounded(banner, 4)
-	top = ellipse((44, 14, 82, 52))
-	star = rounded(poly(star_pts(128, 90, 24, 11)), 1)
-	return [
-		Part(pole, BROWN),
-		Part(banner, BLUE),
-		Part(star, ((255, 252, 220), (255, 214, 90)), outline=2, shine=False),
-		Part(top, GOLD),
-	]
+	m = svg_mask("lorc__flying-flag", (26, 16, 226, 240))
+	return [Part(m, BLUE)]
 
 
 def i_gear():
-	body = ellipse((54, 54, 202, 202))
-	teeth = []
-	for i in range(8):
-		t = rrect((106, 14, 150, 66), 8)
-		teeth.append(rot(t, i * 45))
-	ring = add(body, *teeth)
-	hole = ellipse((96, 96, 160, 160))
-	return [Part(ring, STEEL), Part(hole, DARK, outline=3, shine=False)]
+	m = svg_mask("lorc__cog", (20, 20, 236, 236))
+	return [Part(m, STEEL)]
 
 
-def _speaker(color=SILVER):
-	box = rrect((22, 92, 84, 164), 8)
-	cone = poly([(70, 92), (130, 40), (130, 216), (70, 164)])
-	cone = rounded(cone, 4)
-	return [Part(cone, color), Part(box, color)]
+def _clip(mask, box):
+	return both(mask, rrect(box, 0))
 
 
 def i_sound_on():
-	parts = _speaker()
-	w1 = arc((92, 84, 164, 172), -50, 50, 15)
-	w2 = arc((92, 56, 214, 200), -52, 52, 15)
-	return parts + [Part(w1, ((150, 220, 255), (70, 150, 240)), outline=3), Part(w2, ((150, 220, 255), (70, 150, 240)), outline=3)]
+	m = svg_mask("delapouite__speaker", (20, 36, 236, 220))
+	body = _clip(m, (0, 0, 140, 256))
+	waves = sub(m, body)
+	return [
+		Part(body, SILVER),
+		Part(waves, ((160, 224, 255), (60, 150, 240)), outline=2),
+	]
 
 
 def i_sound_off():
-	parts = _speaker()
-	x = add(stroke([(156, 92), (226, 164)], 22), stroke([(226, 92), (156, 164)], 22))
-	return parts + [Part(x, RED, outline=3)]
+	m = svg_mask("delapouite__speaker-off", (20, 36, 236, 220))
+	body = _clip(m, (0, 0, 140, 256))
+	cross = sub(m, body)
+	return [Part(body, SILVER), Part(cross, RED, outline=2)]
 
 
 def i_pause():
@@ -437,7 +417,7 @@ def _circ_arrow(colors, start=40, end=300):
 	ang = math.radians(end)
 	r = 76.0
 	ex, ey = 128 + r * math.cos(ang), 128 + r * math.sin(ang)
-	tx, ty = -math.sin(ang), math.cos(ang)  # clockwise tangent
+	tx, ty = -math.sin(ang), math.cos(ang)
 	nx, ny = math.cos(ang), math.sin(ang)
 	head = poly(
 		[
@@ -458,120 +438,165 @@ def i_whirl():
 	b = arc((34, 34, 222, 222), 20, 160, 34)
 	h1 = rounded(poly([(214, 80), (246, 150), (176, 140)]), 2)
 	h2 = rounded(poly([(42, 176), (10, 106), (80, 116)]), 2)
-	return [Part(add(a, h1), GOLD), Part(add(b, h2), GOLD)]
+	WHIRL = ((255, 255, 255), (150, 190, 240))
+	return [Part(add(a, h1), WHIRL), Part(add(b, h2), WHIRL)]
 
 
 def i_map():
-	sheet = rounded(poly([(24, 60), (96, 40), (160, 62), (232, 42), (232, 198), (160, 218), (96, 196), (24, 216)]), 4)
-	f1 = stroke([(96, 44), (96, 194)], 5, False)
-	f2 = stroke([(160, 64), (160, 214)], 5, False)
-	x = add(stroke([(176, 96), (208, 128)], 14), stroke([(208, 96), (176, 128)], 14))
-	path = stroke([(44, 170), (70, 130), (118, 150), (140, 100)], 8)
-	return [
-		Part(sheet, CREAM),
-		Part(f1, ((214, 188, 140), (190, 160, 110)), outline=0, flat=True),
-		Part(f2, ((214, 188, 140), (190, 160, 110)), outline=0, flat=True),
-		Part(path, ((120, 190, 255), (60, 130, 230)), outline=0, flat=True),
-		Part(x, RED, outline=2),
-	]
+	m = svg_mask("lorc__treasure-map", (26, 22, 230, 234))
+	return [Part(m, ((255, 246, 214), (222, 178, 112)))]
 
 
 def i_lock():
-	body = rrect((46, 108, 210, 232), 22)
-	shackle = sub(arc((70, 22, 186, 150), 180, 360, 26), rrect((0, 100, 256, 256), 0))
-	shackle = add(shackle, rrect((70, 84, 96, 120), 6), rrect((160, 84, 186, 120), 6))
-	key = add(ellipse((112, 148, 144, 180)), poly([(120, 172), (136, 172), (140, 208), (116, 208)]))
-	return [Part(shackle, STEEL), Part(body, GOLD), Part(key, ((90, 60, 40), (50, 30, 20)), outline=0, flat=True)]
+	m = svg_mask("lorc__padlock", (40, 16, 216, 240))
+	return [Part(m, GOLD)]
 
 
 def i_cancel():
-	x = add(stroke([(54, 54), (202, 202)], 52), stroke([(202, 54), (54, 202)], 52))
-	return [Part(x, RED, outline=0)]
+	x = add(stroke([(58, 58), (198, 198)], 48), stroke([(198, 58), (58, 198)], 48))
+	return [Part(x, RED)]
 
 
 def i_check():
-	c = stroke([(44, 136), (100, 192), (214, 64)], 50)
-	return [Part(c, GREEN, outline=0)]
+	c = stroke([(48, 134), (102, 188), (210, 68)], 46)
+	return [Part(c, GREEN)]
 
 
 def i_upgrade():
 	a = rounded(poly([(128, 16), (232, 128), (170, 128), (170, 232), (86, 232), (86, 128), (24, 128)]), 8)
-	return [Part(a, ((190, 255, 130), (60, 180, 70)))]
+	return [Part(a, ((200, 255, 140), (50, 170, 66)))]
 
 
-def i_sell():
-	c2 = ellipse((70, 40, 226, 196))
-	c2i = ellipse((98, 68, 198, 168))
-	c1 = ellipse((24, 92, 180, 248))
-	c1i = ellipse((52, 120, 152, 220))
+def _coin_parts(cx, cy, r):
+	outer = ellipse((cx - r, cy - r, cx + r, cy + r))
+	k = r * 0.66
+	inner = ellipse((cx - k, cy - k, cx + k, cy + k))
 	return [
-		Part(c2, GOLD_D),
-		Part(c2i, ((255, 224, 96), (240, 176, 36)), outline=3, shine=False),
-		Part(c1, GOLD),
-		Part(c1i, ((240, 176, 36), (255, 224, 96)), outline=3, shine=False),
-		Part(rounded(poly(star_pts(102, 170, 34, 15)), 2), ((255, 246, 190), (255, 204, 70)), outline=2, shine=False),
+		Part(outer, GOLD),
+		Part(inner, ((236, 170, 30), (255, 226, 100)), outline=2, shine=False),
 	]
 
 
+def i_sell():
+	back = _coin_parts(150, 104, 84)
+	front = _coin_parts(104, 148, 84)
+	star = rounded(poly(star_pts(104, 150, 38, 17)), 2)
+	return back + front + [Part(star, ((255, 252, 214), (255, 206, 70)), outline=0, shine=False)]
+
+
+def _bust(cx, cy, s):
+	head = ellipse((cx - 38 * s, cy - 92 * s, cx + 38 * s, cy - 16 * s))
+	body = both(
+		ellipse((cx - 76 * s, cy - 2 * s, cx + 76 * s, cy + 150 * s)),
+		rrect((0, 0, 256, cy + 70 * s), 0),
+	)
+	return head, body
+
+
 def i_villager():
-	body = ellipse((34, 138, 222, 330))
-	body = ImageChops.multiply(body, rrect((0, 0, 256, 232), 0))
-	head = ellipse((74, 26, 182, 134))
-	hat = add(ellipse((52, 58, 204, 96)), rrect((84, 22, 172, 74), 20))
+	head, body = _bust(128, 140, 1.15)
+	return [Part(body, BLUE), Part(head, ((255, 226, 190), (232, 160, 112)))]
+
+
+def i_friends():
+	h1, b1 = _bust(80, 136, 0.9)
+	h2, b2 = _bust(176, 136, 0.9)
+	h3, b3 = _bust(128, 152, 1.05)
+	skin = ((255, 226, 190), (232, 160, 112))
 	return [
-		Part(body, BLUE),
-		Part(head, SKIN),
-		Part(hat, ((255, 226, 130), (224, 160, 60))),
+		Part(b1, ((120, 200, 130), (46, 140, 76))),
+		Part(h1, skin),
+		Part(b2, ((255, 160, 120), (214, 70, 60))),
+		Part(h2, skin),
+		Part(b3, BLUE),
+		Part(h3, skin),
 	]
 
 
 def i_shield():
 	m = rounded(poly([(30, 30), (226, 30), (226, 120), (128, 238), (30, 120)]), 14)
-	inner = rounded(poly([(58, 56), (198, 56), (198, 112), (128, 196), (58, 112)]), 10)
+	inner = rounded(poly([(60, 58), (196, 58), (196, 112), (128, 194), (60, 112)]), 10)
 	st = rounded(poly(star_pts(128, 116, 40, 18)), 2)
 	return [
 		Part(m, GOLD),
-		Part(inner, BLUE, outline=3),
-		Part(st, ((255, 252, 220), (255, 214, 90)), outline=2, shine=False),
+		Part(inner, BLUE),
+		Part(st, ((255, 252, 220), (255, 214, 90)), outline=0, shine=False),
 	]
 
 
 def i_compass():
-	rim = ellipse((20, 20, 236, 236))
-	face = ellipse((50, 50, 206, 206))
-	n = rounded(poly([(128, 62), (152, 128), (104, 128)]), 1)
-	s = rounded(poly([(128, 194), (152, 128), (104, 128)]), 1)
-	pin = ellipse((116, 116, 140, 140))
-	return [
-		Part(rim, GOLD),
-		Part(face, CREAM, outline=3, shine=False),
-		Part(n, RED, outline=2, shine=False),
-		Part(s, STEEL, outline=2, shine=False),
-		Part(pin, GOLD, outline=2),
-	]
+	m = svg_mask("lorc__compass", (18, 18, 238, 238))
+	return [Part(m, GOLD)]
 
 
 def i_chest():
-	body = rrect((28, 108, 228, 224), 20)
-	lid = sub(rrect((28, 40, 228, 140), 40), rrect((0, 126, 256, 256), 0))
-	band1 = rrect((74, 40, 98, 224), 4)
-	band2 = rrect((158, 40, 182, 224), 4)
-	lock = rrect((108, 112, 148, 164), 10)
-	hole = ellipse((120, 128, 136, 144))
-	return [
-		Part(body, BROWN),
-		Part(lid, ((228, 164, 96), (170, 104, 52))),
-		Part(band1, GOLD_D, outline=3),
-		Part(band2, GOLD_D, outline=3),
-		Part(lock, GOLD),
-		Part(hole, ((90, 60, 40), (50, 30, 20)), outline=0, flat=True),
-	]
+	m = svg_mask("lorc__locked-chest", (16, 30, 240, 232))
+	return [Part(m, ((236, 170, 96), (140, 80, 34)))]
+
+
+def i_wood():
+	m = svg_mask("delapouite__wood-pile", (18, 22, 238, 234))
+	return [Part(m, ((236, 176, 104), (128, 74, 34)))]
+
+
+def i_shop():
+	m = svg_mask("delapouite__shop", (16, 22, 240, 238))
+	return [Part(m, ((255, 190, 120), (222, 76, 50)))]
+
+
+def i_flame():
+	m = svg_mask("carl-olsen__flame", (30, 14, 226, 242))
+	return [Part(m, ORANGE)]
+
+
+def i_cloud(ok):
+	body = add(
+		ellipse((30, 96, 130, 196)),
+		ellipse((70, 50, 178, 158)),
+		ellipse((130, 84, 232, 186)),
+		rrect((80, 120, 190, 196), 40),
+		rrect((30, 120, 232, 196), 40),
+	)
+	parts = [Part(rounded(body, 4), ((236, 248, 255), (142, 178, 230)))]
+	if ok:
+		mark = stroke([(88, 132), (116, 160), (172, 100)], 24)
+		parts.append(Part(mark, GREEN))
+	else:
+		mark = add(stroke([(100, 108), (160, 168)], 22), stroke([(160, 108), (100, 168)], 22))
+		parts.append(Part(mark, RED))
+	return parts
+
+
+def i_cloud_ok():
+	return i_cloud(True)
+
+
+def i_cloud_off():
+	return i_cloud(False)
+
+
+# towers: one silhouette each, colour tells them apart
+def i_tower_archer():
+	return [Part(svg_mask("lorc__pocket-bow", (20, 20, 236, 236)), ((190, 250, 120), (50, 160, 56)))]
+
+
+def i_tower_cannon():
+	return [Part(svg_mask("lorc__cannon", (14, 44, 242, 212)), ((255, 206, 120), (214, 92, 28)))]
+
+
+def i_tower_frost():
+	return [Part(svg_mask("lorc__snowflake-1", (18, 18, 238, 238)), CYAN)]
+
+
+def i_tower_lightning():
+	return [Part(svg_mask("lorc__lightning-storm", (20, 16, 236, 240)), ((255, 244, 140), (236, 150, 12)))]
 
 
 ICONS = {
 	"star": i_star,
 	"star_empty": i_star_empty,
 	"coin": i_coin,
+	"gem": i_gem,
 	"heart": i_heart,
 	"wood": i_wood,
 	"sword": i_sword,
@@ -596,9 +621,18 @@ ICONS = {
 	"upgrade": i_upgrade,
 	"sell": i_sell,
 	"villager": i_villager,
+	"friends": i_friends,
 	"shield": i_shield,
 	"compass": i_compass,
 	"chest": i_chest,
+	"shop": i_shop,
+	"flame": i_flame,
+	"cloud_ok": i_cloud_ok,
+	"cloud_off": i_cloud_off,
+	"tower_archer": i_tower_archer,
+	"tower_cannon": i_tower_cannon,
+	"tower_frost": i_tower_frost,
+	"tower_lightning": i_tower_lightning,
 }
 
 

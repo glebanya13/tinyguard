@@ -100,6 +100,7 @@ for level in 1 2 3 4 5 6; do
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_walk.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_villagers.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_card_select.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_forge_button.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_lane_hint.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_replay.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_command_validation.gd
@@ -142,6 +143,7 @@ run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hud_layout.gd
 echo "== device matrix (screens, languages, cutouts)"
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_device_matrix.gd
+run "$GODOT" --headless --path . --script res://tests/test_map_layout.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_end_to_map.gd
 

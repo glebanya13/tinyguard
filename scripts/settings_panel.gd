@@ -12,6 +12,7 @@ signal closed
 signal layout_changed
 
 const BUTTON_HEIGHT := 64.0
+const CREDITS_ICONS_URL := "https://game-icons.net"
 ## Rows of the controls tab: label key, setting key, labels of the choices.
 const OPTION_ROWS: Array = [
 	["SET_JOY_SIZE", "joystick_size", ["SET_SMALL", "SET_MEDIUM", "SET_LARGE"]],
@@ -37,7 +38,7 @@ var _fx_button: Button
 var _preview: Control
 var _version_taps: int = 0
 var _last_version_tap_ms: int = 0
-## 0 = general, 1 = controls (joystick and road compass).
+## 0 = general, 1 = controls (joystick and road compass), 2 = credits.
 var _tab: int = 0
 var _option_buttons: Dictionary = {}
 
@@ -97,8 +98,13 @@ func _build() -> void:
 	tabs.add_theme_constant_override("separation", 8)
 	_box.add_child(tabs)
 	var tab_group := ButtonGroup.new()
-	for i in 2:
-		var tab := _button(tr(["SET_TAB_GENERAL", "SET_TAB_CONTROLS"][i]), _on_tab.bind(i), true, 0)
+	for i in 3:
+		var tab := _button(
+			tr(["SET_TAB_GENERAL", "SET_TAB_CONTROLS", "SET_TAB_CREDITS"][i]),
+			_on_tab.bind(i),
+			true,
+			0
+		)
 		tab.name = "Tab_%d" % i
 		tab.custom_minimum_size.y = 56.0
 		tab.theme_type_variation = &"ToggleButton"
@@ -109,6 +115,8 @@ func _build() -> void:
 		tabs.add_child(tab)
 	if _tab == 1:
 		_build_controls()
+	elif _tab == 2:
+		_build_credits()
 	else:
 		_build_general()
 
@@ -180,6 +188,27 @@ func _build_general() -> void:
 	version.gui_input.connect(_on_version_input.bind(version))
 	_box.add_child(version)
 	_update_version_text(version)
+
+
+## Authors: the icons are CC BY 3.0 and must be credited, the fonts are SIL OFL.
+func _build_credits() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.name = "CreditsList"
+	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_box.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 10)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	for key: String in ["CREDITS_ICONS", "CREDITS_ICONS_LICENSE", "CREDITS_FONTS", "CREDITS_OWN"]:
+		var line := UiKit.caption(tr(key))
+		line.add_theme_font_size_override("font_size", 20)
+		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_child(line)
+	var site := _button("game-icons.net", _open_link.bind(CREDITS_ICONS_URL), true, 0)
+	site.name = "Link_game_icons"
+	_box.add_child(site)
 
 
 ## Joystick and road compass: rows of big switches on the left, a live outline of the

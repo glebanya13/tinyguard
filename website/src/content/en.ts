@@ -639,6 +639,20 @@ export const en: Content = {
         ],
       },
       {
+        id: "credits",
+        title: "Credits",
+        blocks: [
+          {
+            t: "p",
+            text: "Icons in the game are based on works from game-icons.net by Lorc, Delapouite and Carl Olsen, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). The icons were recoloured and edited. Icons made by Lorc, Delapouite and Carl Olsen. Available on https://game-icons.net",
+          },
+          {
+            t: "p",
+            text: "Fonts: Rubik and Nunito, SIL Open Font License 1.1. All other art, models and sounds are made by the authors of the game.",
+          },
+        ],
+      },
+      {
         id: "changes",
         title: "Changes",
         blocks: [

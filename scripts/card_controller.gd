@@ -212,8 +212,10 @@ func _auto_select_near_hero() -> void:
 	# follows him: a slot picked on the way is dropped for a nearer one and released when
 	# he leaves it, so "Build" never sends him back to the slot of the start of the level.
 	# A pending build/upgrade command keeps its own target; a tap on a slot stays until
-	# he walks up to another one.
-	if pending_command != &"":
+	# he walks up to another one. An open forge card is the player's choice: a slot the
+	# knight still drifts past (he keeps a little speed right after the pause menu) must
+	# not push it out; a tap on a slot or "Close" does.
+	if pending_command != &"" or forge_open:
 		return
 	var moving: bool = _hero.velocity.length() >= 0.1
 	var current: TowerSlot = _build_manager.selected_slot

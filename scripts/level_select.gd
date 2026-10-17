@@ -1,9 +1,11 @@
 extends Node3D
-## Start screen: a 3D island map with one button per level (locked levels
-## show a lock, earned stars sit under each button), the star counter, the
-## treasury where stars buy permanent perks, and the selected level's card
-## with "Play" (campaign, on Normal / Hard / Nightmare) and the Record Run (free mode, every
-## wave harder). A big Record Run button sits beside the daily challenge.
+## Start screen: a 3D island map with a round badge per level (locked levels show a lock,
+## earned stars sit under each badge), a top bar (title, gems, stars, cloud state, sound,
+## settings, profile), a tab bar at the bottom (Shop, Treasury, Daily trial, Streak,
+## Achievements, Co-op, Records) and the card of the selected level on the right: emblem,
+## name, stars, record, difficulty segments, "Play" and the "Record Run". The treasury is where
+## stars buy permanent perks. Layout rules (docs/UI_STYLE_GUIDE.md): grid 8 px, three levels
+## of hierarchy, nothing covers a level badge; tests/test_map_layout.gd checks it.
 
 const GAME_SCENE := "res://scenes/main.tscn"
 const COOP_SCENE := "res://scenes/coop_lobby.tscn"
@@ -11,7 +13,6 @@ const SHOP_SCENE := "res://scenes/shop.tscn"
 const LOCK_ICON: Texture2D = preload("res://ui/icons/lock.png")
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const STAR_EMPTY_ICON: Texture2D = preload("res://ui/icons/star_empty.png")
-const CASTLE_ICON: Texture2D = preload("res://ui/icons/flag.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
@@ -19,13 +20,27 @@ const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const DAILY_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
 const ACHIEVEMENTS_ICON: Texture2D = preload("res://ui/icons/crown.png")
 const TROPHY_ICON: Texture2D = preload("res://ui/icons/trophy.png")
+const SHOP_ICON: Texture2D = preload("res://ui/icons/shop.png")
+const CHEST_ICON: Texture2D = preload("res://ui/icons/chest.png")
+const FLAME_ICON: Texture2D = preload("res://ui/icons/flame.png")
+const FRIENDS_ICON: Texture2D = preload("res://ui/icons/friends.png")
+const CLOUD_OK_ICON: Texture2D = preload("res://ui/icons/cloud_ok.png")
+const CLOUD_OFF_ICON: Texture2D = preload("res://ui/icons/cloud_off.png")
 const GOLD := Color(1.0, 0.88, 0.45)
-## Width of the left column (daily challenge, record run, achievements, co-op).
-const EXTRAS_WIDTH := 264.0
 ## Tint of the difficulty crown: Hard, Nightmare.
 const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
-
-## Seconds the map waits before it starts loading the selected level's models.
+## Layout in canvas pixels (grid 8): the island lives between the top bar, the tab bar and the
+## card of the selected level.
+const MARGIN := 16.0
+const TOP_BAR_BOTTOM := 80.0
+const TAB_BAR_HEIGHT := 104.0
+const TAB_HEIGHT := 88.0
+const CARD_WIDTH := 352.0
+const NODE_SIZE := 88.0
+const NODE_STARS := 26.0
+const NODE_SCALE_CHOSEN := 1.14
+const ICON_BUTTON := 72.0
+const ICON_BUTTON_ICON := 44
 
 var _site_buttons: Array[Button] = []
 var _sites: Array[Node3D] = []
@@ -38,37 +53,39 @@ var _records_title: Label = null
 var _records_status: Label = null
 var _account: AccountPanel = null
 var _settings: SettingsPanel = null
-var _sync_label: Label = null
+var _sync_button: Button = null
 var _reminder: AccountReminder = null
 var _coop_button: Button = null
 var _daily: DailyPanel = null
 var _achievements: AchievementsPanel = null
 var _gems: GemsHud = null
+var _tab_bar: PanelContainer = null
+var _tab_row: HBoxContainer = null
+var _treasury_button: Button = null
+var _treasury_dot: Control = null
+var _daily_dot: Control = null
 ## Campaign difficulty picked for the next battle (0 Normal, 1 Hard, 2 Nightmare).
 var _difficulty: int = 0
 var _diff_buttons: Array[Button] = []
-var _diff_info: Label = null
 var _crown_icon: TextureRect = null
-var _record_button: Button = null
-var _hero: TextureRect = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
 @onready var _site_layer: Control = $UI/Root/Sites
 @onready var _stars_label: Label = $UI/Root/TopRight/StarsPill/Row/Label
-@onready var _treasury_button: Button = $UI/Root/TopRight/TreasuryButton
-@onready var _treasury_badge: Label = $UI/Root/TopRight/TreasuryButton/Badge
 @onready var _sound_button: Button = $UI/Root/TopRight/SoundButton
-@onready var _name_label: Label = $UI/Root/Info/Content/Name
-@onready var _subtitle_label: Label = $UI/Root/Info/Content/Subtitle
+@onready var _hero: TextureRect = $UI/Root/Info/Content/Header/Emblem
+@onready var _name_label: Label = $UI/Root/Info/Content/Header/Texts/Name
+@onready var _subtitle_label: Label = $UI/Root/Info/Content/Header/Texts/Subtitle
 @onready var _level_stars: HBoxContainer = $UI/Root/Info/Content/Results/Stars
 @onready var _record_label: Label = $UI/Root/Info/Content/Results/Record
-@onready var _play_button: Button = $UI/Root/Info/Content/Buttons/PlayButton
-@onready var _endless_button: Button = $UI/Root/Info/Content/Buttons/EndlessButton
+@onready var _segments: HBoxContainer = $UI/Root/Info/Content/Segments
+@onready var _diff_info: Label = $UI/Root/Info/Content/DiffInfo
+@onready var _play_button: Button = $UI/Root/Info/Content/PlayButton
+@onready var _endless_button: Button = $UI/Root/Info/Content/EndlessButton
 @onready var _treasury: Control = $UI/Root/Treasury
 @onready var _free_label: Label = $UI/Root/Treasury/Panel/Content/Header/FreePill/Row/Label
 @onready var _cards: GridContainer = $UI/Root/Treasury/Panel/Content/Cards
-@onready var _records_button: Button = $UI/Root/TopRight/RecordsButton
 @onready var _ui_root: Control = $UI/Root
 
 
@@ -80,34 +97,30 @@ func _ready() -> void:
 	LevelCatalog.tutorial = false
 	LevelCatalog.daily_key = ""
 	SafeArea.attach(_ui_root)
-	_camera.h_offset = -1.6  # island right of the left button column
 	_build_sites()
 	_build_account_ui()
+	_build_card()
+	_build_tabs()
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
-	_build_difficulty_row()
-	_build_coop_button()
-	_build_extras()
-	_build_gems()
 	_sound_button.pressed.connect(_on_sound_pressed)
-	_treasury_button.pressed.connect(_open_treasury)
 	$UI/Root/Treasury/Panel/Content/Footer/CloseButton.pressed.connect(_treasury.hide)
 	$UI/Root/Treasury/Panel/Content/Footer/ResetButton.pressed.connect(_on_reset_pressed)
 	_update_sound_icon()
 	_refresh_stars()
-	_records_button.visible = Online.is_configured()
-	_records_button.pressed.connect(_open_records)
 	Online.leaderboard_loaded.connect(_on_leaderboard_loaded)
 	Online.status_changed.connect(_on_online_status)
 	Online.cloud_loaded.connect(_on_cloud_loaded)
 	_select(clampi(LevelCatalog.selected_id, 1, LevelCatalog.unlocked()))
+	_ui_root.resized.connect(_fit_camera)
+	_fit_camera.call_deferred()
 	if LevelCatalog.open_records and Online.is_configured():
 		_open_records()  # back from the end screen of a Record Run
 	LevelCatalog.open_records = false
 
 
 func _process(_delta: float) -> void:
-	# Buttons follow their sites; the camera stays still so the map does not jump.
+	# Badges follow their sites; the camera stays still so the map does not jump.
 	for i in _site_buttons.size():
 		var screen: Vector2 = _camera.unproject_position(_sites[i].global_position)
 		_site_buttons[i].position = (screen - _site_buttons[i].size / 2.0).round()
@@ -133,73 +146,178 @@ func _notification(what: int) -> void:
 			get_tree().quit()  # Android back on the map leaves the game
 
 
-## "Кооператив": only with a configured Realtime Database (Online.rtdb); otherwise
-## the map is exactly the single-player map.
-func _build_coop_button() -> void:
-	if CoopRun.transport() == null:
+## Shifts and zooms the island (frustum offsets and field of view) so that the centres of all
+## the level badges land inside the free area between the top bar, the tab bar and the card,
+## with room left for the chosen badge and the stars under it.
+func _fit_camera() -> void:
+	if _site_buttons.is_empty():
 		return
-	_coop_button = _extra_button(tr("COOP_BUTTON"), PROFILE_ICON, EXTRAS_WIDTH)
-	_coop_button.name = "CoopButton"
-	_coop_button.add_theme_constant_override("icon_max_width", 36)
-	_coop_button.pressed.connect(_open_coop)
+	var area: Rect2 = _ui_root.get_global_rect()
+	var half: float = NODE_SIZE * NODE_SCALE_CHOSEN * 0.5
+	var free := Rect2(
+		area.position + Vector2(MARGIN + half, TOP_BAR_BOTTOM + MARGIN + half),
+		(
+			area.size
+			- Vector2(
+				MARGIN * 3.0 + CARD_WIDTH + half * 2.0,
+				TOP_BAR_BOTTOM + MARGIN * 2.0 + TAB_BAR_HEIGHT + half * 2.0 + NODE_STARS + 8.0
+			)
+		)
+	)
+	_camera.h_offset = 0.0
+	_camera.v_offset = 0.0
+	_camera.fov = 50.0
+	var box: Rect2 = _sites_box()
+	var fit: float = minf(free.size.x / maxf(box.size.x, 1.0), free.size.y / maxf(box.size.y, 1.0))
+	var zoom: float = clampf(fit, 0.6, 1.45)
+	_camera.fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(50.0) * 0.5) / zoom))
+	box = _sites_box()
+	# The frustum offsets move the picture by a fixed number of pixels per unit.
+	var probe: Vector2 = _site_screen(0)
+	_camera.h_offset = 1.0
+	_camera.v_offset = 1.0
+	var moved: Vector2 = _site_screen(0) - probe
+	var shift: Vector2 = free.get_center() - box.get_center()
+	_camera.h_offset = shift.x / (moved.x if absf(moved.x) > 0.01 else 1.0)
+	_camera.v_offset = shift.y / (moved.y if absf(moved.y) > 0.01 else 1.0)
+	_process(0.0)
 
 
-## "Испытание дня" and "Достижения": two buttons at the top left and their panels
-## (scripts/daily_panel.gd, scripts/achievements_panel.gd). Offline they work as well.
-func _build_extras() -> void:
-	var row := VBoxContainer.new()
-	row.name = "Extras"
-	row.add_theme_constant_override("separation", 8)
-	row.position = Vector2(16, 88)
-	_ui_root.add_child(row)
-	_ui_root.move_child(row, 0)  # below the dialogs
+func _site_screen(index: int) -> Vector2:
+	return _camera.unproject_position(_sites[index].global_position)
+
+
+func _sites_box() -> Rect2:
+	var box := Rect2(_site_screen(0), Vector2.ZERO)
+	for i in range(1, _sites.size()):
+		box = box.expand(_site_screen(i))
+	return box
+
+
+## The badges of the levels on the island, each with the stars of the level under it.
+func _build_sites() -> void:
+	var unlocked: int = LevelCatalog.unlocked()
+	for level: Dictionary in LevelCatalog.levels():
+		var id: int = int(level["id"])
+		var site := _map.find_child("Site%d" % id) as Node3D
+		if site == null:
+			continue
+		var button := Button.new()
+		button.name = "Level%d" % id
+		button.custom_minimum_size = Vector2(NODE_SIZE, NODE_SIZE)
+		button.size = Vector2(NODE_SIZE, NODE_SIZE)
+		button.focus_mode = Control.FOCUS_NONE
+		button.theme_type_variation = &"NodeBlue"
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_theme_font_size_override("font_size", 36)
+		button.add_theme_constant_override("outline_size", 5)
+		button.add_theme_constant_override("icon_max_width", 44)
+		if id > unlocked:
+			button.icon = LOCK_ICON
+			button.disabled = true
+		else:
+			button.text = str(id)
+			button.pressed.connect(_select.bind(id))
+			var stars := _star_row(LevelCatalog.stars(id), NODE_STARS)
+			stars.position = Vector2((NODE_SIZE - NODE_STARS * 3.0) / 2.0, NODE_SIZE + 2.0)
+			button.add_child(stars)
+			if LevelCatalog.crown(id) > 0:
+				var badge := _crown_texture(LevelCatalog.crown(id), 32)
+				badge.position = Vector2(NODE_SIZE - 28.0, -14.0)
+				button.add_child(badge)
+		_site_layer.add_child(button)
+		_site_buttons.append(button)
+		_sites.append(site)
+		_site_ids.append(id)
+
+
+## Bottom tab bar: icon over a caption, same width and height for all; a red dot on a tab
+## says there is something to do. Order: Shop, Treasury, Daily trial, Streak, Achievements,
+## then Co-op and Records when there is a database.
+func _build_tabs() -> void:
+	_tab_bar = PanelContainer.new()
+	_tab_bar.name = "TabBar"
+	_tab_bar.theme_type_variation = &"TabBarPanel"
+	_tab_bar.anchor_left = 0.0
+	_tab_bar.anchor_right = 1.0
+	_tab_bar.anchor_top = 1.0
+	_tab_bar.anchor_bottom = 1.0
+	_tab_bar.offset_left = MARGIN
+	_tab_bar.offset_right = -MARGIN
+	_tab_bar.offset_top = -(TAB_BAR_HEIGHT + 8.0)
+	_tab_bar.offset_bottom = -8.0
+	_tab_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_ui_root.add_child(_tab_bar)
+	_ui_root.move_child(_tab_bar, 0)  # below the dialogs
+	_tab_row = HBoxContainer.new()
+	_tab_row.name = "Tabs"
+	_tab_row.add_theme_constant_override("separation", 4)
+	_tab_bar.add_child(_tab_row)
 	_daily = DailyPanel.new()
 	_daily.online = Online
 	_ui_root.add_child(_daily)
 	_daily.start_requested.connect(_start_daily)
 	_achievements = AchievementsPanel.new()
 	_ui_root.add_child(_achievements)
-	var daily_button := _extra_button(tr("DAILY_BUTTON"), DAILY_ICON, EXTRAS_WIDTH)
-	daily_button.name = "DailyButton"
-	daily_button.pressed.connect(_daily.open)
-	row.add_child(daily_button)
-	_record_button = _extra_button("", CASTLE_ICON, EXTRAS_WIDTH)
-	_record_button.name = "RecordRunButton"
-	_record_button.custom_minimum_size = Vector2(EXTRAS_WIDTH, 96)
-	_record_button.theme_type_variation = &"GreenButton"  # a mode of its own; gold is "Play"
-	_record_button.add_theme_font_size_override("font_size", 16)
-	_record_button.add_theme_constant_override("icon_max_width", 32)
-	_record_button.add_theme_constant_override("h_separation", 6)
-	_record_button.pressed.connect(_start.bind(true))
-	row.add_child(_record_button)
-	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, EXTRAS_WIDTH)
-	ach_button.name = "AchievementsButton"
-	ach_button.tooltip_text = tr("ACH_BUTTON")
-	ach_button.pressed.connect(_achievements.open)
-	row.add_child(ach_button)
-	if _coop_button != null:
-		row.add_child(_coop_button)
-
-
-## Gem counter, "Shop" button and the streak plaque (scripts/gems_hud.gd).
-func _build_gems() -> void:
+	var shop_tab := _make_tab("ShopButton", tr("SHOP_BUTTON"), SHOP_ICON)
+	_treasury_button = _make_tab("TreasuryButton", tr("MAP_TREASURY"), CHEST_ICON)
+	_treasury_button.pressed.connect(_open_treasury)
+	_treasury_dot = _dot(_treasury_button)
+	var daily_tab := _make_tab("DailyButton", tr("DAILY_BUTTON"), DAILY_ICON)
+	daily_tab.pressed.connect(_daily.open)
+	_daily_dot = _dot(daily_tab)
+	_daily_dot.visible = Daily.best_wave(Daily.today_key()) <= 0
+	var streak_tab := _make_tab("StreakButton", "", FLAME_ICON)
+	var ach_tab := _make_tab("AchievementsButton", tr("ACH_BUTTON"), ACHIEVEMENTS_ICON)
+	ach_tab.pressed.connect(_achievements.open)
+	if CoopRun.transport() != null:
+		_coop_button = _make_tab("CoopButton", tr("COOP_BUTTON"), FRIENDS_ICON)
+		_coop_button.pressed.connect(_open_coop)
+	if Online.is_configured():
+		var records_tab := _make_tab("RecordsButton", tr("MAP_RECORDS"), TROPHY_ICON)
+		records_tab.pressed.connect(_open_records)
 	_gems = GemsHud.new()
 	_gems.name = "GemsHud"
 	add_child(_gems)
-	_gems.mount(_ui_root, $UI/Root/TopRight)
+	_gems.mount(_ui_root, $UI/Root/TopRight, shop_tab, streak_tab)
 	_gems.shop_requested.connect(func() -> void: get_tree().change_scene_to_file(SHOP_SCENE))
 
 
-func _extra_button(text: String, icon: Texture2D, width: float) -> Button:
+func _make_tab(node_name: String, text: String, icon: Texture2D) -> Button:
 	var button := Button.new()
+	button.name = node_name
 	button.text = text
 	button.icon = icon
+	button.theme_type_variation = &"TabButton"
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(width, 84)
-	button.add_theme_constant_override("icon_max_width", 36)
-	button.add_theme_font_size_override("font_size", 20)
-	button.theme_type_variation = &"SecondaryButton"
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+	button.custom_minimum_size = Vector2(ICON_BUTTON, TAB_HEIGHT)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_row.add_child(button)
 	return button
+
+
+## Red notification dot in the top right corner of a tab (hidden until it is needed).
+func _dot(tab: Button) -> Control:
+	var dot := Panel.new()
+	dot.name = "Dot"
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dot.anchor_left = 1.0
+	dot.anchor_right = 1.0
+	dot.offset_left = -40.0
+	dot.offset_right = -20.0
+	dot.offset_top = 8.0
+	dot.offset_bottom = 28.0
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 0.3, 0.28)
+	style.set_corner_radius_all(10)
+	style.set_border_width_all(3)
+	style.border_color = Color(1.0, 0.97, 0.88)
+	dot.add_theme_stylebox_override("panel", style)
+	dot.visible = false
+	tab.add_child(dot)
+	return dot
 
 
 func _start_daily(day: String) -> void:
@@ -211,46 +329,6 @@ func _open_coop() -> void:
 	LevelCatalog.selected_id = _selected
 	LevelCatalog.endless = false
 	get_tree().change_scene_to_file(COOP_SCENE)
-
-
-func _build_sites() -> void:
-	var unlocked: int = LevelCatalog.unlocked()
-	for level: Dictionary in LevelCatalog.levels():
-		var id: int = int(level["id"])
-		var site := _map.find_child("Site%d" % id) as Node3D
-		if site == null:
-			continue
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(84, 84)
-		button.focus_mode = Control.FOCUS_NONE
-		button.theme_type_variation = &"SecondaryButton"
-		button.expand_icon = true
-		button.add_theme_constant_override("icon_max_width", 0)
-		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		if id > unlocked:
-			button.icon = LOCK_ICON
-			button.disabled = true
-		else:
-			button.icon = CASTLE_ICON
-			button.pressed.connect(_select.bind(id))
-			var stars := _star_row(LevelCatalog.stars(id), 26)
-			stars.position = Vector2(2, 84)
-			button.add_child(stars)
-			if LevelCatalog.crown(id) > 0:
-				var badge := _crown_texture(LevelCatalog.crown(id), 30)
-				badge.position = Vector2(56, -10)
-				button.add_child(badge)
-		_site_layer.add_child(button)
-		var number := Label.new()
-		number.text = str(id)
-		number.theme_type_variation = &"NumberLabel"
-		number.add_theme_font_size_override("font_size", 22)
-		number.position = Vector2(8, 2)
-		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(number)
-		_site_buttons.append(button)
-		_sites.append(site)
-		_site_ids.append(id)
 
 
 ## Three star icons, the first `earned` lit.
@@ -276,7 +354,7 @@ func _select(id: int) -> void:
 	_subtitle_label.text = tr(level["subtitle"])
 	for child in _level_stars.get_children():
 		child.queue_free()
-	_level_stars.add_child(_star_row(LevelCatalog.stars(id), 44))
+	_level_stars.add_child(_star_row(LevelCatalog.stars(id), 36))
 	var biome_path: String = "res://ui/biomes/%s.png" % str(level.get("biome", "meadow"))
 	_hero.texture = load(biome_path) if ResourceLoader.exists(biome_path) else null
 	var crown: int = LevelCatalog.crown(id)
@@ -286,24 +364,27 @@ func _select(id: int) -> void:
 		_crown_icon.tooltip_text = tr("MAP_CROWN") % tr(str(Balance.difficulty(crown)["name"]))
 	var record: int = LevelCatalog.endless_record(id)
 	_record_label.text = (tr("MAP_RECORD_BEST") % record if record > 0 else tr("MAP_RECORD_NONE"))
-	_update_record_button(id, record)
 	if not LevelCatalog.is_difficulty_open(id, _difficulty):
 		_difficulty = 0
 	_refresh_difficulty(id)
 	for i in _site_buttons.size():
 		var chosen: bool = _site_ids[i] == id
-		if not _site_buttons[i].disabled:
+		var button: Button = _site_buttons[i]
+		if not button.disabled:
 			var done: bool = LevelCatalog.stars(_site_ids[i]) > 0
-			_site_buttons[i].theme_type_variation = (
-				&"" if chosen else (&"GreenButton" if done else &"SecondaryButton")
+			button.theme_type_variation = (
+				&"NodeGold" if chosen else (&"NodeGreen" if done else &"NodeBlue")
 			)
-		_site_buttons[i].pivot_offset = _site_buttons[i].custom_minimum_size * 0.5
-		_site_buttons[i].scale = Vector2(1.16, 1.16) if chosen else Vector2.ONE
+		button.pivot_offset = button.size * 0.5
+		button.scale = Vector2.ONE * NODE_SCALE_CHOSEN if chosen else Vector2.ONE
+		if chosen:
+			_site_layer.move_child(button, -1)  # above its neighbours, still under the dialogs
 
 
 func _refresh_stars() -> void:
 	_stars_label.text = "%d / %d" % [Perks.earned_stars(), Perks.max_stars()]
-	_treasury_badge.visible = Perks.any_affordable()
+	if _treasury_dot != null:
+		_treasury_dot.visible = Perks.any_affordable()
 
 
 func _open_treasury() -> void:
@@ -471,50 +552,6 @@ func _on_cloud_loaded(ok: bool) -> void:
 		get_tree().reload_current_scene()  # show the restored stars and levels
 
 
-## Profile button, sync status line and the account panel (scripts/account_panel.gd).
-func _build_account_ui() -> void:
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(84, 84)
-	button.focus_mode = Control.FOCUS_NONE
-	button.theme_type_variation = &"SecondaryButton"
-	button.icon = PROFILE_ICON
-	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.add_theme_constant_override("icon_max_width", 48)
-	button.tooltip_text = tr("MAP_PROFILE")
-	button.pressed.connect(func() -> void: _account.open())
-	_sound_button.add_sibling(button)
-	_build_settings_ui()
-	_sync_label = Label.new()
-	_sync_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_sync_label.offset_left = -520.0
-	_sync_label.offset_right = -24.0
-	_sync_label.offset_top = 104.0
-	_sync_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_sync_label.theme_type_variation = &"CaptionLabel"
-	_sync_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ui_root.add_child(_sync_label)
-	_account = AccountPanel.new()
-	_ui_root.add_child(_account)
-	_account.rename_requested.connect(_on_rename_requested)
-	_account.replay_tutorial_requested.connect(
-		func() -> void: Onboarding.start_tutorial(get_tree())
-	)
-	_account.account_deleted.connect(
-		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
-	)
-	_account.signed_out.connect(
-		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
-	)
-	# Show the progress of the account that was signed in to.
-	_account.account_switched.connect(func() -> void: get_tree().reload_current_scene())
-	Online.sync_state_changed.connect(_on_sync_state)
-	Online.start()  # no-op after boot
-	_on_sync_state(Online.sync_state())
-	_build_reminder()
-	if Online.is_configured():
-		Online.sync_now()  # pushes progress made in the level
-
-
 ## The soft reminder cards: a guest with progress is invited to create an account; an
 ## email account whose login expired is invited to sign in again. Dismissible.
 func _build_reminder() -> void:
@@ -545,39 +582,6 @@ func _on_reminder_action(kind: String) -> void:
 		_account.open_dialog(EmailAuthDialog.Mode.LINK)
 
 
-## Gear button next to the sound button and the settings dialog.
-func _build_settings_ui() -> void:
-	var gear := Button.new()
-	gear.name = "SettingsButton"
-	gear.custom_minimum_size = Vector2(84, 84)
-	gear.focus_mode = Control.FOCUS_NONE
-	gear.theme_type_variation = &"SecondaryButton"
-	gear.icon = GEAR_ICON
-	gear.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	gear.add_theme_constant_override("icon_max_width", 48)
-	gear.tooltip_text = tr("SET_TOOLTIP")
-	_sound_button.add_sibling(gear)
-	_settings = SettingsPanel.new()
-	_ui_root.add_child(_settings)
-	gear.pressed.connect(_settings.open)
-	_settings.closed.connect(_update_sound_icon)
-	# Texts built in code are cached: rebuild the map in the new language.
-	_settings.language_changed.connect(func() -> void: get_tree().reload_current_scene())
-
-
-## Shown only when something is not saved to the cloud (or the name is taken).
-func _on_sync_state(state: String) -> void:
-	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
-	var behind: bool = state in ["pending", "offline", "session_lost", "newer"]
-	if state == "offline" and not PlayerProfile.is_pending():
-		behind = false  # offline but everything is saved: nothing to nag about on the map
-	_sync_label.visible = conflict or behind
-	_sync_label.text = (tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state))
-	_sync_label.add_theme_color_override(
-		"font_color", Color(1.0, 0.62, 0.55) if conflict else Color(0.82, 0.86, 0.95)
-	)
-
-
 func _on_rename_requested() -> void:
 	Onboarding.rename_mode = true
 	get_tree().change_scene_to_file(Onboarding.NICKNAME_SCENE)
@@ -592,107 +596,133 @@ func _update_sound_icon() -> void:
 	_sound_button.icon = SOUND_ON_ICON if LevelCatalog.sound_on() else SOUND_OFF_ICON
 
 
-func _start(endless: bool) -> void:
-	LevelCatalog.selected_id = _selected
-	LevelCatalog.endless = endless
-	LevelCatalog.difficulty = 0 if endless else _difficulty
-	_play_button.disabled = true
-	_endless_button.disabled = true
-	_record_button.disabled = true
-	get_tree().change_scene_to_file(GAME_SCENE)
+## Cloud state, settings and profile buttons in the top bar and the account panel.
+func _build_account_ui() -> void:
+	var bar: Container = _sound_button.get_parent()
+	_sync_button = _icon_button(CLOUD_OK_ICON, "")
+	_sync_button.name = "SyncButton"
+	_sync_button.visible = false
+	_sync_button.pressed.connect(func() -> void: _account.open())
+	bar.add_child(_sync_button)
+	bar.move_child(_sync_button, _sound_button.get_index())
+	_sound_button.custom_minimum_size = Vector2(ICON_BUTTON, ICON_BUTTON)
+	var button := _icon_button(PROFILE_ICON, tr("MAP_PROFILE"))
+	button.name = "ProfileButton"
+	button.pressed.connect(func() -> void: _account.open())
+	_sound_button.add_sibling(button)
+	_build_settings_ui()
+	_account = AccountPanel.new()
+	_ui_root.add_child(_account)
+	_account.rename_requested.connect(_on_rename_requested)
+	_account.replay_tutorial_requested.connect(
+		func() -> void: Onboarding.start_tutorial(get_tree())
+	)
+	_account.account_deleted.connect(
+		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
+	)
+	_account.signed_out.connect(
+		func() -> void: get_tree().change_scene_to_file(Onboarding.BOOT_SCENE)
+	)
+	# Show the progress of the account that was signed in to.
+	_account.account_switched.connect(func() -> void: get_tree().reload_current_scene())
+	Online.sync_state_changed.connect(_on_sync_state)
+	Online.start()  # no-op after boot
+	_on_sync_state(Online.sync_state())
+	_build_reminder()
+	if Online.is_configured():
+		Online.sync_now()  # pushes progress made in the level
 
 
-## The Record Run button on the map: the selected level and its best result.
-func _update_record_button(_id: int, record: int) -> void:
-	var sub: String = tr("MAP_RECORD_BTN_SUB") % record if record > 0 else tr("MAP_RECORD_BTN_NEW")
-	_record_button.text = tr("MAP_RECORD_RUN") + "\n" + sub
+## A square icon button of the top bar (72 px, icon 44 px).
+func _icon_button(icon: Texture2D, tip: String) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(ICON_BUTTON, ICON_BUTTON)
+	button.focus_mode = Control.FOCUS_NONE
+	button.theme_type_variation = &"IconButton"
+	button.icon = icon
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.add_theme_constant_override("icon_max_width", ICON_BUTTON_ICON)
+	button.tooltip_text = tip
+	return button
 
 
-## Difficulty row of the level card: three buttons (a locked one shows a lock) and the line
-## with what the picked difficulty changes. Built in code, filled by _refresh_difficulty().
-func _build_difficulty_row() -> void:
-	var info_panel: Control = $UI/Root/Info
-	info_panel.offset_top = -40.0
-	info_panel.offset_left = -520.0
-	info_panel.offset_right = 520.0
-	info_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var content: VBoxContainer = _play_button.get_parent().get_parent()
-	var buttons: Control = _play_button.get_parent()
-	var results: Control = _level_stars.get_parent()
-	_play_button.custom_minimum_size = Vector2(248, 84)
-	_endless_button.custom_minimum_size = Vector2(248, 84)
-	_endless_button.theme_type_variation = &"SecondaryButton"
-	_endless_button.icon = null
-	_endless_button.text = tr("MAP_RECORD_RUN")
+## Gear button next to the sound button and the settings dialog.
+func _build_settings_ui() -> void:
+	var gear := _icon_button(GEAR_ICON, tr("SET_TOOLTIP"))
+	gear.name = "SettingsButton"
+	_sound_button.add_sibling(gear)
+	_settings = SettingsPanel.new()
+	_ui_root.add_child(_settings)
+	gear.pressed.connect(_settings.open)
+	_settings.closed.connect(_update_sound_icon)
+	# Texts built in code are cached: rebuild the map in the new language.
+	_settings.language_changed.connect(func() -> void: get_tree().reload_current_scene())
+
+
+## The cloud icon of the top bar: a tick when everything is saved, a cross when something
+## waits for the connection (or the name is taken); the tip says what. Shown only when the
+## game has a Firebase project or something is not saved.
+func _on_sync_state(state: String) -> void:
+	var conflict: bool = bool(PlayerProfile.local()["nicknameConflict"])
+	var behind: bool = state in ["pending", "offline", "session_lost", "newer"]
+	if state == "offline" and not PlayerProfile.is_pending():
+		behind = false  # offline but everything is saved: nothing to nag about on the map
+	var bad: bool = conflict or behind
+	_sync_button.visible = Online.is_configured() or bad
+	_sync_button.icon = CLOUD_OFF_ICON if bad else CLOUD_OK_ICON
+	_sync_button.tooltip_text = tr("MAP_NAME_CONFLICT") if conflict else Online.state_text(state)
+
+
+## The card of the selected level: segments of the difficulty, the crown and the record row.
+func _build_card() -> void:
+	_play_button.theme_type_variation = &""
 	_endless_button.tooltip_text = tr("MAP_RECORD_SUB")
-	_endless_button.visible = true
-	# Three columns: emblem of the biome | name, stars, record, difficulty | Play, Record Run.
-	var main := HBoxContainer.new()
-	main.add_theme_constant_override("separation", 24)
-	content.add_child(main)
-	_hero = TextureRect.new()
-	_hero.custom_minimum_size = Vector2(176, 176)
-	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_hero.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	main.add_child(_hero)
-	var mid := VBoxContainer.new()
-	mid.add_theme_constant_override("separation", 6)
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main.add_child(mid)
-	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_name_label.reparent(mid, false)
-	_subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_subtitle_label.custom_minimum_size.x = 470.0
-	_subtitle_label.reparent(mid, false)
-	results.reparent(mid, false)
+	_crown_icon = _crown_texture(1, 32)
+	_crown_icon.custom_minimum_size = Vector2(32, 32)
+	_crown_icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	_level_stars.get_parent().add_child(_crown_icon)
+	_level_stars.get_parent().move_child(_crown_icon, 1)
 	var trophy := TextureRect.new()
 	trophy.texture = TROPHY_ICON
-	trophy.custom_minimum_size = Vector2(32, 32)
+	trophy.custom_minimum_size = Vector2(28, 28)
 	trophy.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	trophy.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	results.add_child(trophy)
-	results.move_child(trophy, 1)
-	_record_label.theme_type_variation = &"HeadingLabel"
-	results.add_theme_constant_override("separation", 12)
-	results.alignment = BoxContainer.ALIGNMENT_BEGIN
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	mid.add_child(box)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	box.add_child(row)
+	trophy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var results: Control = _level_stars.get_parent()
+	var record_row := HBoxContainer.new()
+	record_row.name = "RecordRow"
+	record_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	record_row.add_theme_constant_override("separation", 8)
+	results.get_parent().add_child(record_row)
+	results.get_parent().move_child(record_row, results.get_index() + 1)
+	_record_label.reparent(record_row, false)
+	record_row.add_child(trophy)
+	record_row.move_child(trophy, 0)
 	var group := ButtonGroup.new()
 	for i in Balance.difficulty_count():
 		var button := Button.new()
 		button.toggle_mode = true
 		button.button_group = group
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(132, 56)
-		button.theme_type_variation = &"ToggleButton"
+		button.custom_minimum_size = Vector2(0, 56)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.theme_type_variation = &"SegmentButton"
 		button.text = tr(str(Balance.difficulty(i)["name"]))
-		button.add_theme_font_size_override("font_size", 18)
-		button.add_theme_constant_override("icon_max_width", 22)
+		button.add_theme_font_size_override("font_size", 16)
+		button.add_theme_constant_override("icon_max_width", 20)
 		button.add_theme_constant_override("h_separation", 4)
 		button.pressed.connect(_on_difficulty_pressed.bind(i))
-		row.add_child(button)
+		_segments.add_child(button)
 		_diff_buttons.append(button)
-	_diff_info = Label.new()
-	_diff_info.theme_type_variation = &"CaptionLabel"
-	_diff_info.add_theme_font_size_override("font_size", 14)
-	box.add_child(_diff_info)
-	var side := VBoxContainer.new()
-	side.add_theme_constant_override("separation", 8)
-	side.alignment = BoxContainer.ALIGNMENT_CENTER
-	main.add_child(side)
-	_play_button.reparent(side, false)
-	_endless_button.reparent(side, false)
-	buttons.queue_free()
-	_crown_icon = _crown_texture(1, 34)
-	_crown_icon.mouse_filter = Control.MOUSE_FILTER_PASS
-	results.add_child(_crown_icon)
-	results.move_child(_crown_icon, 2)
+
+
+func _start(endless: bool) -> void:
+	LevelCatalog.selected_id = _selected
+	LevelCatalog.endless = endless
+	LevelCatalog.difficulty = 0 if endless else _difficulty
+	_play_button.disabled = true
+	_endless_button.disabled = true
+	get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _refresh_difficulty(id: int) -> void:

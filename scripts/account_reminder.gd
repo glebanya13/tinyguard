@@ -28,7 +28,7 @@ func _ready() -> void:
 	grow_vertical = Control.GROW_DIRECTION_BEGIN
 	offset_left = 16.0
 	offset_right = 306.0
-	offset_bottom = -16.0
+	offset_bottom = -128.0
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	add_child(box)

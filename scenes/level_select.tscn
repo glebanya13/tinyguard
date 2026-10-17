@@ -5,10 +5,10 @@
 [ext_resource type="PackedScene" path="res://assets/models/worldmap.glb" id="2_map"]
 [ext_resource type="Theme" path="res://ui/theme.tres" id="3_theme"]
 [ext_resource type="Texture2D" path="res://ui/icons/sound_on.png" id="i_sound_on"]
-[ext_resource type="Texture2D" path="res://ui/icons/crown.png" id="i_crown"]
 [ext_resource type="Texture2D" path="res://ui/icons/play.png" id="i_play"]
 [ext_resource type="Texture2D" path="res://ui/icons/chest.png" id="i_chest"]
 [ext_resource type="Texture2D" path="res://ui/icons/star.png" id="i_star"]
+[ext_resource type="Texture2D" path="res://ui/icons/trophy.png" id="i_trophy"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.36, 0.6, 0.9, 1)
@@ -76,29 +76,31 @@ theme = ExtResource("3_theme")
 
 [node name="Title" type="Label" parent="UI/Root"]
 layout_mode = 0
-offset_left = 24.0
-offset_top = 16.0
-offset_right = 360.0
-offset_bottom = 72.0
+offset_left = 16.0
+offset_top = 8.0
+offset_right = 344.0
+offset_bottom = 80.0
 theme_type_variation = &"TitleLabel"
 theme_override_font_sizes/font_size = 40
 text = "Bimbleguard"
+vertical_alignment = 1
 
 [node name="TopRight" type="HBoxContainer" parent="UI/Root"]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -720.0
-offset_top = 16.0
+offset_left = -680.0
+offset_top = 8.0
 offset_right = -16.0
-offset_bottom = 100.0
+offset_bottom = 80.0
 grow_horizontal = 0
 mouse_filter = 2
 theme_override_constants/separation = 8
 alignment = 2
 
 [node name="StarsPill" type="PanelContainer" parent="UI/Root/TopRight"]
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -107,10 +109,10 @@ theme_type_variation = &"HudChip"
 [node name="Row" type="HBoxContainer" parent="UI/Root/TopRight/StarsPill"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="UI/Root/TopRight/StarsPill/Row"]
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_star")
@@ -122,43 +124,12 @@ layout_mode = 2
 theme_type_variation = &"NumberLabel"
 text = "0 / 24"
 
-[node name="TreasuryButton" type="Button" parent="UI/Root/TopRight"]
-custom_minimum_size = Vector2(176, 84)
-layout_mode = 2
-focus_mode = 0
-theme_type_variation = &"GreenButton"
-theme_override_constants/icon_max_width = 44
-text = "MAP_TREASURY"
-icon = ExtResource("i_chest")
-
-[node name="Badge" type="Label" parent="UI/Root/TopRight/TreasuryButton"]
-layout_mode = 0
-offset_left = 150.0
-offset_top = -14.0
-offset_right = 184.0
-offset_bottom = 20.0
-theme_type_variation = &"NumberLabel"
-theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
-theme_override_font_sizes/font_size = 32
-text = "!"
-horizontal_alignment = 1
-
-[node name="RecordsButton" type="Button" parent="UI/Root/TopRight"]
-visible = false
-custom_minimum_size = Vector2(176, 84)
-layout_mode = 2
-focus_mode = 0
-theme_type_variation = &"SecondaryButton"
-theme_override_constants/icon_max_width = 40
-text = "MAP_RECORDS"
-icon = ExtResource("i_crown")
-
 [node name="SoundButton" type="Button" parent="UI/Root/TopRight"]
-custom_minimum_size = Vector2(84, 84)
+custom_minimum_size = Vector2(72, 72)
 layout_mode = 2
 focus_mode = 0
-theme_type_variation = &"SecondaryButton"
-theme_override_constants/icon_max_width = 52
+theme_type_variation = &"IconButton"
+theme_override_constants/icon_max_width = 44
 icon = ExtResource("i_sound_on")
 icon_alignment = 1
 
@@ -173,69 +144,96 @@ mouse_filter = 2
 
 [node name="Info" type="PanelContainer" parent="UI/Root"]
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -520.0
-offset_top = -232.0
-offset_right = 520.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 0
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -368.0
+offset_top = 88.0
+offset_right = -16.0
+offset_bottom = 88.0
+grow_horizontal = 0
+theme_type_variation = &"CardPanel"
 
 [node name="Content" type="VBoxContainer" parent="UI/Root/Info"]
 layout_mode = 2
 theme_override_constants/separation = 6
-alignment = 1
 
-[node name="Name" type="Label" parent="UI/Root/Info/Content"]
+[node name="Header" type="HBoxContainer" parent="UI/Root/Info/Content"]
 layout_mode = 2
-theme_type_variation = &"TitleLabel"
-text = "MAP_BOSS_NOTE_PLACEHOLDER"
+theme_override_constants/separation = 12
 
-[node name="Subtitle" type="Label" parent="UI/Root/Info/Content"]
+[node name="Emblem" type="TextureRect" parent="UI/Root/Info/Content/Header"]
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Texts" type="VBoxContainer" parent="UI/Root/Info/Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 2
+
+[node name="Name" type="Label" parent="UI/Root/Info/Content/Header/Texts"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "MAP_BOSS_NOTE_PLACEHOLDER"
+autowrap_mode = 3
+
+[node name="Subtitle" type="Label" parent="UI/Root/Info/Content/Header/Texts"]
 layout_mode = 2
 theme_type_variation = &"CaptionLabel"
-text = ""
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 3
+max_lines_visible = 3
 
 [node name="Results" type="HBoxContainer" parent="UI/Root/Info/Content"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 4
-alignment = 1
+theme_override_constants/separation = 8
 
 [node name="Stars" type="HBoxContainer" parent="UI/Root/Info/Content/Results"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 0
 
 [node name="Record" type="Label" parent="UI/Root/Info/Content/Results"]
 layout_mode = 2
-theme_type_variation = &"NumberLabel"
+size_flags_horizontal = 3
+theme_type_variation = &"HeadingLabel"
 theme_override_font_sizes/font_size = 16
-text = ""
+autowrap_mode = 3
 
-[node name="Buttons" type="HBoxContainer" parent="UI/Root/Info/Content"]
+[node name="Segments" type="HBoxContainer" parent="UI/Root/Info/Content"]
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 8
 alignment = 1
 
-[node name="PlayButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
-custom_minimum_size = Vector2(216, 84)
+[node name="DiffInfo" type="Label" parent="UI/Root/Info/Content"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 3
+max_lines_visible = 2
+
+[node name="PlayButton" type="Button" parent="UI/Root/Info/Content"]
+custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 focus_mode = 0
 text = "MAP_PLAY"
 icon = ExtResource("i_play")
 
-[node name="EndlessButton" type="Button" parent="UI/Root/Info/Content/Buttons"]
-custom_minimum_size = Vector2(240, 84)
+[node name="EndlessButton" type="Button" parent="UI/Root/Info/Content"]
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
 text = "MAP_RECORD_RUN"
-icon = ExtResource("i_crown")
+icon = ExtResource("i_trophy")
 
 [node name="Treasury" type="Control" parent="UI/Root"]
 visible = false

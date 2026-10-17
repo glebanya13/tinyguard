@@ -108,7 +108,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/WavePill/Row"]
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_flag")
@@ -132,7 +132,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/GoldPill/Row"]
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_coin")
@@ -156,7 +156,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/WoodPill/Row"]
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_wood")
@@ -180,7 +180,7 @@ mouse_filter = 2
 theme_override_constants/separation = 6
 
 [node name="Icon" type="TextureRect" parent="Root/TopBar/LivesPill/Row"]
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("i_heart")
