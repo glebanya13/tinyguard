@@ -524,6 +524,27 @@ def i_shield():
 	]
 
 
+def i_castle():
+	"""A stone keep with three merlons, a gate and a gold pennant (the castle upgrade)."""
+	body = rrect((54, 112, 202, 226), 6)
+	towers = add(rrect((34, 84, 92, 226), 5), rrect((164, 84, 222, 226), 5))
+	merlons = add(
+		*[rrect((x, 58, x + 22, 96), 3) for x in (34, 70)],
+		*[rrect((x, 58, x + 22, 96), 3) for x in (164, 200)],
+		*[rrect((x, 90, x + 20, 126), 3) for x in (82, 118, 154)],
+	)
+	gate = add(rrect((106, 168, 150, 226), 4), poly([(106, 176), (128, 150), (150, 176)]))
+	pole = rrect((124, 18, 132, 90), 2)
+	pennant = poly([(132, 20), (176, 36), (132, 54)])
+	return [
+		Part(body, STEEL),
+		Part(add(towers, merlons), SILVER),
+		Part(gate, BROWN, shine=False),
+		Part(pole, GOLD_D, outline=0, shine=False),
+		Part(pennant, RED, shine=False),
+	]
+
+
 def i_compass():
 	m = svg_mask("lorc__compass", (18, 18, 238, 238))
 	return [Part(m, GOLD)]
@@ -623,6 +644,7 @@ ICONS = {
 	"villager": i_villager,
 	"friends": i_friends,
 	"shield": i_shield,
+	"castle": i_castle,
 	"compass": i_compass,
 	"chest": i_chest,
 	"shop": i_shop,

@@ -377,6 +377,14 @@ func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 		GameCommand.Type.REPAIR:
 			_spawn_fx(BUILD_FX, builder.castle.global_position)
 			cards.refresh()
+		GameCommand.Type.UPGRADE_CASTLE:
+			_spawn_fx(UPGRADE_FX, builder.castle.global_position)
+			_popup(
+				tr("POPUP_CASTLE") % _game_state.castle_level,
+				builder.castle.global_position + Vector3.UP * 2.4,
+				GOLD_COLOR
+			)
+			cards.refresh()
 		GameCommand.Type.HIRE:
 			var hired: Villager = villagers.get_villagers()[cmd.args[0]]
 			_popup(tr("POPUP_LUMBERJACK"), hired.global_position + Vector3.UP * 1.7, WOOD_COLOR)
@@ -479,6 +487,8 @@ func _start_fx() -> void:
 	fx.name = "Fx"
 	add_child(fx)
 	fx.setup(_camera, _wave_manager, _build_manager, _game_state, heroes, builder.castle, _hud)
+	cards.castle_position = builder.castle.global_position
+	_game_state.castle_upgraded.connect(_on_castle_upgraded)
 
 
 ## Quality guard (lowers visual settings on a weak phone) and the hidden diagnostics overlay.
@@ -578,6 +588,11 @@ func _on_tower_sold(slot: TowerSlot, refund: Vector2i) -> void:
 	_spawn_fx(BUILD_FX, slot.global_position)
 	_popup("+%d" % refund.x, slot.global_position + Vector3.UP * 1.2, GOLD_COLOR, COIN_ICON)
 	cards.refresh()
+
+
+## The castle looks like its level: the body mesh with the baked decorations.
+func _on_castle_upgraded(level: int) -> void:
+	CastleModel.show_level(builder.castle, level)
 
 
 func _on_tower_upgraded(slot: TowerSlot, _tower: Tower) -> void:

@@ -61,7 +61,7 @@ def _round_tower(name, rng):
     return tg.join(parts, name)
 
 
-def build_castle(rng):
+def build_castle(rng, collider=True):
     parts = []
     plinth = tg.box("plinth", (2.05, 1.95, 0.1), (0, 0.13, 0.05), "stone_dark", bevel=0.04, bevel_seg=2)
     parts.append(plinth)
@@ -151,8 +151,54 @@ def build_castle(rng):
     parts.append(round_tower("tower_bl", -0.68, 0.84, rng, 0.82))
     parts.append(round_tower("tower_br", 0.68, 0.84, rng, 0.82))
     castle = tg.join(parts, "Castle")
-    tg.parent(tg.collider_box("CastleBody", (2.0, 2.05, 1.2), (0, 0.12, 0.6)), castle)
+    if collider:
+        tg.parent(tg.collider_box("CastleBody", (2.0, 2.05, 1.2), (0, 0.12, 0.6)), castle)
     return castle
+
+
+TOWERS = ((-0.72, -0.45, 1.0), (0.72, -0.45, 1.0), (-0.68, 0.84, 0.82), (0.68, 0.84, 0.82))
+
+
+def upgrade_decor(level):
+    """Decorations of castle upgrade `level` (1..4) only (the game shows level N as the body
+    baked with the decorations of levels 1..N: castle_lv<N>.glb)."""
+    out = []
+    if level == 1:
+        # Gold bands round the four towers and a gold belt round the keep.
+        for i, (x, y, s) in enumerate(TOWERS):
+            out.append(tg.torus(f"lv1_band{i}", 0.31 * s + 0.014, 0.017, (x, y, 0.5 * s), "gold", seg=14,
+                                minor_seg=4))
+        out.append(tg.box("lv1_belt_b", (1.04, 0.03, 0.04), (0, 0.805, 0.36), "gold", bevel=0.008, bevel_seg=1))
+        for sx in (-1, 1):
+            out.append(tg.box(f"lv1_belt{sx}", (0.03, 0.94, 0.04), (0.505 * sx, 0.35, 0.36), "gold",
+                              bevel=0.008, bevel_seg=1))
+    elif level == 2:
+        # Gold caps on the merlons of the front wall and the side walls, gold gate studs.
+        for i in range(5):
+            out.append(tg.box(f"lv2_cap{i}", (0.15, 0.33, 0.03), (-0.48 + i * 0.24, -0.5, 1.025), "gold",
+                              bevel=0.006, bevel_seg=1))
+        for sx in (-1, 1):
+            for i in range(4):
+                out.append(tg.box(f"lv2_scap{sx}{i}", (0.25, 0.14, 0.03), (0.74 * sx, -0.22 + i * 0.27, 0.855),
+                                  "gold", bevel=0.006, bevel_seg=1))
+    elif level == 3:
+        # Gold spires on the corners of the keep roof and a gold pennon on the keep's back.
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                x, y = 0.53 * sx, 0.35 + 0.48 * sy
+                out.append(tg.cylinder(f"lv3_spire{sx}{sy}", 0.05, 0.0, 0.3, (x, y, 1.42), "gold", verts=6))
+                out.append(tg.sphere(f"lv3_ball{sx}{sy}", (0.06, 0.06, 0.06), (x, y, 1.29), "gold", seg=8, rings=4))
+    else:
+        # A glowing crystal over the keep and gold crowns on the towers.
+        out.append(tg.sphere("lv4_crystal", (0.13, 0.13, 0.24), (0, 0.35, 2.2), "portal_glow", seg=10, rings=6))
+        out.append(tg.torus("lv4_crystal_ring", 0.1, 0.014, (0, 0.35, 2.06), "gold", seg=12, minor_seg=4))
+        for i, (x, y, s) in enumerate(TOWERS):
+            for k in range(6):
+                a = 2 * math.pi * k / 6
+                out.append(tg.cylinder(f"lv4_crown{i}{k}", 0.03 * s, 0.0, 0.11 * s,
+                                       (x + 0.36 * s * math.cos(a), y + 0.36 * s * math.sin(a), 1.33 * s + 0.055 * s),
+                                       "gold", verts=5))
+    return out
 
 
 def build_portal(rng):
@@ -201,4 +247,13 @@ def build() -> list:
         bpy.data.objects.remove(o, do_unlink=True)
     portal = build_portal(rng)
     out.append(tg.finish_asset("spawn_portal", portal, ao_distance=0.25, ao_strength=0.7))
+    # Castle upgrades: body variants castle_lv1..4 = the castle + the decorations of levels 1..N,
+    # one mesh each (the game swaps the mesh, so the castle stays one draw call at any level).
+    for level in range(1, 5):
+        for o in list(bpy.data.objects):
+            bpy.data.objects.remove(o, do_unlink=True)
+        body = build_castle(random.Random(11), collider=False)
+        decor = [d for lv in range(1, level + 1) for d in upgrade_decor(lv)]
+        joined = tg.join([body] + decor, "Castle")
+        out.append(tg.finish_asset(f"castle_lv{level}", joined, ao_distance=0.35, ao_strength=0.75))
     return out
