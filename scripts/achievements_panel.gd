@@ -102,6 +102,7 @@ func _row(def: Dictionary, metrics: Dictionary, done: bool) -> Control:
 func _label(text: String, size: int, color: Color = Color(1, 0.96, 0.87)) -> Label:
 	var label := Label.new()
 	label.text = text
+	UiKit.style_label(label, size, color)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label

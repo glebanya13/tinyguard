@@ -8,10 +8,18 @@ extends Control
 ## The language was switched: screens that cache texts should rebuild.
 signal language_changed
 signal closed
+## A joystick / road compass option changed: the HUD re-places them at once.
+signal layout_changed
 
-const GOLD := Color(0.98, 0.8, 0.4)
-const SOFT_COLOR := Color(0.82, 0.86, 0.95)
-const BUTTON_HEIGHT := 58.0
+const BUTTON_HEIGHT := 64.0
+## Rows of the controls tab: label key, setting key, labels of the choices.
+const OPTION_ROWS: Array = [
+	["SET_JOY_SIZE", "joystick_size", ["SET_SMALL", "SET_MEDIUM", "SET_LARGE"]],
+	["SET_JOY_POS", "joystick_pos", ["SET_LOWER", "SET_STANDARD", "SET_HIGHER"]],
+	["SET_JOY_SIDE", "joystick_side", ["SET_LEFT", "SET_RIGHT"]],
+	["SET_MAP_SIZE", "minimap_size", ["SET_SMALL", "SET_MEDIUM", "SET_LARGE"]],
+	["SET_MAP_MODE", "minimap_mode", ["SET_MAP_SHOW", "SET_MAP_HIDE", "SET_MAP_WAVE"]],
+]
 const FX_KEYS: Array[String] = ["SET_FX_OFF", "SET_FX_MIN", "SET_FX_FULL"]
 ## Taps on the version line that switch the diagnostics overlay, and the longest gap between two.
 const VERSION_TAPS := 5
@@ -25,8 +33,12 @@ const LANGUAGE_KEYS: Dictionary = {
 var _box: VBoxContainer
 var _sound_button: Button
 var _fx_button: Button
+var _preview: Control
 var _version_taps: int = 0
 var _last_version_tap_ms: int = 0
+## 0 = general, 1 = controls (joystick and road compass).
+var _tab: int = 0
+var _option_buttons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -57,6 +69,7 @@ func _build() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
+	_option_buttons.clear()
 	var dim := ColorRect.new()
 	dim.color = Color(0.04, 0.06, 0.14, 0.7)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -65,28 +78,58 @@ func _build() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(640, 0)
+	panel.custom_minimum_size = Vector2(920 if _tab == 1 else 640, 0)
 	center.add_child(panel)
 	_box = VBoxContainer.new()
-	_box.add_theme_constant_override("separation", 14)
+	_box.add_theme_constant_override("separation", 12)
 	panel.add_child(_box)
 
 	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 12)
 	_box.add_child(header)
-	var title := _label(tr("SET_TITLE"), 36, GOLD)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var title := UiKit.ribbon(tr("SET_TITLE"))
+	title.size_flags_horizontal = Control.SIZE_EXPAND | Control.SIZE_SHRINK_CENTER
 	header.add_child(title)
-	header.add_child(_button(tr("SET_DONE"), close, false, 180))
+	header.add_child(_button(tr("SET_DONE"), close, false, 160))
 
-	_box.add_child(_label(tr("SET_LANGUAGE"), 24))
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	_box.add_child(tabs)
+	var tab_group := ButtonGroup.new()
+	for i in 2:
+		var tab := _button(tr(["SET_TAB_GENERAL", "SET_TAB_CONTROLS"][i]), _on_tab.bind(i), true, 0)
+		tab.name = "Tab_%d" % i
+		tab.custom_minimum_size.y = 56.0
+		tab.theme_type_variation = &"ToggleButton"
+		tab.toggle_mode = true
+		tab.button_group = tab_group
+		tab.button_pressed = i == _tab
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tabs.add_child(tab)
+	if _tab == 1:
+		_build_controls()
+	else:
+		_build_general()
+
+
+func _on_tab(index: int) -> void:
+	if index == _tab:
+		return
+	_tab = index
+	_build()
+
+
+func _build_general() -> void:
+	_box.add_child(UiKit.heading(tr("SET_LANGUAGE")))
 	var languages := HBoxContainer.new()
-	languages.add_theme_constant_override("separation", 10)
+	languages.add_theme_constant_override("separation", 8)
 	_box.add_child(languages)
 	var group := ButtonGroup.new()
 	var current: String = GameSettings.language()
 	for code: String in GameSettings.LANGUAGES:
 		var button := _button(tr(LANGUAGE_KEYS[code]), _on_language.bind(code), true, 190)
 		button.name = "Lang_" + code
+		button.theme_type_variation = &"ToggleButton"
 		button.toggle_mode = true
 		button.button_group = group
 		button.button_pressed = code == current
@@ -112,12 +155,67 @@ func _build() -> void:
 		deletion.name = "Link_deletion"
 		_box.add_child(deletion)
 
-	var version := _label(tr("SET_VERSION") % GameSettings.version(), 18, Color(SOFT_COLOR, 0.75))
+	var version := UiKit.caption(tr("SET_VERSION") % GameSettings.version())
 	version.name = "Version"
 	version.mouse_filter = Control.MOUSE_FILTER_STOP
 	version.gui_input.connect(_on_version_input.bind(version))
 	_box.add_child(version)
 	_update_version_text(version)
+
+
+## Joystick and road compass: rows of big switches on the left, a live outline of the
+## screen with the pieces in place on the right.
+func _build_controls() -> void:
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 20)
+	_box.add_child(body)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 8)
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(rows)
+	for spec: Array in OPTION_ROWS:
+		rows.add_child(_option_row(spec))
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 8)
+	body.add_child(side)
+	_preview = LayoutPreview.new()
+	side.add_child(_preview)
+	var note := UiKit.caption(tr("SET_PREVIEW_NOTE"))
+	note.custom_minimum_size.x = LayoutPreview.SIZE.x
+	side.add_child(note)
+
+
+func _option_row(spec: Array) -> Control:
+	var key: String = spec[1]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var label := UiKit.heading(tr(spec[0]), 18)
+	label.custom_minimum_size = Vector2(190, 0)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(label)
+	var group := ButtonGroup.new()
+	var current: int = GameSettings.layout_value(key)
+	var names: Array = spec[2]
+	for i in names.size():
+		var b := _button(tr(names[i]), _on_option.bind(key, i), true, 124)
+		b.name = "Opt_%s_%d" % [key, i]
+		b.custom_minimum_size.y = 84.0
+		b.add_theme_font_size_override("font_size", 18)
+		b.theme_type_variation = &"ToggleButton"
+		b.toggle_mode = true
+		b.button_group = group
+		b.button_pressed = i == current
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(b)
+		_option_buttons[b.name] = b
+	return row
+
+
+func _on_option(key: String, index: int) -> void:
+	GameSettings.set_layout_value(key, index)
+	if _preview != null:
+		_preview.queue_redraw()
+	layout_changed.emit()
 
 
 ## Five quick taps on the version switch the diagnostics overlay (FPS, memory...) on / off.
@@ -178,20 +276,11 @@ func _open_link(url: String) -> void:
 	GameSettings.open_url(url)
 
 
-func _label(text: String, size: int, color: Color = Color(1, 0.96, 0.87)) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
 func _button(text: String, action: Callable, secondary: bool, width: float) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(width, BUTTON_HEIGHT)
-	button.add_theme_font_size_override("font_size", 21)
 	if secondary:
 		button.theme_type_variation = &"SecondaryButton"
 	button.pressed.connect(action)

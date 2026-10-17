@@ -18,7 +18,10 @@ const PROFILE_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const DAILY_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
 const ACHIEVEMENTS_ICON: Texture2D = preload("res://ui/icons/crown.png")
-const GOLD := Color(0.98, 0.8, 0.4)
+const TROPHY_ICON: Texture2D = preload("res://ui/icons/trophy.png")
+const GOLD := Color(1.0, 0.88, 0.45)
+## Width of the left column (daily challenge, record run, achievements, co-op).
+const EXTRAS_WIDTH := 264.0
 ## Tint of the difficulty crown: Hard, Nightmare.
 const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
 
@@ -47,6 +50,7 @@ var _diff_buttons: Array[Button] = []
 var _diff_info: Label = null
 var _crown_icon: TextureRect = null
 var _record_button: Button = null
+var _hero: TextureRect = null
 
 @onready var _map: Node3D = $Map
 @onready var _camera: Camera3D = $Camera
@@ -75,6 +79,8 @@ func _ready() -> void:
 	LevelCatalog.difficulty = 0
 	LevelCatalog.tutorial = false
 	LevelCatalog.daily_key = ""
+	SafeArea.attach(_ui_root)
+	_camera.h_offset = -1.6  # island right of the left button column
 	_build_sites()
 	_build_account_ui()
 	_play_button.pressed.connect(_start.bind(false))
@@ -132,19 +138,10 @@ func _notification(what: int) -> void:
 func _build_coop_button() -> void:
 	if CoopRun.transport() == null:
 		return
-	_coop_button = Button.new()
+	_coop_button = _extra_button(tr("COOP_BUTTON"), PROFILE_ICON, EXTRAS_WIDTH)
 	_coop_button.name = "CoopButton"
-	_coop_button.custom_minimum_size = Vector2(260, 84)
-	_coop_button.focus_mode = Control.FOCUS_NONE
-	_coop_button.theme_type_variation = &"SecondaryButton"
-	_coop_button.text = tr("COOP_BUTTON")
-	_coop_button.icon = PROFILE_ICON
 	_coop_button.add_theme_constant_override("icon_max_width", 36)
 	_coop_button.pressed.connect(_open_coop)
-	_play_button.get_parent().add_child(_coop_button)
-	var info: Control = $UI/Root/Info
-	info.offset_left = -450.0
-	info.offset_right = 450.0
 
 
 ## "Испытание дня" and "Достижения": two buttons at the top left and their panels
@@ -153,7 +150,7 @@ func _build_extras() -> void:
 	var row := VBoxContainer.new()
 	row.name = "Extras"
 	row.add_theme_constant_override("separation", 8)
-	row.position = Vector2(16, 84)
+	row.position = Vector2(16, 88)
 	_ui_root.add_child(row)
 	_ui_root.move_child(row, 0)  # below the dialogs
 	_daily = DailyPanel.new()
@@ -162,26 +159,26 @@ func _build_extras() -> void:
 	_daily.start_requested.connect(_start_daily)
 	_achievements = AchievementsPanel.new()
 	_ui_root.add_child(_achievements)
-	var daily_button := _extra_button(tr("DAILY_BUTTON"), DAILY_ICON, 250)
+	var daily_button := _extra_button(tr("DAILY_BUTTON"), DAILY_ICON, EXTRAS_WIDTH)
 	daily_button.name = "DailyButton"
 	daily_button.pressed.connect(_daily.open)
 	row.add_child(daily_button)
-	_record_button = _extra_button("", CASTLE_ICON, 230)
+	_record_button = _extra_button("", CASTLE_ICON, EXTRAS_WIDTH)
 	_record_button.name = "RecordRunButton"
-	_record_button.custom_minimum_size = Vector2(230, 104)
-	_record_button.theme_type_variation = &""  # the primary (gold) button: the big call to play
-	_record_button.add_theme_font_size_override("font_size", 19)
-	_record_button.add_theme_constant_override("icon_max_width", 34)
+	_record_button.custom_minimum_size = Vector2(EXTRAS_WIDTH, 96)
+	_record_button.theme_type_variation = &"GreenButton"  # a mode of its own; gold is "Play"
+	_record_button.add_theme_font_size_override("font_size", 16)
+	_record_button.add_theme_constant_override("icon_max_width", 32)
 	_record_button.add_theme_constant_override("h_separation", 6)
 	_record_button.pressed.connect(_start.bind(true))
 	row.add_child(_record_button)
-	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, 84)
+	var ach_button := _extra_button(tr("ACH_BUTTON"), ACHIEVEMENTS_ICON, EXTRAS_WIDTH)
 	ach_button.name = "AchievementsButton"
-	ach_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ach_button.tooltip_text = tr("ACH_BUTTON")
-	ach_button.text = ""
 	ach_button.pressed.connect(_achievements.open)
 	row.add_child(ach_button)
+	if _coop_button != null:
+		row.add_child(_coop_button)
 
 
 ## Gem counter, "Shop" button and the streak plaque (scripts/gems_hud.gd).
@@ -199,7 +196,8 @@ func _extra_button(text: String, icon: Texture2D, width: float) -> Button:
 	button.icon = icon
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(width, 84)
-	button.add_theme_constant_override("icon_max_width", 44)
+	button.add_theme_constant_override("icon_max_width", 36)
+	button.add_theme_font_size_override("font_size", 20)
 	button.theme_type_variation = &"SecondaryButton"
 	return button
 
@@ -225,6 +223,7 @@ func _build_sites() -> void:
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(84, 84)
 		button.focus_mode = Control.FOCUS_NONE
+		button.theme_type_variation = &"SecondaryButton"
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width", 0)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -244,8 +243,9 @@ func _build_sites() -> void:
 		_site_layer.add_child(button)
 		var number := Label.new()
 		number.text = str(id)
-		number.add_theme_font_size_override("font_size", 24)
-		number.position = Vector2(6, -8)
+		number.theme_type_variation = &"NumberLabel"
+		number.add_theme_font_size_override("font_size", 22)
+		number.position = Vector2(8, 2)
 		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(number)
 		_site_buttons.append(button)
@@ -276,7 +276,9 @@ func _select(id: int) -> void:
 	_subtitle_label.text = tr(level["subtitle"])
 	for child in _level_stars.get_children():
 		child.queue_free()
-	_level_stars.add_child(_star_row(LevelCatalog.stars(id), 34))
+	_level_stars.add_child(_star_row(LevelCatalog.stars(id), 44))
+	var biome_path: String = "res://ui/biomes/%s.png" % str(level.get("biome", "meadow"))
+	_hero.texture = load(biome_path) if ResourceLoader.exists(biome_path) else null
 	var crown: int = LevelCatalog.crown(id)
 	_crown_icon.visible = crown > 0
 	if crown > 0:
@@ -290,7 +292,11 @@ func _select(id: int) -> void:
 	_refresh_difficulty(id)
 	for i in _site_buttons.size():
 		var chosen: bool = _site_ids[i] == id
-		_site_buttons[i].modulate = Color(1.12, 1.08, 0.92) if chosen else Color.WHITE
+		if not _site_buttons[i].disabled:
+			var done: bool = LevelCatalog.stars(_site_ids[i]) > 0
+			_site_buttons[i].theme_type_variation = (
+				&"" if chosen else (&"GreenButton" if done else &"SecondaryButton")
+			)
 		_site_buttons[i].pivot_offset = _site_buttons[i].custom_minimum_size * 0.5
 		_site_buttons[i].scale = Vector2(1.16, 1.16) if chosen else Vector2.ONE
 
@@ -318,6 +324,7 @@ func _fill_cards() -> void:
 func _perk_card(perk: PerkData) -> PanelContainer:
 	var level: int = Perks.level(perk.id)
 	var card := PanelContainer.new()
+	card.theme_type_variation = &"CardPanel"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
@@ -336,12 +343,11 @@ func _perk_card(perk: PerkData) -> PanelContainer:
 	head.add_child(texts)
 	var title := Label.new()
 	title.text = tr(perk.display_name)
-	title.add_theme_color_override("font_color", GOLD)
-	title.add_theme_font_size_override("font_size", 23)
+	title.theme_type_variation = &"HeadingLabel"
 	texts.add_child(title)
 	var level_label := Label.new()
 	level_label.text = tr("MAP_PERK_LEVEL") % [level, perk.max_level()]
-	level_label.add_theme_font_size_override("font_size", 16)
+	level_label.theme_type_variation = &"CaptionLabel"
 	texts.add_child(level_label)
 	var effect := Label.new()
 	var now: String = perk.format_value(level) if level > 0 else tr("MAP_PERK_NONE")
@@ -349,11 +355,12 @@ func _perk_card(perk: PerkData) -> PanelContainer:
 	if level < perk.max_level():
 		effect.text += " → " + perk.format_value(level + 1)
 	effect.add_theme_font_size_override("font_size", 17)
+	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(effect)
 	var buy := Button.new()
 	buy.focus_mode = Control.FOCUS_NONE
 	buy.custom_minimum_size = Vector2(0, 84)
-	buy.add_theme_font_size_override("font_size", 20)
+	buy.theme_type_variation = &"GreenButton"
 	var cost: int = Perks.next_cost(perk)
 	if cost < 0:
 		buy.text = tr("MAP_PERK_MAX")
@@ -409,9 +416,7 @@ func _build_records_panel() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	_records_title = Label.new()
-	_records_title.add_theme_color_override("font_color", GOLD)
-	_records_title.add_theme_font_size_override("font_size", 30)
+	_records_title = UiKit.ribbon("")
 	box.add_child(_records_title)
 	var name_label := Label.new()
 	name_label.text = tr("MAP_YOUR_NAME") % Online.player_name()
@@ -420,7 +425,7 @@ func _build_records_panel() -> void:
 	_records_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_records_list)
 	_records_status = Label.new()
-	_records_status.add_theme_font_size_override("font_size", 18)
+	_records_status.theme_type_variation = &"CaptionLabel"
 	box.add_child(_records_status)
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -471,6 +476,7 @@ func _build_account_ui() -> void:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(84, 84)
 	button.focus_mode = Control.FOCUS_NONE
+	button.theme_type_variation = &"SecondaryButton"
 	button.icon = PROFILE_ICON
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.add_theme_constant_override("icon_max_width", 48)
@@ -482,9 +488,9 @@ func _build_account_ui() -> void:
 	_sync_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_sync_label.offset_left = -520.0
 	_sync_label.offset_right = -24.0
-	_sync_label.offset_top = 78.0
+	_sync_label.offset_top = 104.0
 	_sync_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_sync_label.add_theme_font_size_override("font_size", 18)
+	_sync_label.theme_type_variation = &"CaptionLabel"
 	_sync_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui_root.add_child(_sync_label)
 	_account = AccountPanel.new()
@@ -543,11 +549,12 @@ func _on_reminder_action(kind: String) -> void:
 func _build_settings_ui() -> void:
 	var gear := Button.new()
 	gear.name = "SettingsButton"
-	gear.custom_minimum_size = Vector2(64, 60)
+	gear.custom_minimum_size = Vector2(84, 84)
 	gear.focus_mode = Control.FOCUS_NONE
+	gear.theme_type_variation = &"SecondaryButton"
 	gear.icon = GEAR_ICON
 	gear.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	gear.add_theme_constant_override("icon_max_width", 52)
+	gear.add_theme_constant_override("icon_max_width", 48)
 	gear.tooltip_text = tr("SET_TOOLTIP")
 	_sound_button.add_sibling(gear)
 	_settings = SettingsPanel.new()
@@ -604,20 +611,57 @@ func _update_record_button(_id: int, record: int) -> void:
 ## Difficulty row of the level card: three buttons (a locked one shows a lock) and the line
 ## with what the picked difficulty changes. Built in code, filled by _refresh_difficulty().
 func _build_difficulty_row() -> void:
-	_name_label.add_theme_font_size_override("font_size", 26)
-	_subtitle_label.add_theme_font_size_override("font_size", 16)
-	_play_button.custom_minimum_size.y = 72
-	_endless_button.custom_minimum_size.y = 72
 	var info_panel: Control = $UI/Root/Info
-	info_panel.offset_top = -262.0
+	info_panel.offset_top = -40.0
+	info_panel.offset_left = -520.0
+	info_panel.offset_right = 520.0
+	info_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var content: VBoxContainer = _play_button.get_parent().get_parent()
+	var buttons: Control = _play_button.get_parent()
+	var results: Control = _level_stars.get_parent()
+	_play_button.custom_minimum_size = Vector2(248, 84)
+	_endless_button.custom_minimum_size = Vector2(248, 84)
+	_endless_button.theme_type_variation = &"SecondaryButton"
+	_endless_button.icon = null
 	_endless_button.text = tr("MAP_RECORD_RUN")
 	_endless_button.tooltip_text = tr("MAP_RECORD_SUB")
 	_endless_button.visible = true
+	# Three columns: emblem of the biome | name, stars, record, difficulty | Play, Record Run.
+	var main := HBoxContainer.new()
+	main.add_theme_constant_override("separation", 24)
+	content.add_child(main)
+	_hero = TextureRect.new()
+	_hero.custom_minimum_size = Vector2(176, 176)
+	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_hero.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	main.add_child(_hero)
+	var mid := VBoxContainer.new()
+	mid.add_theme_constant_override("separation", 6)
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main.add_child(mid)
+	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_name_label.reparent(mid, false)
+	_subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle_label.custom_minimum_size.x = 470.0
+	_subtitle_label.reparent(mid, false)
+	results.reparent(mid, false)
+	var trophy := TextureRect.new()
+	trophy.texture = TROPHY_ICON
+	trophy.custom_minimum_size = Vector2(32, 32)
+	trophy.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	trophy.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	results.add_child(trophy)
+	results.move_child(trophy, 1)
+	_record_label.theme_type_variation = &"HeadingLabel"
+	results.add_theme_constant_override("separation", 12)
+	results.alignment = BoxContainer.ALIGNMENT_BEGIN
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
+	mid.add_child(box)
 	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	box.add_child(row)
 	var group := ButtonGroup.new()
 	for i in Balance.difficulty_count():
@@ -625,26 +669,30 @@ func _build_difficulty_row() -> void:
 		button.toggle_mode = true
 		button.button_group = group
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(170, 48)
-		button.theme_type_variation = &"SecondaryButton"
+		button.custom_minimum_size = Vector2(132, 56)
+		button.theme_type_variation = &"ToggleButton"
 		button.text = tr(str(Balance.difficulty(i)["name"]))
-		button.add_theme_font_size_override("font_size", 22)
-		button.add_theme_constant_override("icon_max_width", 24)
+		button.add_theme_font_size_override("font_size", 18)
+		button.add_theme_constant_override("icon_max_width", 22)
+		button.add_theme_constant_override("h_separation", 4)
 		button.pressed.connect(_on_difficulty_pressed.bind(i))
 		row.add_child(button)
 		_diff_buttons.append(button)
 	_diff_info = Label.new()
-	_diff_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_diff_info.add_theme_font_size_override("font_size", 16)
-	_diff_info.add_theme_color_override("font_color", Color(0.82, 0.86, 0.95))
+	_diff_info.theme_type_variation = &"CaptionLabel"
+	_diff_info.add_theme_font_size_override("font_size", 14)
 	box.add_child(_diff_info)
-	var content: Control = _play_button.get_parent().get_parent()
-	content.add_child(box)
-	content.move_child(box, _play_button.get_parent().get_index())
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 8)
+	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	main.add_child(side)
+	_play_button.reparent(side, false)
+	_endless_button.reparent(side, false)
+	buttons.queue_free()
 	_crown_icon = _crown_texture(1, 34)
 	_crown_icon.mouse_filter = Control.MOUSE_FILTER_PASS
-	_level_stars.get_parent().add_child(_crown_icon)
-	_level_stars.get_parent().move_child(_crown_icon, 1)
+	results.add_child(_crown_icon)
+	results.move_child(_crown_icon, 2)
 
 
 func _refresh_difficulty(id: int) -> void:
