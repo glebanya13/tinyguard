@@ -505,6 +505,12 @@ max(min_gold, round(start_gold · price_decay^n)). `main.gd` открывает 
 герой ближе `trade_reach` к жителю или после тапа по нему (герой идёт к жителю), закрывает,
 когда герой отошёл; ✕ закрывает до тех пор, пока герой не отойдёт.
 
+Покупка дерева и дровосеки (`docs/ECONOMY_V2.md`, этап 1): `Villagers.buy(lots)` /
+`Villagers.hire(index)` через команды `TRADE_BUY` и `HIRE`; `Villagers.sim_step()` (из `Sim.step()`)
+даёт дерево нанятым целыми числами по тикам; `Villagers.state_ints()` входит в `state_hash`
+только после первой покупки или найма (старые журналы дают прежний хэш); `Sim.VERSION` = 2;
+режим — `Villagers.wood_economy` (выкл. в рекорде и daily). Тест `tests/test_wood_economy.gd`.
+
 ## Командная карта и приказы
 
 `main.gd` превращает кнопки карты в приказы: выбранная площадка (тапом или подходом героя

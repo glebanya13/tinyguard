@@ -1,7 +1,7 @@
 extends SceneTree
 ## Draw-call benchmark (needs a window, NOT --headless): every slot gets a maxed tower
 ## (4 kinds in turn), waves overlap at 3x speed, the HUD is on.
-## LEVEL=<id> godot --path . --resolution 1280x720 --script res://tools/measure_draw_calls.gd
+## LEVEL=<id> [HIRE=1: both villagers are lumberjacks] godot --path . --resolution 1280x720 --script res://tools/measure_draw_calls.gd
 ## Prints the mean / peak of TOTAL_DRAW_CALLS_IN_FRAME in battle, then what each
 ## child of Level (and the HUD) costs when hidden.
 
@@ -50,6 +50,10 @@ func _run() -> void:
 	var empty: float = await _mean(SAMPLE_FRAMES)
 	gs.add_gold(100000)
 	gs.add_wood(100000)
+	if OS.get_environment("HIRE") != "":
+		# Both villagers hired as lumberjacks (axe sign + chopping), the worst case of the wood economy.
+		for i in 2:
+			(main.get("villagers") as Villagers).hire(i)
 	var kind := 0
 	for node: Node in get_nodes_in_group(TowerSlot.GROUP):
 		var slot := node as TowerSlot

@@ -377,7 +377,7 @@ func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 			cards.refresh()
 		GameCommand.Type.HIRE:
 			var hired: Villager = villagers.get_villagers()[cmd.args[0]]
-			_popup(tr("POPUP_LUMBERJACK"), hired.global_position + Vector3.UP * 1.9, WOOD_COLOR)
+			_popup(tr("POPUP_LUMBERJACK"), hired.global_position + Vector3.UP * 1.7, WOOD_COLOR)
 			hired.cheer()
 			cards.refresh()
 

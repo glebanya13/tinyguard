@@ -201,6 +201,7 @@
 | `sell(slot)` | `BuildManager.sell` (build_manager.gd:134) |
 | `sword`, `repair` | `main._on_command_pressed` (main.gd:347–370) |
 | `trade(lots)` | `Villagers.sell` через `main._on_command_pressed` |
+| `buy_wood(lots)`, `hire(villager_index)` | `Villagers.buy`, `Villagers.hire` (`GameCommand.Type.TRADE_BUY`, `HIRE`, в конце enum; «Экономика дерева v2», этап 1): золото общее, лимиты (6 лотов, 2 дровосека) общие; одновременный найм одного жителя двумя игроками — второй отклонён одинаково у обоих; в рекорде/daily отклоняются |
 | `move_to(x, z)` | `Hero.move_to` (hero.gd ~121) |
 | `joystick(vec)` (квантованный, только при изменении) | `hero.joystick_vector` |
 | `attack`, `spin` | `Hero.try_attack` (hero.gd:156), `try_spin` (hero.gd:171) |
