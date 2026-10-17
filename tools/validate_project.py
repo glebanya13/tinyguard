@@ -558,6 +558,36 @@ def check_export_presets() -> None:
         errors.append("export_presets.cfg: include_filter must contain firebase.cfg")
 
 
+def check_crashlytics() -> None:
+    """Crashlytics is the only Firebase SDK allowed (CLAUDE.md): reports only, no Analytics/ads."""
+    claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    if "Crashlytics" not in claude:
+        errors.append("CLAUDE.md: the Crashlytics exception is not documented")
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    if "google-services.json" not in gitignore:
+        errors.append(".gitignore: google-services.json must be ignored (owner's file, not committed)")
+    if (ROOT / "google-services.json").is_file():
+        warnings.append("google-services.json lies in the project root: keep it out of commits")
+    prep = ROOT / "tools" / "prepare_android_build.py"
+    if not prep.is_file():
+        errors.append("tools/prepare_android_build.py is missing (Gradle template + Crashlytics)")
+    else:
+        text = prep.read_text(encoding="utf-8")
+        for banned in (
+            "com.google.firebase:firebase-analytics",
+            "com.google.firebase:firebase-messaging",
+            "com.google.android.gms:play-services-ads",
+        ):
+            if banned in text:
+                errors.append(f"tools/prepare_android_build.py: {banned} is not allowed")
+        if "firebase_analytics_collection_deactivated" not in text:
+            errors.append("tools/prepare_android_build.py: Analytics must stay deactivated in the manifest")
+    presets = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
+    plain = re.search(r'name="Android"\n.*?gradle_build/use_gradle_build=(\w+)', presets, re.S)
+    if plain and plain.group(1) != "false":
+        errors.append('export_presets.cfg: preset "Android" must stay without Gradle')
+
+
 def check_privacy_url() -> None:
     """Warns (does not fail) while the public privacy policy URL is not set."""
     path = ROOT / "scripts" / "game_info.gd"
@@ -667,6 +697,7 @@ def check_translations() -> None:
 def main() -> int:
     check_layout()
     check_export_presets()
+    check_crashlytics()
     check_privacy_url()
     check_release_constants()
     check_translations()

@@ -62,7 +62,8 @@ func setup(sun: DirectionalLight3D, viewport: Viewport) -> void:
 		RenderingServer.directional_shadow_atlas_set_size(
 			SHADOW_SIZE_MEDIUM if tier == GameSettings.GFX_MEDIUM else SHADOW_SIZE_HIGH, true
 		)
-	var start: int = maxi(session_level, start_level_for(tier))
+	# Runs of the game that the system killed or that crashed lower the start (ExitReasons).
+	var start: int = maxi(maxi(session_level, start_level_for(tier)), ExitReasons.start_notch())
 	while level < start:
 		level += 1
 		_apply(level)

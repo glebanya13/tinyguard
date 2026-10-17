@@ -183,6 +183,22 @@ static func set_diagnostics(on: bool) -> void:
 	cfg.save(config_path)
 
 
+## Crash reports (Firebase Crashlytics, Gradle builds only): on unless the player turned them
+## off in the settings. Device-local, never synced. See CrashReporter, docs/PRIVACY.md.
+static func crash_reports() -> bool:
+	var cfg := ConfigFile.new()
+	if cfg.load(config_path) != OK:
+		return true
+	return bool(cfg.get_value("privacy", "crash_reports", true))
+
+
+static func set_crash_reports(on: bool) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("privacy", "crash_reports", on)
+	cfg.save(config_path)
+
+
 static func layout_value(key: String) -> int:
 	var cfg := ConfigFile.new()
 	var fallback: int = LAYOUT_DEFAULTS[key]
