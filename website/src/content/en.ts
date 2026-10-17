@@ -102,7 +102,7 @@ export const en: Content = {
         {
           icon: "swords",
           title: "A hero you control",
-          text: "Run with the joystick, chop trees, hit slimes with the sword and trade with villagers. The camera follows the hero.",
+          text: "Run with the joystick, chop trees, hit chupacabras with the sword and trade with villagers. The camera follows the hero.",
         },
         {
           icon: "castle",
@@ -171,7 +171,7 @@ export const en: Content = {
         {
           file: "shot_02_level_1_valley",
           caption: "Build towers",
-          alt: "Green Valley level: towers by the path and a wave of slimes",
+          alt: "Green Valley level: towers by the path and a pack of chupacabras",
         },
         {
           file: "shot_03_level_4_snow",
@@ -214,8 +214,8 @@ export const en: Content = {
           text: "Tap a tree and the hero walks over and cuts it. 4 hits give 12 wood, and the tree grows back in a minute.",
         },
         {
-          title: "Hit slimes",
-          text: "Defeated enemies drop gold. Next to a slime or a tree the hero strikes on his own.",
+          title: "Hit chupacabras",
+          text: "Defeated enemies drop gold. Next to a chupacabra or a tree the hero strikes on his own.",
         },
         {
           title: "Build and upgrade towers",
@@ -267,7 +267,7 @@ export const en: Content = {
   },
   home: {
     artAlt:
-      "The Bimbleguard hero in a blue helmet with a sword and shield, a slime in a golden crown and the castle",
+      "The Bimbleguard hero in a blue helmet with a sword and shield, a chupacabra king in a golden crown and the castle",
     badge: "A cartoon tower defense adventure",
     title: "Bimbleguard",
     lead: "Build powerful defenses, control your hero, and stop waves of enemies in a colorful fantasy world.",
