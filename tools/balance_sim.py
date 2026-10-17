@@ -21,9 +21,10 @@ Difficulty (--diff 0|1|2: Normal / Hard / Nightmare, multipliers from "difficult
 resources/balance.json) and the Record Run (--record: free mode, every wave harder, rules from
 "record" in the same file; the result is the wave the castle falls on) are played as well.
 
-Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [--no-wood-economy] [level_id ...]
+Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [--no-wood-economy] [--no-castle] [level_id ...]
   --no-wood-economy  the campaign without buying wood and lumberjacks (the numbers from before
                      docs/ECONOMY_V2.md stage 1)
+  --no-castle  the players do not upgrade the castle (the numbers from before the feature)
   --table  one line per level: result of every strategy (lives left / wave lost on)
   --sanity the "afk" (no tower at all) and "one" (a single tower) players: both must lose
 """
@@ -89,6 +90,10 @@ HIRE_GOLD, HIRE_MAX = int(_TRADE["hire_gold"]), int(_TRADE["hire_max"])
 HIRE_WOOD_PER_SECOND = _TRADE["hire_wood_per_minute"] / 60.0
 GOLD_RESERVE = 70  # gold a player keeps (about two towers) before he spends any on wood or a hire
 WOOD_ECONOMY = "--no-wood-economy" not in sys.argv
+# Castle upgrades (resources/castle_upgrades.json, scripts/castle_upgrades.gd): the "balanced" and "skilled"
+# players buy them, in every mode. `--no-castle` plays without (the numbers from before the feature).
+CASTLE = json.loads((ROOT / "resources/castle_upgrades.json").read_text())["levels"]
+CASTLE_ON = "--no-castle" not in sys.argv
 
 
 TOWERS = {k: tres(f"resources/towers/{k}.tres") for k in ("archer", "cannon", "frost", "lightning")}
@@ -296,6 +301,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     slots = order_slots(lv, drawn, strategy)
     gold, wood, lives = lv["start"]["gold"], lv["start"]["wood"], max(rnd(lv["start"]["lives"] * d["lives"]), 1)
     lives_start = lives
+    lives_cap = lives  # repair ceiling: grows with castle upgrades
+    castle = 0  # castle upgrades bought
     economy = WOOD_ECONOMY and not record
     hired = bought = 0  # lumberjacks hired / lots of wood bought
     towers = []  # dicts: kind, level, x, z, cd
@@ -379,16 +386,33 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         bought += lots
         return wood >= need_wood
 
+    def castle_due() -> bool:
+        """A sensible player strengthens the castle once the field is built and the towers are one
+        upgrade ahead of it (castle 1-2: towers level 2, castle 3-4: towers level 3)."""
+        if not CASTLE_ON or strategy not in SMART or castle >= len(CASTLE) or not towers:
+            return False
+        if len(towers) < slot_cap or min(tw["level"] for tw in towers) < min(castle // 2 + 1, 2):
+            return False
+        return gold >= CASTLE[castle]["gold"] and wood >= CASTLE[castle]["wood"]
+
     def shop():
-        nonlocal gold, wood, lives
+        nonlocal gold, wood, lives, lives_cap, castle
         changed = True
         while changed:
             changed = False
+            if castle_due():
+                gold -= CASTLE[castle]["gold"]
+                wood -= CASTLE[castle]["wood"]
+                lives += CASTLE[castle]["lives"]
+                lives_cap += CASTLE[castle]["lives"]
+                castle += 1
+                changed = True
+                continue
             if skilled:
                 # wall repair at the forge when lives are lost and there is wood to spare
-                if lives_start - lives >= REPAIR_LIVES and wood >= REPAIR_WOOD + 30 and lives > 0:
+                if lives_cap - lives >= REPAIR_LIVES and wood >= REPAIR_WOOD + 30 and lives > 0:
                     wood -= REPAIR_WOOD
-                    lives = min(lives + REPAIR_LIVES, lives_start)
+                    lives = min(lives + REPAIR_LIVES, lives_cap)
                     changed = True
                     continue
                 lvl = hero["level"]
@@ -481,10 +505,11 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                         if o is not en and math.dist(o["pos"], en["pos"]) <= e.get("heal_radius", 1.8):
                             o["hp"] = min(o["max"], o["hp"] + o["max"] * e["heal_fraction"])
         for en in [en for en in enemies if en["d"] >= en["route"].length]:
-            lives -= int(ENEMIES[en["kind"]]["base_damage"])
+            hit = max(1, int(ENEMIES[en["kind"]]["base_damage"]) - (CASTLE[castle - 1]["armor"] if castle else 0))
+            lives -= hit
             if en["lane"] is not None:
                 leaked_on[en["lane"]] = leaked_on.get(en["lane"], 0) + 1
-            leaks[en["kind"]] = leaks.get(en["kind"], 0) + int(ENEMIES[en["kind"]]["base_damage"])
+            leaks[en["kind"]] = leaks.get(en["kind"], 0) + hit
             enemies.remove(en)
         if lives <= 0:
             report.append(f"проигрыш на волне {wave}")
@@ -569,7 +594,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     if verbose:
         lost = ", ".join(f"{k} {v}" for k, v in sorted(leaks.items(), key=lambda kv: -kv[1]))
         print(f"{lv['id']}. {lv['name']} ({len(paths)} пути): " + "; ".join(report)
-              + f" | итог: жизни {max(lives, 0)}/{lives_start}" + (f" | прорвались: {lost}" if lost else ""))
+              + f" | итог: жизни {max(lives, 0)}/{lives_start}" + (f", замок {castle}/{len(CASTLE)}" if castle else "") + (f" | прорвались: {lost}" if lost else ""))
     return max(lives, 0)
 
 
