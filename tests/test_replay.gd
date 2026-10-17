@@ -131,6 +131,23 @@ func _run() -> void:
 	for cmd in journal.commands:
 		kinds[cmd.type] = true
 	check(kinds.size() >= 7, "many command kinds in the journal (%d)" % kinds.size())
+	check(
+		kinds.has(GameCommand.Type.HIRE) and kinds.has(GameCommand.Type.TRADE_BUY),
+		"the journal has hire and buy commands"
+	)
+	check(
+		(
+			(main.villagers as Villagers).hired_count() >= 1
+			and (main.villagers as Villagers).lots_bought >= 1
+		),
+		(
+			"lumberjacks working and wood bought (%d hired, %d lots)"
+			% [
+				(main.villagers as Villagers).hired_count(),
+				(main.villagers as Villagers).lots_bought
+			]
+		)
+	)
 
 	# Journal through JSON and a file, as a saved replay would travel.
 	check(journal.save(LOG_PATH) == OK, "journal saved")
@@ -248,6 +265,27 @@ func _negative_controls(original: CommandLog, recorded: Array[int]) -> void:
 		"control: dropping a priority change diverges at the next hash (got %d)" % diff
 	)
 
+	# The wood economy is part of the hash: without a hire or a purchase the battle differs.
+	for kind: GameCommand.Type in [GameCommand.Type.HIRE, GameCommand.Type.TRADE_BUY]:
+		var index: int = -1
+		for i in original.commands.size():
+			if original.commands[i].type == kind:
+				index = i
+				break
+		check(index >= 0, "control: the journal has command type %d" % kind)
+		var without := CommandLog.from_json(original.to_json())
+		var gone_tick: int = without.commands[index].tick
+		without.commands.remove_at(index)
+		result = await _replay_trace(without)
+		diff = _first_diff(recorded, result["trace"])
+		check(
+			diff >= gone_tick and diff > 0,
+			(
+				"control: dropping command type %d diverges (tick %d, command at %d)"
+				% [kind, diff, gone_tick]
+			)
+		)
+
 	var reseeded := CommandLog.from_json(original.to_json())
 	reseeded.header["seed"] = int(reseeded.header["seed"]) + 1
 	result = await _replay_trace(reseeded)
@@ -291,6 +329,12 @@ func _bot(main: Node, sim: Sim, commands: GameCommands) -> void:
 	var bm: BuildManager = main.get_node("BuildManager")
 	var hero: Hero = main.get_node("Level/Hero")
 	var t: int = sim.tick
+	# The villagers' wood economy (campaign): two lumberjacks, wood bought when short of it.
+	var folk: Villagers = main.villagers
+	if t == 0 or (t % 100 == 0 and folk.hired_count() < 2):
+		commands.submit(GameCommand.hire(folk.hired_count()))
+	if t == 10 or (t % 100 == 50 and gs.wood < 30):
+		commands.submit(GameCommand.trade_buy(1))
 	# Speed and pause are commands too (a pause and resume at one tick).
 	if t == 300:
 		commands.submit(GameCommand.set_speed(2))

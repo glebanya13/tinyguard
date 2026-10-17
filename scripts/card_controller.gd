@@ -80,10 +80,7 @@ func update() -> void:
 
 ## Command card action: the hero walks to the selected slot and acts there.
 func on_command_pressed(id: StringName) -> void:
-	if id == &"trade_lot" or id == &"trade_all":
-		var lots: int = 1 if id == &"trade_lot" else _villagers.lots_affordable()
-		if lots > 0:
-			_commands.submit(GameCommand.trade(lots))
+	if _press_trade(id):
 		refresh()
 		return
 	if id == &"cancel":
@@ -121,6 +118,25 @@ func on_command_pressed(id: StringName) -> void:
 		refresh()
 
 
+## The villager's buttons: sell, buy, hire. False if `id` is none of them.
+func _press_trade(id: StringName) -> bool:
+	if id == &"trade_lot" or id == &"trade_all":
+		var lots: int = 1 if id == &"trade_lot" else _villagers.lots_affordable()
+		if lots > 0:
+			_commands.submit(GameCommand.trade(lots))
+	elif id == &"buy_lot" or id == &"buy_all":
+		var wanted: int = 1 if id == &"buy_lot" else _villagers.buy_lots_affordable()
+		if wanted > 0:
+			_commands.submit(GameCommand.trade_buy(wanted))
+	elif id == &"hire":
+		var index: int = _villagers.index_of(trade_with) if trade_with != null else -1
+		if index >= 0:
+			_commands.submit(GameCommand.hire(index))
+	else:
+		return false
+	return true
+
+
 func toggle_forge() -> void:
 	forge_open = not forge_open
 	if forge_open:
@@ -138,7 +154,7 @@ func refresh() -> void:
 		return
 	if slot == null and trade_with != null:
 		_hud.show_hint("")
-		_hud.update_card(CommandCards.trade(_villagers, _game_state))
+		_hud.update_card(CommandCards.trade(_villagers, _game_state, trade_with))
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text.call())

@@ -5,6 +5,10 @@ extends Node3D
 ## collides with them. The model faces +Z at rest.
 
 const GROUP := &"villagers"
+const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
+## Height above the ground and size (metres) of the axe sign over a hired lumberjack.
+const AXE_SIGN_HEIGHT: float = 1.4
+const AXE_SIGN_SIZE: float = 0.36
 
 ## Metres per second (a slow stroll).
 @export var speed: float = 0.6
@@ -39,6 +43,8 @@ var _partner: Node3D = null
 var _greet_wait: float = 0.0
 var _look_at: Node3D = null
 var _sense_left: float = 0.0
+var _lumberjack: bool = false
+var _axe_sign: Sprite3D = null
 
 @onready var _model: Node3D = $Model
 @onready var _puppet: Puppet = $Puppet
@@ -56,6 +62,8 @@ func _process(delta: float) -> void:
 		return
 	_greet_wait = maxf(_greet_wait - delta, 0.0)
 	if not _walking:
+		if _lumberjack and not _puppet.is_acting():
+			_puppet.play_action(&"chop")
 		_notice_hero(delta)
 		_rest_left -= delta
 		if _rest_left <= 0.0:
@@ -92,6 +100,29 @@ func cheer() -> void:
 ## Greets with a wave.
 func greet() -> void:
 	_puppet.play_action(&"wave")
+
+
+## A hired lumberjack swings an axe whenever he rests and wears an axe sign over his head.
+## Drawing only: the wood he brings is made by Villagers.sim_step().
+func set_lumberjack(on: bool) -> void:
+	_lumberjack = on
+	if on and _axe_sign == null:
+		_axe_sign = Sprite3D.new()
+		_axe_sign.name = "AxeSign"
+		_axe_sign.texture = AXE_ICON
+		_axe_sign.pixel_size = AXE_SIGN_SIZE / AXE_ICON.get_width()
+		_axe_sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_axe_sign.shaded = false
+		_axe_sign.double_sided = true
+		_axe_sign.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_axe_sign.position = Vector3(0.0, AXE_SIGN_HEIGHT, 0.0)
+		add_child(_axe_sign)
+	if _axe_sign != null:
+		_axe_sign.visible = on
+
+
+func is_lumberjack() -> bool:
+	return _lumberjack
 
 
 func is_walking() -> bool:

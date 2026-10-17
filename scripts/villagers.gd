@@ -5,6 +5,12 @@ extends Node3D
 ## the VillagerTrade prices (every lot sold makes the next one cheaper).
 
 signal wood_sold(wood: int, gold: int)
+## The player bought wood (`lots` lots for `gold`).
+signal wood_bought(wood: int, gold: int)
+## Villager number `index` was hired as a lumberjack.
+signal lumberjack_hired(index: int)
+## Lumberjack number `index` brought one wood.
+signal lumberjack_chopped(index: int)
 
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 ## Centre and four sides of a villager (times body_radius) checked by is_open().
@@ -40,8 +46,18 @@ var game_state: GameState = null
 var seed_value: int = 0
 ## Lots sold this level.
 var lots_sold: int = 0
+## Lots bought this level (at most trade.buy_max_lots).
+var lots_bought: int = 0
+## Buying wood and hiring lumberjacks: on in the campaign and in co-op, off in the Record
+## Run and the Daily Challenge (their tables must stay comparable). Decided by the mode,
+## the same on every client; a replay takes it from its journal header.
+var wood_economy: bool = true
 
 var _villagers: Array[Villager] = []
+## Per villager (spawn order = id): hired as a lumberjack, and the chopping progress in
+## 1/(TICK_RATE * 60) wood (whole numbers only: it is part of the simulation).
+var _hired: Array[bool] = []
+var _chop_progress: Array[int] = []
 var _grid: WalkGrid = null
 var _paths: Array[Path3D] = []
 var _slots := PackedVector3Array()
@@ -96,6 +112,8 @@ func spawn(
 		add_child(villager)
 		villager.global_position = spot
 		_villagers.append(villager)
+		_hired.append(false)
+		_chop_progress.append(0)
 
 
 func get_villagers() -> Array[Villager]:
@@ -162,6 +180,110 @@ func sell(lots: int) -> int:
 	game_state.add_gold(gold)
 	wood_sold.emit(wood, gold)
 	return gold
+
+
+## Gold the next bought lot costs.
+func buy_price() -> int:
+	return trade.buy_lot_gold(lots_bought)
+
+
+## Lots the player may still buy this level.
+func buy_lots_left() -> int:
+	return maxi(trade.buy_max_lots - lots_bought, 0) if wood_economy else 0
+
+
+## Whole lots the gold and the limit allow, at most `wanted`.
+func buy_lots_affordable(wanted: int = 1000) -> int:
+	if game_state == null:
+		return 0
+	var lots: int = 0
+	var gold: int = game_state.gold
+	var limit: int = mini(wanted, buy_lots_left())
+	while lots < limit:
+		var price: int = trade.buy_lot_gold(lots_bought + lots)
+		if price > gold:
+			break
+		gold -= price
+		lots += 1
+	return lots
+
+
+## Gold for the next `lots` bought lots.
+func buy_quote(lots: int) -> int:
+	return trade.buy_quote(lots_bought, lots)
+
+
+## Buys up to `lots` lots of wood from the villagers for gold (never more than the
+## limit or the gold allow). Returns the lots bought (0: nothing happened).
+func buy(lots: int) -> int:
+	if not wood_economy or lots <= 0:
+		return 0
+	lots = buy_lots_affordable(lots)
+	if lots <= 0:
+		return 0
+	var gold: int = buy_quote(lots)
+	if not game_state.spend(Vector2i(gold, 0)):
+		return 0
+	lots_bought += lots
+	game_state.add_wood(lots * trade.wood_per_lot)
+	wood_bought.emit(lots * trade.wood_per_lot, gold)
+	return lots
+
+
+func hired_count() -> int:
+	var n: int = 0
+	for flag in _hired:
+		n += 1 if flag else 0
+	return n
+
+
+func is_hired(index: int) -> bool:
+	return index >= 0 and index < _hired.size() and _hired[index]
+
+
+## Index of `villager` in the spawn order (-1 if it is not one of ours).
+func index_of(villager: Villager) -> int:
+	return _villagers.find(villager)
+
+
+## Hires villager `index` as a lumberjack for trade.hire_gold. False: not in this mode,
+## no such villager, already hired, the limit is reached or too little gold.
+func hire(index: int) -> bool:
+	if not wood_economy or index < 0 or index >= _villagers.size() or _hired[index]:
+		return false
+	if hired_count() >= trade.hire_max or not game_state.spend(Vector2i(trade.hire_gold, 0)):
+		return false
+	_hired[index] = true
+	_chop_progress[index] = 0
+	_villagers[index].set_lumberjack(true)
+	lumberjack_hired.emit(index)
+	return true
+
+
+## One simulation step: every lumberjack (by index) earns wood, a whole piece at a time.
+func sim_step() -> void:
+	var per_wood: int = trade.chop_accum_limit()
+	for i in _hired.size():
+		if not _hired[i]:
+			continue
+		_chop_progress[i] += trade.hire_wood_per_minute
+		if _chop_progress[i] >= per_wood:
+			_chop_progress[i] -= per_wood
+			game_state.add_wood(1)
+			lumberjack_chopped.emit(i)
+
+
+## Integers of the economy for the state hash: nothing before the first purchase or hire,
+## so battles that never use it keep the hashes they always had.
+func state_ints() -> Array[int]:
+	var out: Array[int] = []
+	if lots_bought == 0 and hired_count() == 0:
+		return out
+	out.append(lots_bought)
+	for i in _hired.size():
+		out.append(1 if _hired[i] else 0)
+		out.append(_chop_progress[i])
+	return out
 
 
 ## Share of open ground within stroll_radius of `spot` (3 rings of 8 samples).

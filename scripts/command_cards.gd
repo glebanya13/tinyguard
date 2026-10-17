@@ -11,6 +11,9 @@ const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const HEART_ICON: Texture2D = preload("res://ui/icons/heart.png")
 const CANCEL_ICON: Texture2D = preload("res://ui/icons/cancel.png")
 const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
+const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
+const SHOP_ICON: Texture2D = preload("res://ui/icons/shop.png")
+const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 
 
 static func _t(key: String) -> String:
@@ -159,24 +162,26 @@ static func forge(hero: Hero, game_state: GameState) -> Dictionary:
 	return info
 
 
-## Trade card: sell wood to the villager in lots, the price drops with every lot.
-static func trade(villagers: Villagers, game_state: GameState) -> Dictionary:
+## Trade card of the villager `who`: sell wood (the price drops with every lot), buy wood
+## (dearer, a few lots a battle) and hire him as a lumberjack. The last two exist only where
+## Villagers.wood_economy is on (the campaign and co-op); elsewhere the card says so.
+static func trade(villagers: Villagers, game_state: GameState, who: Villager = null) -> Dictionary:
 	var lot: int = villagers.trade.wood_per_lot
 	var lots: int = villagers.lots_affordable()
 	var price: int = villagers.lot_price()
-	var info := {"title": TranslationServer.translate("CARD_VILLAGER")}
+	var index: int = villagers.index_of(who) if who != null else -1
+	var hired_here: bool = villagers.is_hired(index)
+	var info := {
+		"title": TranslationServer.translate("CARD_LUMBERJACK" if hired_here else "CARD_VILLAGER")
+	}
 	info["stats"] = (
 		TranslationServer.translate("CARD_TRADE_STATS") % [lot, price, game_state.wood]
 	)
-	info["hint"] = (
-		TranslationServer.translate("CARD_TRADE_HINT")
-		if lots > 0
-		else TranslationServer.translate("CARD_NEED_WOOD_VILLAGER") % lot
-	)
-	info["buttons"] = [
+	var buttons: Array[Dictionary] = [
 		{
 			"id": &"trade_lot",
 			"icon": VILLAGER_ICON,
+			"caption": TranslationServer.translate("CARD_SELL_NAME"),
 			"gold": price,
 			"gain": true,
 			"enabled": lots > 0,
@@ -185,12 +190,29 @@ static func trade(villagers: Villagers, game_state: GameState) -> Dictionary:
 		{
 			"id": &"trade_all",
 			"icon": SELL_ICON,
+			"caption": TranslationServer.translate("CARD_ALL_NAME"),
 			"gold": villagers.quote(lots),
 			"gain": true,
 			"enabled": lots > 0,
 			"tooltip":
 			TranslationServer.translate("CARD_TRADE_ALL_TIP") % [lots * lot, villagers.quote(lots)]
 		},
+	]
+	if not villagers.wood_economy:
+		info["hint"] = TranslationServer.translate("CARD_TRADE_NO_ECONOMY")
+	else:
+		buttons.append_array(_buy_and_hire(villagers, game_state, index))
+		info["hint"] = (
+			TranslationServer.translate("CARD_TRADE_ECONOMY")
+			% [
+				villagers.trade.buy_max_lots - villagers.buy_lots_left(),
+				villagers.trade.buy_max_lots,
+				villagers.hired_count(),
+				villagers.trade.hire_max,
+				villagers.trade.hire_wood_per_minute
+			]
+		)
+	buttons.append(
 		{
 			"id": &"cancel",
 			"icon": CANCEL_ICON,
@@ -198,5 +220,62 @@ static func trade(villagers: Villagers, game_state: GameState) -> Dictionary:
 			"enabled": true,
 			"tooltip": TranslationServer.translate("CARD_CLOSE_TIP")
 		}
-	]
+	)
+	info["buttons"] = buttons
 	return info
+
+
+## "Buy" buttons (one lot, as many as gold and the limit allow) and "Hire" for villager `index`.
+static func _buy_and_hire(villagers: Villagers, game_state: GameState, index: int) -> Array:
+	var trade: VillagerTrade = villagers.trade
+	var lot: int = trade.wood_per_lot
+	var left: int = villagers.buy_lots_left()
+	var can: int = villagers.buy_lots_affordable()
+	var bought: int = trade.buy_max_lots - left
+	var buy_one := {
+		"id": &"buy_lot",
+		"icon": WOOD_ICON,
+		"caption": TranslationServer.translate("CARD_BUY_NAME"),
+		"enabled": can > 0,
+		"tooltip":
+		(
+			TranslationServer.translate("CARD_BUY_LOT_TIP")
+			% [lot, villagers.buy_price(), bought, trade.buy_max_lots]
+		)
+	}
+	var buy_all := {
+		"id": &"buy_all",
+		"icon": SHOP_ICON,
+		"caption": TranslationServer.translate("CARD_ALL_NAME"),
+		"enabled": can > 0,
+		"tooltip":
+		(
+			TranslationServer.translate("CARD_BUY_ALL_TIP")
+			% [maxi(can, 1) * lot, villagers.buy_quote(maxi(can, 1))]
+		)
+	}
+	if left <= 0:
+		buy_one["label"] = "%d/%d" % [bought, trade.buy_max_lots]
+		buy_all["label"] = buy_one["label"]
+	else:
+		buy_one["gold"] = villagers.buy_price()
+		buy_all["gold"] = villagers.buy_quote(maxi(can, 1))
+	var hire := {
+		"id": &"hire",
+		"icon": AXE_ICON,
+		"caption": TranslationServer.translate("CARD_HIRE_NAME"),
+		"enabled": false,
+		"tooltip":
+		(
+			TranslationServer.translate("CARD_HIRE_TIP")
+			% [trade.hire_gold, trade.hire_wood_per_minute, villagers.hired_count(), trade.hire_max]
+		)
+	}
+	if villagers.is_hired(index):
+		hire["label"] = TranslationServer.translate("CARD_HIRED")
+	elif villagers.hired_count() >= trade.hire_max:
+		hire["label"] = "%d/%d" % [villagers.hired_count(), trade.hire_max]
+	else:
+		hire["gold"] = trade.hire_gold
+		hire["enabled"] = index >= 0 and game_state.gold >= trade.hire_gold
+	return [buy_one, buy_all, hire]

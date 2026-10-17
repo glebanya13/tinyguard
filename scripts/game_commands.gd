@@ -96,6 +96,10 @@ func apply(cmd: GameCommand) -> bool:
 			ok = game_state.repair()
 		GameCommand.Type.TRADE:
 			ok = villagers.sell(cmd.args[0]) > 0
+		GameCommand.Type.TRADE_BUY:
+			ok = villagers.buy(cmd.args[0]) > 0
+		GameCommand.Type.HIRE:
+			ok = villagers.hire(cmd.args[0])
 		GameCommand.Type.HERO_ATTACK:
 			var origin: Vector3 = GameCommand.point_from_mm(cmd.args[0], cmd.args[1])
 			var striker: Hero = _hero_of(cmd.player)

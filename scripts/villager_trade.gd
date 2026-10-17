@@ -10,6 +10,20 @@ extends Resource
 @export var price_decay: float = 0.93
 @export var min_gold: int = 2
 
+@export_group("Buying wood")
+## The villager sells wood back in the same lots: the first lot costs `buy_start_gold`,
+## every bought lot makes the next `buy_growth` times dearer, at most `buy_max_lots` a battle.
+@export var buy_start_gold: float = 14.0
+@export var buy_growth: float = 1.08
+@export var buy_max_lots: int = 6
+
+@export_group("Lumberjacks")
+## A villager hired for `hire_gold` chops `hire_wood_per_minute` wood a minute (wood only,
+## never gold); at most `hire_max` of the level's villagers can be hired.
+@export var hire_gold: int = 25
+@export var hire_max: int = 2
+@export var hire_wood_per_minute: int = 5
+
 
 ## Gold for one lot after `sold` lots were already sold this level.
 func lot_gold(sold: int) -> int:
@@ -22,3 +36,24 @@ func quote(sold: int, lots: int) -> int:
 	for i in lots:
 		total += lot_gold(sold + i)
 	return total
+
+
+## Gold for one bought lot after `bought` lots were already bought this level.
+## Buying is dearer than selling by at least `buy_start_gold - start_gold`, so a
+## round trip (buy, sell back) always loses gold.
+func buy_lot_gold(bought: int) -> int:
+	return maxi(1, roundi(buy_start_gold * pow(buy_growth, bought)))
+
+
+## Gold for `lots` lots in a row, starting after `bought` bought lots.
+func buy_quote(bought: int, lots: int) -> int:
+	var total: int = 0
+	for i in lots:
+		total += buy_lot_gold(bought + i)
+	return total
+
+
+## One wood is `TICK_RATE * 60` units of chopping progress; a lumberjack earns
+## `hire_wood_per_minute` units a tick (whole numbers: 5 a minute = one wood per 360 ticks).
+func chop_accum_limit() -> int:
+	return Sim.TICK_RATE * 60

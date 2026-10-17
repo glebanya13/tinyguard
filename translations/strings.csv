@@ -271,6 +271,17 @@ CARD_TRADE_STATS,Курс: %d дерева → %d золота · дерева �
 CARD_TRADE_HINT,"Чем больше продаёте, тем ниже цена","The more you sell, the lower the price"
 CARD_TRADE_LOT_TIP,Продать %d дерева → +%d золота,Sell %d wood → +%d gold
 CARD_TRADE_ALL_TIP,Продать всё: %d дерева → +%d золота,Sell all: %d wood → +%d gold
+CARD_LUMBERJACK,Дровосек,Lumberjack
+CARD_ALL_NAME,Всё,All
+CARD_BUY_NAME,Купить,Buy
+CARD_HIRE_NAME,Нанять,Hire
+CARD_HIRED,Нанят,Hired
+CARD_TRADE_ECONOMY,Куплено лотов: %d/%d · дровосеков: %d/%d (+%d дерева/мин),Lots bought: %d/%d · lumberjacks: %d/%d (+%d wood/min)
+CARD_TRADE_NO_ECONOMY,Покупка дерева и найм недоступны в этом режиме,Buying wood and hiring are not available in this mode
+CARD_BUY_LOT_TIP,Купить %d дерева за %d золота (лотов: %d/%d),Buy %d wood for %d gold (lots: %d/%d)
+CARD_BUY_ALL_TIP,Купить сколько можно: %d дерева за %d золота,Buy as much as you can: %d wood for %d gold
+CARD_HIRE_TIP,"Нанять дровосека за %d золота: +%d дерева в минуту, золота не даёт (нанято %d/%d)","Hire a lumberjack for %d gold: +%d wood a minute, no gold (hired %d/%d)"
+POPUP_LUMBERJACK,Нанят дровосек,Lumberjack hired
 GUIDE_CHOP,Нажмите на дерево — рыцарь нарубит дров,Tap a tree and the knight chops wood
 GUIDE_GOLD,Бейте слизней у тропы — за них золото,"Hit slimes by the path, they drop gold"
 GUIDE_BUILD,Нажмите на площадку и постройте башню,Tap a plot and build a tower

@@ -5,7 +5,7 @@ extends Node
 ## happens depends only on the number of steps and on the commands applied
 ## between them, never on frame rate or time scale. Entities do not use
 ## `_process(delta)` for gameplay: they register here and get `sim_step()` once
-## per step, always in the same order (waves, enemies by id, towers by id,
+## per step, always in the same order (waves, lumberjacks, enemies by id, towers by id,
 ## projectiles by id). Their nodes only draw (interpolating by `alpha()`).
 ##
 ## Commands (GameCommands) are applied between steps; with a journal set by
@@ -19,7 +19,7 @@ signal speed_changed(speed: int)
 signal replay_begun(header: Dictionary)
 
 ## Bump on any change that alters battle results (replays of other versions are stale).
-const VERSION: int = 1
+const VERSION: int = 2
 const TICK_RATE: int = 30
 const TICK_DT: float = 1.0 / TICK_RATE
 ## Steps per frame at most (a long hitch must not freeze the game in catch-up).
@@ -253,6 +253,8 @@ func step() -> void:
 				action.call()
 	if wave_manager != null:
 		wave_manager.sim_step(tick)
+	if villagers != null:
+		villagers.sim_step()
 	for enemy in enemies.duplicate():
 		enemy.sim_step()
 	for tower in towers.duplicate():
@@ -282,6 +284,7 @@ func state_hash() -> int:
 		h = _mix_all(h, hero.state_ints())
 	if villagers != null:
 		h = _mix(h, villagers.lots_sold)
+		h = _mix_all(h, villagers.state_ints())
 	h = _mix(h, enemies.size())
 	for enemy in enemies:
 		h = _mix_all(h, enemy.state_ints())

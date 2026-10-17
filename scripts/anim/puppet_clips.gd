@@ -40,6 +40,7 @@ static func _build() -> void:
 	_clips[&"hop"] = _hop(1)
 	_clips[&"cheer"] = _hop(2)
 	_clips[&"skip"] = _skip()
+	_clips[&"chop"] = _chop()
 
 
 ## Sword slash: wind-up, strike at ~0.21 s (the Sim hits at 0.2 s), recover.
@@ -239,5 +240,30 @@ static func _skip() -> Dictionary:
 			P.BODY: [_k(0.0), _k(0.15, Vector3(0, 0, 8)), _k(0.45, Vector3(0, 0, -8)), _k(0.6)],
 			P.ARM_L: [_k(0.0), _k(0.15, Vector3(0, -60, 0)), _k(0.45, Vector3(0, -20, 0)), _k(0.6)],
 			P.ARM_R: [_k(0.0), _k(0.15, Vector3(0, 20, 0)), _k(0.45, Vector3(0, 60, 0)), _k(0.6)],
+		}
+	}
+
+
+## Woodcutting on the spot: both arms raise the axe and swing it down twice, the body
+## bows into each blow.
+static func _chop() -> Dictionary:
+	var up := Vector3(-150, 0, 0)
+	var down := Vector3(-25, 0, 0)
+	return {
+		length = 1.0,
+		tracks =
+		{
+			P.ARM_R: [_k(0.0), _k(0.14, up), _k(0.28, down), _k(0.5, up), _k(0.64, down), _k(1.0)],
+			P.ARM_L: [_k(0.0), _k(0.14, up), _k(0.28, down), _k(0.5, up), _k(0.64, down), _k(1.0)],
+			P.BODY:
+			[
+				_k(0.0),
+				_k(0.14, Vector3(-6, 0, 0)),
+				_k(0.28, Vector3(16, 0, 0), Vector3.ZERO, Vector3(1.04, 1.04, 0.94)),
+				_k(0.5, Vector3(-6, 0, 0)),
+				_k(0.64, Vector3(16, 0, 0), Vector3.ZERO, Vector3(1.04, 1.04, 0.94)),
+				_k(1.0),
+			],
+			P.HEAD: [_k(0.0), _k(0.28, Vector3(10, 0, 0)), _k(0.64, Vector3(10, 0, 0)), _k(1.0)],
 		}
 	}

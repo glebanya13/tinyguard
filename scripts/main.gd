@@ -205,7 +205,10 @@ func _ready() -> void:
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
 	villagers.seed_value = _sim.seed_value
+	villagers.wood_economy = not _endless  # the Record Run and the daily challenge: sell only
 	villagers.wood_sold.connect(_on_wood_sold)
+	villagers.wood_bought.connect(_on_wood_bought)
+	villagers.lumberjack_chopped.connect(_on_lumberjack_chopped)
 	_level_root.add_child(villagers)
 
 	_hud.set_gold(_game_state.gold)
@@ -356,6 +359,7 @@ func _on_replay_begun(header: Dictionary) -> void:
 	_difficulty = clampi(int(header.get("difficulty", 0)), 0, Balance.difficulty_count() - 1)
 	_apply_perks(header.get("perks", {}))
 	_apply_difficulty()
+	villagers.wood_economy = not bool(header.get("endless", false))
 	if header.has("daily"):
 		DailyRun.apply(str(header["daily"]), _wave_manager.plan, _wave_manager, _build_manager)
 
@@ -370,6 +374,11 @@ func _on_command_applied(cmd: GameCommand, ok: bool) -> void:
 			cards.refresh()
 		GameCommand.Type.REPAIR:
 			_spawn_fx(BUILD_FX, builder.castle.global_position)
+			cards.refresh()
+		GameCommand.Type.HIRE:
+			var hired: Villager = villagers.get_villagers()[cmd.args[0]]
+			_popup(tr("POPUP_LUMBERJACK"), hired.global_position + Vector3.UP * 1.9, WOOD_COLOR)
+			hired.cheer()
 			cards.refresh()
 
 
@@ -513,6 +522,19 @@ func _on_wood_sold(_wood: int, gold: int) -> void:
 	_popup("+%d" % gold, at + Vector3.UP * 1.4, GOLD_COLOR, COIN_ICON)
 	if talking != null:
 		talking.cheer()
+
+
+func _on_wood_bought(wood: int, _gold: int) -> void:
+	var talking: Villager = cards.trade_with
+	var at: Vector3 = talking.global_position if talking else _hero.global_position
+	_popup("+%d" % wood, at + Vector3.UP * 1.4, WOOD_COLOR, WOOD_ICON)
+	if talking != null:
+		talking.cheer()
+
+
+## A hired lumberjack brings a piece of wood (a small sign over him).
+func _on_lumberjack_chopped(index: int) -> void:
+	_popup("+1", villagers.get_villagers()[index].global_position + Vector3.UP * 1.9, WOOD_COLOR)
 
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:

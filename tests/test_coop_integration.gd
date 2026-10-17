@@ -250,6 +250,16 @@ func _bot(side: Peer) -> void:
 			if not slot.is_free() and t % 60 == 0 and bm.can_upgrade(slot):
 				commands.submit(GameCommand.upgrade(slot.slot_id))
 				break
+	# The villagers' wood economy travels as commands too: both players try to hire the same
+	# villager in the same tick (the second hire is refused everywhere alike), the guest hires
+	# the other one later and each buys a lot of wood.
+	if t == 5:
+		commands.submit(GameCommand.hire(0))
+	if side.slot == 1 and t == 10:
+		commands.submit(GameCommand.hire(1))
+	if (side.slot == 0 and t == 5) or (side.slot == 1 and t % 100 == 10):
+		if side.main.villagers.lots_bought < 2:
+			commands.submit(GameCommand.trade_buy(1))
 	# Target priority is a command that travels between the players too.
 	if t >= 600 and t % 150 == 0:
 		for slot in commands.slots:
@@ -290,6 +300,24 @@ func _test_wire_commands() -> void:
 		GameCommand.from_wire("build", [3], 1, 0) == null, "build with a missing argument refused"
 	)
 	check(GameCommand.from_wire("sword", [1], 1, 0) == null, "sword with an extra argument refused")
+	check(GameCommand.from_wire("buy_wood", [], 1, 0) == null, "buy_wood needs its lots")
+	check(
+		GameCommand.from_wire("hire", [0, 1], 1, 0) == null, "hire with an extra argument refused"
+	)
+	var bought: GameCommand = GameCommand.from_wire("buy_wood", [3], 1, 9)
+	check(
+		bought != null and bought.type == GameCommand.Type.TRADE_BUY and bought.args == [3],
+		"buy_wood travels"
+	)
+	var hired: GameCommand = GameCommand.from_wire("hire", [1], 0, 9)
+	check(hired != null and hired.type == GameCommand.Type.HIRE, "hire travels")
+	check(
+		(
+			CoopProtocol.is_valid_command(9, "buy_wood", [2])
+			and CoopProtocol.is_valid_command(9, "hire", [0])
+		),
+		"the protocol knows the new commands"
+	)
 	check(GameCommand.from_wire("pause", [1], 1, 0) == null, "pause never travels")
 	check(GameCommand.from_wire("speed", [2], 1, 0) == null, "speed never travels")
 	check(GameCommand.from_wire("nope", [], 1, 0) == null, "unknown command refused")
@@ -407,6 +435,30 @@ func _test_match() -> void:
 			and kinds.has(GameCommand.Type.HERO_ATTACK)
 		),
 		"many kinds of commands (%d)" % kinds.size()
+	)
+	var hires: Array[int] = []
+	var buyers: Array[int] = []
+	for cmd: GameCommand in jh:
+		if cmd.type == GameCommand.Type.HIRE:
+			hires.append(cmd.args[0])
+		elif cmd.type == GameCommand.Type.TRADE_BUY:
+			buyers.append(cmd.player)
+	check(
+		hires == [0, 1], "hired villagers 0 and 1, the double hire of 0 was refused: %s" % [hires]
+	)
+	check(
+		buyers.size() == 2 and buyers.has(0) and buyers.has(1),
+		"both players bought wood: %s" % [buyers]
+	)
+	var folk_h: Villagers = host.main.villagers
+	var folk_g: Villagers = guest.main.villagers
+	check(
+		folk_h.wood_economy and folk_g.wood_economy and folk_h.hired_count() == 2,
+		"co-op allows the wood economy: %d hired" % folk_h.hired_count()
+	)
+	check(
+		folk_h.lots_bought == folk_g.lots_bought and folk_h.state_ints() == folk_g.state_ints(),
+		"villager economy equal on both sides (%d lots)" % folk_h.lots_bought
 	)
 	check(ha[HASH_EVERY * 10] != ha[HASH_EVERY * 100], "the state changes over time")
 	var same_prefix := true
