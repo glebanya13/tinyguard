@@ -247,7 +247,7 @@ export const en: Content = {
         },
         {
           q: "How do I continue on another phone?",
-          a: "Create an account (e-mail and password) on the first screen or in Profile: your progress is saved in the cloud, so you can sign in on another device and reset the password. You can also play without an account ("Play without an account"), but then progress stays tied to this device.",
+          a: "Create an account (e-mail and password) on the first screen or in Profile: your progress is saved in the cloud, so you can sign in on another device and reset the password. You can also play without an account (“Play without an account”), but then progress stays tied to this device.",
         },
         {
           q: "What data do you collect?",
@@ -292,7 +292,7 @@ export const en: Content = {
         blocks: [
           {
             t: "p",
-            text: "Online features (leaderboard, cloud save and co-op) are on only in builds with Firebase configured. The main way to sign in is an **account with e-mail and password**, so progress survives a new phone or a reinstall. You can also play **without an account** ("Play without an account"): then no e-mail is collected and progress is tied to this device. For an account we process the e-mail and password through Firebase Authentication and send you a confirmation e-mail; the game is not blocked until the e-mail is confirmed.",
+            text: "Online features (leaderboard, cloud save and co-op) are on only in builds with Firebase configured. The main way to sign in is an **account with e-mail and password**, so progress survives a new phone or a reinstall. You can also play **without an account** (“Play without an account”): then no e-mail is collected and progress is tied to this device. For an account we process the e-mail and password through Firebase Authentication and send you a confirmation e-mail; the game is not blocked until the e-mail is confirmed.",
           },
           {
             t: "p",
