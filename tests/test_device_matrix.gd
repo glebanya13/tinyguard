@@ -30,6 +30,7 @@ const NOTCH_SCREENS: Array[Vector2i] = [
 	Vector2i(1600, 720), Vector2i(2340, 1080), Vector2i(2400, 1080)
 ]
 const LOCALES: Array[String] = ["ru", "en"]
+const MAIN_SCENE := "res://scenes/main.tscn"
 const MAP_SCENE := "res://scenes/level_select.tscn"
 
 var fails := 0
@@ -76,6 +77,7 @@ func _run() -> void:
 			await _screen(s, Vector4.ZERO, locale)
 			if s in NOTCH_SCREENS:
 				await _screen(s, NOTCH, locale)
+	await _live_resize()
 	ScreenUtil.fake_margins = Vector4.ZERO
 	GameSettings.set_language("auto")
 	LevelCatalog.erase_all()
@@ -227,7 +229,7 @@ func _screen(window: Vector2i, notch: Vector4, locale: String) -> void:
 	await _frames(2)
 	# --- the battle: HUD, build menu, selected tower, pause, end screen ---
 	LevelCatalog.selected_id = 3
-	var main: Node = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var main: Node = (load(MAIN_SCENE) as PackedScene).instantiate()
 	main.get_node("HUD").set("_touch", true)
 	root.add_child(main)
 	await _frames(8)
@@ -272,6 +274,33 @@ func _screen(window: Vector2i, notch: Vector4, locale: String) -> void:
 	await _frames(10)
 	_audit(root, tag + " map", notch, true)
 	map.queue_free()
+	await _frames(3)
+
+
+## Split-screen, rotation of a foldable, a Chromebook window dragged to another size: the
+## window changes while the battle is open and the HUD must follow.
+func _live_resize() -> void:
+	GameSettings.set_language("en")
+	ScreenUtil.fake_margins = Vector4.ZERO
+	root.size = Vector2i(2340, 1080)
+	await _frames(2)
+	LevelCatalog.selected_id = 3
+	var main: Node = (load(MAIN_SCENE) as PackedScene).instantiate()
+	main.get_node("HUD").set("_touch", true)
+	root.add_child(main)
+	await _frames(8)
+	var hud: Hud = main.get_node("HUD")
+	for window: Vector2i in [
+		Vector2i(1280, 720),
+		Vector2i(800, 480),
+		Vector2i(1024, 768),
+		Vector2i(2560, 1600),
+		Vector2i(2340, 1080),
+	]:
+		root.size = window
+		await _frames(4)
+		_audit(hud, "resize to %dx%d hud" % [window.x, window.y], Vector4.ZERO)
+	main.queue_free()
 	await _frames(3)
 
 
