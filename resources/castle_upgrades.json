@@ -1,0 +1,9 @@
+{
+	"_comment": "Castle upgrades (GameCommand.UPGRADE_CASTLE, scripts/game_state.gd, scripts/castle_upgrades.gd; tools/balance_sim.py reads the same file). One row per upgrade, in order: price (gold, wood), lives added to the castle (and to its repair ceiling) and the cumulative ARMOR after the upgrade: every enemy that gets through takes max(1, base_damage - armor) lives. Same prices in every mode (campaign, record run, daily, co-op); nothing is saved between battles.",
+	"levels": [
+		{"gold": 40, "wood": 30, "lives": 3, "armor": 0},
+		{"gold": 75, "wood": 55, "lives": 3, "armor": 1},
+		{"gold": 120, "wood": 85, "lives": 4, "armor": 1},
+		{"gold": 180, "wood": 130, "lives": 5, "armor": 2}
+	]
+}

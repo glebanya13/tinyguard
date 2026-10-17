@@ -587,7 +587,7 @@ func _on_tower_upgraded(slot: TowerSlot, _tower: Tower) -> void:
 
 func _on_enemy_reached_base(damage: int) -> void:
 	_base_hit.play()
-	_game_state.lose_lives(damage)
+	_game_state.take_leak(damage)
 
 
 ## The paths of the starting wave: remember the "С севера!" text for the banner,
