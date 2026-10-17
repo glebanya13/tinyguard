@@ -55,6 +55,8 @@ func build(
 		# Ground, small props and the far forest cast no shadows (half the triangles
 		# of the frame otherwise go to the shadow pass); trees and towers still do.
 		node.set_script(NO_SHADOW)
+		if part != "terrain":
+			node.add_to_group(&"qg_" + part)  # the quality guard may hide them
 		_root.add_child(node)
 		if part == "decor":
 			_plant_trees(node)

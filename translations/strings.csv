@@ -630,3 +630,5 @@ MAP_DIR_S,Ю,S
 MAP_DIR_SW,ЮЗ,SW
 MAP_DIR_W,З,W
 MAP_DIR_NW,СЗ,NW
+CRASH_NOTICE_TITLE,Прошлый запуск закрылся неожиданно,The last run closed unexpectedly
+CRASH_NOTICE_BODY,Качество графики понижено для стабильной игры.,Graphics quality was lowered to keep the game stable.

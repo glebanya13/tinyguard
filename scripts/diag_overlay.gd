@@ -60,13 +60,13 @@ func _notification(what: int) -> void:
 		NOTIFICATION_APPLICATION_RESUMED:
 			_write_trace("battle")
 		NOTIFICATION_WM_CLOSE_REQUEST:
-			CrashTrace.write("closed")
+			_write_trace("closed")
 
 
 func _exit_tree() -> void:
 	# Leaving the battle (to the map, restart) is an orderly end.
 	if _label != null:
-		CrashTrace.write("map")
+		_write_trace("map")
 
 
 ## `guard` may be null (tests).
@@ -165,10 +165,13 @@ func _write_trace(state: String) -> void:
 			state,
 			{
 				"level": _level_id,
-				"wave": _wave_manager.current_wave if _wave_manager else 0,
-				"enemies": _sim.enemies.size() if _sim else 0,
+				"wave": _wave_manager.current_wave if is_instance_valid(_wave_manager) else 0,
+				"enemies": _sim.enemies.size() if is_instance_valid(_sim) else 0,
 				"mem_mb": roundi(_static_mb()),
 				"fps": _fps,
+				"avail_mb": MemoryWatch.available_mb(),
+				"rss_mb": MemoryWatch.rss_mb(),
+				"notch": _guard.level if is_instance_valid(_guard) else 0,
 			}
 		)
 	)
