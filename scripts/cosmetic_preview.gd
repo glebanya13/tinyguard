@@ -29,7 +29,11 @@ func _init() -> void:
 	_viewport = SubViewport.new()
 	_viewport.own_world_3d = true
 	_viewport.transparent_bg = true
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	_viewport.msaa_3d = (
+		Viewport.MSAA_DISABLED
+		if GameSettings.graphics_tier() != GameSettings.GFX_HIGH
+		else Viewport.MSAA_2X
+	)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_viewport)
 	_pivot = Node3D.new()

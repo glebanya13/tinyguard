@@ -157,3 +157,13 @@ func _live() -> void:
 	check(
 		fired[0] == 1 and GameSettings.joystick_size() == 2, "an option saves and announces itself"
 	)
+	# Graphics quality: four big switches on the general tab, saved on the device.
+	panel._on_tab(0)
+	panel.open()
+	var gfx: Button = panel.find_child("Gfx_1", true, false)
+	check(gfx != null and gfx.custom_minimum_size.y >= 84.0, "graphics buttons are at least 84 px")
+	check(
+		panel.find_children("Gfx_*", "Button", true, false).size() == 4, "auto, low, medium, high"
+	)
+	gfx.pressed.emit()
+	check(GameSettings.graphics() == GameSettings.GFX_LOW, "the graphics choice is saved")

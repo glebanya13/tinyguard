@@ -34,12 +34,29 @@ var _cooldown: float = 0.0
 var _last_usec: int = 0
 
 
-## Takes the settings it may lower and applies the notches already taken.
+## Notches a battle starts on for a graphics tier: the low tier begins with the sun shadows
+## off, MSAA off and fewer effects (notch 3), the others with everything on.
+static func start_level_for(tier: int) -> int:
+	return 3 if tier == GameSettings.GFX_LOW else 0
+
+
+## The player changed the graphics choice: forget what the guard lowered so far.
+static func reset_session() -> void:
+	session_level = 0
+	GameSettings.cap_effects(GameSettings.FX_FULL)
+
+
+## Takes the settings it may lower and applies the notches already taken (those of this
+## session, or those of the graphics tier when that is lower).
 func setup(sun: DirectionalLight3D, viewport: Viewport) -> void:
 	_sun = sun
 	_viewport = viewport
 	level = 0
-	while level < session_level:
+	var tier: int = GameSettings.graphics_tier()
+	if tier == GameSettings.GFX_MEDIUM and _viewport != null:
+		_viewport.msaa_3d = Viewport.MSAA_DISABLED  # medium: sharp edges cost bandwidth
+	var start: int = maxi(session_level, start_level_for(tier))
+	while level < start:
 		level += 1
 		_apply(level)
 

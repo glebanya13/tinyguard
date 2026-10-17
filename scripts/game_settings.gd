@@ -23,12 +23,31 @@ const LAYOUT_DEFAULTS := {
 	"minimap_size": 1,
 	"minimap_mode": 2,
 }
+## Graphics quality choice (auto / low / medium / high) and the tier it resolves to. Purely
+## visual (shadows, MSAA, effects): never touches the simulation. "auto" looks at the phone.
+const GFX_AUTO := 0
+const GFX_LOW := 1
+const GFX_MEDIUM := 2
+const GFX_HIGH := 3
+const GFX_NAMES: Array[String] = ["auto", "low", "medium", "high"]
+## Phones with less physical RAM than this (MB) start on the low tier. A "3 GB" phone reports
+## about 2.7-2.9 GB, a "4 GB" one about 3.6-3.8 GB (the kernel keeps a part).
+const LOW_RAM_MB := 3300
+## Phones with at least this much RAM (MB) and no weak GPU start on the high tier.
+const HIGH_RAM_MB := 5400
+## GPU names (lower case) of entry-level chips: old Mali-4xx/T, G31/G51/G52/G71, Adreno 3xx-5xx
+## and 610-613, PowerVR. A heuristic: the player can always pick the tier by hand.
+const WEAK_GPU_PATTERN := (
+	"mali-(4\\d\\d|t\\d+|g31|g51|g52|g71)" + "|adreno \\(tm\\) ?([345]\\d\\d|61[0123])\\b|powervr"
+)
 ## Locale used when the system language has no translation.
 const FALLBACK_LOCALE := "en"
 const SUPPORTED_LOCALES: Array[String] = ["ru", "en"]
 
 ## Tests point this at a scratch file.
 static var config_path: String = "user://settings.cfg"
+## Tier found on this device (GFX_LOW..GFX_HIGH); 0 = not detected yet.
+static var _detected: int = 0
 ## Cached effects level (FX_*); -1 = not read from the file yet.
 static var _effects: int = -1
 ## Level forced by BIMBLEGUARD_FX (-1 = none); -2 = environment not read yet.
@@ -95,6 +114,59 @@ static func cap_effects(level: int) -> void:
 
 static func effects_cap() -> int:
 	return _cap
+
+
+## Saved graphics choice: GFX_AUTO .. GFX_HIGH.
+static func graphics() -> int:
+	var cfg := ConfigFile.new()
+	if cfg.load(config_path) != OK:
+		return GFX_AUTO
+	var name: String = str(cfg.get_value("ui", "graphics", "auto"))
+	return maxi(GFX_NAMES.find(name), 0)
+
+
+static func set_graphics(choice: int) -> void:
+	choice = clampi(choice, GFX_AUTO, GFX_HIGH)
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("ui", "graphics", GFX_NAMES[choice])
+	cfg.save(config_path)
+
+
+## The tier a phone gets from its memory and GPU (pure: tests feed it numbers). Desktop
+## builds always get the high tier; unknown memory (<= 0) does not lower anything.
+static func classify_device(ram_mb: int, adapter: String, mobile: bool) -> int:
+	if not mobile:
+		return GFX_HIGH
+	var gpu_name: String = adapter.to_lower()
+	var weak_gpu: bool = false
+	if gpu_name != "":
+		var re := RegEx.new()
+		re.compile(WEAK_GPU_PATTERN)
+		weak_gpu = re.search(gpu_name) != null
+	if weak_gpu or (ram_mb > 0 and ram_mb < LOW_RAM_MB):
+		return GFX_LOW
+	if ram_mb >= HIGH_RAM_MB:
+		return GFX_HIGH
+	return GFX_MEDIUM
+
+
+## Tier of this device (found once per run).
+static func detected_tier() -> int:
+	if _detected == 0:
+		var physical: int = int(OS.get_memory_info().get("physical", -1))
+		_detected = classify_device(
+			physical / 1048576 if physical > 0 else -1,
+			RenderingServer.get_video_adapter_name(),
+			OS.has_feature("mobile")
+		)
+	return _detected
+
+
+## The tier a battle starts on: the choice, or the detected one for "auto".
+static func graphics_tier() -> int:
+	var choice: int = graphics()
+	return detected_tier() if choice == GFX_AUTO else choice
 
 
 ## Diagnostics overlay (FPS, memory, enemies): hidden until the version line in the

@@ -321,6 +321,11 @@ SET_FX,Эффекты: %s,Effects: %s
 SET_FX_OFF,выключено,off
 SET_FX_MIN,минимум,minimum
 SET_FX_FULL,полные,full
+SET_GFX,Качество графики (со следующего боя),Graphics quality (from the next battle)
+SET_GFX_AUTO,Авто,Auto
+SET_GFX_LOW,Низкое,Low
+SET_GFX_MEDIUM,Среднее,Medium
+SET_GFX_HIGH,Высокое,High
 SET_PRIVACY,Политика конфиденциальности,Privacy policy
 SET_DELETION,Удаление данных,Delete my data
 SET_VERSION,Версия %s,Version %s

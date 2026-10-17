@@ -20,6 +20,7 @@ const OPTION_ROWS: Array = [
 	["SET_MAP_SIZE", "minimap_size", ["SET_SMALL", "SET_MEDIUM", "SET_LARGE"]],
 	["SET_MAP_MODE", "minimap_mode", ["SET_MAP_SHOW", "SET_MAP_HIDE", "SET_MAP_WAVE"]],
 ]
+const GFX_KEYS: Array[String] = ["SET_GFX_AUTO", "SET_GFX_LOW", "SET_GFX_MEDIUM", "SET_GFX_HIGH"]
 const FX_KEYS: Array[String] = ["SET_FX_OFF", "SET_FX_MIN", "SET_FX_FULL"]
 ## Taps on the version line that switch the diagnostics overlay, and the longest gap between two.
 const VERSION_TAPS := 5
@@ -146,6 +147,24 @@ func _build_general() -> void:
 	_box.add_child(_fx_button)
 	_update_fx_text()
 
+	_box.add_child(UiKit.heading(tr("SET_GFX")))
+	var graphics := HBoxContainer.new()
+	graphics.add_theme_constant_override("separation", 8)
+	_box.add_child(graphics)
+	var gfx_group := ButtonGroup.new()
+	var gfx_current: int = GameSettings.graphics()
+	for i in GFX_KEYS.size():
+		var gfx := _button(tr(GFX_KEYS[i]), _on_graphics.bind(i), true, 120)
+		gfx.name = "Gfx_%d" % i
+		gfx.custom_minimum_size.y = 84.0
+		gfx.add_theme_font_size_override("font_size", 18)
+		gfx.theme_type_variation = &"ToggleButton"
+		gfx.toggle_mode = true
+		gfx.button_group = gfx_group
+		gfx.button_pressed = i == gfx_current
+		gfx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		graphics.add_child(gfx)
+
 	if GameInfo.PRIVACY_URL != "":
 		var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
 		privacy.name = "Link_privacy"
@@ -261,6 +280,13 @@ func _on_sound_pressed() -> void:
 
 func _update_sound_text() -> void:
 	_sound_button.text = tr("SET_SOUND_ON") if LevelCatalog.sound_on() else tr("SET_SOUND_OFF")
+
+
+func _on_graphics(choice: int) -> void:
+	if GameSettings.graphics() == choice:
+		return
+	GameSettings.set_graphics(choice)
+	QualityGuard.reset_session()  # takes effect from the next battle
 
 
 func _on_fx_pressed() -> void:

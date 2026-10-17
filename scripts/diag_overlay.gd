@@ -116,7 +116,20 @@ func text() -> String:
 			)
 		)
 	if _guard != null:
-		lines.append("quality notch %d/%d" % [_guard.level, QualityGuard.MAX_LEVEL])
+		(
+			lines
+			. append(
+				(
+					"quality notch %d/%d  tier %s (detected %s)"
+					% [
+						_guard.level,
+						QualityGuard.MAX_LEVEL,
+						GameSettings.GFX_NAMES[GameSettings.graphics_tier()],
+						GameSettings.GFX_NAMES[GameSettings.detected_tier()],
+					]
+				)
+			)
+		)
 	return "\n".join(lines)
 
 

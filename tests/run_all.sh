@@ -140,6 +140,8 @@ run "$GODOT" --headless --path . --script res://tests/test_signup_flow.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hud_layout.gd
+echo "== device matrix (screens, languages, cutouts)"
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_device_matrix.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_end_to_map.gd
 

@@ -24,6 +24,7 @@ func _run() -> void:
 	_test_budget()
 	_test_lifecycle()
 	_test_guard()
+	_test_tiers()
 	_test_trace_and_overlay()
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
@@ -111,6 +112,70 @@ func _test_guard() -> void:
 	GameSettings.cap_effects(GameSettings.FX_FULL)
 	root.msaa_3d = Viewport.MSAA_DISABLED
 	for node: Node in [sun, sun2, guard, again]:
+		node.free()
+
+
+func _test_tiers() -> void:
+	var low: int = GameSettings.GFX_LOW
+	var mid: int = GameSettings.GFX_MEDIUM
+	var high: int = GameSettings.GFX_HIGH
+	check(GameSettings.classify_device(2048, "Mali-G52 MC2", true) == low, "2 GB phone: low")
+	check(GameSettings.classify_device(2800, "Adreno (TM) 619", true) == low, "3 GB phone: low")
+	check(
+		GameSettings.classify_device(8000, "Mali-G52 MC2", true) == low,
+		"weak GPU: low even with RAM"
+	)
+	check(GameSettings.classify_device(8000, "Adreno (TM) 506", true) == low, "Adreno 5xx: low")
+	check(GameSettings.classify_device(8000, "Adreno (TM) 612", true) == low, "Adreno 612: low")
+	check(GameSettings.classify_device(8000, "PowerVR Rogue GE8320", true) == low, "PowerVR: low")
+	check(GameSettings.classify_device(3700, "Mali-G57 MC2", true) == mid, "4 GB phone: medium")
+	check(GameSettings.classify_device(5600, "Adreno (TM) 618", true) == high, "6 GB mid GPU: high")
+	check(GameSettings.classify_device(11000, "Adreno (TM) 740", true) == high, "flagship: high")
+	check(GameSettings.classify_device(-1, "", true) == mid, "unknown device: medium")
+	check(GameSettings.classify_device(1000, "Mali-400", false) == high, "desktop never lowered")
+	# The choice is saved; "auto" follows the detected tier, a manual choice wins.
+	check(GameSettings.graphics() == GameSettings.GFX_AUTO, "default is auto")
+	GameSettings.set_graphics(GameSettings.GFX_LOW)
+	check(GameSettings.graphics() == GameSettings.GFX_LOW, "choice is saved")
+	check(GameSettings.graphics_tier() == low, "manual low wins")
+	GameSettings.set_graphics(99)
+	check(GameSettings.graphics() == GameSettings.GFX_HIGH, "out-of-range choice is clamped")
+	GameSettings.set_graphics(GameSettings.GFX_AUTO)
+	GameSettings._detected = mid
+	check(GameSettings.graphics_tier() == mid, "auto follows the detected tier")
+	# A battle on the low tier starts with shadows, MSAA and part of the effects off.
+	GameSettings.set_graphics(GameSettings.GFX_LOW)
+	QualityGuard.session_level = 0
+	GameSettings.cap_effects(GameSettings.FX_FULL)
+	var sun := DirectionalLight3D.new()
+	sun.shadow_enabled = true
+	var guard := QualityGuard.new()
+	root.add_child(sun)
+	root.add_child(guard)
+	guard.setup(sun, root)
+	check(guard.level == 3 and not sun.shadow_enabled, "low tier: starts lowered (shadows off)")
+	check(GameSettings.effects_now() == GameSettings.FX_MIN, "low tier: fewer effects")
+	check(GameSettings.effects() == GameSettings.FX_FULL, "the saved effects choice is untouched")
+	# The high tier starts untouched, and a change of choice resets the guard.
+	QualityGuard.session_level = 4
+	QualityGuard.reset_session()
+	check(
+		QualityGuard.session_level == 0 and GameSettings.effects_now() == GameSettings.FX_FULL,
+		"reset"
+	)
+	GameSettings.set_graphics(GameSettings.GFX_HIGH)
+	var sun2 := DirectionalLight3D.new()
+	sun2.shadow_enabled = true
+	var guard2 := QualityGuard.new()
+	root.add_child(sun2)
+	root.add_child(guard2)
+	guard2.setup(sun2, root)
+	check(guard2.level == 0 and sun2.shadow_enabled, "high tier: nothing lowered")
+	GameSettings.set_graphics(GameSettings.GFX_AUTO)
+	GameSettings._detected = 0
+	QualityGuard.reset_session()
+	root.msaa_3d = Viewport.MSAA_DISABLED
+	for node: Node in [sun, sun2, guard, guard2]:
 		node.free()
 
 
