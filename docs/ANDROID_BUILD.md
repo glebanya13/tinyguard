@@ -14,7 +14,7 @@
 |---|---|---|
 | `package/unique_name` | `com.bimbleguard.app` | id приложения; после публикации менять нельзя |
 | `package/name` | `Bimbleguard` | название под иконкой |
-| `version/name` / `version/code` | `0.4.0` / `4` | **`code` увеличивать на каждую выкладку**; `name` = `config/version` |
+| `version/name` / `version/code` | `0.5.0` / `5` | **`code` увеличивать на каждую выкладку**; `name` = `config/version` |
 | Иконки | `res://icon.png`, адаптивные `ui/app/icon_foreground.png`, `icon_background.png` | |
 | Ориентация | `project.godot`: `window/handheld/orientation=4` (сенсорная альбомная) | проверяется `validate_project.py` |
 | Архитектуры | только `arm64-v8a` | все Android 2020+; `armeabi-v7a` отключён ради размера |
@@ -74,7 +74,7 @@
 
 ## AAB для Google Play (проверено 2026-10-15)
 
-Собрано и проверено `jarsigner`: пакет `com.bimbleguard.app`, версия 0.4.0 (код 4), target SDK 36,
+Собрано и проверено `jarsigner`: пакет `com.bimbleguard.app`, версия 0.5.0 (код 5), target SDK 36,
 только arm64-v8a, разрешение только `INTERNET`, подпись — ключ загрузки (не отладочный).
 **На устройстве AAB не запускался**; в Play он тоже не загружался.
 
