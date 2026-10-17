@@ -43,6 +43,9 @@ const FOOTSTEP_GAP := 0.2
 const SELECT_PULSE_GAP := 0.9
 const CONFETTI_SECONDS := 1.6
 
+## Colour of the sparks: the default, or the tint of the worn cosmetic (drawing only).
+var _spark: Color = SPARK
+
 var _camera: Camera3D = null
 var _game_state: GameState = null
 var _hero: Hero = null
@@ -86,6 +89,7 @@ func setup(
 	hud: CanvasLayer
 ) -> void:
 	_camera = camera
+	_spark = Cosmetics.fx_tint(SPARK)
 	_game_state = game_state
 	_castle = castle
 	_hud = hud
@@ -180,7 +184,7 @@ func _on_enemy_died(reward: int, enemy: Enemy) -> void:
 	var boss: bool = enemy.is_boss()
 	var count: int = (14 if boss else 6) if full() else (8 if boss else 3)
 	_burst(at, count, 1.6, 0.9, 0.7 if boss else 0.34, 0.05, Color(tint, 0.9), Color(tint, 0.0))
-	_burst(at, maxi(roundi(count * 0.5), 1), 2.4, 1.4, 0.12, 0.03, SPARK, SPARK, 0.4, 5.0)
+	_burst(at, maxi(roundi(count * 0.5), 1), 2.4, 1.4, 0.12, 0.03, _spark, _spark, 0.4, 5.0)
 	_text("+%d" % reward, at + Vector3.UP * 0.4, GOLD, 30 if boss else 24)
 	if boss:
 		_kick(0.3)
@@ -218,11 +222,11 @@ func _on_tower_fired(target: Enemy, tower: Tower) -> void:
 		_burst(target.get_aim_point(), 5, 2.2, 1.0, 0.16, 0.02, Color.WHITE, BOLT, 0.3)
 	elif tower.splash_radius > 0.0:
 		_burst(muzzle + dir * 0.2, 3, 1.2, 0.8, 0.45, 0.1, SMOKE, Color(SMOKE, 0.0), 0.6)
-		_burst(muzzle + dir * 0.3, 4, 3.0, 0.5, 0.16, 0.02, Color(1, 0.7, 0.3), SPARK, 0.25)
+		_burst(muzzle + dir * 0.3, 4, 3.0, 0.5, 0.16, 0.02, Color(1, 0.7, 0.3), _spark, 0.25)
 	elif tower.slow_factor < 1.0:
 		_burst(muzzle, 5, 1.0, 1.0, 0.14, 0.04, FROST, Color(FROST, 0.0), 0.7, 1.6)
 	else:
-		_burst(muzzle + dir * 0.15, 2, 1.6, 0.4, 0.14, 0.02, SPARK, Color(SPARK, 0.0), 0.2)
+		_burst(muzzle + dir * 0.15, 2, 1.6, 0.4, 0.14, 0.02, _spark, Color(_spark, 0.0), 0.2)
 
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
@@ -231,7 +235,7 @@ func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 		return
 	var at: Vector3 = slot.global_position
 	_ring(at, 0.4, 2.0, Color(1, 0.95, 0.8, 0.9), 0.5)
-	_burst(at + Vector3.UP * 0.3, 6 if full() else 3, 1.8, 1.6, 0.18, 0.03, SPARK, SPARK, 0.7, 3.0)
+	_burst(at + Vector3.UP * 0.3, 6 if full() else 3, 1.8, 1.6, 0.18, 0.03, _spark, _spark, 0.7, 3.0)
 
 
 func _on_tower_upgraded(slot: TowerSlot, tower: Tower) -> void:
@@ -240,7 +244,7 @@ func _on_tower_upgraded(slot: TowerSlot, tower: Tower) -> void:
 	var at: Vector3 = slot.global_position
 	_ring(at, 0.4, 2.4, Color(1.0, 0.85, 0.35, 0.95), 0.6)
 	_ring(at + Vector3.UP * 0.03, 0.2, 1.5, Color(1.0, 1.0, 0.8, 0.8), 0.45)
-	_burst(at + Vector3.UP * 0.5, 9 if full() else 4, 1.4, 2.2, 0.2, 0.04, GOLD, SPARK, 0.9, -1.0)
+	_burst(at + Vector3.UP * 0.5, 9 if full() else 4, 1.4, 2.2, 0.2, 0.04, GOLD, _spark, 0.9, -1.0)
 	if full() and is_instance_valid(tower):
 		var base: Vector3 = tower.scale
 		var tween := tower.create_tween()
@@ -278,7 +282,7 @@ func _on_lives_changed(lives: int) -> void:
 		_burst(at, 5, 2.6, 1.0, 0.16, 0.04, HURT, Color(HURT, 0.0), 0.6, 3.0)
 		_punch_castle()
 	elif gained:
-		_burst(at, 8, 1.2, 2.0, 0.2, 0.04, Color(0.6, 1.0, 0.55), SPARK, 1.0, -1.5)
+		_burst(at, 8, 1.2, 2.0, 0.2, 0.04, Color(0.6, 1.0, 0.55), _spark, 1.0, -1.5)
 		_ring(_castle.global_position, 0.6, 3.0, Color(0.6, 1.0, 0.55, 0.85), 0.7)
 
 
@@ -309,7 +313,7 @@ func _on_hero_swung(origin: Vector3, yaw: float) -> void:
 		var a: float = yaw + lerpf(-0.9, 0.9, float(i) / (count - 1))
 		var out := Vector3(sin(a), 0.0, cos(a))
 		var at: Vector3 = origin + out * 0.9 + Vector3.UP * 0.8
-		_emit_dot(at, out * 2.4, 0.22, 0.34, 0.06, Color(1, 1, 0.9, 0.9), Color(SPARK, 0.0))
+		_emit_dot(at, out * 2.4, 0.22, 0.34, 0.06, Color(1, 1, 0.9, 0.9), Color(_spark, 0.0))
 
 
 func _on_hero_spun(origin: Vector3) -> void:
@@ -320,7 +324,7 @@ func _on_hero_spun(origin: Vector3) -> void:
 		var a: float = TAU * float(i) / 10.0
 		var out := Vector3(sin(a), 0.0, cos(a))
 		_emit_dot(
-			origin + out * 0.8 + Vector3.UP * 0.8, out * 3.0, 0.3, 0.3, 0.05, SPARK, TRANSPARENT
+			origin + out * 0.8 + Vector3.UP * 0.8, out * 3.0, 0.3, 0.3, 0.05, _spark, TRANSPARENT
 		)
 
 

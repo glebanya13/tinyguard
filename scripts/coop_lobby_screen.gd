@@ -483,6 +483,7 @@ func _on_started(config: Dictionary) -> void:
 	var partner: Dictionary = info["guest"] if config["role"] == "host" else info["host"]
 	config["name"] = nickname
 	config["partner"] = str(partner.get("name", ""))
+	config["partner_skin"] = Cosmetics.sanitize(partner.get("skin", ""), Cosmetics.HERO)
 	LevelCatalog.selected_id = int(config["level"])
 	LevelCatalog.endless = false
 	LevelCatalog.tutorial = false

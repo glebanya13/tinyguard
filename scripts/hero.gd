@@ -71,6 +71,8 @@ var sim: Sim = null
 ## last position his commands carried and glides there (drawing only; what he does
 ## to the battle happens in Sim steps like any swing).
 var is_ghost: bool = false
+## Co-op: the skin id of the partner whose ghost this is (validated by the caller).
+var skin_id: String = ""
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
 ## Walkable grid for orders; without it the hero walks in a straight line.
@@ -114,6 +116,8 @@ func _ready() -> void:
 	for mesh: Node in _model.find_children("*", "GeometryInstance3D", true, false):
 		if mesh.name != &"Body":
 			(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Cosmetic skin (the partner's for the ghost): colours only, outside the simulation.
+	Cosmetics.apply(_model, skin_id if is_ghost else Cosmetics.equipped(Cosmetics.HERO))
 	add_to_group(GROUP)
 
 

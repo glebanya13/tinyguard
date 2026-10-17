@@ -89,6 +89,7 @@ var _wave_direction: String = ""
 
 
 func _ready() -> void:
+	Cosmetics.refresh()  # worn skins (colours only; not part of the simulation)
 	_sim = Sim.new()
 	_sim.name = "Sim"
 	add_child(_sim)

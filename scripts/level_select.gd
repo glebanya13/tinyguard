@@ -7,6 +7,7 @@ extends Node3D
 
 const GAME_SCENE := "res://scenes/main.tscn"
 const COOP_SCENE := "res://scenes/coop_lobby.tscn"
+const SHOP_SCENE := "res://scenes/shop.tscn"
 const LOCK_ICON: Texture2D = preload("res://ui/icons/lock.png")
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const STAR_EMPTY_ICON: Texture2D = preload("res://ui/icons/star_empty.png")
@@ -39,6 +40,7 @@ var _reminder: AccountReminder = null
 var _coop_button: Button = null
 var _daily: DailyPanel = null
 var _achievements: AchievementsPanel = null
+var _gems: GemsHud = null
 ## Campaign difficulty picked for the next battle (0 Normal, 1 Hard, 2 Nightmare).
 var _difficulty: int = 0
 var _diff_buttons: Array[Button] = []
@@ -80,6 +82,7 @@ func _ready() -> void:
 	_build_difficulty_row()
 	_build_coop_button()
 	_build_extras()
+	_build_gems()
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_treasury_button.pressed.connect(_open_treasury)
 	$UI/Root/Treasury/Panel/Content/Footer/CloseButton.pressed.connect(_treasury.hide)
@@ -106,7 +109,9 @@ func _process(_delta: float) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if _daily.visible:
+		if _gems.is_panel_open():
+			_gems.close_panel()
+		elif _daily.visible:
 			_daily.close()
 		elif _achievements.visible:
 			_achievements.close()
@@ -177,6 +182,15 @@ func _build_extras() -> void:
 	ach_button.text = ""
 	ach_button.pressed.connect(_achievements.open)
 	row.add_child(ach_button)
+
+
+## Gem counter, "Shop" button and the streak plaque (scripts/gems_hud.gd).
+func _build_gems() -> void:
+	_gems = GemsHud.new()
+	_gems.name = "GemsHud"
+	add_child(_gems)
+	_gems.mount(_ui_root, $UI/Root/TopRight)
+	_gems.shop_requested.connect(func() -> void: get_tree().change_scene_to_file(SHOP_SCENE))
 
 
 func _extra_button(text: String, icon: Texture2D, width: float) -> Button:

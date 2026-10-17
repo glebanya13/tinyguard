@@ -1,0 +1,255 @@
+{
+	"_comment": "The Shop (the Lavka screen, scripts/shop.gd). COSMETICS ONLY: nothing here changes the battle, the simulation, its hash, a record or the daily board. category = slot worn (hero | tower | flag | fx). price in gems (resources/economy.json). palette: swatch name -> colour, recoloured in the shared palette atlas by tools/make_palette_variants.py into assets/materials/skins/<id>.png (hero skins touch armour/cape cells, tower themes stone/banner cells, flags the banner cells of the castle). tint: colour of the hit sparks. key: translation key of the name. rarity: common | rare | epic. Add items at the END; never reuse an id (ids are stored in the wallet and sent to the co-op partner).",
+	"categories": [
+		"hero",
+		"tower",
+		"flag",
+		"fx"
+	],
+	"items": [
+		{
+			"id": "hero_ember",
+			"key": "SHOP_HERO_EMBER",
+			"category": "hero",
+			"price": 150,
+			"rarity": "common",
+			"palette": {
+				"armor": "#C0392B",
+				"armor_dark": "#8E2A20",
+				"cape": "#7A1F1F"
+			}
+		},
+		{
+			"id": "hero_forest",
+			"key": "SHOP_HERO_FOREST",
+			"category": "hero",
+			"price": 150,
+			"rarity": "common",
+			"palette": {
+				"armor": "#3F9A5E",
+				"armor_dark": "#2F7D4F",
+				"cape": "#1F5A36"
+			}
+		},
+		{
+			"id": "hero_rose",
+			"key": "SHOP_HERO_ROSE",
+			"category": "hero",
+			"price": 150,
+			"rarity": "common",
+			"palette": {
+				"armor": "#EE8FB0",
+				"armor_dark": "#C46489",
+				"cape": "#D9425A"
+			}
+		},
+		{
+			"id": "hero_sun",
+			"key": "SHOP_HERO_SUN",
+			"category": "hero",
+			"price": 250,
+			"rarity": "common",
+			"palette": {
+				"armor": "#F2A33A",
+				"armor_dark": "#C9762A",
+				"cape": "#B8323F",
+				"gold": "#FFE08A"
+			}
+		},
+		{
+			"id": "hero_frost",
+			"key": "SHOP_HERO_FROST",
+			"category": "hero",
+			"price": 400,
+			"rarity": "rare",
+			"palette": {
+				"armor": "#7FD3F2",
+				"armor_dark": "#3E8FC4",
+				"cape": "#2E56AE",
+				"gold": "#DCE3EC"
+			}
+		},
+		{
+			"id": "hero_royal",
+			"key": "SHOP_HERO_ROYAL",
+			"category": "hero",
+			"price": 600,
+			"rarity": "rare",
+			"palette": {
+				"armor": "#8E5BD6",
+				"armor_dark": "#6A3FB0",
+				"cape": "#4B2F7A",
+				"gold": "#F4C842"
+			}
+		},
+		{
+			"id": "hero_shadow",
+			"key": "SHOP_HERO_SHADOW",
+			"category": "hero",
+			"price": 900,
+			"rarity": "epic",
+			"palette": {
+				"armor": "#4C525F",
+				"armor_dark": "#2F333C",
+				"cape": "#1E1C26",
+				"gold": "#B48CF2"
+			}
+		},
+		{
+			"id": "hero_golden",
+			"key": "SHOP_HERO_GOLDEN",
+			"category": "hero",
+			"price": 1200,
+			"rarity": "epic",
+			"palette": {
+				"armor": "#E9B44C",
+				"armor_dark": "#B8832A",
+				"cape": "#F1E4C6",
+				"gold": "#FFF2B0"
+			}
+		},
+		{
+			"id": "tower_forest",
+			"key": "SHOP_TOWER_FOREST",
+			"category": "tower",
+			"price": 300,
+			"rarity": "common",
+			"palette": {
+				"stone": "#7FA87A",
+				"stone_dark": "#5B7F58",
+				"stone_light": "#A8C79F",
+				"cape": "#2F7D4F"
+			}
+		},
+		{
+			"id": "tower_ice",
+			"key": "SHOP_TOWER_ICE",
+			"category": "tower",
+			"price": 450,
+			"rarity": "rare",
+			"palette": {
+				"stone": "#B7D9E8",
+				"stone_dark": "#8FB6CC",
+				"stone_light": "#E3F4FB",
+				"cape": "#3E8FC4"
+			}
+		},
+		{
+			"id": "tower_fire",
+			"key": "SHOP_TOWER_FIRE",
+			"category": "tower",
+			"price": 650,
+			"rarity": "rare",
+			"palette": {
+				"stone": "#A5503C",
+				"stone_dark": "#7A3A2B",
+				"stone_light": "#C97A5A",
+				"cape": "#E23B4F"
+			}
+		},
+		{
+			"id": "tower_gold",
+			"key": "SHOP_TOWER_GOLD",
+			"category": "tower",
+			"price": 1000,
+			"rarity": "epic",
+			"palette": {
+				"stone": "#D9B866",
+				"stone_dark": "#A8873E",
+				"stone_light": "#F0DC9C",
+				"cape": "#5E3C26",
+				"gold": "#FFF2B0"
+			}
+		},
+		{
+			"id": "flag_crimson",
+			"key": "SHOP_FLAG_CRIMSON",
+			"category": "flag",
+			"price": 120,
+			"rarity": "common",
+			"palette": {
+				"cape": "#C0392B"
+			}
+		},
+		{
+			"id": "flag_emerald",
+			"key": "SHOP_FLAG_EMERALD",
+			"category": "flag",
+			"price": 120,
+			"rarity": "common",
+			"palette": {
+				"cape": "#2F9E5B"
+			}
+		},
+		{
+			"id": "flag_sunrise",
+			"key": "SHOP_FLAG_SUNRISE",
+			"category": "flag",
+			"price": 200,
+			"rarity": "common",
+			"palette": {
+				"cape": "#F2A33A",
+				"gold": "#FFE08A"
+			}
+		},
+		{
+			"id": "flag_frost",
+			"key": "SHOP_FLAG_FROST",
+			"category": "flag",
+			"price": 250,
+			"rarity": "rare",
+			"palette": {
+				"cape": "#3E8FC4",
+				"gold": "#DCE3EC"
+			}
+		},
+		{
+			"id": "flag_violet",
+			"key": "SHOP_FLAG_VIOLET",
+			"category": "flag",
+			"price": 350,
+			"rarity": "rare",
+			"palette": {
+				"cape": "#7A4FD1",
+				"gold": "#F4C842"
+			}
+		},
+		{
+			"id": "flag_midnight",
+			"key": "SHOP_FLAG_MIDNIGHT",
+			"category": "flag",
+			"price": 500,
+			"rarity": "epic",
+			"palette": {
+				"cape": "#1E1C26",
+				"gold": "#B48CF2",
+				"roof": "#2A2F45",
+				"roof_dark": "#1E2236"
+			}
+		},
+		{
+			"id": "fx_pink",
+			"key": "SHOP_FX_PINK",
+			"category": "fx",
+			"price": 100,
+			"rarity": "common",
+			"tint": "#FF8FC8"
+		},
+		{
+			"id": "fx_azure",
+			"key": "SHOP_FX_AZURE",
+			"category": "fx",
+			"price": 150,
+			"rarity": "common",
+			"tint": "#6FC8FF"
+		},
+		{
+			"id": "fx_emerald",
+			"key": "SHOP_FX_EMERALD",
+			"category": "fx",
+			"price": 150,
+			"rarity": "common",
+			"tint": "#6BFF9A"
+		}
+	]
+}
