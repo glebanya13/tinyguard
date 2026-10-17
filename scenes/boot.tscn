@@ -58,9 +58,8 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="Title" type="Label" parent="Center/Box"]
+theme_type_variation = &"TitleLabel"
 layout_mode = 2
-theme_override_colors/font_color = Color(0.98, 0.8, 0.4, 1)
-theme_override_constants/outline_size = 16
 theme_override_font_sizes/font_size = 72
 text = "Bimbleguard"
 horizontal_alignment = 1

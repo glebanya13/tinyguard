@@ -514,3 +514,88 @@ ACC_EMAIL_UNVERIFIED,Почта не подтверждена: открой пи
 ACC_EMAIL_RESEND,Отправить письмо ещё раз,Send the email again
 ACC_EMAIL_SENT,Письмо отправлено. Загляни и в «Спам».,Email sent. Check Spam too.
 ACC_EMAIL_COOLDOWN,Подожди минуту перед новым письмом.,Wait a minute before another email.
+GEMS_PLUS,Самоцветы: +%d,Gems: +%d
+END_GEMS,Самоцветы: +%d,Gems: +%d
+QUEST_TOAST,Задание выполнено!,Quest complete!
+QUEST_WAVE,Пройди волну %d,Clear wave %d
+QUEST_KILLS,Победи врагов: %d,Defeat %d enemies
+QUEST_TOWERS,Построй башен: %d,Build %d towers
+QUEST_UPGRADES,Улучши башни: %d,Upgrade towers: %d
+EVENT_TEST_NAME,Тестовое событие,Test event
+SHOP_HERO_EMBER,Рубиновый,Ruby
+SHOP_HERO_FOREST,Лесной страж,Forest Warden
+SHOP_HERO_ROSE,Роза,Rose
+SHOP_HERO_SUN,Рассвет,Sunrise
+SHOP_HERO_FROST,Ледяной рыцарь,Frost Knight
+SHOP_HERO_ROYAL,Королевский,Royal
+SHOP_HERO_SHADOW,Тень,Shadow
+SHOP_HERO_GOLDEN,Золотой,Golden
+SHOP_TOWER_FOREST,Лесные башни,Forest Towers
+SHOP_TOWER_ICE,Ледяные башни,Ice Towers
+SHOP_TOWER_FIRE,Огненные башни,Fire Towers
+SHOP_TOWER_GOLD,Золотые башни,Golden Towers
+SHOP_FLAG_CRIMSON,Багровое знамя,Crimson Banner
+SHOP_FLAG_EMERALD,Изумрудное знамя,Emerald Banner
+SHOP_FLAG_SUNRISE,Знамя рассвета,Sunrise Banner
+SHOP_FLAG_FROST,Ледяное знамя,Frost Banner
+SHOP_FLAG_VIOLET,Фиолетовое знамя,Violet Banner
+SHOP_FLAG_MIDNIGHT,Знамя полуночи,Midnight Banner
+SHOP_FX_PINK,Розовые искры,Pink Sparks
+SHOP_FX_AZURE,Лазурные искры,Azure Sparks
+SHOP_FX_EMERALD,Изумрудные искры,Emerald Sparks
+SHOP_TITLE,Лавка,Shop
+SHOP_BUTTON,Лавка,Shop
+SHOP_BACK,Назад,Back
+SHOP_CAT_HERO,Герой,Hero
+SHOP_CAT_TOWER,Башни,Towers
+SHOP_CAT_FLAG,Знамёна,Banners
+SHOP_CAT_FX,Искры,Sparks
+SHOP_BUY,Купить: %d,Buy: %d
+SHOP_NEED,Не хватает: %d,Need %d more
+SHOP_EQUIP,Надеть,Wear
+SHOP_EQUIPPED,Надето,Worn
+SHOP_TAKE_OFF,Снять,Take off
+SHOP_OWNED,Куплено,Owned
+SHOP_CONFIRM,Купить «%s» за %d самоцветов?,"Buy ""%s"" for %d gems?"
+SHOP_CONFIRM_YES,Купить,Buy
+SHOP_CONFIRM_NO,Отмена,Cancel
+SHOP_BOUGHT,Куплено!,Bought!
+SHOP_NO_FUNDS,Не хватает самоцветов. Покупка не совершена.,Not enough gems. Nothing was bought.
+SHOP_UNKNOWN,Такого товара нет.,No such item.
+SHOP_HINT,"Самоцветы зарабатываются только игрой. Покупки меняют внешний вид, но не силу.","Gems are earned by playing only. Purchases change looks, not strength."
+SHOP_RARITY_COMMON,Обычный,Common
+SHOP_RARITY_RARE,Редкий,Rare
+SHOP_RARITY_EPIC,Эпический,Epic
+GEMS_NAME,Самоцветы,Gems
+STREAK_BUTTON,Серия: %d,Streak: %d
+STREAK_TITLE,Серия дней,Day streak
+STREAK_DAY,День %d,Day %d
+STREAK_LINE,Дней подряд: %d (лучшая: %d),Days in a row: %d (best: %d)
+STREAK_RULE,Один пропущенный день в неделю прощается. Награда за день приходит при первом входе.,One missed day a week is forgiven. The day's reward comes with your first visit.
+STREAK_TOAST,Серия дней: %d,Day streak: %d
+STREAK_GIFT,Подарок седьмого дня!,Day 7 gift!
+STREAK_FORGIVEN,Пропущенный день прощён,A missed day was forgiven
+STREAK_RESET,Серия началась заново,A new streak begins
+QUESTS_TITLE,Задания дня,Daily quests
+QUEST_DONE,Выполнено,Done
+BACKFILL_TOAST,Награда за прошлые победы,Reward for your past wins
+EVENT_BANNER,Событие «%s»: награды ×%s,"Event ""%s"": rewards x%s"
+SET_TAB_GENERAL,Общие,General
+SET_TAB_CONTROLS,Управление,Controls
+SET_JOY_SIZE,Размер джойстика,Joystick size
+SET_JOY_POS,Высота джойстика,Joystick height
+SET_JOY_SIDE,Сторона джойстика,Joystick side
+SET_MAP_SIZE,Размер мини-карты,Mini-map size
+SET_MAP_MODE,Мини-карта,Mini-map
+SET_SMALL,Малый,Small
+SET_MEDIUM,Средний,Medium
+SET_LARGE,Большой,Large
+SET_LOWER,Ниже,Lower
+SET_STANDARD,Обычно,Standard
+SET_HIGHER,Выше,Higher
+SET_LEFT,Слева,Left
+SET_RIGHT,Справа,Right
+SET_MAP_SHOW,Всегда,Always
+SET_MAP_HIDE,Скрыть,Hide
+SET_MAP_WAVE,С волной,On waves
+SET_PREVIEW_NOTE,Так будут стоять кнопки в бою. Изменения применяются сразу.,This is where the controls sit in battle. Changes apply at once.

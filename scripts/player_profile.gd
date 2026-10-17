@@ -5,19 +5,21 @@ extends RefCounted
 ## keep it (sections progress/perks/settings of user://progress.cfg); the
 ## [profile] section adds identity and onboarding fields. See docs/ACCOUNTS.md.
 ##
-## Shape (schemaVersion 2; 2 added progression.crowns):
+## Shape (schemaVersion 3; 2 added progression.crowns, 3 added wallet and streak):
 ## {schemaVersion, nickname, nicknameNormalized, createdAt, updatedAt (unix s),
 ##  onboardingCompleted, tutorialVersionCompleted,
 ##  progression: {unlocked, stars: {"1": 3}, endless: {"1": 23}, perks: {"axe": 1},
 ##                dailyStars: 2 (bonus stars of the daily challenge),
 ##                crowns: {"1": 2} (highest difficulty won above Normal: 1 Hard, 2 Nightmare)},
 ##  achievements: bit mask of unlocked achievements (resources/achievements.json),
+##  wallet: gems, purchases and worn cosmetics (scripts/wallet.gd; the cloud form is
+##          Wallet.to_cloud), streak: the day streak (scripts/streak.gd),
 ##  settings: {sound},
 ##  local only: nicknameVerified (reserved on the server), nicknameConflict
 ##  (the server said the name is taken), newer (cloud written by a newer app)}
 ## The Firebase uid is the stable id; the nickname is only a display name.
 
-const SCHEMA_VERSION := 2
+const SCHEMA_VERSION := 3
 const SECTION := "profile"
 ## Upper bound for a stars / endless / perk value read from the cloud (the rules cap them too).
 const MAX_CLOUD_VALUE := 5000
@@ -32,7 +34,9 @@ const SYNC_KEYS: Array[String] = [
 	"tutorialVersionCompleted",
 	"progression",
 	"settings",
-	"achievements"
+	"achievements",
+	"wallet",
+	"streak"
 ]
 
 
@@ -51,6 +55,8 @@ static func empty() -> Dictionary:
 		{"unlocked": 1, "stars": {}, "endless": {}, "perks": {}, "dailyStars": 0, "crowns": {}},
 		"settings": {"sound": true},
 		"achievements": 0,
+		"wallet": Wallet.empty(),
+		"streak": Streak.empty(),
 	}
 
 
@@ -83,6 +89,8 @@ static func from_save(cfg: ConfigFile) -> Dictionary:
 		int(cfg.get_value(Daily.SECTION, "bonus_stars", 0)), 0, Daily.max_stars()
 	)
 	p["achievements"] = maxi(int(cfg.get_value(SECTION, "achievements", 0)), 0)
+	p["wallet"] = Wallet.from_save(cfg)
+	p["streak"] = Streak.from_save(cfg)
 	if not cfg.has_section(SECTION):
 		p["schemaVersion"] = 0
 		p["legacyName"] = str(cfg.get_value("online", "name", ""))
@@ -118,6 +126,8 @@ static func write_to_save(p: Dictionary, cfg: ConfigFile) -> void:
 	if int(prog.get("dailyStars", 0)) > 0:
 		cfg.set_value(Daily.SECTION, "bonus_stars", int(prog["dailyStars"]))
 	cfg.set_value(SECTION, "achievements", int(p["achievements"]))
+	Wallet.write_to_save(p["wallet"], cfg)
+	Streak.write_to_save(p["streak"], cfg)
 	cfg.set_value(SECTION, "schema", int(p["schemaVersion"]))
 	cfg.set_value(SECTION, "nickname", str(p["nickname"]))
 	cfg.set_value(SECTION, "nickname_normalized", str(p["nicknameNormalized"]))
@@ -141,6 +151,8 @@ static func migrate(p: Dictionary) -> Dictionary:
 		out = _migrate_0_to_1(out)
 	if version < 2:
 		out = _migrate_1_to_2(out)
+	if version < 3:
+		out = _migrate_2_to_3(out)
 	out["schemaVersion"] = SCHEMA_VERSION
 	return out
 
@@ -166,6 +178,13 @@ static func merge(local: Dictionary, cloud: Dictionary) -> Dictionary:
 		prog[key] = merged
 	prog["dailyStars"] = maxi(int(a.get("dailyStars", 0)), int(b.get("dailyStars", 0)))
 	out["achievements"] = int(local.get("achievements", 0)) | int(cloud.get("achievements", 0))
+	out["wallet"] = Wallet.merge(
+		local.get("wallet", Wallet.empty()),
+		cloud.get("wallet", Wallet.empty()),
+		cloud_newer,
+		Daily.today_key()
+	)
+	out["streak"] = Streak.merge(local.get("streak", {}), cloud.get("streak", {}))
 	var local_spent: int = spent_stars(a["perks"])
 	var cloud_spent: int = spent_stars(b.get("perks", {}))
 	if cloud_spent > local_spent or (cloud_spent == local_spent and cloud_newer):
@@ -204,6 +223,8 @@ static func syncable(p: Dictionary) -> Dictionary:
 	var out := {}
 	for key in SYNC_KEYS:
 		out[key] = p[key]
+	# The wallet syncs in its cloud form (no log, derived totals); see Wallet.to_cloud.
+	out["wallet"] = Wallet.to_cloud(p["wallet"])
 	return out
 
 
@@ -250,6 +271,8 @@ static func from_cloud(fields: Dictionary) -> Dictionary:
 					elif key == "crowns":
 						top = MAX_CROWN
 					out_prog[key][str(id)] = clampi(value, 0, top)
+	p["wallet"] = Wallet.from_cloud(fields.get("wallet"))
+	p["streak"] = Streak.sanitize(fields.get("streak"))
 	var settings: Variant = fields.get("settings", {})
 	if settings is Dictionary:
 		p["settings"]["sound"] = bool((settings as Dictionary).get("sound", true))
@@ -335,6 +358,16 @@ static func _migrate_1_to_2(p: Dictionary) -> Dictionary:
 	if not prog.get("crowns") is Dictionary:
 		prog["crowns"] = {}
 	p["progression"] = prog
+	return p
+
+
+## Schema 3: the gem wallet and the day streak. Nothing to convert (older saves have
+## neither); Economy.backfill pays the rewards of progress made before gems existed.
+static func _migrate_2_to_3(p: Dictionary) -> Dictionary:
+	if not p.get("wallet") is Dictionary:
+		p["wallet"] = Wallet.empty()
+	if not p.get("streak") is Dictionary:
+		p["streak"] = Streak.empty()
 	return p
 
 

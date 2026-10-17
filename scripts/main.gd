@@ -89,6 +89,7 @@ var _wave_direction: String = ""
 
 
 func _ready() -> void:
+	Cosmetics.refresh()  # worn skins (colours only; not part of the simulation)
 	_sim = Sim.new()
 	_sim.name = "Sim"
 	add_child(_sim)
@@ -220,6 +221,7 @@ func _ready() -> void:
 	var hud_root: Control = _hud.get_node("Root")
 	hud_root.add_child(_lane_hint)
 	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
+	_hud.layout_changed.connect(_lane_hint.apply_settings)
 	cards.refresh()
 	_start_fx()
 	_start_diagnostics()
@@ -309,34 +311,21 @@ func _on_speed_changed(speed: int) -> void:
 
 ## What a replay needs to know about the battle it reproduces.
 func _journal_header() -> Dictionary:
-	var header := {
-		"sim_version": Sim.VERSION,
-		"tick_rate": Sim.TICK_RATE,
-		"level": int(level["id"]),
-		"endless": _endless,
-		"seed": _sim.seed_value,
-		"perks": _current_perks(),
-	}
-	if _difficulty > 0:
-		header["difficulty"] = _difficulty
-	if _record:
-		header["record"] = 1
-	if _daily_key != "":
-		header["daily"] = _daily_key
-	if _coop_on():
-		header["coop"] = 1
-		header["delay"] = int(coop_config["delay"])
-	return header
+	return BattleSetup.journal_header(
+		level,
+		_endless,
+		_sim.seed_value,
+		_current_perks(),
+		_difficulty,
+		_record,
+		_daily_key,
+		coop_config
+	)
 
 
-## Difficulty of this battle: the player's choice on the map; co-op takes the host's choice
-## from the room; the record run and the daily challenge are always Normal.
+## Difficulty of this battle (see BattleSetup.chosen_difficulty).
 func _chosen_difficulty() -> int:
-	if _coop_on():
-		return int(coop_config.get("difficulty", 0))
-	if _endless:
-		return 0
-	return LevelCatalog.difficulty
+	return BattleSetup.chosen_difficulty(coop_config, _endless, LevelCatalog.difficulty)
 
 
 ## Health, enemy count and kill gold of the difficulty (the lives are in _apply_perks).
@@ -348,28 +337,14 @@ func _apply_difficulty() -> void:
 
 ## The player's permanent perks by name.
 func _current_perks() -> Dictionary:
-	var out := {}
-	for key: StringName in PERK_KEYS:
-		# Co-op is an even start: nobody brings perks to the match.
-		out[String(key)] = 0 if _coop_on() else Perks.value(key)
-	return out
+	return BattleSetup.current_perks(PERK_KEYS, _coop_on())
 
 
 ## Starting resources, lives and damage bonuses from `perks`. A replay applies
 ## the perks of its journal header (not the local save), so every client plays
 ## the same battle; call it before the battle clock starts.
 func _apply_perks(perks: Dictionary) -> void:
-	var start: Dictionary = level["start"].duplicate()
-	start["lives"] = maxi(
-		roundi(float(start["lives"]) * float(Balance.difficulty(_difficulty)["lives"])), 1
-	)
-	if LevelCatalog.tutorial:
-		# The tutorial teaches chopping and earning the first gold: it starts with empty hands.
-		start["gold"] = 0
-		start["wood"] = 0
-	start["gold"] = int(start["gold"]) + int(perks.get("gold_start", 0))
-	start["wood"] = int(start["wood"]) + int(perks.get("wood_start", 0))
-	start["lives"] = int(start["lives"]) + int(perks.get("walls", 0))
+	var start: Dictionary = BattleSetup.start_resources(level, _difficulty, perks)
 	_game_state.configure(start)
 	_game_state.reset()
 	_hero.damage_multiplier = 1.0 + float(perks.get("sword", 0.0))
@@ -467,7 +442,19 @@ func _start_tracker() -> void:
 	add_child(_tracker)
 	_tracker.attach(_wave_manager, _build_manager, _game_state, _hero)
 	_tracker.unlocked.connect(
-		func(def: Dictionary) -> void: _hud.show_toast(tr("ACH_TOAST"), tr(str(def["key"])))
+		func(def: Dictionary) -> void:
+			_hud.show_toast(
+				tr("ACH_TOAST"),
+				tr(str(def["key"])) + "  " + tr("GEMS_PLUS") % Economy.achievement_reward(def)
+			)
+	)
+	var quests := QuestTracker.new()
+	quests.name = "QuestTracker"
+	add_child(quests)
+	quests.attach(_wave_manager, _build_manager, _game_state)
+	quests.quest_done.connect(
+		func(def: Dictionary, gems: int) -> void:
+			_hud.show_toast(tr("QUEST_TOAST"), Quests.text(def) + "  " + tr("GEMS_PLUS") % gems)
 	)
 
 

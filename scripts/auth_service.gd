@@ -47,53 +47,11 @@ const TYPE_EMAIL := "email"
 const EXPIRY_MARGIN := 60.0
 const MAX_ATTEMPTS := 3
 const BACKOFF_SECONDS := 0.8
-## Secure Token errors that mean the refresh token will never work again.
-const DEAD_SESSION_ERRORS: Array[String] = [
-	"TOKEN_EXPIRED",
-	"INVALID_REFRESH_TOKEN",
-	"USER_NOT_FOUND",
-	"INVALID_GRANT_TYPE",
-	"MISSING_REFRESH_TOKEN",
-]
-const LINK_ERRORS := {
-	"EMAIL_EXISTS": "credential_in_use",
-	"CREDENTIAL_ALREADY_IN_USE": "credential_in_use",
-	"FEDERATED_USER_ID_ALREADY_LINKED": "credential_in_use",
-	"INVALID_EMAIL": "invalid_email",
-	"WEAK_PASSWORD": "weak_password",
-	"CREDENTIAL_TOO_OLD_LOGIN_AGAIN": "reauth_required",
-	"TOKEN_EXPIRED": "reauth_required",
-	"INVALID_ID_TOKEN": "reauth_required",
-	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
-	"OPERATION_NOT_ALLOWED": "not_available",
-	"USER_DISABLED": "disabled",
-}
-## Newer projects answer INVALID_LOGIN_CREDENTIALS for both an unknown email and a
-## wrong password; the older codes are kept so the text never reveals which one.
-const SIGN_IN_ERRORS := {
-	"INVALID_LOGIN_CREDENTIALS": "invalid_credentials",
-	"INVALID_PASSWORD": "invalid_credentials",
-	"EMAIL_NOT_FOUND": "invalid_credentials",
-	"MISSING_PASSWORD": "invalid_credentials",
-	"INVALID_EMAIL": "invalid_email",
-	"MISSING_EMAIL": "invalid_email",
-	"USER_DISABLED": "disabled",
-	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
-	"OPERATION_NOT_ALLOWED": "not_available",
-}
-const VERIFY_ERRORS := {
-	"INVALID_ID_TOKEN": "reauth_required",
-	"TOKEN_EXPIRED": "reauth_required",
-	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
-	"OPERATION_NOT_ALLOWED": "not_available",
-	"USER_DISABLED": "disabled",
-}
-const RESET_ERRORS := {
-	"INVALID_EMAIL": "invalid_email",
-	"MISSING_EMAIL": "invalid_email",
-	"TOO_MANY_ATTEMPTS_TRY_LATER": "too_many_attempts",
-	"OPERATION_NOT_ALLOWED": "not_available",
-}
+const DEAD_SESSION_ERRORS: Array[String] = AuthErrors.DEAD_SESSION_ERRORS
+const LINK_ERRORS := AuthErrors.LINK_ERRORS
+const SIGN_IN_ERRORS := AuthErrors.SIGN_IN_ERRORS
+const VERIFY_ERRORS := AuthErrors.VERIFY_ERRORS
+const RESET_ERRORS := AuthErrors.RESET_ERRORS
 
 var api_key: String = ""
 var transport: HttpTransport = null
@@ -378,14 +336,9 @@ func link_with_idp(_provider_id: String, _provider_token: String) -> Dictionary:
 	return {"ok": false, "error": "not_available"}
 
 
-## First word of a Firebase REST error message ("WEAK_PASSWORD : ..." -> WEAK_PASSWORD).
+## First word of a Firebase REST error message (see AuthErrors).
 static func error_message(json: Variant) -> String:
-	if not json is Dictionary:
-		return ""
-	var error: Variant = (json as Dictionary).get("error", {})
-	if error is Dictionary:
-		return str((error as Dictionary).get("message", "")).get_slice(" ", 0)
-	return str(error).get_slice(" ", 0)  # Secure Token may answer {"error": "invalid_grant"}
+	return AuthErrors.message(json)
 
 
 func _acquire(allow_create: bool) -> Dictionary:
@@ -484,13 +437,8 @@ func _link_error(reply: Dictionary) -> String:
 	return _error_key(reply, LINK_ERRORS)
 
 
-## Reply of a failed request -> short error key ("offline", "server" or from `table`).
 static func _error_key(reply: Dictionary, table: Dictionary) -> String:
-	if int(reply.get("code", 0)) == 429:
-		return "too_many_attempts"
-	if HttpTransport.is_transient(reply):
-		return "offline" if reply["network"] else "server"
-	return str(table.get(error_message(reply["json"]), "server"))
+	return AuthErrors.key(reply, table)
 
 
 func _post_json(url: String, body: Dictionary, retry: bool) -> Dictionary:

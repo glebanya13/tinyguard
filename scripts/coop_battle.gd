@@ -60,6 +60,7 @@ func setup(
 	ghost = HERO_SCENE.instantiate() as Hero
 	ghost.name = "PartnerHero"
 	ghost.is_ghost = true
+	ghost.skin_id = Cosmetics.sanitize(config.get("partner_skin", ""), Cosmetics.HERO)
 	ghost.sim = sim
 	ghost.commands = commands
 	ghost.collision_layer = 0

@@ -1,0 +1,42 @@
+{
+	"_comment": "Gem economy (scripts/economy.gd, scripts/wallet.gd). Gems are an in-game currency only: earned by playing, never sold for money. Every award has an idempotent claim key (see Economy), so a repeated sync or a replayed result never pays twice. amount = base + per_level * (level id - 1). Repeating sources have a daily ceiling. docs/GAME_DESIGN.md has the balance table; tests/test_economy_balance.gd checks income against resources/shop.json.",
+	"level_stars": {"base": [15, 25, 40], "per_level": 3},
+	"level_crowns": {"base": [60, 120], "per_level": 5},
+	"repeat_win": {"reward": 8, "daily_cap": 40},
+	"siege": {"every_waves": 5, "base": 12, "per_step": 3, "max_steps": 12, "record_bonus": 10},
+	"daily_challenge": {"base": 25, "per_two_waves": 1, "wave_bonus_cap": 20},
+	"streak": {"rewards": [5, 10, 15, 20, 30, 40, 100], "forgive_per_week": 1},
+	"quests": {"count": 3, "rewards": [15, 20, 30]},
+	"achievements": {
+		"default": "common",
+		"common": 25,
+		"rare": 60,
+		"epic": 150,
+		"rarity": {
+			"first_win": "common",
+			"campaign_done": "epic",
+			"perfect": "rare",
+			"star_collector": "common",
+			"star_master": "epic",
+			"hunter": "common",
+			"slayer": "rare",
+			"builder": "common",
+			"upgrader": "common",
+			"lumberjack": "common",
+			"siege_10": "rare",
+			"siege_30": "epic",
+			"daily_first": "common",
+			"daily_streak_3": "rare",
+			"daily_wave_15": "rare",
+			"perk_buyer": "common"
+		}
+	},
+	"limits": {
+		"max_claim": 5000,
+		"max_claims": 400,
+		"max_balance": 999999,
+		"log_size": 20,
+		"compact_after_days": 30
+	},
+	"rules_bounds": {"one_time_total": 20000, "per_day": 700}
+}

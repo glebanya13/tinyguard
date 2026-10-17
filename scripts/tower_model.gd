@@ -27,6 +27,7 @@ func _ready() -> void:
 		if body != _body:
 			body.queue_free()
 	_drop_shadow(_turret)
+	Cosmetics.apply_worn(self, Cosmetics.TOWER)  # theme: colours only
 	_on_tower_level_changed(0)
 
 

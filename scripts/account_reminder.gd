@@ -79,6 +79,7 @@ func _on_later_pressed() -> void:
 func _label(text: String, size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
+	UiKit.style_label(label, size, color)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label
@@ -89,7 +90,6 @@ func _button(secondary: bool, action: Callable) -> Button:
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(0, BUTTON_HEIGHT)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", 22)
 	if secondary:
 		button.theme_type_variation = &"SecondaryButton"
 	button.pressed.connect(action)

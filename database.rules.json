@@ -65,6 +65,9 @@
             "ready": {
               ".validate": "newData.isNumber() && newData.val() % 1 === 0 && (newData.val() === 0 || newData.val() === newData.parent().parent().parent().child('meta/rev').val())"
             },
+            "skin": {
+              ".validate": "newData.isString() && newData.val().length <= 32 && newData.val().matches(/^[a-z0-9_]*$/)"
+            },
             "$other": {
               ".validate": false
             }

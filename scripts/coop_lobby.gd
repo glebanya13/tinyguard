@@ -111,7 +111,7 @@ func create(
 			. update(
 				{
 					"rooms/%s/players/host" % candidate:
-					{"uid": me, "name": _clean(nickname), "ready": 1},
+					{"uid": me, "name": _clean(nickname), "ready": 1, "skin": own_skin()},
 					"user_rooms/" + me: candidate,
 				}
 			)
@@ -153,7 +153,9 @@ func join(raw_code: String, nickname: String, simv: int) -> Dictionary:
 	if not cleaned["ok"]:
 		return {"ok": false, "reason": _reason(cleaned)}
 	var reply: Dictionary = await transport.write(
-		"rooms/%s/players/guest" % room, {"uid": me, "name": _clean(nickname), "ready": 0}, true
+		"rooms/%s/players/guest" % room,
+		{"uid": me, "name": _clean(nickname), "ready": 0, "skin": own_skin()},
+		true
 	)
 	if reply["code"] == 412:
 		return {"ok": false, "reason": "full"}
@@ -393,6 +395,13 @@ func _reason(reply: Dictionary) -> String:
 	if reply.get("network", false) or int(reply.get("code", 0)) == 0:
 		return "offline"
 	return "denied"
+
+
+## The hero skin worn here (an id of the catalog, "" = standard). Only the id travels;
+## the partner validates it against its own catalog (Cosmetics.sanitize), so an unknown
+## id shows the standard knight. Cosmetic only: not part of the simulation.
+static func own_skin() -> String:
+	return Cosmetics.equipped(Cosmetics.HERO)
 
 
 func _clean(raw: String) -> String:

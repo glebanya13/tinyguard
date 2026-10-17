@@ -143,7 +143,20 @@ func _run() -> void:
 
 	# --- 2 and 3. Replays with other frame times.
 	for variant in ["jitter", "10fps"]:
+		# Cosmetics are colours only: the jitter replay wears a skin in every slot and must
+		# still match the recording (worn here, not in the recording) hash for hash.
+		Cosmetics.preview = {}
+		if variant == "jitter":
+			Cosmetics.preview = {
+				"hero": "hero_ember", "tower": "tower_fire", "flag": "flag_violet", "fx": "fx_pink"
+			}
 		var other: Node = await _load_level()
+		if variant == "jitter":
+			var knight: Hero = get_nodes_in_group(Hero.GROUP)[0] as Hero
+			var skinned: bool = false
+			for mesh in knight.find_children("*", "MeshInstance3D", true, false):
+				skinned = skinned or (mesh as MeshInstance3D).material_override != null
+			check(skinned, "jitter replay: the knight wears a skin")
 		var sim2: Sim = other.get_node("Sim")
 		_collect(sim2, other)
 		check(sim2.tick == 0, "%s: fresh level at tick 0" % variant)
@@ -182,6 +195,7 @@ func _run() -> void:
 			"%s replay: live commands are refused" % variant
 		)
 
+	Cosmetics.preview = {}
 	await _negative_controls(loaded, recorded)
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

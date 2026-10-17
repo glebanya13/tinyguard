@@ -452,6 +452,7 @@ func _on_privacy_pressed() -> void:
 func _label(text: String, size: int, color: Color = Color(1, 0.96, 0.87)) -> Label:
 	var label := Label.new()
 	label.text = text
+	UiKit.style_label(label, size, color)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label
@@ -462,7 +463,6 @@ func _button(text: String, action: Callable, secondary: bool, width: float) -> B
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(width, BUTTON_HEIGHT)
-	button.add_theme_font_size_override("font_size", 22)
 	if secondary:
 		button.theme_type_variation = &"SecondaryButton"
 	if action.is_valid():

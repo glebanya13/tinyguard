@@ -15,6 +15,7 @@ const HOLD_SECONDS := 2.6
 static func show_on(parent: Control, title: String, text: String) -> Toast:
 	var toast := Toast.new()
 	toast.name = "Toast"
+	toast.theme_type_variation = &"ToastPanel"
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	toast.process_mode = Node.PROCESS_MODE_ALWAYS
 	var box := VBoxContainer.new()
@@ -24,14 +25,13 @@ static func show_on(parent: Control, title: String, text: String) -> Toast:
 	var head := Label.new()
 	head.text = title
 	head.name = "Title"
-	head.add_theme_font_size_override("font_size", 20)
-	head.add_theme_color_override("font_color", GOLD)
+	head.theme_type_variation = &"HeadingLabel"
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(head)
 	var body := Label.new()
 	body.text = text
 	body.name = "Text"
-	body.add_theme_font_size_override("font_size", 24)
+	body.add_theme_font_size_override("font_size", 22)
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.custom_minimum_size = Vector2(WIDTH - 40.0, 0.0)

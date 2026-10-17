@@ -89,6 +89,7 @@ func build(
 	castle.position = ground(level["castle"])
 	castle.rotation.y = atan2(-last_dir.x, -last_dir.z)
 	_root.add_child(castle)
+	Cosmetics.apply(castle, Cosmetics.castle_flag())  # banner skin: colours only
 
 	for point: Array in level["slots"]:
 		var slot := SLOT_SCENE.instantiate() as TowerSlot

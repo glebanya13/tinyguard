@@ -24,11 +24,8 @@ const LABEL_SIZE := 22
 const COLOR := Color(1.0, 0.66, 0.28)
 const OUTLINE := Color(0.2, 0.1, 0.28)
 const MUTED := Color(0.72, 0.78, 0.92, 0.38)
-const PANEL_SIZE := Vector2(236.0, 150.0)
-const PANEL_TOP := 172.0
-const PANEL_RIGHT := 16.0
-const PANEL_PAD := 18.0
-const BUTTON_ICON: Texture2D = preload("res://ui/icons/flag.png")
+const PANEL_PAD := 14.0
+const BUTTON_ICON: Texture2D = preload("res://ui/icons/compass.png")
 
 var camera: Camera3D = null
 ## The level being played ("paths", "castle"): the compass is drawn from it.
@@ -52,29 +49,32 @@ var _compass_routes: Array[PackedVector2Array] = []
 var _compass_built_for: int = -1
 var _panel_style: StyleBoxFlat = null
 var _button: Button = null
+## Panel size and the settings (GameSettings): see apply_settings().
+var _panel_size: Vector2 = HudLayout.MAP_SIZES[1]
+var _mode: int = HudLayout.MAP_WAVE
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel_style = StyleBoxFlat.new()
-	_panel_style.bg_color = Color(0.07, 0.09, 0.2, 0.74)
-	_panel_style.border_color = Color(0.85, 0.88, 1.0, 0.55)
-	_panel_style.set_border_width_all(2)
-	_panel_style.set_corner_radius_all(14)
+	_panel_style.bg_color = Color(0.07, 0.1, 0.26, 0.8)
+	_panel_style.border_color = Color(0.96, 0.72, 0.24, 0.9)
+	_panel_style.set_border_width_all(3)
+	_panel_style.set_corner_radius_all(16)
 	_button = Button.new()
 	_button.name = "CompassButton"
 	_button.focus_mode = Control.FOCUS_NONE
-	_button.custom_minimum_size = Vector2(72.0, 64.0)
-	_button.size = Vector2(72.0, 64.0)
+	_button.custom_minimum_size = HudLayout.PIN_SIZE
+	_button.size = HudLayout.PIN_SIZE
+	_button.theme_type_variation = &"SecondaryButton"
 	_button.icon = BUTTON_ICON
-	_button.expand_icon = true
 	_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_button.add_theme_constant_override("icon_max_width", 40)
+	_button.add_theme_constant_override("icon_max_width", 48)
 	_button.tooltip_text = tr("LANES_COMPASS")
 	_button.pressed.connect(toggle_compass)
 	add_child(_button)
-	_place_button()
+	apply_settings()
 	resized.connect(_place_button)
 
 
@@ -168,14 +168,33 @@ func arrows_active() -> bool:
 
 ## True while the compass is on screen.
 func compass_visible() -> bool:
-	return not _stopped and (_pinned or _compass_left > 0.0) and not level.is_empty()
+	return (
+		not _stopped
+		and _mode != HudLayout.MAP_HIDE
+		and (_pinned or _compass_left > 0.0)
+		and not level.is_empty()
+	)
 
 
+## Re-reads the compass size and mode from the settings (the settings dialog calls it live).
+func apply_settings() -> void:
+	_mode = GameSettings.minimap_mode()
+	_panel_size = HudLayout.MAP_SIZES[GameSettings.minimap_size()]
+	_compass_built_for = -1
+	_pinned = _mode == HudLayout.MAP_SHOW
+	if _button != null:
+		_button.visible = _mode != HudLayout.MAP_HIDE and not _stopped
+	_place_button()
+	queue_redraw()
+
+
+## The panel and the pin button sit in the bottom-left corner (see HudLayout).
 func _place_button() -> void:
 	if _button == null:
 		return
-	var safe: Vector4 = ScreenUtil.safe_margins(get_viewport())
-	_button.position = Vector2(size.x - safe.z - PANEL_RIGHT - _button.size.x, 100.0 + safe.y)
+	var r: Dictionary = HudLayout.current(size)
+	if r.has("pin"):
+		_button.position = (r["pin"] as Rect2).position
 
 
 func _draw() -> void:
@@ -187,7 +206,7 @@ func _draw() -> void:
 	if _arrow_left > 0.0 and not _lanes.is_empty():
 		_draw_edge_arrows(safe)
 	if compass_visible():
-		_draw_compass(safe)
+		_draw_compass()
 
 
 func _draw_rings(safe: Vector4) -> void:
@@ -204,8 +223,8 @@ func _draw_rings(safe: Vector4) -> void:
 
 func _draw_ring(at: Vector2, pulse: float, alpha: float) -> void:
 	var radius: float = RING_RADIUS + 8.0 * pulse
-	draw_arc(at, radius, 0.0, TAU, 40, Color(OUTLINE, alpha), 9.0, true)
-	draw_arc(at, radius, 0.0, TAU, 40, Color(COLOR, alpha), 5.0, true)
+	draw_arc(at, radius, 0.0, TAU, 40, Color(OUTLINE, alpha), 9.0)
+	draw_arc(at, radius, 0.0, TAU, 40, Color(COLOR, alpha), 5.0)
 
 
 ## The part of the screen the edge arrows may use.
@@ -253,7 +272,7 @@ func _draw_edge_arrow(area: Rect2, target: Vector2, pulse: float, alpha: float) 
 	var shape := PackedVector2Array([tip, base + side * s, base - side * s])
 	draw_colored_polygon(shape, Color(COLOR, alpha))
 	shape.append(tip)
-	draw_polyline(shape, Color(OUTLINE, alpha), 4.0, true)
+	draw_polyline(shape, Color(OUTLINE, alpha), 4.0)
 	return tip
 
 
@@ -278,37 +297,46 @@ func _draw_label(text: String, tip: Vector2, area: Rect2, alpha: float) -> void:
 # --- compass ------------------------------------------------------------------
 
 
-func _draw_compass(safe: Vector4) -> void:
+func _draw_compass() -> void:
 	_build_compass()
 	if _compass_routes.is_empty():
 		return
 	var fade: float = 1.0
 	if not _pinned:
 		fade = clampf(_compass_left, 0.0, 1.0)
-	var origin := Vector2(size.x - safe.z - PANEL_RIGHT - PANEL_SIZE.x, PANEL_TOP + safe.y)
-	var panel := Rect2(origin, PANEL_SIZE)
-	_panel_style.bg_color.a = 0.74 * fade
-	_panel_style.border_color.a = 0.55 * fade
+	var panel: Rect2 = HudLayout.current(size)["map"]
+	var origin: Vector2 = panel.position
+	_panel_style.bg_color.a = 0.8 * fade
+	_panel_style.border_color.a = 0.9 * fade
 	draw_style_box(_panel_style, panel)
-	var inner := Rect2(origin + Vector2.ONE * PANEL_PAD, PANEL_SIZE - Vector2.ONE * PANEL_PAD * 2.0)
+	var inner := Rect2(
+		origin + Vector2.ONE * PANEL_PAD, _panel_size - Vector2.ONE * PANEL_PAD * 2.0
+	)
 	var pulse: float = 0.5 + 0.5 * sin(_age * 6.0)
-	# Dim roads first, the roads of this wave on top.
-	for pass_index in 2:
-		for lane in _compass_routes.size():
-			var lit: bool = _lanes.has(lane)
-			if lit != (pass_index == 1):
-				continue
-			var points := PackedVector2Array()
-			for p: Vector2 in _compass_routes[lane]:
-				points.append(inner.position + p * inner.size)
-			if lit:
-				var glow: Color = Color(COLOR, fade * (0.75 + 0.25 * pulse))
-				draw_polyline(points, Color(OUTLINE, fade), 9.0, true)
-				draw_polyline(points, glow, 6.0, true)
-				draw_circle(points[0], 7.0 + 2.5 * pulse, glow)
-			else:
-				draw_polyline(points, Color(MUTED, MUTED.a * fade), 4.0, true)
-				draw_circle(points[0], 4.0, Color(MUTED, MUTED.a * fade))
+	# Dim roads first, the roads of this wave on top. Every kind is one draw_multiline
+	# (square caps fill the joints): a draw call per road made the compass 40 calls.
+	var dim := PackedVector2Array()
+	var lit_outline := PackedVector2Array()
+	var lit_core := PackedVector2Array()
+	var glow: Color = Color(COLOR, fade * (0.75 + 0.25 * pulse))
+	for lane in _compass_routes.size():
+		var points := PackedVector2Array()
+		for p: Vector2 in _compass_routes[lane]:
+			points.append(inner.position + p * inner.size)
+		if _lanes.has(lane):
+			_add_segments(lit_outline, points, 4.5)
+			_add_segments(lit_core, points, 3.0)
+		else:
+			_add_segments(dim, points, 2.0)
+	if not dim.is_empty():
+		draw_multiline(dim, Color(MUTED, MUTED.a * fade), 4.0)
+	if not lit_outline.is_empty():
+		draw_multiline(lit_outline, Color(OUTLINE, fade), 9.0)
+		draw_multiline(lit_core, glow, 6.0)
+	for lane: int in _lanes:
+		if lane < _compass_routes.size():
+			var start: Vector2 = inner.position + _compass_routes[lane][0] * inner.size
+			draw_circle(start, 7.0 + 2.5 * pulse, glow)
 	# The castle at the end of the first road.
 	var gate: Vector2 = (
 		inner.position + _compass_routes[0][_compass_routes[0].size() - 1] * inner.size
@@ -316,6 +344,15 @@ func _draw_compass(safe: Vector4) -> void:
 	var castle := Rect2(gate - Vector2(8.0, 8.0), Vector2(16.0, 16.0))
 	draw_rect(castle.grow(2.0), Color(0.98, 0.8, 0.4, fade))
 	draw_rect(castle, Color(0.35, 0.5, 0.95, fade))
+
+
+## Appends the segments of a polyline to `out` (pairs of points), each lengthened by `cap`
+## at both ends so that the joints of a thick multiline have no notches.
+func _add_segments(out: PackedVector2Array, points: PackedVector2Array, cap: float) -> void:
+	for i in points.size() - 1:
+		var dir: Vector2 = (points[i + 1] - points[i]).normalized() * cap
+		out.append(points[i] - dir)
+		out.append(points[i + 1] + dir)
 
 
 ## Roads of the level seen from above in screen orientation (up = the top of the screen),
@@ -340,7 +377,7 @@ func _build_compass() -> void:
 			high = high.max(q)
 		flat.append(turned)
 	var extent: Vector2 = (high - low).max(Vector2.ONE)
-	var inner: Vector2 = PANEL_SIZE - Vector2.ONE * PANEL_PAD * 2.0
+	var inner: Vector2 = _panel_size - Vector2.ONE * PANEL_PAD * 2.0
 	var scale: float = minf(inner.x / extent.x, inner.y / extent.y)
 	var used: Vector2 = extent * scale
 	var shift: Vector2 = (inner - used) * 0.5

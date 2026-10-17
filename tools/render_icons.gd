@@ -2,6 +2,9 @@ extends SceneTree
 ## Renders HUD icons from 3D models into ui/icons/<name>.png: transparent,
 ## 256 px, fitted to the silhouette, with a dark outline and a soft drop shadow
 ## so they read on any background and at small sizes on a phone.
+## NOTE: since the theme v2 redesign the UI glyph icons (coin, heart, star, sword, ...) are drawn
+## by tools/make_ui_icons.py; running this script without names would overwrite them. Use it
+## with names for the enemy portraits (slime*, boss, stone_golem) only.
 ## Needs a GPU/OpenGL context (not --headless):
 ##   godot --path . --script res://tools/render_icons.gd [-- name ...]
 ## Linux without a display: xvfb-run -a godot --path . --rendering-driver opengl3 --script ...

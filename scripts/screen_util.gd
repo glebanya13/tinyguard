@@ -3,9 +3,14 @@ extends RefCounted
 ## Safe area (display cutouts) and on-screen keyboard size in canvas units, for
 ## the full-screen onboarding UI. Desktop builds report no insets.
 
+## Screenshot tools and tests set this to fake a display cutout (canvas units).
+static var fake_margins: Vector4 = Vector4.ZERO
+
 
 ## Insets (left, top, right, bottom) the UI must keep clear of.
 static func safe_margins(viewport: Viewport) -> Vector4:
+	if fake_margins != Vector4.ZERO:
+		return fake_margins
 	if not OS.has_feature("mobile"):
 		return Vector4.ZERO
 	var window: Vector2i = DisplayServer.window_get_size()

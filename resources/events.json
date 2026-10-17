@@ -1,0 +1,14 @@
+{
+	"_comment": "Seasonal events (scripts/events.gd). An event is active on UTC days from..to (inclusive, 'yyyy-mm-dd') while enabled is true: gem awards are multiplied by reward_mult (1.0..2.0) and the castle shows the flag item `flag` of resources/shop.json for players who wear no flag of their own. No client update is needed to run one: edit this file in the release that ships the event, or serve it later. name_key is a translation key. Only the test event exists and it is switched off.",
+	"events": [
+		{
+			"id": "test_event",
+			"enabled": false,
+			"from": "2026-12-20",
+			"to": "2027-01-05",
+			"reward_mult": 1.5,
+			"flag": "flag_frost",
+			"name_key": "EVENT_TEST_NAME"
+		}
+	]
+}

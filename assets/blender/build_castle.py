@@ -194,6 +194,7 @@ def build_portal(rng):
 
 def build() -> list:
     rng = random.Random(11)
+    tg.MAX_BEVEL_SEG = 1  # triangle budget: one bevel segment on every box
     castle = build_castle(rng)
     out = [tg.finish_asset("castle", castle, ao_distance=0.35, ao_strength=0.75)]
     for o in list(bpy.data.objects):

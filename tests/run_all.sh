@@ -1,9 +1,36 @@
 #!/usr/bin/env bash
-# Runs every headless test on every level. Usage: tests/run_all.sh [path/to/godot]
+# Runs every headless test on every level.
+# Usage: tests/run_all.sh [path/to/godot] [--only <regex>]
+#   --only <regex>  run only tests whose script name matches (extended regex), e.g.
+#                   --only 'accounts|records' or --only test_replay (levels still loop).
 # Exit code is non-zero if any test fails, errors out, times out, or if no test ran.
 # Env: TEST_TIMEOUT (seconds per test, default 600).
+# Isolation: every test process gets its own empty HOME / XDG_DATA_HOME, so user://
+# (saves, sessions, logs) is private to that one run. Tests never touch the real game's
+# user://progress.cfg and can run next to a normal game launch or another run_all.sh.
 set -u
-GODOT="${1:-godot}"
+GODOT="godot"
+ONLY=""
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--only)
+			if [ $# -lt 2 ]; then
+				echo "FATAL: --only needs a pattern" >&2
+				exit 2
+			fi
+			ONLY="$2"
+			shift 2
+			;;
+		--only=*)
+			ONLY="${1#--only=}"
+			shift
+			;;
+		*)
+			GODOT="$1"
+			shift
+			;;
+	esac
+done
 # Tests must never use a local firebase.cfg (it points at the real Firebase project).
 export BIMBLEGUARD_OFFLINE=1
 TIMEOUT_SEC="${TEST_TIMEOUT:-600}"
@@ -35,10 +62,15 @@ ERRORS_FILE="tests/expected_errors.txt"
 # Leaks at exit are reported in the summary but never fail a test.
 LEAK_RE='ObjectDB instances were leaked|resources still in use at exit'
 run() {
-	local out rc name bad leaks
+	local out rc name bad leaks iso
 	name="${*: -1}"
-	out=$(limit "$@" 2>&1)
+	if [ -n "$ONLY" ] && ! echo "$name" | grep -Eq "$ONLY"; then
+		return 0
+	fi
+	iso=$(mktemp -d "${TMPDIR:-/tmp}/bimbleguard-test.XXXXXX")
+	out=$(limit env HOME="$iso" XDG_DATA_HOME="$iso/xdg" "$@" 2>&1)
 	rc=$?
+	rm -rf "$iso"
 	ran=$((ran + 1))
 	echo "$out" | grep -E "FAIL|RESULT|SCRIPT ERROR"
 	# Engine errors/warnings that the test did not announce in expected_errors.txt.
@@ -94,12 +126,20 @@ run "$GODOT" --headless --path . --script res://tests/test_daily.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_daily_replay.gd
 run "$GODOT" --headless --path . --script res://tests/test_daily_online.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_achievements.gd
+echo "== gems: wallet / streak / quests"
+run "$GODOT" --headless --path . --script res://tests/test_wallet.gd
+run "$GODOT" --headless --path . --script res://tests/test_streak.gd
+run "$GODOT" --headless --path . --script res://tests/test_quests.gd
+run "$GODOT" --headless --path . --script res://tests/test_economy_balance.gd
+run "$GODOT" --headless --path . --script res://tests/test_shop.gd
+run "$GODOT" --headless --path . --script res://tests/test_shop_ui.gd
 echo "== accounts / onboarding / tutorial"
 run "$GODOT" --headless --path . --script res://tests/test_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_email_accounts.gd
 run "$GODOT" --headless --path . --script res://tests/test_signup_flow.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_tutorial.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_pause.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hud_layout.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_endgame.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_end_to_map.gd
 
