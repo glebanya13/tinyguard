@@ -62,6 +62,11 @@ transparency = 1
 shading_mode = 0
 albedo_color = Color(1, 0.93, 0.6, 0.55)
 
+[sub_resource type="StandardMaterial3D" id="upgrade_range_mat"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.2, 0.85, 0.9, 0.55)
+
 [sub_resource type="TorusMesh" id="range_mesh"]
 material = SubResource("range_mat")
 inner_radius = 0.975
@@ -142,6 +147,12 @@ mesh = SubResource("range_mesh")
 [node name="Fill" type="MeshInstance3D" parent="RangeRing"]
 cast_shadow = 0
 mesh = SubResource("range_disc")
+
+[node name="UpgradeRangeRing" type="MeshInstance3D" parent="."]
+visible = false
+material_override = SubResource("upgrade_range_mat")
+cast_shadow = 0
+mesh = SubResource("range_mesh")
 
 [node name="GuideArrow" type="MeshInstance3D" parent="."]
 visible = false

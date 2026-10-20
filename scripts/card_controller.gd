@@ -47,6 +47,7 @@ var _villagers: Villagers = null
 var _game_state: GameState = null
 var _sim: Sim = null
 var _range_ring: MeshInstance3D = null
+var _upgrade_range_ring: MeshInstance3D = null
 
 
 ## `hint_text` returns the guide line shown while nothing is selected.
@@ -59,7 +60,8 @@ func setup(
 	game_state: GameState,
 	sim: Sim,
 	range_ring: MeshInstance3D,
-	hint_text: Callable
+	hint_text: Callable,
+	upgrade_range_ring: MeshInstance3D = null
 ) -> void:
 	_hero = hero
 	_hud = hud
@@ -70,6 +72,9 @@ func setup(
 	_sim = sim
 	_range_ring = range_ring
 	_hint_text = hint_text
+	_upgrade_range_ring = upgrade_range_ring
+	if _upgrade_range_ring == null and _range_ring != null:
+		_upgrade_range_ring = _create_default_upgrade_ring()
 	hero.order_cancelled.connect(on_hero_order_ended)
 	hero.order_finished.connect(on_hero_order_ended)
 	game_state.lives_changed.connect(refresh.unbind(1))
@@ -171,13 +176,19 @@ func refresh() -> void:
 	var slot: TowerSlot = _build_manager.selected_slot
 	if slot == null:
 		_range_ring.hide()
+		if _upgrade_range_ring:
+			_upgrade_range_ring.hide()
 	if forge_open:
 		_range_ring.hide()
+		if _upgrade_range_ring:
+			_upgrade_range_ring.hide()
 		_hud.show_hint("")
 		_hud.update_card(CommandCards.forge(_hero, _game_state))
 		return
 	if trade_with != null:
 		_range_ring.hide()
+		if _upgrade_range_ring:
+			_upgrade_range_ring.hide()
 		_hud.show_hint("")
 		_hud.update_card(CommandCards.trade(_villagers, _game_state, trade_with))
 		return
@@ -330,6 +341,36 @@ func _show_range(slot: TowerSlot) -> void:
 		)
 		_range_ring.global_position = Vector3(slot.global_position.x, 0.07, slot.global_position.z)
 		_range_ring.scale = Vector3(r, 1.0, r)
+
+	if _upgrade_range_ring:
+		var show_upgrade: bool = false
+		if slot != null and slot.tower != null and slot.tower.data != null:
+			var t: Tower = slot.tower
+			var next_lvl: int = t.level + 1
+			if next_lvl <= t.data.max_level() and next_lvl < t.data.range_levels.size():
+				var up_r: float = t.data.range_levels[next_lvl]
+				_upgrade_range_ring.global_position = Vector3(
+					slot.global_position.x, 0.071, slot.global_position.z
+				)
+				_upgrade_range_ring.scale = Vector3(up_r, 1.0, up_r)
+				show_upgrade = true
+		_upgrade_range_ring.visible = show_upgrade
+
+
+func _create_default_upgrade_ring() -> MeshInstance3D:
+	var ring := MeshInstance3D.new()
+	ring.name = "UpgradeRangeRing"
+	ring.mesh = _range_ring.mesh
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.2, 0.85, 0.9, 0.55)
+	ring.material_override = mat
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.visible = false
+	if _range_ring.get_parent():
+		_range_ring.get_parent().add_child(ring)
+	return ring
 
 
 ## Opens the trade card when the hero comes up to a villager and closes it

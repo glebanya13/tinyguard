@@ -81,6 +81,7 @@ var _wave_direction: String = ""
 @onready var _hero: Hero = $Level/Hero
 @onready var _target_ring: MeshInstance3D = $TargetRing
 @onready var _range_ring: MeshInstance3D = $RangeRing
+@onready var _upgrade_range_ring: MeshInstance3D = get_node_or_null("UpgradeRangeRing") as MeshInstance3D
 @onready var _guide_arrow: MeshInstance3D = $GuideArrow
 @onready var _ring_material: StandardMaterial3D = _target_ring.mesh.surface_get_material(0)
 @onready var _wave_boom: AudioStreamPlayer = $Sfx/WaveBoom
@@ -189,7 +190,8 @@ func _ready() -> void:
 		_game_state,
 		_sim,
 		_range_ring,
-		guide.hint_text
+		guide.hint_text,
+		_upgrade_range_ring
 	)
 	_hud.command_pressed.connect(cards.on_command_pressed)
 	_hud.attack_pressed.connect(_hero.try_attack)
