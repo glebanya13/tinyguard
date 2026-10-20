@@ -26,6 +26,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_WAVE)
 	for i in 10:
 		await process_frame
 	var main: Node = current_scene
@@ -94,7 +95,7 @@ func _check_map(level: Dictionary) -> void:
 			check(map.routes.size() == paths.size(), "a route per road " + where)
 			var rim := Rect2(Vector2.ZERO, map.frame.size)
 			check(
-				map.frame.position.x == 0.0 and absf(map.frame.end.y - box.y) < 0.01,
+				absf(map.frame.position.y) < 0.01 and absf(map.frame.end.x - box.x) < 0.01,
 				"the frame sits in the corner of the panel " + where
 			)
 			check(

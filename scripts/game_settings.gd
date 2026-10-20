@@ -18,12 +18,15 @@ const FX_NAMES: Array[String] = ["off", "min", "full"]
 ## Thumb controls (index settings, saved in settings.cfg, device-local): joystick size
 ## 0 small / 1 medium / 2 large, position 0 lower / 1 standard / 2 higher, side 0 left /
 ## 1 right; road compass size 0..2 and mode 0 show / 1 hide / 2 at the start of a wave.
+const MAP_MODE_ALWAYS := 0
+const MAP_MODE_HIDE := 1
+const MAP_MODE_WAVE := 2
 const LAYOUT_DEFAULTS := {
 	"joystick_size": 1,
 	"joystick_pos": 1,
 	"joystick_side": 0,
 	"minimap_size": 1,
-	"minimap_mode": 2,
+	"minimap_mode": MAP_MODE_ALWAYS,
 }
 ## Graphics quality choice (auto / low / medium / high) and the tier it resolves to. Purely
 ## visual (shadows, MSAA, effects): never touches the simulation. "auto" looks at the phone.

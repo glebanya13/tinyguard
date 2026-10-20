@@ -487,6 +487,8 @@ func apply_layout() -> void:
 	_joystick.offset_top = rect.position.y - _root.size.y
 	_joystick.offset_bottom = rect.end.y - _root.size.y
 	_joystick.set("radius", rect.size.x * HudLayout.JOY_RADIUS_RATIO)
+	if _joystick.has_method("reset_base_position"):
+		_joystick.reset_base_position()
 	_joystick.queue_redraw()
 	layout_changed.emit()
 

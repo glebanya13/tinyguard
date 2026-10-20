@@ -58,7 +58,7 @@ const CASTLE_DOOR: Array[Vector2] = [
 ## the world's own axes (X to the right, Z down).
 static var screen_oriented: bool = true
 static var _atlas: ImageTexture = null
-## Frame in the coordinates of the box it was built for (sits in the box's bottom-left corner).
+## Frame in the coordinates of the box it was built for (sits in the box's top-right corner).
 var frame: Rect2 = Rect2()
 var scale: float = 1.0
 var castle: Vector2 = Vector2.ZERO
@@ -116,7 +116,7 @@ func build(level: Dictionary, box_size: Vector2, font: Font) -> void:
 	var inner: Vector2 = box_size - Vector2.ONE * PAD * 2.0
 	scale = minf(inner.x / _field.size.x, inner.y / _field.size.y)
 	var frame_size: Vector2 = _field.size * scale + Vector2.ONE * PAD * 2.0
-	frame = Rect2(Vector2(0.0, box_size.y - frame_size.y), frame_size)
+	frame = Rect2(Vector2(box_size.x - frame_size.x, 0.0), frame_size)
 	var castle_world := Vector2(float(level["castle"][0]), float(level["castle"][1]))
 	castle = to_map(castle_world)
 	var paths: Array = level["paths"]

@@ -115,6 +115,10 @@ func _live() -> void:
 	var hud: Hud = main.get_node("HUD")
 	var joy: Control = hud.get_node("Root/Joystick")
 	var hint: LaneHint = hud.get_node("Root").find_children("*", "LaneHint", false, false)[0]
+	check(
+		GameSettings.minimap_mode() == GameSettings.MAP_MODE_ALWAYS,
+		"MAP_MODE_ALWAYS is default minimap mode"
+	)
 	for js in 3:
 		GameSettings.set_layout_value("joystick_size", js)
 		hud.apply_layout()
@@ -135,10 +139,37 @@ func _live() -> void:
 	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
 	hint.apply_settings()
 	check(hint.compass_visible(), "mode always: the compass is open")
+	check(
+		GameSettings.LAYOUT_DEFAULTS["minimap_mode"] == GameSettings.MAP_MODE_ALWAYS,
+		"MAP_MODE_ALWAYS является режимом по умолчанию"
+	)
 	var pin: Control = hint.get_node("CompassButton")
 	var rect: Rect2 = HudLayout.current(hint.size)["pin"]
-	check(pin.position.is_equal_approx(rect.position), "pin button in the bottom-left corner")
-	check(pin.position.x < 100.0 and pin.position.y > 400.0, "pin button is low and left")
+	check(pin.position.is_equal_approx(rect.position), "pin button placed by HudLayout")
+	check(pin.position.x > 600.0 and pin.position.y < 300.0, "pin button is in the top-right quarter")
+	# Floating joystick: touching in the left zone centers base at touch position,
+	# releasing returns base to home position.
+	GameSettings.set_layout_value("joystick_side", 0)
+	hud.apply_layout()
+	await process_frame
+	var want_home: Rect2 = HudLayout.current(hud.get_node("Root").size)["joystick"]
+	var touch_pos := Vector2(160.0, 360.0)
+	var touch_down := InputEventScreenTouch.new()
+	touch_down.pressed = true
+	touch_down.position = touch_pos
+	joy._input(touch_down)
+	check(
+		joy.get_base_center().is_equal_approx(touch_pos),
+		"Касание в левой зоне джойстика центрирует базу плавающего джойстика в точке касания"
+	)
+	var touch_up := InputEventScreenTouch.new()
+	touch_up.pressed = false
+	touch_up.position = touch_pos
+	joy._input(touch_up)
+	check(
+		joy.position.is_equal_approx(want_home.position),
+		"отпускание возвращает джойстик в исходное базовое положение"
+	)
 	GameSettings.set_layout_value("joystick_side", 1)
 	hud.apply_layout()
 	await process_frame

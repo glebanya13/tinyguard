@@ -14,6 +14,9 @@ const SIDE_RIGHT := 1
 const MAP_SHOW := 0
 const MAP_HIDE := 1
 const MAP_WAVE := 2
+const MAP_MODE_ALWAYS := 0
+const MAP_MODE_HIDE := 1
+const MAP_MODE_WAVE := 2
 ## Joystick control side by size setting (small / medium / large); radius = 0.4 * side.
 const JOY_SIDES: Array[float] = [168.0, 220.0, 272.0]
 const JOY_RADIUS_RATIO := 0.4
@@ -53,12 +56,18 @@ static func rects(
 	var corner_top: float = size.y - MARGIN  # top edge of what the corner holds
 	if map_mode != MAP_HIDE:
 		var panel: Vector2 = MAP_SIZES[map_size]
-		var pin := Rect2(MARGIN, size.y - MARGIN - PIN_SIZE.y, PIN_SIZE.x, PIN_SIZE.y)
-		var map := Rect2(MARGIN, pin.position.y - GAP - panel.y, panel.x, panel.y)
+		var map: Rect2
+		var pin: Rect2
+		if joy_side == SIDE_RIGHT:
+			pin = Rect2(MARGIN, size.y - MARGIN - PIN_SIZE.y, PIN_SIZE.x, PIN_SIZE.y)
+			map = Rect2(MARGIN, pin.position.y - GAP - panel.y, panel.x, panel.y)
+			corner_top = map.position.y
+			map_h = size.y - corner_top
+		else:
+			map = Rect2(size.x - MARGIN - panel.x, out["top_right"].end.y + GAP, panel.x, panel.y)
+			pin = Rect2(map.position.x - GAP - PIN_SIZE.x, map.position.y, PIN_SIZE.x, PIN_SIZE.y)
 		out["pin"] = pin
 		out["map"] = map
-		corner_top = map.position.y
-		map_h = size.y - corner_top
 	var side: float = JOY_SIDES[joy_size]
 	var bottom: float
 	var x: float
@@ -68,7 +77,7 @@ static func rects(
 		x = size.x - 24.0 - side
 	else:
 		bottom = (
-			map_h + GAP + JOY_LIFT[joy_pos] if map_mode != MAP_HIDE else JOY_FREE_BOTTOM[joy_pos]
+			map_h + GAP + JOY_LIFT[joy_pos] if map_h > 0.0 else JOY_FREE_BOTTOM[joy_pos]
 		)
 		x = 24.0
 	# A high lift stops under the top bars (the lift gives way, never the gap below).
