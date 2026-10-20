@@ -37,7 +37,7 @@ const LIFECYCLE_NOTIFICATIONS: Array[int] = [
 	NOTIFICATION_APPLICATION_FOCUS_IN,
 ]
 ## Co-op: how many steps of real time may pile up while waiting for the partner.
-const COOP_MAX_BACKLOG: int = 3
+const COOP_MAX_BACKLOG: int = 30
 ## FNV-1a 64-bit (as signed integers).
 const HASH_BASIS: int = -3750763034362895579
 const HASH_PRIME: int = 1099511628211

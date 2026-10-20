@@ -34,6 +34,7 @@ var _pending_slot: TowerSlot = null
 ## The selected slot was picked by walking up to it (not by a tap): walking away drops it.
 var _auto_selected: bool = false
 var _auto_selecting: bool = false
+var _selected_near: bool = false
 ## The villager the player closed the card for (until the hero walks away), and
 ## whether the hero walks to the villager after a tap.
 var _trade_dismissed: Villager = null
@@ -207,6 +208,7 @@ func refresh() -> void:
 func on_slot_selected(slot: TowerSlot) -> void:
 	if not _auto_selecting:
 		_auto_selected = false  # a tap
+	_selected_near = slot != null and _flat_distance(slot) <= AUTO_RELEASE_REACH
 	# Picking another slot drops a build/upgrade the hero was walking to do.
 	if pending_command != &"" and slot != _pending_slot:
 		_hero.cancel_order()
@@ -303,10 +305,14 @@ func _auto_select_near_hero() -> void:
 		if distance < best:
 			best = distance
 			nearest = slot
-	if current != null and _flat_distance(current) > 5.5:
-		_auto_selected = false
-		_build_manager.clear_selection()
-		return
+	if current != null:
+		if _flat_distance(current) <= AUTO_RELEASE_REACH:
+			_selected_near = true
+		elif (_auto_selected or _selected_near) and _flat_distance(current) > AUTO_RELEASE_REACH:
+			_auto_selected = false
+			_selected_near = false
+			_build_manager.clear_selection()
+			return
 	if current != null and _auto_selected and not moving:
 		# Standing still: only a clearly nearer slot replaces it (no flicker between two).
 		if nearest != null and nearest != current and best + 0.15 < _flat_distance(current):
@@ -316,9 +322,10 @@ func _auto_select_near_hero() -> void:
 		return
 	if nearest != null and nearest != current:
 		_auto_select(nearest)
-	elif nearest == null and current != null and _auto_selected:
-		if _flat_distance(current) > AUTO_RELEASE_REACH:
+	elif nearest == null and current != null:
+		if (_auto_selected or _selected_near) and _flat_distance(current) > AUTO_RELEASE_REACH:
 			_auto_selected = false
+			_selected_near = false
 			_build_manager.clear_selection()
 
 
@@ -327,6 +334,7 @@ func _auto_select(slot: TowerSlot) -> void:
 	_build_manager.select_slot(slot)
 	_auto_selecting = false
 	_auto_selected = true
+	_selected_near = true
 
 
 func _flat_distance(node: Node3D) -> float:

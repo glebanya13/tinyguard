@@ -114,6 +114,14 @@ func apply(cmd: GameCommand) -> bool:
 			ok = _hero_position_ok(cmd) and whirler.apply_spin(spot)
 			if ok:
 				whirler.ghost_goto(spot)
+		GameCommand.Type.MOVE_TO:
+			var spot: Vector3 = GameCommand.point_from_mm(cmd.args[0], cmd.args[1])
+			var walker: Hero = _hero_of(cmd.player)
+			ok = _hero_position_ok(cmd)
+			if ok:
+				_last_hero[cmd.player] = [cmd.args[0], cmd.args[1], cmd.tick]
+				if walker != null and walker.is_ghost:
+					walker.ghost_goto(spot)
 		GameCommand.Type.SET_PRIORITY:
 			var target: TowerSlot = _slot(cmd.args[0])
 			var wanted: int = cmd.args[1]

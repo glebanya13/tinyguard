@@ -71,6 +71,7 @@ const HURT_SOUND: AudioStream = preload("res://assets/audio/hero_hurt.wav")
 var health: float = 100.0
 var _damage_flash_timer: float = 0.0
 var _recoil_velocity: Vector3 = Vector3.ZERO
+var _last_synced_pos: Vector3 = Vector3.ZERO
 var _hurt_sound_player: AudioStreamPlayer3D = null
 var _flash_material: StandardMaterial3D = null
 var _meshes: Array[GeometryInstance3D] = []
@@ -208,6 +209,10 @@ func _physics_process(delta: float) -> void:
 	velocity = direction * walk_speed() + _recoil_velocity
 	move_and_slide()
 	position.y = 0.0
+	if commands != null and commands.coop != null and sim != null and sim.running and sim.tick % 6 == 0:
+		if (global_position - _last_synced_pos).length_squared() > 0.08:
+			_last_synced_pos = global_position
+			commands.submit(GameCommand.hero_move(global_position))
 	_animate(direction, delta)
 
 
@@ -298,6 +303,10 @@ func try_attack() -> bool:
 	var sent: bool = commands.submit(GameCommand.hero_attack(global_position, yaw))
 	if sent and commands.coop != null:
 		_attack_gate_tick = sim.tick + commands.coop.lockstep.delay + Sim.ticks(attack_cooldown)
+		_model.rotation.y = yaw
+		_puppet.play_action(&"attack")
+		_swing_sound.play()
+		_attack_left = _puppet.action_length(&"attack")
 	return sent
 
 
@@ -342,10 +351,11 @@ func apply_attack(origin: Vector3, yaw: float) -> bool:
 		return false
 	cancel_order(false)
 	_attack_ready_tick = sim.tick + Sim.ticks(attack_cooldown)
-	_attack_left = _puppet.action_length(&"attack")
 	_model.rotation.y = yaw
-	_puppet.play_action(&"attack")
-	_swing_sound.play()
+	if _attack_left <= 0.05 or is_ghost or commands == null or commands.coop == null:
+		_attack_left = _puppet.action_length(&"attack")
+		_puppet.play_action(&"attack")
+		_swing_sound.play()
 	swung.emit(origin, yaw)
 	sim.schedule_in(Sim.ticks(attack_hit_delay), _strike.bind(origin, yaw))
 	return true
@@ -438,13 +448,15 @@ func _gated(gate_tick: int) -> bool:
 	return commands.coop != null and sim.tick < gate_tick
 
 
-## Ghost: glides to the last known position at a bit more than walking speed.
+## Ghost: glides to the last known position with smooth adaptive catch-up.
 func _glide(delta: float) -> void:
 	var offset: Vector3 = _ghost_goal - position
 	offset.y = 0.0
-	var moving: bool = _ghost_set and offset.length() > 0.05 and _attack_left <= 0.0
+	var dist: float = offset.length()
+	var moving: bool = _ghost_set and dist > 0.05 and _attack_left <= 0.0
 	if moving:
-		var step: Vector3 = offset.limit_length(speed * 1.6 * delta)
+		var target_speed: float = speed * clampf(dist * 2.0, 1.2, 4.0)
+		var step: Vector3 = offset.limit_length(target_speed * delta)
 		position += step
 	_animate(offset.normalized() if moving else Vector3.ZERO, delta)
 

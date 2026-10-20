@@ -65,6 +65,15 @@ func handle_tap(screen_pos: Vector2) -> void:
 			ground_tapped.emit(ground)
 			return
 	var slot: TowerSlot = _pick_slot(screen_pos)
+	if slot == null and ground != null:
+		var best_dist: float = 1.35
+		for s in get_tree().get_nodes_in_group(TowerSlot.GROUP):
+			if s is TowerSlot:
+				var ts: TowerSlot = s as TowerSlot
+				var d: float = Vector2(ground.x - ts.global_position.x, ground.z - ts.global_position.z).length()
+				if d < best_dist:
+					best_dist = d
+					slot = ts
 	if slot != null:
 		select_slot(slot)
 		return

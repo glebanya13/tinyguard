@@ -82,6 +82,14 @@ func _run() -> void:
 	_bm.select_slot(a)
 	await physics_frame
 	check(_bm.selected_slot == a, "a tapped slot stays selected")
+	_bm.clear_selection()
+	# But if tapped while near the slot, walking away drops it.
+	await _walk_to(a, 1.25)
+	_bm.select_slot(a)
+	check(_bm.selected_slot == a, "slot A tapped while nearby")
+	if best > 3.0:
+		await _walk_to_point(far)
+		check(_bm.selected_slot == null, "walking away drops slot tapped while nearby")
 
 	# Tap-to-move disabled prevents moving to empty ground.
 	GameSettings.set_tap_to_move(false)

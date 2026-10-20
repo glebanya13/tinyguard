@@ -22,6 +22,7 @@ enum Type {
 	TRADE_BUY,  ## args: lots of wood to buy from a villager (campaign and co-op only)
 	HIRE,  ## args: villager index (spawn order): hire him as a lumberjack (same modes)
 	UPGRADE_CASTLE,  ## no args: the next castle upgrade (lives and armor), every mode
+	MOVE_TO,  ## args: x mm, z mm: partner hero position sync (co-op only)
 }
 
 ## Co-op wire names (CoopProtocol.COMMAND_TYPES) and argument counts of the commands
@@ -39,6 +40,7 @@ const WIRE_NAMES: Dictionary = {
 	Type.TRADE_BUY: "buy_wood",
 	Type.HIRE: "hire",
 	Type.UPGRADE_CASTLE: "castle",
+	Type.MOVE_TO: "move_to",
 }
 const ARG_COUNTS: Dictionary = {
 	Type.BUILD: 2,
@@ -55,6 +57,7 @@ const ARG_COUNTS: Dictionary = {
 	Type.UPGRADE_CASTLE: 0,
 	Type.SET_PAUSE: 1,
 	Type.SET_SPEED: 1,
+	Type.MOVE_TO: 2,
 }
 
 var tick: int = 0
@@ -113,6 +116,10 @@ static func hero_attack(origin: Vector3, yaw: float) -> GameCommand:
 
 static func hero_spin(origin: Vector3) -> GameCommand:
 	return make(Type.HERO_SPIN, [to_mm(origin.x), to_mm(origin.z)])
+
+
+static func hero_move(point: Vector3) -> GameCommand:
+	return make(Type.MOVE_TO, [to_mm(point.x), to_mm(point.z)])
 
 
 static func set_pause(on: bool) -> GameCommand:
