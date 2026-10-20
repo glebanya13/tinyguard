@@ -1,0 +1,39 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/mercenary.gd" id="1_merc"]
+[ext_resource type="PackedScene" path="res://assets/models/hero_knight.glb" id="2_model"]
+[ext_resource type="AudioStream" path="res://assets/audio/sword_swing.wav" id="3_swing"]
+[ext_resource type="AudioStream" path="res://assets/audio/hero_hurt.wav" id="4_hurt"]
+[ext_resource type="Script" path="res://scripts/anim/puppet.gd" id="5_puppet"]
+
+[sub_resource type="CapsuleShape3D" id="body_shape"]
+radius = 0.26
+height = 1.1
+
+[node name="Mercenary" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 5
+motion_mode = 1
+script = ExtResource("1_merc")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+
+[node name="Puppet" type="Node" parent="." node_paths=PackedStringArray("model")]
+script = ExtResource("5_puppet")
+model = NodePath("../Model")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+shape = SubResource("body_shape")
+
+[node name="SwingSound" type="AudioStreamPlayer3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+stream = ExtResource("3_swing")
+volume_db = -8.0
+max_polyphony = 2
+
+[node name="HurtSound" type="AudioStreamPlayer3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+stream = ExtResource("4_hurt")
+volume_db = -4.0
+max_polyphony = 2

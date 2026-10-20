@@ -76,6 +76,7 @@ var towers: Array[Tower] = []
 var projectiles: Array[Projectile] = []
 var trees: Array[WoodTree] = []
 var outposts: Array[Outpost] = []
+var mercenaries: Array[Mercenary] = []
 
 ## Frames in which the step budget ran out / steps lost to it (diagnostics, quality guard).
 var over_budget_frames: int = 0
@@ -249,6 +250,15 @@ func add_outpost(outpost: Outpost) -> void:
 	outposts.append(outpost)
 
 
+func add_mercenary(mercenary: Mercenary) -> void:
+	mercenaries.append(mercenary)
+	mercenary.sim = self
+
+
+func remove_mercenary(mercenary: Mercenary) -> void:
+	mercenaries.erase(mercenary)
+
+
 ## One step of the simulation.
 func step() -> void:
 	_in_step = true
@@ -267,6 +277,8 @@ func step() -> void:
 		villagers.sim_step()
 	for enemy in enemies.duplicate():
 		enemy.sim_step()
+	for merc in mercenaries.duplicate():
+		merc.sim_step()
 	for tower in towers.duplicate():
 		tower.sim_step()
 	for projectile in projectiles.duplicate():
@@ -297,6 +309,10 @@ func state_hash() -> int:
 	if villagers != null:
 		h = _mix(h, villagers.lots_sold)
 		h = _mix_all(h, villagers.state_ints())
+	if not mercenaries.is_empty():
+		h = _mix(h, mercenaries.size())
+		for merc in mercenaries:
+			h = _mix_all(h, merc.state_ints())
 	h = _mix(h, enemies.size())
 	for enemy in enemies:
 		h = _mix_all(h, enemy.state_ints())

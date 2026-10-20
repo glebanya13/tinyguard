@@ -4,6 +4,7 @@ extends Node3D
 ## call per bolt instead of one per segment.
 
 const BOLT_MESH: Mesh = preload("res://assets/materials/bolt_mesh.tres")
+const ZAP_SOUND: AudioStream = preload("res://assets/audio/lightning_hit.wav")
 ## Sideways jitter of the kink in the middle of each hop (metres).
 const JITTER := 0.18
 
@@ -11,6 +12,12 @@ const JITTER := 0.18
 
 
 func setup(points: PackedVector3Array) -> void:
+	var player := AudioStreamPlayer.new()
+	player.stream = ZAP_SOUND
+	player.volume_db = -3.0
+	player.pitch_scale = randf_range(0.95, 1.05)
+	add_child(player)
+	player.play()
 	var segments: Array[Transform3D] = []
 	var to_local: Transform3D = global_transform.affine_inverse()
 	for i in points.size() - 1:

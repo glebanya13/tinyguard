@@ -13,6 +13,7 @@ const PERK_KEYS: Array[StringName] = [
 ]
 const BUILD_FX := preload("res://scenes/fx/build_fx.tscn")
 const UPGRADE_FX := preload("res://scenes/fx/upgrade_fx.tscn")
+const GATE_HIT_FX := preload("res://scenes/fx/gate_hit_fx.tscn")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const RING_TREE_COLOR := Color(0.62, 0.95, 0.42, 0.85)
@@ -630,6 +631,8 @@ func _on_tower_upgraded(slot: TowerSlot, _tower: Tower) -> void:
 func _on_enemy_reached_base(damage: int) -> void:
 	_base_hit.play()
 	_game_state.take_leak(damage)
+	if builder != null and builder.castle != null:
+		_spawn_fx(GATE_HIT_FX, builder.castle.global_position + Vector3(0.0, 0.4, 0.0))
 
 
 ## The paths of the starting wave: remember the "С севера!" text for the banner,

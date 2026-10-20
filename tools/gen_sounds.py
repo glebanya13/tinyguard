@@ -282,6 +282,58 @@ def confetti():
     return mix(*layers)
 
 
+def hero_hurt():
+    # Armor clang (metallic ring) + low impact grunt / thud
+    clang = shaped(tone(lambda t: 680 * (1 + 0.1 * math.exp(-t * 20)), 0.28,
+                        lambda p: math.sin(p) + 0.5 * math.sin(2.4 * p) + 0.25 * math.sin(4.8 * p)),
+                   0.001, 0.06, 0.7)
+    thud = shaped(tone(lambda t: 140 - 180 * t, 0.2), 0.002, 0.05, 0.8)
+    grunt = shaped(lowpass(noise(0.2, 85), 0.15), 0.005, 0.06, 0.5)
+    return mix(clang, thud, grunt)
+
+
+def gate_hit():
+    # Heavy oak gate impact: deep resonant thud + sharp wood cracking / splinter snap
+    thud = shaped(tone(lambda t: 110 * math.exp(-t * 5.0) + 45, 0.45), 0.002, 0.15, 0.9)
+    crack = shaped(tone(lambda t: 450 - 600 * t, 0.18), 0.0005, 0.03, 0.7)
+    splinter = shaped(lowpass(noise(0.35, 92), 0.5), 0.001, 0.05, 0.85)
+    dust = shaped(lowpass(noise(0.45, 93), 0.12), 0.02, 0.12, 0.4)
+    return mix(thud, crack, splinter, dust)
+
+
+def arrow_hit():
+    # Sharp wooden/arrow strike thud
+    knock = shaped(tone(lambda t: 380 - 450 * t, 0.12), 0.0006, 0.025, 0.8)
+    snap = shaped(lowpass(noise(0.12, 101), 0.6), 0.0005, 0.02, 0.7)
+    return mix(knock, snap)
+
+
+def cannon_hit():
+    # Cannon impact: heavy ground burst explosion + rumble
+    boom = shaped(tone(lambda t: 85 * math.exp(-t * 4.0) + 30, 0.6), 0.002, 0.2, 1.0)
+    blast = shaped(lowpass(noise(0.55, 102), 0.3), 0.001, 0.1, 0.9)
+    dirt = shaped(lowpass(noise(0.7, 103), 0.08), 0.04, 0.25, 0.6)
+    return mix(boom, blast, dirt)
+
+
+def frost_hit():
+    # Crystalline ice shatter
+    layers = []
+    for k, f in enumerate([1800.0, 2400.0, 3200.0]):
+        layers.append(shaped(tone(lambda t, f=f: f * (1 + 0.05 * math.sin(t * 80)), 0.25),
+                             0.001, 0.05, 0.4))
+    crackle = shaped(lowpass(noise(0.25, 104), 0.7), 0.001, 0.04, 0.5)
+    return mix(*layers, crackle)
+
+
+def lightning_hit():
+    # Sharp electrical zap discharge
+    buzz = shaped(tone(lambda t: 650 - 400 * t, 0.25, lambda p: 1.0 if math.sin(p) > 0 else -1.0),
+                  0.001, 0.05, 0.6)
+    sizzle = shaped(lowpass(noise(0.25, 105), 0.5), 0.0005, 0.04, 0.8)
+    return mix(buzz, sizzle)
+
+
 def main() -> None:
     write("bow_shot", bow_shot(), 0.6)
     write("slime_hit", slime_hit(), 0.7)
@@ -290,6 +342,12 @@ def main() -> None:
     write("build", build(), 0.75)
     write("upgrade", upgrade(), 0.7)
     write("base_hit", base_hit(), 0.8)
+    write("gate_hit", gate_hit(), 0.85)
+    write("hero_hurt", hero_hurt(), 0.75)
+    write("arrow_hit", arrow_hit(), 0.7)
+    write("cannon_hit", cannon_hit(), 0.85)
+    write("frost_hit", frost_hit(), 0.65)
+    write("lightning_hit", lightning_hit(), 0.7)
     write("victory", jingle([523.25, 659.25, 783.99, 1046.5, 1318.5]), 0.7)
     write("defeat", jingle([392.0, 349.23, 311.13, 261.63], 0.2), 0.7)
     write("cannon_shot", cannon_shot(), 0.8)

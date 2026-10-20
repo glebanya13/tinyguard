@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/projectile.gd" id="1_projectile"]
 [ext_resource type="PackedScene" path="res://assets/models/arrow.glb" id="2_arrow"]
-[ext_resource type="PackedScene" path="res://scenes/fx/hit_fx.tscn" id="3_hit_fx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/arrow_hit_fx.tscn" id="3_hit_fx"]
 
 [node name="Projectile" type="Node3D"]
 script = ExtResource("1_projectile")

@@ -21,8 +21,10 @@ signal swung(origin: Vector3, yaw: float)
 signal spun(origin: Vector3)
 ## Emitted when a sword hit chops wood off a tree.
 signal wood_gathered(amount: int, at: Vector3)
+signal damaged(amount: float)
 
 const GROUP := &"heroes"
+const HURT_SOUND: AudioStream = preload("res://assets/audio/hero_hurt.wav")
 
 ## Metres per second (without the "swift feet" perk, see walk_speed()).
 @export var speed: float = 3.2
@@ -63,6 +65,15 @@ const GROUP := &"heroes"
 ## Seconds one whirlwind turn takes.
 @export var spin_duration: float = 0.45
 @export var spin_fx: PackedScene
+
+@export_group("Health")
+@export var max_health: float = 100.0
+var health: float = 100.0
+var _damage_flash_timer: float = 0.0
+var _recoil_velocity: Vector3 = Vector3.ZERO
+var _hurt_sound_player: AudioStreamPlayer3D = null
+var _flash_material: StandardMaterial3D = null
+var _meshes: Array[GeometryInstance3D] = []
 
 ## Where swings are submitted and what clock times them (set by the level).
 var commands: GameCommands = null
@@ -130,8 +141,20 @@ var _attack_left: float = 0.0
 
 
 func _ready() -> void:
+	health = max_health
+	_flash_material = StandardMaterial3D.new()
+	_flash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_flash_material.albedo_color = Color(1.0, 0.2, 0.2, 0.65)
+	_flash_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+
+	_hurt_sound_player = AudioStreamPlayer3D.new()
+	_hurt_sound_player.stream = HURT_SOUND
+	_hurt_sound_player.volume_db = -4.0
+	add_child(_hurt_sound_player)
+
 	# Each shadow caster is one more draw call: the body's shadow is enough.
 	for mesh: Node in _model.find_children("*", "GeometryInstance3D", true, false):
+		_meshes.append(mesh as GeometryInstance3D)
 		if mesh.name != &"Body":
 			(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Cosmetic skin (the partner's for the ghost): colours only, outside the simulation.
@@ -140,6 +163,12 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _damage_flash_timer > 0.0:
+		_damage_flash_timer = maxf(_damage_flash_timer - delta, 0.0)
+		if _damage_flash_timer == 0.0:
+			_set_flash_overlay(false)
+	if _recoil_velocity.length_squared() > 0.001:
+		_recoil_velocity = _recoil_velocity.move_toward(Vector3.ZERO, delta * 12.0)
 	_attack_left = maxf(_attack_left - delta, 0.0)
 	if is_ghost:
 		_glide(delta)
@@ -176,10 +205,31 @@ func _physics_process(delta: float) -> void:
 		try_attack()
 	if _attack_left > 0.0:
 		direction *= 0.3  # plant the feet while swinging
-	velocity = direction * walk_speed()
+	velocity = direction * walk_speed() + _recoil_velocity
 	move_and_slide()
 	position.y = 0.0
 	_animate(direction, delta)
+
+
+func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
+	health = maxf(health - amount, 0.0)
+	_damage_flash_timer = 0.25
+	_set_flash_overlay(true)
+	if _hurt_sound_player != null:
+		_hurt_sound_player.pitch_scale = randf_range(0.92, 1.08)
+		_hurt_sound_player.play()
+	var recoil_dir: Vector3 = from_dir.normalized()
+	if recoil_dir.length_squared() < 0.01:
+		recoil_dir = -transform.basis.z
+	recoil_dir.y = 0.0
+	_recoil_velocity = recoil_dir.normalized() * 3.5
+	damaged.emit(amount)
+
+
+func _set_flash_overlay(on: bool) -> void:
+	for mesh in _meshes:
+		if is_instance_valid(mesh):
+			mesh.material_overlay = _flash_material if on else null
 
 
 ## Walking speed with the perk, metres per second.
