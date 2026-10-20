@@ -180,19 +180,9 @@ func _on_sync_state() -> void:
 
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.6)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(800, 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	var frame := DialogFrame.attach(self, 800.0, 0.6)
+	var box := frame.body
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 12)
@@ -295,22 +285,10 @@ func _build() -> void:
 
 
 func _build_confirm() -> void:
-	_confirm = Control.new()
-	_confirm.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_confirm)
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.7)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirm.add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirm.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(680, 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	var frame := DialogFrame.attach(self, 680.0, 0.7)
+	_confirm = frame
+	var box := frame.body
 	box.add_theme_constant_override("separation", 14)
-	panel.add_child(box)
 	_confirm_title = _label(tr("ACC_DELETE_ACCOUNT_Q"), 34, DANGER_COLOR)
 	box.add_child(_confirm_title)
 	_confirm_body = _label("", 20)

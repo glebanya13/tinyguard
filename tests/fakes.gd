@@ -9,9 +9,13 @@ class FakeTransport:
 	extends HttpTransport
 	var handler: Callable
 	var calls: Array[Dictionary] = []
+	## URLs containing this never get an answer (a request that hangs; "" = off).
+	var hang_fragment: String = ""
 
 	func send(method: int, url: String, headers: PackedStringArray, body: String) -> Dictionary:
 		calls.append({"method": method, "url": url, "headers": headers, "body": body})
+		if hang_fragment != "" and hang_fragment in url:
+			await get_tree().create_timer(3600.0).timeout
 		await get_tree().process_frame  # replies arrive later, like real ones
 		var answer: Array = handler.call(method, url, body)
 		var code: int = answer[0]
@@ -83,6 +87,9 @@ class FakeFirebase:
 		if url.ends_with(":commit"):
 			return commit(body)
 		if url.ends_with(":runQuery"):
+			for fragment: String in forced_raw:
+				if fragment in url:
+					return forced_raw[fragment]
 			return run_query(url)
 		return document(method, url)
 

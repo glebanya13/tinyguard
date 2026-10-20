@@ -219,7 +219,7 @@ func _test_full_match() -> void:
 	check(bool(host_main.battle_end.ended) and nodes["guest"].battle_end.ended, "both see the end")
 	check(host_main.get_node("HUD/Root/EndScreen").visible, "the host sees the end screen")
 	# Back to the map: the real button of the end screen.
-	host_main.get_node("HUD/Root/EndScreen/EndPanel/Content/MapButton").pressed.emit()
+	host_main.get_node("HUD/Root/EndScreen").find_child("MapButton", true, false).pressed.emit()
 	await nodes["guest"].get("coop").leave()
 	check(await _until(func() -> bool: return _scene_is(MAP)), "the host is back on the map")
 	await _until(func() -> bool: return _server.get_at("rooms/" + room["code"]) == null)
@@ -278,9 +278,11 @@ func _test_partner_leaves_match() -> void:
 		hs.advance(1.0 / 30.0)
 		await process_frame
 	check(bool(host_main.battle_end.ended), "the host's battle ended")
-	var message: Label = host_main.get_node("HUD/Root/EndScreen/EndPanel/Content/MessageLabel")
+	var message: Label = host_main.get_node("HUD/Root/EndScreen").find_child(
+		"MessageLabel", true, false
+	)
 	check(message.text == "The partner left", "message: %s" % message.text)
-	host_main.get_node("HUD/Root/EndScreen/EndPanel/Content/MapButton").pressed.emit()
+	host_main.get_node("HUD/Root/EndScreen").find_child("MapButton", true, false).pressed.emit()
 	check(await _until(func() -> bool: return _scene_is(MAP)), "the host is back on the map")
 	await _until(func() -> bool: return _server.get_at("rooms/" + room["code"]) == null)
 	_db_clean(room["code"])

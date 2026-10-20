@@ -39,19 +39,9 @@ func _build() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	var dim := ColorRect.new()
-	dim.color = Color(0.04, 0.06, 0.14, 0.7)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(900, 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
+	var frame := DialogFrame.attach(self, 900.0, 0.7)
+	var box := frame.body
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
 
 	box.add_child(_label(tr("STREAK_TITLE"), 34, GOLD, true))
 	var state: Dictionary = Streak.local()

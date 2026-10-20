@@ -244,38 +244,15 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Dim" type="ColorRect" parent="UI/Root/Treasury"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.04, 0.06, 0.14, 0.6)
+[node name="Content" type="VBoxContainer" parent="UI/Root/Treasury"]
+layout_mode = 2
+theme_override_constants/separation = 8
 
-[node name="Panel" type="PanelContainer" parent="UI/Root/Treasury"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -520.0
-offset_top = -285.0
-offset_right = 520.0
-offset_bottom = 285.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Content" type="VBoxContainer" parent="UI/Root/Treasury/Panel"]
+[node name="Header" type="HBoxContainer" parent="UI/Root/Treasury/Content"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Header" type="HBoxContainer" parent="UI/Root/Treasury/Panel/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Panel/Content/Header"]
+[node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Content/Header"]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 mouse_filter = 2
@@ -283,24 +260,24 @@ texture = ExtResource("i_chest")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="UI/Root/Treasury/Panel/Content/Header"]
+[node name="Title" type="Label" parent="UI/Root/Treasury/Content/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"TitleLabel"
 text = "MAP_TREASURY_TITLE"
 
-[node name="FreePill" type="PanelContainer" parent="UI/Root/Treasury/Panel/Content/Header"]
+[node name="FreePill" type="PanelContainer" parent="UI/Root/Treasury/Content/Header"]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_type_variation = &"HudChip"
 
-[node name="Row" type="HBoxContainer" parent="UI/Root/Treasury/Panel/Content/Header/FreePill"]
+[node name="Row" type="HBoxContainer" parent="UI/Root/Treasury/Content/Header/FreePill"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Panel/Content/Header/FreePill/Row"]
+[node name="Icon" type="TextureRect" parent="UI/Root/Treasury/Content/Header/FreePill/Row"]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 mouse_filter = 2
@@ -308,37 +285,37 @@ texture = ExtResource("i_star")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="UI/Root/Treasury/Panel/Content/Header/FreePill/Row"]
+[node name="Label" type="Label" parent="UI/Root/Treasury/Content/Header/FreePill/Row"]
 layout_mode = 2
 theme_type_variation = &"NumberLabel"
 text = "MAP_FREE_PLACEHOLDER"
 
-[node name="Hint" type="Label" parent="UI/Root/Treasury/Panel/Content"]
+[node name="Hint" type="Label" parent="UI/Root/Treasury/Content"]
 layout_mode = 2
 theme_type_variation = &"CaptionLabel"
 text = "MAP_TREASURY_HINT"
 autowrap_mode = 3
 
-[node name="Cards" type="GridContainer" parent="UI/Root/Treasury/Panel/Content"]
+[node name="Cards" type="GridContainer" parent="UI/Root/Treasury/Content"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 columns = 3
 
-[node name="Footer" type="HBoxContainer" parent="UI/Root/Treasury/Panel/Content"]
+[node name="Footer" type="HBoxContainer" parent="UI/Root/Treasury/Content"]
 layout_mode = 2
 theme_override_constants/separation = 14
 alignment = 1
 
-[node name="ResetButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
+[node name="ResetButton" type="Button" parent="UI/Root/Treasury/Content/Footer"]
 custom_minimum_size = Vector2(260, 84)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"SecondaryButton"
 text = "MAP_REFUND"
 
-[node name="CloseButton" type="Button" parent="UI/Root/Treasury/Panel/Content/Footer"]
+[node name="CloseButton" type="Button" parent="UI/Root/Treasury/Content/Footer"]
 custom_minimum_size = Vector2(220, 84)
 layout_mode = 2
 focus_mode = 0

@@ -60,14 +60,14 @@ func flush_daily() -> void:
 		_ctx.status_changed.emit(_ctx.host.tr("ONLINE_DAILY_SENT"))
 
 
-## Top of the board of `day` (daily_loaded).
+## Top of the board of `day`: daily_loaded(day, entries) or daily_failed(day, reason)
+## (reasons as in OnlineRecords.query_board).
 func fetch_daily(day: String) -> void:
-	if not _ctx.is_configured() or not Daily.is_valid_key(day):
-		_ctx.daily_loaded.emit(day, [])
+	if not Daily.is_valid_key(day):
+		_ctx.daily_failed.emit(day, "error")
 		return
-	var reply: Dictionary = await _ctx.firestore.run_query(
-		"daily/" + day, OnlineRecords.top_query(), false
-	)
-	_ctx.daily_loaded.emit(
-		day, OnlineRecords.parse_leaderboard(reply["json"]) if reply["ok"] else []
-	)
+	var board: Dictionary = await _ctx.records.query_board("daily/" + day)
+	if board["state"] == "ok":
+		_ctx.daily_loaded.emit(day, board["entries"])
+	else:
+		_ctx.daily_failed.emit(day, board["state"])

@@ -492,36 +492,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Dim" type="ColorRect" parent="Root/EndScreen"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0.04, 0.06, 0.14, 0.45)
-
-[node name="EndPanel" type="PanelContainer" parent="Root/EndScreen"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -296.0
-offset_top = -250.0
-offset_right = 296.0
-offset_bottom = 250.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Content" type="VBoxContainer" parent="Root/EndScreen/EndPanel"]
+[node name="Content" type="VBoxContainer" parent="Root/EndScreen"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="MessageLabel" type="Label" parent="Root/EndScreen/EndPanel/Content"]
+[node name="MessageLabel" type="Label" parent="Root/EndScreen/Content"]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_type_variation = &"RibbonLabel"
@@ -529,13 +505,13 @@ theme_override_font_sizes/font_size = 40
 text = "HUD_VICTORY"
 horizontal_alignment = 1
 
-[node name="Stars" type="HBoxContainer" parent="Root/EndScreen/EndPanel/Content"]
+[node name="Stars" type="HBoxContainer" parent="Root/EndScreen/Content"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 6
 alignment = 1
 
-[node name="Stats" type="Label" parent="Root/EndScreen/EndPanel/Content"]
+[node name="Stats" type="Label" parent="Root/EndScreen/Content"]
 custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
 theme_type_variation = &"StatsLabel"
@@ -544,7 +520,7 @@ text = ""
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="ContinueButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+[node name="ContinueButton" type="Button" parent="Root/EndScreen/Content"]
 process_mode = 3
 custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
@@ -552,7 +528,7 @@ size_flags_horizontal = 4
 text = "HUD_CONTINUE"
 icon = ExtResource("i_play")
 
-[node name="ForgeButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+[node name="ForgeButton" type="Button" parent="Root/EndScreen/Content"]
 process_mode = 3
 custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
@@ -561,7 +537,7 @@ theme_type_variation = &"SecondaryButton"
 text = "HUD_FORGE"
 icon = ExtResource("i_hammer")
 
-[node name="SoundButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+[node name="SoundButton" type="Button" parent="Root/EndScreen/Content"]
 process_mode = 3
 custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
@@ -570,7 +546,7 @@ theme_type_variation = &"SecondaryButton"
 text = "HUD_SOUND_ON"
 icon = ExtResource("i_sound_on")
 
-[node name="RestartButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+[node name="RestartButton" type="Button" parent="Root/EndScreen/Content"]
 process_mode = 3
 custom_minimum_size = Vector2(300, 84)
 layout_mode = 2
@@ -578,7 +554,7 @@ size_flags_horizontal = 4
 text = "HUD_RESTART"
 icon = ExtResource("i_restart")
 
-[node name="MapButton" type="Button" parent="Root/EndScreen/EndPanel/Content"]
+[node name="MapButton" type="Button" parent="Root/EndScreen/Content"]
 process_mode = 3
 custom_minimum_size = Vector2(300, 84)
 layout_mode = 2

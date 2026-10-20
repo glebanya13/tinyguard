@@ -106,22 +106,23 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _spin_label: Label = $Root/SpinButton/Swirl
 @onready var _joystick: Control = $Root/Joystick
 @onready var _end_screen: Control = $Root/EndScreen
-@onready var _message_label: Label = $Root/EndScreen/EndPanel/Content/MessageLabel
-@onready var _stats: Label = $Root/EndScreen/EndPanel/Content/Stats
-@onready var _stars: HBoxContainer = $Root/EndScreen/EndPanel/Content/Stars
-@onready var _sound_button: Button = $Root/EndScreen/EndPanel/Content/SoundButton
-@onready var _continue_button: Button = $Root/EndScreen/EndPanel/Content/ContinueButton
-@onready var _forge_button: Button = $Root/EndScreen/EndPanel/Content/ForgeButton
+@onready var _message_label: Label = $Root/EndScreen/Content/MessageLabel
+@onready var _stats: Label = $Root/EndScreen/Content/Stats
+@onready var _stars: HBoxContainer = $Root/EndScreen/Content/Stars
+@onready var _sound_button: Button = $Root/EndScreen/Content/SoundButton
+@onready var _continue_button: Button = $Root/EndScreen/Content/ContinueButton
+@onready var _forge_button: Button = $Root/EndScreen/Content/ForgeButton
 @onready var _speed_button: Button = $Root/TopRight/SpeedButton
 @onready var _speed_multiplier: Label = $Root/TopRight/SpeedButton/Multiplier
 @onready var _pause_button: Button = $Root/TopRight/PauseButton
-@onready var _restart_button: Button = $Root/EndScreen/EndPanel/Content/RestartButton
-@onready var _map_button: Button = $Root/EndScreen/EndPanel/Content/MapButton
+@onready var _restart_button: Button = $Root/EndScreen/Content/RestartButton
+@onready var _map_button: Button = $Root/EndScreen/Content/MapButton
 
 
 func _ready() -> void:
 	_drop_outlines()
 	_end_screen.z_index = 10  # above the chips, which are layered by kind
+	_frame_end_screen()
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
 	_continue_button.pressed.connect(continue_pressed.emit)
@@ -151,6 +152,15 @@ func _ready() -> void:
 	SafeArea.attach(_root)
 	_root.resized.connect(apply_layout)
 	apply_layout()
+
+
+## The pause / end menu lives in the common dialog frame: a dim over the whole screen (not only
+## over the safe area the HUD root is inset to) and a panel centred on the screen.
+func _frame_end_screen() -> void:
+	var frame := DialogFrame.attach(_end_screen, 592.0, 0.45)
+	var content: Control = _end_screen.get_node("Content")
+	content.reparent(frame.body, false)
+	frame.body.add_theme_constant_override("separation", 0)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -404,6 +414,9 @@ func show_coop_notice(text: String) -> void:
 	if _coop_notice == null:
 		return
 	_coop_label.text = text
+	var shift: float = ScreenUtil.screen_center_shift(_root)
+	_coop_notice.offset_left = -260.0 + shift
+	_coop_notice.offset_right = 260.0 + shift
 	_coop_notice.show()
 
 

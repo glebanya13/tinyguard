@@ -98,7 +98,7 @@ service cloud.firestore {
     }
 
     function perkKeys() {
-      return ['axe', 'walls', 'sword', 'gold_start', 'towers', 'wood_start'];
+      return ['axe', 'walls', 'sword', 'gold_start', 'towers', 'wood_start', 'swift'];
     }
 
     function smallInt(m, k, hi) {

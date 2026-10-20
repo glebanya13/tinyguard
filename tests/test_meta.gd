@@ -54,6 +54,39 @@ func _run() -> void:
 	Perks.reset()
 	check(Perks.spent_stars() == 0, "perks reset")
 
+	# "Swift feet": three levels of hero speed, bought with stars like the others.
+	var swift: PerkData = Perks.get_perk(&"swift")
+	check(swift != null and swift.max_level() == 3, "the perk swift feet has 3 levels")
+	check(Perks.buy(swift) and swift.format_value(1) == "+6%", "swift level 1: +6%")
+	check(Perks.buy(swift) and swift.format_value(2) == "+12%", "swift level 2: +12%")
+	check(Perks.buy(swift) and swift.format_value(3) == "+18%", "swift level 3: +18%")
+	check(not Perks.buy(swift) and Perks.value(&"swift") == 0.18, "swift stops at level 3")
+	var paid: int = 0
+	for cost in swift.costs:
+		paid += cost
+	check(Perks.spent_stars() == paid, "swift: the stars are spent (%d)" % paid)
+	var keys: Array[StringName] = (
+		(load("res://scripts/main.gd") as GDScript).get_script_constant_map()["PERK_KEYS"]
+	)
+	check(
+		BattleSetup.current_perks(keys, false)["swift"] == 0.18,
+		"swift goes into the journal header perks"
+	)
+	check(BattleSetup.current_perks(keys, true)["swift"] == 0, "co-op: no perks, swift too")
+	LevelCatalog.endless = false
+	change_scene_to_file("res://scenes/main.tscn")
+	for i in 10:
+		await process_frame
+	var hero: Hero = current_scene.get("_hero")
+	check(
+		is_equal_approx(hero.walk_speed(), hero.speed * 1.18),
+		"the hero walks %.2f m/s (%.2f base)" % [hero.walk_speed(), hero.speed]
+	)
+	var header: Dictionary = (current_scene.get_node("GameCommands") as GameCommands).journal.header
+	check(is_equal_approx(float(header["perks"]["swift"]), 0.18), "the journal header records it")
+	Perks.reset()
+	check(Perks.spent_stars() == 0 and Perks.value(&"swift") == 0.0, "swift refunded with the rest")
+
 	# A damaged save is never overwritten; the .bak copy (made on commit) is used.
 	LevelCatalog.complete(1, 3)  # commit -> the previous file becomes .bak
 	var real: String = ProjectSettings.globalize_path(SAVE)

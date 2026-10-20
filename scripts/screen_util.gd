@@ -38,3 +38,10 @@ static func keyboard_height(viewport: Viewport) -> float:
 		return 0.0
 	var scale: float = viewport.get_visible_rect().size.y / float(window.y)
 	return DisplayServer.virtual_keyboard_get_height() * scale
+
+
+## How far the middle of the screen is from the middle of `parent` (a Control inset by the safe
+## area), in the parent's units: add it to a position to centre something on the SCREEN.
+static func screen_center_shift(parent: Control) -> float:
+	var screen: float = parent.get_viewport().get_visible_rect().size.x
+	return (screen / 2.0) - (parent.global_position.x + parent.size.x / 2.0)

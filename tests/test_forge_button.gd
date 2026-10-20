@@ -93,7 +93,7 @@ func _run() -> void:
 	check(await _topmost(pause), "pause button is under the finger")
 	await _click(pause)
 	check(paused, "click on Pause pauses")
-	var forge: Button = hud.get_node("Root/EndScreen/EndPanel/Content/ForgeButton")
+	var forge: Button = hud.get_node("Root/EndScreen").find_child("ForgeButton", true, false)
 	check(forge.is_visible_in_tree(), "Forge button is shown in the pause menu")
 	check(await _topmost(forge), "Forge button is under the finger (nothing covers it)")
 	await _click(forge)

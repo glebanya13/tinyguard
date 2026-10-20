@@ -12,6 +12,7 @@ const SESSION := "user://test_daily_online_session.cfg"
 var fails := 0
 var _board: Array = []
 var _board_day: String = ""
+var _failed: String = ""
 
 
 func check(c: bool, w: String) -> void:
@@ -48,6 +49,8 @@ func _run() -> void:
 	var online: Node = root.get_node("Online")
 	if not online.daily_loaded.is_connected(_on_board):
 		online.daily_loaded.connect(_on_board)
+	if not online.daily_failed.is_connected(_on_failed):
+		online.daily_failed.connect(_on_failed)
 
 	# Without Firebase nothing happens (the game is fully offline).
 	_clean()
@@ -59,8 +62,9 @@ func _run() -> void:
 		not online.has_pending_daily() and silent.calls.is_empty(),
 		"no Firebase: nothing queued or sent"
 	)
+	_failed = ""
 	await online.fetch_daily(today)
-	check(_board.is_empty() and _board_day == today, "no Firebase: an empty board")
+	check(_failed == "disabled" and silent.calls.is_empty(), "no Firebase: the board says so")
 
 	# A normal result.
 	_clean()
@@ -153,8 +157,9 @@ func _run() -> void:
 	)
 	check(_board[1]["wave"] == 14, "own entry in the middle")
 	fake.offline = true
+	_failed = ""
 	await online.fetch_daily(today)
-	check(_board.is_empty(), "offline: an empty board, no error")
+	check(_failed == "offline", "offline: the board reports why it is not shown (%s)" % _failed)
 	fake.offline = false
 
 	# Deleting the account removes the entries.
@@ -167,6 +172,10 @@ func _run() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE) + suffix)
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
+
+
+func _on_failed(_day: String, reason: String) -> void:
+	_failed = reason
 
 
 func _on_board(day: String, entries: Array) -> void:

@@ -6,6 +6,9 @@ extends RefCounted
 ## public methods. Signals go "up": the facade forwards them under its old names.
 
 signal leaderboard_loaded(level_id: int, entries: Array)
+## The table could not be loaded: reason "disabled", "offline", "denied", "error" or "timeout".
+signal leaderboard_failed(level_id: int, reason: String)
+signal daily_failed(day: String, reason: String)
 signal status_changed(text: String)
 signal daily_loaded(day: String, entries: Array)
 signal cloud_loaded(ok: bool)

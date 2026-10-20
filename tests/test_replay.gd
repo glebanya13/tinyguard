@@ -29,6 +29,9 @@ func check(c: bool, w: String) -> void:
 func _initialize() -> void:
 	LevelCatalog.save_path = "user://test_replay.cfg"
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
+	# The recording plays with the "swift feet" perk at full level: it rides in the journal header
+	# and both replays must still end in the same hashes.
+	LevelCatalog.data().set_value("perks", "swift", 3)
 	# The bot plays: the knight must not swing by himself (even in the first frame).
 	node_added.connect(
 		func(node: Node) -> void:
@@ -122,6 +125,10 @@ func _run() -> void:
 				sim.enemies.size()
 			]
 		)
+	)
+	check(
+		is_equal_approx(float(journal.header["perks"]["swift"]), 0.18),
+		"the journal header carries the swift perk"
 	)
 	check(recorded.size() == TOTAL_TICKS / HASH_EVERY, "hash recorded every %d ticks" % HASH_EVERY)
 	check(journal.commands.size() >= 15, "bot gave enough commands (%d)" % journal.commands.size())

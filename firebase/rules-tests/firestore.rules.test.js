@@ -734,10 +734,19 @@ test("users: difficulty crowns are 0..2 per known level (optional, schemaVersion
         unlocked: 6,
         stars: six,
         endless: { 1: 80, 2: 80, 3: 80, 4: 80, 5: 80, 6: 80 },
-        perks: { axe: 1, walls: 2, sword: 2, gold_start: 3, towers: 3, wood_start: 3 },
+        perks: { axe: 1, walls: 2, sword: 2, gold_start: 3, towers: 3, wood_start: 3, swift: 3 },
         dailyStars: 10,
         crowns: { 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 },
       },
+    }),
+  );
+  // The perk "swift" (hero speed) is known; a perk the rules do not list is not.
+  const speedy = env.authenticatedContext("perkSpeedy").firestore();
+  await assertFails(
+    setDoc(doc(speedy, "users/perkSpeedy"), {
+      ...profile(),
+      createdAt: serverTimestamp(),
+      progression: { ...profile().progression, perks: { swift: 1, speedy: 1 } },
     }),
   );
   // Unknown keys next to the crowns stay refused.

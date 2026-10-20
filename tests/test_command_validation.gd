@@ -122,8 +122,61 @@ func _run() -> void:
 		"validation off: only the cooldown refuses (%s)" % [verdicts4]
 	)
 
+	await _swift_perk(start)
+
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
+
+
+## The perk "swift feet" (+18 % speed): the validator reads the hero's real speed, so a run
+## that is possible only with the perk is accepted with it and refused without it, and a
+## replay of the journal (its header carries the perk) judges the same way.
+func _swift_perk(start: Vector3) -> void:
+	var seconds: int = 10
+	var base_limit: float = 3.2 * 1.5 * seconds + 1.0
+	var swift_limit: float = 3.2 * 1.18 * 1.5 * seconds + 1.0
+	var goal: Vector3 = start + Vector3(0.5 * (base_limit + swift_limit), 0.0, 0.0)
+	var plan: Array = [[0, start + Vector3(0.5, 0, 0), true], [seconds * Sim.TICK_RATE, goal, true]]
+	var wide := Rect2(-500.0, -500.0, 1000.0, 1000.0)
+	for level in [0, 3]:
+		if LevelCatalog.data().has_section("perks"):
+			LevelCatalog.data().erase_section("perks")
+		if level > 0:
+			LevelCatalog.data().set_value("perks", "swift", level)
+		var main: Node = await _load_level()
+		var commands: GameCommands = main.get_node("GameCommands")
+		var sim: Sim = main.get_node("Sim")
+		commands.validate_hero = true
+		commands.set_hero_limits(start, wide)
+		var verdicts: Array[bool] = _play(sim, commands, plan)
+		var accepted: bool = level > 0
+		var run: String = "%.0f m in %d s" % [goal.distance_to(start), seconds]
+		check(
+			verdicts == [true, accepted],
+			(
+				"swift level %d: a run of %s is %s %s"
+				% [level, run, "accepted" if accepted else "refused", verdicts]
+			)
+		)
+		if level == 0:
+			continue
+		# The journal carries the perk: a replay judges the same way.
+		var copy := CommandLog.from_json(commands.journal.to_json())
+		copy.header["seed"] = 12345
+		var recorded: int = sim.state_hash()
+		var total: int = sim.tick
+		var again: Node = await _load_level()
+		var commands2: GameCommands = again.get_node("GameCommands")
+		commands2.validate_hero = true
+		commands2.set_hero_limits(start, wide)
+		var sim2: Sim = again.get_node("Sim")
+		sim2.begin_replay(copy)
+		_steps(sim2, total)
+		var speed_bonus: float = (again.get("_hero") as Hero).speed_bonus
+		check(is_equal_approx(speed_bonus, 0.18), "the replay applies the perk of its header")
+		check(sim2.state_hash() == recorded, "the replay with the perk ends in the same hash")
+	if LevelCatalog.data().has_section("perks"):
+		LevelCatalog.data().erase_section("perks")
 
 
 ## Submits each [tick, position, expected] attempt at its tick; returns the verdicts.
