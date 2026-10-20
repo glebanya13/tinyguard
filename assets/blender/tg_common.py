@@ -69,17 +69,18 @@ PALETTE: dict[str, tuple[str, float, float]] = {
     "mouth": ("A8434B", 0.5, 0.0),
     "cape": ("2B4AA3", 0.75, 0.0),
     "string": ("EDE6D6", 0.8, 0.0),
-    # enemy
-    "slime": ("EA5A4E", 0.25, 0.0),
+    # enemy (chupacabras). These cells used to be the slime colours: same atlas cell order,
+    # new names and colours ("slime_dark" stays: the castle puddle uses it).
+    "chupa": ("46B58E", 0.6, 0.0),
     "slime_dark": ("B53A3A", 0.3, 0.0),
-    "slime_light": ("FFA08C", 0.2, 0.0),
+    "chupa_belly": ("D8F0B0", 0.65, 0.0),
     # enemy variants
     "slime_fast": ("F2A33A", 0.25, 0.0),
     "slime_fast_dark": ("C9762A", 0.3, 0.0),
-    "slime_tank": ("B8323F", 0.3, 0.0),
-    "slime_tank_dark": ("7E2030", 0.35, 0.0),
-    "king": ("B23A72", 0.25, 0.0),
-    "king_dark": ("6E2350", 0.3, 0.0),
+    "chupa_olive": ("8FA83A", 0.65, 0.0),
+    "chupa_olive_dark": ("5E7326", 0.7, 0.0),
+    "chupa_spike": ("F26B38", 0.4, 0.0),
+    "chupa_dark": ("2C8A6E", 0.65, 0.0),
     "ruby": ("E23B4F", 0.15, 0.2),
     # towers
     "iron": ("4C525F", 0.45, 0.6),

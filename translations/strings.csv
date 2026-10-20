@@ -120,14 +120,14 @@ ACC_SYNC_OFFLINE,"Нет связи — синхронизируем, когда
 ACC_SERVER_OFFLINE,Нет связи с сервером — попробуйте позже,No connection to the server. Try again later
 TUT_WELCOME_NAMED,"Добро пожаловать, %s!","Welcome, %s!"
 TUT_WELCOME,Добро пожаловать!,Welcome!
-TUT_WELCOME_BODY,"Слизни идут волнами по тропе к твоему замку. Не пусти их внутрь!
-Сейчас покажу, как защищаться.","Slimes march in waves along the path to your castle. Don't let them in!
+TUT_WELCOME_BODY,"Чупакабры идут волнами по тропе к твоему замку. Не пусти их внутрь!
+Сейчас покажу, как защищаться.","Chupacabras march in waves along the path to your castle. Don't let them in!
 Let me show you how to defend."
 TUT_START,Начнём!,Let's start!
 TUT_SKIP,Пропустить,Skip
 TUT_READY_NAMED,"Ты готов, %s!","You're ready, %s!"
 TUT_READY,Ты готов!,You're ready!
-TUT_READY_BODY,"Волны приходят каждые 30 секунд. Руби деревья, бей слизней, строй и улучшай башни — в любой момент боя. Удачи!","Waves come every 30 seconds. Chop trees, hit slimes, build and upgrade towers at any moment of the fight. Good luck!"
+TUT_READY_BODY,"Волны приходят каждые 30 секунд. Руби деревья, бей чупакабр, строй и улучшай башни — в любой момент боя. Удачи!","Waves come every 30 seconds. Chop trees, hit slimes, build and upgrade towers at any moment of the fight. Good luck!"
 TUT_TO_MAP,На карту,To the map
 TUT_KEEP_PLAYING,Играть дальше,Keep playing
 TUT_STEP_OF,Шаг %d из %d,Step %d of %d
@@ -135,9 +135,9 @@ TUT_CHOP_TITLE,Наруби дров,Chop some wood
 TUT_CHOP_BODY,"Подойди к дереву или нажми на него — рыцарь сам начнёт рубить.
 Дерево: %d из %d","Walk up to a tree or tap it, and the knight starts chopping.
 Wood: %d of %d"
-TUT_SLIMES_TITLE,Слизни идут!,Slimes are coming!
-TUT_SLIMES_BODY,"Подведи рыцаря к слизням — он бьёт мечом сам. За каждого дают золото.
-Золото: %d из %d","Lead the knight to the slimes, he strikes with the sword on his own. Each one drops gold.
+TUT_SLIMES_TITLE,Чупакабры идут!,Chupacabras are coming!
+TUT_SLIMES_BODY,"Подведи рыцаря к чупакабрам — он бьёт мечом сам. За каждого дают золото.
+Золото: %d из %d","Lead the knight to the chupacabras, he strikes with the sword on his own. Each one drops gold.
 Gold: %d of %d"
 TUT_SELECT_TITLE,Выбери площадку,Pick a plot
 TUT_SELECT_BODY,Нажми на каменную площадку у тропы — там встанет башня.,"Tap a stone plot by the path, a tower will stand there."
@@ -151,7 +151,7 @@ TUT_SPIN_COOLDOWN,"
 Кнопка ещё перезаряжается — подожди пару секунд.","
 The button is still recharging, wait a couple of seconds."
 TUT_WAVE_TITLE,Настоящая волна,A real wave
-TUT_WAVE_BODY,Волна идёт по тропе! Башня и рыцарь защищают замок. Победи всех слизней.,A wave is coming down the path! The tower and the knight defend the castle. Defeat all the slimes.
+TUT_WAVE_BODY,Волна идёт по тропе! Башня и рыцарь защищают замок. Победи всех чупакабр.,A wave is coming down the path! The tower and the knight defend the castle. Defeat all the chupacabras.
 TUT_UPGRADE_TITLE,Улучши башню,Upgrade the tower
 TUT_UPGRADE_BODY,Нажми на свою башню и выбери «Улучшить». Улучшать можно в любой момент.,"Tap your tower and choose ""Upgrade"". You can upgrade at any time."
 TUT_UPGRADE_NEED,"
@@ -205,16 +205,16 @@ TOWER_CANNON_NAME,Пушка,Cannon
 TOWER_CANNON_ROLE,"медленно, по площади; не бьёт летунов","slow, area damage; cannot hit flyers"
 TOWER_LIGHTNING_NAME,Молния,Lightning
 TOWER_LIGHTNING_ROLE,цепь по 3–5 врагам; замедленных Морозом бьёт на 40% сильнее,chain through 3–5 enemies; hits frost-slowed ones 40% harder
-ENEMY_SLIME_NAME,Слайм,Slime
-ENEMY_SLIME_FAST_NAME,Быстрый слайм,Fast slime
-ENEMY_SLIME_BAT_NAME,Летучий слайм,Flying slime
-ENEMY_SLIME_MINI_NAME,Слизнёнок,Slimeling
-ENEMY_SLIME_SHIELD_NAME,Щитовик,Shield bearer
-ENEMY_SLIME_KING_NAME,Король слаймов,Slime king
-ENEMY_SLIME_HEALER_NAME,Лекарь,Healer
-ENEMY_SLIME_TANK_NAME,Бронеслайм,Armored slime
+ENEMY_SLIME_NAME,Чупакабра,Chupacabra
+ENEMY_SLIME_FAST_NAME,Быстрая чупакабра,Swift chupacabra
+ENEMY_SLIME_BAT_NAME,Чупа-нетопырь,Chupa-bat
+ENEMY_SLIME_MINI_NAME,Чупачонок,Chupa-pup
+ENEMY_SLIME_SHIELD_NAME,Чупакабра со щитом,Shielded chupacabra
+ENEMY_SLIME_KING_NAME,Король чупакабр,Chupacabra king
+ENEMY_SLIME_HEALER_NAME,Шаман-чупакабра,Chupacabra shaman
+ENEMY_SLIME_TANK_NAME,Громила,Brute
 ENEMY_STONE_GOLEM_NAME,Каменный голем,Stone golem
-ENEMY_SLIME_SPLITTER_NAME,Делящийся слизень,Splitting slime
+ENEMY_SLIME_SPLITTER_NAME,Двойняшка,Twin
 PERK_AXE_NAME,Острый топор,Sharp axe
 PERK_AXE_DESC,Дерево за удар: %s,Wood per chop: %s
 PERK_WALLS_NAME,Крепкие стены,Sturdy walls
@@ -285,7 +285,7 @@ CARD_BUY_ALL_TIP,Купить сколько можно: %d дерева за %d
 CARD_HIRE_TIP,"Нанять дровосека за %d золота: +%d дерева в минуту, золота не даёт (нанято %d/%d)","Hire a lumberjack for %d gold: +%d wood a minute, no gold (hired %d/%d)"
 POPUP_LUMBERJACK,Нанят дровосек,Lumberjack hired
 GUIDE_CHOP,Нажмите на дерево — рыцарь нарубит дров,Tap a tree and the knight chops wood
-GUIDE_GOLD,Бейте слизней у тропы — за них золото,"Hit slimes by the path, they drop gold"
+GUIDE_GOLD,Бейте чупакабр у тропы — за них золото,"Hit chupacabras by the path, they drop gold"
 GUIDE_BUILD,Нажмите на площадку и постройте башню,Tap a plot and build a tower
 TOWER_STATS,Урон %d · радиус %.1f · %.2f с,Damage %d · range %.1f · %.2f s
 TOWER_STATS_SPLASH, · взрыв %.1f м, · blast %.1f m
@@ -367,7 +367,7 @@ LANES_FROM_TWO,С %s и %s!,From %s and %s!
 LANES_COMPASS,Компас: откуда идут волны,Compass: where the waves come from
 TIP_LANES,Молния бьёт замедленных Морозом сильнее; следите за баннером: волны идут по разным дорогам,Lightning hits frost-slowed enemies harder; watch the banner: waves come along different paths
 COOP_BUTTON,Кооператив,Co-op
-COOP_TITLE,Кооператив: двое против слаймов,Co-op: two against the slimes
+COOP_TITLE,Кооператив: двое против чупакабр,Co-op: two against the chupacabras
 COOP_INTRO,"Играйте вдвоём: общие казна и жизни, у каждого свой рыцарь. Один создаёт комнату, второй входит по коду.","Play together: shared gold, wood and lives, a knight each. One of you creates a room, the other joins with its code."
 COOP_CREATE,Создать комнату,Create a room
 COOP_JOIN,Войти по коду,Join with a code
@@ -508,9 +508,9 @@ END_RECORD_BEATEN,Прошлый рекорд: %d,Previous best: %d
 END_RECORD_STARS,Звёзды за рекорды: %d из %d,Stars from records: %d of %d
 END_DIFFICULTY,Сложность: %s,Difficulty: %s
 END_CROWN_NEW,Новая корона сложности!,New difficulty crown!
-REC_SURPRISE_SWARM,Рой быстрых!,A fast swarm!
-REC_SURPRISE_AIR,Налёт со всех сторон!,Air raid from every side!
-REC_SURPRISE_ARMOR,Бронированный натиск!,Armoured assault!
+REC_SURPRISE_SWARM,Стая быстрых чупакабр!,A swift chupacabra pack!
+REC_SURPRISE_AIR,Налёт чупа-нетопырей!,Chupa-bat raid!
+REC_SURPRISE_ARMOR,Натиск щитоносцев!,Shield-bearer assault!
 COOP_DIFFICULTY,Сложность: %s,Difficulty: %s
 WELCOME_TITLE,Добро пожаловать!,Welcome!
 WELCOME_SUBTITLE,Создай аккаунт: прогресс сохранится в облаке и вернётся на новом телефоне.,Create an account: your progress is saved in the cloud and follows you to a new phone.

@@ -345,7 +345,7 @@ r = 0.34) к слоям 1 и 3; новая башня блокирует сво�
 
 | Скрипт | Где | Что делает |
 |---|---|---|
-| `looping_model.gd` | `Model` героя и слайма | зацикливает анимацию `idle`, случайная фаза |
+| `looping_model.gd` | `Model` героя и чупакабры | зацикливает анимацию `idle`, случайная фаза |
 | `tower_model.gd` | `Model` башни | по сигналу `Tower.fired(target)` поворачивает `Turret` к цели и играет `attack`; тень — только у `Base` и `Turret` |
 | `no_shadow.gd` | террейн, кольца площадок | отключает отбрасывание теней у мешей ниже (экономия draw calls) |
 | `hud_icon.gd` | HUD | рисует иконки флага, монеты, сердца |
@@ -353,7 +353,7 @@ r = 0.34) к слоям 1 и 3; новая башня блокирует сво�
 - `tower.gd` только испускает `fired` и выпускает снаряд у кончика арбалета
   (`muzzle_reach`); урон, радиус и темп не менялись.
 - `projectile.gd` разворачивает стрелу по направлению полёта (`look_at`).
-- Слайм в `enemy.tscn` повёрнут на 180°: модель смотрит в +Z, а `PathFollow3D` ведёт по −Z.
+- Чупакабра в `enemy.tscn` повёрнут на 180°: модель смотрит в +Z, а `PathFollow3D` ведёт по −Z.
 - Все модели используют один материал `assets/materials/tg_palette.tres`
   (альбедо-палитра × цвет вершин с AO; roughness/metallic из ORM).
 - Тени: один ортогональный каскад, `shadow_blur = 1.5`; мелкие пропсы теней не отбрасывают.
@@ -577,7 +577,7 @@ max(min_gold, round(start_gold · price_decay^n)). `main.gd` открывает 
 `tests/run_all.sh` проходит (0 не пройдено) с `BIMBLEGUARD_FX=full` и с `BIMBLEGUARD_FX=off`.
 Кадры: `docs/screenshots/fx_*.jpg` (`tools/shot_fx.gd`).
 
-![Числа урона и золота, смерть слизня](screenshots/fx_numbers.jpg)
+![Числа урона и золота, смерть чупакабры](screenshots/fx_numbers.jpg)
 ![Кольцо улучшения](screenshots/fx_upgrade.jpg)
 ![Вспышка попадания](screenshots/fx_hit_flash.jpg)
 ![Потеря жизни: виньетка и тряска](screenshots/fx_castle_hit.jpg)

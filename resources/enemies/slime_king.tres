@@ -11,6 +11,7 @@ health = 520.0
 speed = 0.6
 reward = 40
 base_damage = 5
+fx_color = Color(0.27, 0.71, 0.56, 1)
 health_bar_height = 1.55
 health_bar_width = 1.4
 is_boss = true
