@@ -7,21 +7,22 @@
 
 ## RU
 
-**Название:** Bimbleguard: Башни и герой
+**Название:** Bimbleguard: Башни и рыцарь
 
-**Краткое описание:** Защити замок: ставь башни, веди героя, выстой в осаде. Без рекламы.
+**Краткое описание:** Защити замок: ставь башни, веди рыцаря, отбей чупакабр. Без рекламы.
 
 **Полное описание:**
 
 Bimbleguard: лёгкая 3D-защита башнями в мультяшном стиле, сделанная для телефона.
 
-Строй башни на площадках, собирай дерево и золото, веди героя джойстиком и отбивай волны
-врагов. За каждый уровень можно получить до трёх звёзд, а звёзды открывают постоянные
-улучшения.
+Строй башни на площадках, собирай дерево и золото, веди рыцаря джойстиком и отбивай волны
+чупакабр. Улучшай замок в кузнице, повышая жизни и броню от протечек. За каждый уровень можно
+получить до трёх звёзд, а звёзды открывают постоянные улучшения в казне.
 
 Что внутри:
 • 6 уровней с растущей сложностью
-• Герой под твоим управлением: бегай, руби деревья, торгуй с жителями
+• Рыцарь под твоим управлением: бегай, руби деревья, торгуй с жителями, бей вертушкой
+• Улучшение замка: повышай прочность и броню цитадели
 • Несколько видов башен и улучшения за звёзды
 • Бесконечная осада: сколько волн выдержишь? Таблица рекордов игроков
 • Необязательное облачное сохранение: привяжи почту и продолжай на другом телефоне
@@ -32,27 +33,33 @@ Bimbleguard: лёгкая 3D-защита башнями в мультяшном
 «Профиле». Мы не собираем аналитику и не показываем рекламу.
 
 **Ключевые слова (вплести в описание):** защита башнями, tower defense, стратегия, осада,
-офлайн, без рекламы, 3D, low poly.
+офлайн, без рекламы, 3D, low poly, рыцарь.
 
-**Что нового (0.4.0):** Первый релиз: 6 уровней, бесконечная осада с таблицей рекордов,
-аккаунты и облачное сохранение, обучение, пауза при звонке, кнопка «Назад».
+**Что нового (0.6.0):**
+• Улучшение замка в кузнице: прокачка жизней и брони от прорыва врагов.
+• Чупакабры вместо слаймов: обновлённый бестиарий и визуал врагов.
+• Новый благородный облик рыцаря и переработанные скины.
+• Единая система окон DialogFrame с поддержкой вырезов экрана и безопасных зон.
+• Перк казны «Быстрые ноги» (+6/12/18 % к скорости рыцаря).
 
 ## EN
 
-**Title:** Bimbleguard: Tower Defense
+**Title:** Bimbleguard: Tower Defense & Knight
 
-**Short description:** Defend the castle: build towers, lead your hero, survive the siege. No ads.
+**Short description:** Defend the castle: build towers, lead your knight, repel chupacabras. No ads.
 
 **Full description:**
 
 Bimbleguard is a light, cartoon-style 3D tower defense made for phones.
 
-Build towers on plots, gather wood and gold, steer your hero with a joystick and repel waves of
-enemies. Every level awards up to three stars, and stars unlock permanent upgrades.
+Build towers on plots, gather wood and gold, steer your knight with a joystick and repel waves of
+chupacabras. Upgrade your castle in the forge to bolster HP and leak armor. Every level awards up
+to three stars, unlocking permanent perks in the Treasury.
 
 Features:
 • 6 distinct levels with rising difficulty
-• A hero you control: run, chop trees, trade with villagers
+• A knight you control: run, chop trees, trade with villagers, unleash whirlwind attacks
+• Castle upgrades: enhance durability and armor against leaks
 • Several tower types and star-powered upgrades
 • Endless Siege: how many waves can you hold? Player leaderboard
 • Optional cloud save: link an e-mail and continue on another phone
@@ -62,10 +69,14 @@ Features:
 Online features (leaderboard, cloud save) are optional. You can delete your account and data
 from the Profile screen. No analytics, no ads.
 
-**Keywords (work into the text):** tower defense, strategy, siege, offline, no ads, 3D, low poly.
+**Keywords (work into the text):** tower defense, strategy, siege, offline, no ads, 3D, low poly, knight.
 
-**What's new (0.4.0):** First release: 6 levels, Endless Siege with leaderboard, accounts and
-cloud save, tutorial, pause on calls, Android Back button support.
+**What's new (0.6.0):**
+• Castle upgrades in the forge: increase HP and armor against leaking monsters.
+• Chupacabras replace slimes: fresh enemy designs and visuals.
+• Redesigned knight hero model and polished skins.
+• Unified DialogFrame system with notch and cutout safe-area handling.
+• New Treasury perk 'Swift feet' (+6/12/18 % knight movement speed).
 
 Локализация: интерфейс игры полностью RU + EN (`translations/strings.csv`, язык по системной
 локали, переключается в Настройках), поэтому EN-описание можно публиковать как основное для

@@ -480,7 +480,7 @@ ACH_DAILY_FIRST,Испытатель,Challenger
 ACH_DAILY_FIRST_DESC,Сыграй в испытание дня.,Play a daily trial.
 ACH_DAILY_STREAK_3,Три дня подряд,Three days in a row
 ACH_DAILY_STREAK_3_DESC,Играй в испытание дня 3 дня подряд.,Play the daily trial 3 days in a row.
-ACH_DAILY_WAVE_15,Герой дня,Hero of the day
+ACH_DAILY_WAVE_15,Рыцарь дня,Knight of the day
 ACH_DAILY_WAVE_15_DESC,Продержись 15 волн в испытании дня.,Survive 15 waves in a daily trial.
 ACH_PERK_BUYER,Первое усиление,First upgrade
 ACH_PERK_BUYER_DESC,Купи любое усиление в казне.,Buy any perk in the treasury.
@@ -541,7 +541,7 @@ QUEST_TOWERS,Построй башен: %d,Build %d towers
 QUEST_UPGRADES,Улучши башни: %d,Upgrade towers: %d
 EVENT_TEST_NAME,Тестовое событие,Test event
 SHOP_HERO_EMBER,Рубиновый,Ruby
-SHOP_HERO_FOREST,Лесной страж,Forest Warden
+SHOP_HERO_FOREST,Лесной рыцарь,Forest Knight
 SHOP_HERO_ROSE,Роза,Rose
 SHOP_HERO_SUN,Рассвет,Sunrise
 SHOP_HERO_FROST,Ледяной рыцарь,Frost Knight
