@@ -171,14 +171,15 @@ func refresh() -> void:
 	var slot: TowerSlot = _build_manager.selected_slot
 	if slot == null:
 		_range_ring.hide()
+	if forge_open:
+		_range_ring.hide()
+		_hud.show_hint("")
+		_hud.update_card(CommandCards.forge(_hero, _game_state))
+		return
 	if trade_with != null:
 		_range_ring.hide()
 		_hud.show_hint("")
 		_hud.update_card(CommandCards.trade(_villagers, _game_state, trade_with))
-		return
-	if slot == null and forge_open:
-		_hud.show_hint("")
-		_hud.update_card(CommandCards.forge(_hero, _game_state))
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text.call())
