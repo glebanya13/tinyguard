@@ -81,6 +81,9 @@ var _records_button: Button = null
 var _settings_panel: SettingsPanel = null
 var _encyclopedia_button: Button = null
 var _encyclopedia_panel: EncyclopediaPanel = null
+var _threat_vignette: ColorRect = null
+var _threat_tween: Tween = null
+var _threat_level: float = 0.0
 var _spin_shown: int = -1
 ## Co-op: "waiting for the partner" notice (built when the mode is switched on).
 var _coop_notice: PanelContainer = null
@@ -126,6 +129,14 @@ var _touch: bool = OS.has_feature("mobile")
 
 func _ready() -> void:
 	_drop_outlines()
+	_threat_vignette = ColorRect.new()
+	_threat_vignette.name = "ThreatVignette"
+	_threat_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_threat_vignette.color = Color(0.85, 0.08, 0.08, 0.0)
+	_threat_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_threat_vignette.visible = false
+	_root.add_child(_threat_vignette)
+	_root.move_child(_threat_vignette, 0)
 	_end_screen.z_index = 10  # above the chips, which are layered by kind
 	_frame_end_screen()
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
@@ -722,4 +733,32 @@ func _on_end_button_pressed(next: Signal) -> void:
 ## Toggles strategic camera view ("General mode").
 func toggle_strategic_view() -> void:
 	strategic_view_pressed.emit()
+
+
+## Flashes the threat vignette bright red when the castle leaks/takes damage.
+func flash_leak() -> void:
+	if _threat_vignette == null:
+		return
+	if _threat_tween and _threat_tween.is_valid():
+		_threat_tween.kill()
+	_threat_vignette.visible = true
+	_threat_vignette.color = Color(0.85, 0.08, 0.08, 0.45)
+	_threat_tween = create_tween()
+	_threat_tween.tween_property(_threat_vignette, "color:a", 0.0, 0.65).set_trans(Tween.TRANS_SINE)
+
+
+## Sets persistent threat danger level (0.0..1.0) when enemies are within critical reach of the gate.
+func set_threat_danger(danger: float) -> void:
+	_threat_level = clampf(danger, 0.0, 1.0)
+	if _threat_vignette == null:
+		return
+	if _threat_tween and _threat_tween.is_valid():
+		return
+	if _threat_level > 0.05:
+		_threat_vignette.visible = true
+		_threat_vignette.color = Color(0.85, 0.08, 0.08, _threat_level * 0.28)
+	else:
+		_threat_vignette.color.a = 0.0
+		_threat_vignette.visible = false
+
 

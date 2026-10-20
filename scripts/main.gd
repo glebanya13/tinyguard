@@ -276,6 +276,7 @@ func _notification(what: int) -> void:
 				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			battle_end.flush_progress()  # the process may be killed while in the background
+			_save_checkpoint()
 			# Phone call, home button: never let waves run unattended.
 			if OS.has_feature("mobile") and not _paused and not battle_end.ended and not _coop_on():
 				_toggle_pause()
@@ -288,6 +289,23 @@ func _process(delta: float) -> void:
 	_update_target_ring()
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 	guide.update_arrow(_focus, _build_manager.selected_slot == null and not cards.forge_open)
+	_update_threat_detection()
+
+
+func _update_threat_detection() -> void:
+	if builder != null and builder.castle != null and _sim != null:
+		var castle_pos := builder.castle.global_position
+		var min_dist: float = 999.0
+		for enemy in _sim.enemies:
+			if enemy != null and is_instance_valid(enemy) and enemy.is_alive():
+				var d: float = enemy.global_position.distance_to(castle_pos)
+				if d < min_dist:
+					min_dist = d
+		if min_dist < 4.5:
+			var danger: float = clampf(1.0 - (min_dist / 4.5), 0.0, 1.0)
+			_hud.set_threat_danger(danger)
+		else:
+			_hud.set_threat_danger(0.0)
 
 
 func _toggle_pause() -> void:
@@ -324,6 +342,7 @@ func _on_pause_changed(on: bool) -> void:
 	if _paused:
 		_hero.cancel_order()
 		_hud.show_pause_menu()
+		_save_checkpoint()
 	else:
 		_hud.hide_pause_menu()
 
@@ -463,6 +482,9 @@ func _build_walk_grid() -> void:
 		LevelBuilder.ground(level["hero"]),
 		slots
 	)
+	if LevelCatalog.resume_checkpoint and BattleCheckpoint.has_checkpoint(level["id"]):
+		restore_from_checkpoint(BattleCheckpoint.load_checkpoint())
+		LevelCatalog.resume_checkpoint = false
 	_sim.start()  # the level is complete: the battle clock may run
 
 
@@ -633,6 +655,8 @@ func _on_enemy_reached_base(damage: int) -> void:
 	_game_state.take_leak(damage)
 	if builder != null and builder.castle != null:
 		_spawn_fx(GATE_HIT_FX, builder.castle.global_position + Vector3(0.0, 0.4, 0.0))
+	if _hud != null:
+		_hud.flash_leak()
 
 
 ## The paths of the starting wave: remember the "С севера!" text for the banner,
@@ -648,10 +672,13 @@ func _on_wave_cleared(_wave: int) -> void:
 		villagers.restock(1)
 	if not _wave_manager.is_wave_active():
 		_lane_hint.finish()
+	if not battle_end.ended:
+		_save_checkpoint()
 
 
 func _on_battle_finished() -> void:
 	_lane_hint.stop()
+	BattleCheckpoint.clear_checkpoint()
 
 
 func _on_strategic_view_toggle() -> void:
@@ -688,6 +715,7 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 func _on_restart_pressed() -> void:
 	if _coop_on():
 		return  # one player cannot restart a shared battle
+	BattleCheckpoint.clear_checkpoint()
 	_leave_to("")
 
 
@@ -745,3 +773,127 @@ func _coop_on() -> bool:
 ## The knight of a player slot (the local one in single player).
 func _knight_of(player: int) -> Hero:
 	return _commands.heroes[player] if _commands.heroes.size() > player else _hero
+
+
+func _save_checkpoint() -> void:
+	if _coop_on() or LevelCatalog.tutorial or _daily_key != "":
+		return
+	if battle_end.ended or _leaving:
+		return
+	if _game_state.is_defeated or _game_state.lives <= 0:
+		return
+	var tower_list: Array = []
+	for slot in _commands.slots:
+		if slot != null and slot.tower != null and slot.tower.data != null:
+			tower_list.append({
+				"slot_id": slot.slot_id,
+				"type": slot.tower.data.resource_path.get_file().get_basename(),
+				"level": slot.tower.level,
+				"priority": slot.tower.priority
+			})
+	var v_data := {
+		"lots_sold": villagers.lots_sold if villagers != null else 0,
+		"lots_bought": villagers.lots_bought if villagers != null else 0,
+		"hired": villagers._hired if villagers != null else []
+	}
+	var s_data := {
+		"kills": battle_end.stats.get("kills", 0),
+		"wood": battle_end.stats.get("wood", 0),
+		"towers": battle_end.stats.get("towers", 0),
+		"time": battle_end.stats.get("time", 0.0)
+	}
+	var data := {
+		"level_id": int(level["id"]),
+		"wave": _wave_manager.current_wave,
+		"gold": _game_state.gold,
+		"wood": _game_state.wood,
+		"castle_lives": _game_state.lives,
+		"castle_level": _game_state.castle_level,
+		"sword_level": _hero.sword_level,
+		"difficulty": _difficulty,
+		"endless": _endless,
+		"towers": tower_list,
+		"villagers": v_data,
+		"stats": s_data
+	}
+	BattleCheckpoint.save_checkpoint(data)
+
+
+func restore_from_checkpoint(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	if data.has("difficulty"):
+		_difficulty = int(data["difficulty"])
+		_apply_difficulty()
+	if data.has("gold"):
+		_game_state.gold = int(data["gold"])
+		_game_state.gold_changed.emit(_game_state.gold)
+	if data.has("wood"):
+		_game_state.wood = int(data["wood"])
+		_game_state.wood_changed.emit(_game_state.wood)
+	if data.has("castle_lives"):
+		_game_state.lives = int(data["castle_lives"])
+		_game_state.lives_changed.emit(_game_state.lives)
+	if data.has("castle_level"):
+		_game_state.castle_level = int(data["castle_level"])
+		CastleModel.show_level(builder.castle, _game_state.castle_level)
+	if data.has("sword_level"):
+		var sword_lvl: int = int(data["sword_level"])
+		_hero.sword_level = clampi(sword_lvl, 0, _hero.sword_damage_levels.size() - 1)
+		_hero.attack_damage = _hero.sword_damage_levels[_hero.sword_level] * _hero.damage_multiplier
+
+	# Restore towers
+	for t in data.get("towers", []):
+		var slot_id: int = int(t.get("slot_id", -1))
+		if slot_id < 0 or slot_id >= _commands.slots.size():
+			continue
+		var slot: TowerSlot = _commands.slots[slot_id]
+		if not slot.is_free():
+			continue
+		var type_name: String = str(t.get("type", ""))
+		var target_data: TowerData = null
+		for d in _build_manager.tower_types:
+			if d != null and d.resource_path.get_file().get_basename() == type_name:
+				target_data = d
+				break
+		if target_data != null:
+			var tower: Tower = slot.place_tower(target_data.scene)
+			if tower != null:
+				if _sim != null:
+					tower.attach(_sim)
+				var tower_level: int = int(t.get("level", 0))
+				tower.apply_level(target_data, tower_level)
+				tower.damage *= _build_manager.damage_multiplier
+				if t.has("priority"):
+					tower.priority = int(t["priority"])
+				walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
+
+	# Restore villagers
+	var v_data: Dictionary = data.get("villagers", {})
+	if villagers != null and not v_data.is_empty():
+		villagers.lots_sold = int(v_data.get("lots_sold", 0))
+		villagers.lots_bought = int(v_data.get("lots_bought", 0))
+		var hired_list: Array = v_data.get("hired", [])
+		for i in mini(hired_list.size(), villagers.get_villagers().size()):
+			if bool(hired_list[i]):
+				villagers._hired[i] = true
+				villagers._chop_progress[i] = 0
+				villagers.get_villagers()[i].set_lumberjack(true)
+
+	# Restore battle end stats
+	var s_data: Dictionary = data.get("stats", {})
+	if not s_data.is_empty():
+		battle_end.stats["kills"] = int(s_data.get("kills", 0))
+		battle_end.stats["wood"] = int(s_data.get("wood", 0))
+		battle_end.stats["towers"] = int(s_data.get("towers", 0))
+		battle_end.stats["time"] = float(s_data.get("time", 0.0))
+
+	# Restore wave progress
+	var wave: int = int(data.get("wave", 0))
+	_wave_manager.current_wave = wave
+	battle_end.waves_cleared = wave
+	_hud.set_wave(wave, 0 if _endless else _wave_manager.get_total_waves())
+	_wave_manager.schedule_next_wave(5.0)
+	_hud.show_banner(tr("CHECKPOINT_CONTINUE") % wave, tr("WAVE_NEXT_IN") % "5s")
+	cards.refresh()
+

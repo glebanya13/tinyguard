@@ -303,6 +303,10 @@ func _auto_select_near_hero() -> void:
 		if distance < best:
 			best = distance
 			nearest = slot
+	if current != null and _flat_distance(current) > 5.5:
+		_auto_selected = false
+		_build_manager.clear_selection()
+		return
 	if current != null and _auto_selected and not moving:
 		# Standing still: only a clearly nearer slot replaces it (no flicker between two).
 		if nearest != null and nearest != current and best + 0.15 < _flat_distance(current):

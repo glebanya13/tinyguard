@@ -399,9 +399,9 @@ func _bot(main: Node, sim: Sim, commands: GameCommands) -> void:
 	var t: int = sim.tick
 	# The villagers' wood economy (campaign): two lumberjacks, wood bought when short of it.
 	var folk: Villagers = main.villagers
-	if t == 0 or (t % 100 == 0 and folk.hired_count() < 2):
+	if t == 0 or (t % 50 == 0 and folk.hired_count() < 2):
 		commands.submit(GameCommand.hire(folk.hired_count()))
-	if t == 10 or (t % 100 == 50 and gs.wood < 30):
+	if t == 10 or (t % 50 == 25 and folk.lots_bought < 1):
 		commands.submit(GameCommand.trade_buy(1))
 	# The castle: an upgrade whenever one is affordable (a refused command is not journaled).
 	if t >= 120 and t % 20 == 0:
@@ -425,7 +425,8 @@ func _bot(main: Node, sim: Sim, commands: GameCommands) -> void:
 	if not sim.enemies.is_empty() and hero.spin_cooldown_left() <= 0.0:
 		commands.submit(GameCommand.hero_spin(sim.enemies[0].sim_position()))
 	# Build / upgrade, one action per decision (the bot saves for the castle upgrade it is due).
-	var saving: bool = gs.castle_level < clampi((t - 100) / 450, 0, CastleUpgrades.max_level())
+	var need_villagers: bool = (folk.hired_count() < 1 or folk.lots_bought < 1) and not commands.slots[0].is_free()
+	var saving: bool = need_villagers or gs.castle_level < clampi((t - 100) / 450, 0, CastleUpgrades.max_level())
 	if t % 10 == 0 and not saving:
 		for slot in commands.slots:
 			var kind: int = slot.slot_id % bm.tower_types.size()

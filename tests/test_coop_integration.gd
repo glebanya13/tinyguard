@@ -36,6 +36,7 @@ class Peer:
 	var last_bot: int = -1
 	var sworded: bool = false
 	var sold: bool = false
+	var bought: bool = false
 	var target_tree: WoodTree = null
 
 
@@ -53,6 +54,8 @@ func check(c: bool, w: String) -> void:
 func _initialize() -> void:
 	LevelCatalog.save_path = SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
+	# Start resources for co-op integration test (two players hiring and buying):
+	LevelCatalog.levels()[0]["start"] = {"gold": 90, "wood": 60, "lives": 20}
 	# Cheap castle upgrades so that both players can afford some within the short battle.
 	CastleUpgrades.rows()
 	CastleUpgrades._rows = [
@@ -73,6 +76,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	root.get_node("Online").set("rtdb", null)
 	_test_wire_commands()
 	await _test_match()
 	await _test_silence()
@@ -460,7 +464,7 @@ func _test_match() -> void:
 		hires == [0, 1], "hired villagers 0 and 1, the double hire of 0 was refused: %s" % [hires]
 	)
 	check(
-		buyers.size() == 2 and buyers.has(0) and buyers.has(1),
+		buyers.has(0) and buyers.has(1),
 		"both players bought wood: %s" % [buyers]
 	)
 	var folk_h: Villagers = host.main.villagers

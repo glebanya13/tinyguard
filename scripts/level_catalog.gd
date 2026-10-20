@@ -36,6 +36,8 @@ static var difficulty: int = 0
 static var open_records: bool = false
 ## True when the selected level is played as the onboarding tutorial.
 static var tutorial: bool = false
+## True when entering battle to resume from a saved battle checkpoint.
+static var resume_checkpoint: bool = false
 ## Date ("yyyy-mm-dd") of the daily challenge being played, "" otherwise. Daily runs
 ## are endless sieges with the day's seed and modifiers (see DailyRun).
 static var daily_key: String = ""

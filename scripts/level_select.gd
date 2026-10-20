@@ -410,6 +410,19 @@ func _select(id: int) -> void:
 		_crown_icon.tooltip_text = tr("MAP_CROWN") % tr(str(Balance.difficulty(crown)["name"]))
 	var record: int = LevelCatalog.endless_record(id)
 	_record_label.text = (tr("MAP_RECORD_BEST") % record if record > 0 else tr("MAP_RECORD_NONE"))
+	if BattleCheckpoint.has_checkpoint(id):
+		var cp: Dictionary = BattleCheckpoint.load_checkpoint()
+		var cp_endless: bool = bool(cp.get("endless", false))
+		var wave: int = int(cp.get("wave", 1))
+		if cp_endless:
+			_play_button.text = tr("MAP_PLAY")
+			_endless_button.text = tr("CHECKPOINT_CONTINUE") % wave
+		else:
+			_play_button.text = tr("CHECKPOINT_CONTINUE") % wave
+			_endless_button.text = tr("MAP_RECORD_RUN")
+	else:
+		_play_button.text = tr("MAP_PLAY")
+		_endless_button.text = tr("MAP_RECORD_RUN")
 	if not LevelCatalog.is_difficulty_open(id, _difficulty):
 		_difficulty = 0
 	_refresh_difficulty(id)
@@ -724,6 +737,10 @@ func _start(endless: bool) -> void:
 	LevelCatalog.selected_id = _selected
 	LevelCatalog.endless = endless
 	LevelCatalog.difficulty = 0 if endless else _difficulty
+	var cp: Dictionary = (
+		BattleCheckpoint.load_checkpoint() if BattleCheckpoint.has_checkpoint(_selected) else {}
+	)
+	LevelCatalog.resume_checkpoint = not cp.is_empty() and bool(cp.get("endless", false)) == endless
 	_play_button.disabled = true
 	_endless_button.disabled = true
 	get_tree().change_scene_to_file(GAME_SCENE)
