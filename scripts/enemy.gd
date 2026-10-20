@@ -20,6 +20,10 @@ const LOOPING_MODEL := preload("res://scripts/looping_model.gd")
 const ARRIVAL_RATIO := 0.999
 ## Height of the point projectiles aim at, relative to the model height.
 const AIM_FRACTION := 0.45
+## Health bar colors by remaining health percentage.
+const COLOR_HP_GREEN := Color(0.25, 0.85, 0.3, 1.0)
+const COLOR_HP_YELLOW := Color(0.95, 0.8, 0.2, 1.0)
+const COLOR_HP_RED := Color(0.95, 0.25, 0.2, 1.0)
 
 @export var max_health: float = 30.0
 ## Movement speed in metres per second along the path.
@@ -67,6 +71,7 @@ var _health_mult: float = 1.0
 var _heal_left: float = 0.0
 
 @onready var _health_bar: MeshInstance3D = $HealthBar
+@onready var _health_bar_bg: MeshInstance3D = get_node_or_null("HealthBarBg") as MeshInstance3D
 
 
 ## Configure from an enemy type; health is multiplied by the wave factor.
@@ -95,6 +100,9 @@ func _ready() -> void:
 		crowd.add(self)
 		_health_bar.queue_free()
 		_health_bar = null
+		if _health_bar_bg:
+			_health_bar_bg.queue_free()
+			_health_bar_bg = null
 		return
 	if data:
 		_model = data.model.instantiate() as Node3D
@@ -107,10 +115,18 @@ func _ready() -> void:
 			(mesh as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_health_bar.position.y = data.health_bar_height + data.fly_height
 		_health_bar.scale.x = _bar_width
+		if _health_bar_bg:
+			_health_bar_bg.position.y = _health_bar.position.y
+			_health_bar_bg.scale.x = _bar_width
 		if data.is_boss:
 			_health_bar.scale.y = 1.8
+			if _health_bar_bg:
+				_health_bar_bg.scale.y = 1.8
 	# A full bar says nothing; hiding it saves a draw call per fresh enemy.
 	_health_bar.visible = is_boss()
+	if _health_bar_bg:
+		_health_bar_bg.visible = is_boss()
+	_update_own_bar()
 
 
 ## Drawing only: shows the position between the last two simulation steps.
@@ -291,9 +307,26 @@ func _pulse(peak: Vector3, rise: float, fall: float) -> void:
 
 
 func _update_own_bar() -> void:
-	if _health_bar:
-		_health_bar.visible = true
-		_health_bar.scale.x = _bar_width * health_ratio()
+	if not _health_bar:
+		return
+	var ratio := health_ratio()
+	var show_bar := shows_health_bar()
+	_health_bar.visible = show_bar
+	_health_bar.scale.x = _bar_width * ratio
+	if _health_bar_bg:
+		_health_bar_bg.visible = show_bar
+	var color := COLOR_HP_GREEN
+	if ratio < 0.2:
+		color = COLOR_HP_RED
+	elif ratio <= 0.5:
+		color = COLOR_HP_YELLOW
+	if _health_bar.material_override == null:
+		var base_mat: Material = _health_bar.get_active_material(0)
+		if base_mat:
+			_health_bar.material_override = base_mat.duplicate()
+	var mat := _health_bar.material_override as StandardMaterial3D
+	if mat:
+		mat.albedo_color = color
 
 
 func _spawn_death_fx() -> void:

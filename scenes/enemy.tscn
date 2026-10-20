@@ -1,23 +1,41 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy"]
 [ext_resource type="PackedScene" path="res://scenes/fx/death_fx.tscn" id="4_death_fx"]
 
-[sub_resource type="StandardMaterial3D" id="mat_health"]
+[sub_resource type="StandardMaterial3D" id="mat_health_bg"]
 shading_mode = 0
-albedo_color = Color(0.42, 0.85, 0.36, 1)
+albedo_color = Color(0.08, 0.08, 0.08, 0.85)
 billboard_mode = 1
 billboard_keep_scale = true
+render_priority = 0
+
+[sub_resource type="QuadMesh" id="mesh_health_bg"]
+material = SubResource("mat_health_bg")
+size = Vector2(0.64, 0.18)
+
+[sub_resource type="StandardMaterial3D" id="mat_health"]
+shading_mode = 0
+albedo_color = Color(0.25, 0.85, 0.3, 1)
+billboard_mode = 1
+billboard_keep_scale = true
+render_priority = 1
 
 [sub_resource type="QuadMesh" id="mesh_health"]
 material = SubResource("mat_health")
-size = Vector2(0.6, 0.08)
+size = Vector2(0.6, 0.15)
 
 [node name="Enemy" type="PathFollow3D"]
 rotation_mode = 1
 loop = false
 script = ExtResource("1_enemy")
 death_fx = ExtResource("4_death_fx")
+
+[node name="HealthBarBg" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.78, 0)
+visible = false
+cast_shadow = 0
+mesh = SubResource("mesh_health_bg")
 
 [node name="HealthBar" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.78, 0)

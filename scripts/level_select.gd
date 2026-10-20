@@ -53,6 +53,7 @@ var _records: RecordsPanel = null
 var _treasury_frame: DialogFrame = null
 var _account: AccountPanel = null
 var _settings: SettingsPanel = null
+var _encyclopedia: EncyclopediaPanel = null
 var _sync_button: Button = null
 var _reminder: AccountReminder = null
 var _coop_button: Button = null
@@ -161,6 +162,8 @@ func _notification(what: int) -> void:
 			_records.close()
 		elif _settings.visible:
 			_settings.close()
+		elif _encyclopedia and _encyclopedia.visible:
+			_encyclopedia.close()
 		elif _account.visible:
 			_account.close()
 		else:
@@ -642,6 +645,13 @@ func _icon_button(icon: Texture2D, tip: String) -> Button:
 
 ## Gear button next to the sound button and the settings dialog.
 func _build_settings_ui() -> void:
+	var book := _icon_button(preload("res://ui/icons/map.png"), tr("ENCYCLOPEDIA_TOOLTIP"))
+	book.name = "EncyclopediaButton"
+	_sound_button.add_sibling(book)
+	_encyclopedia = EncyclopediaPanel.new()
+	_ui_root.add_child(_encyclopedia)
+	book.pressed.connect(_encyclopedia.open)
+
 	var gear := _icon_button(GEAR_ICON, tr("SET_TOOLTIP"))
 	gear.name = "SettingsButton"
 	_sound_button.add_sibling(gear)

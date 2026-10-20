@@ -44,6 +44,7 @@ const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
+const BOOK_ICON: Texture2D = preload("res://ui/icons/map.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 ## Keyboard/gamepad action for each command id.
@@ -76,6 +77,8 @@ var _card_hash: int = 0
 var _settings_button: Button = null
 var _records_button: Button = null
 var _settings_panel: SettingsPanel = null
+var _encyclopedia_button: Button = null
+var _encyclopedia_panel: EncyclopediaPanel = null
 var _spin_shown: int = -1
 ## Co-op: "waiting for the partner" notice (built when the mode is switched on).
 var _coop_notice: PanelContainer = null
@@ -128,6 +131,7 @@ func _ready() -> void:
 	_continue_button.pressed.connect(continue_pressed.emit)
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_build_settings()
+	_build_encyclopedia()
 	_continue_button.shortcut = _shortcut(&"pause")
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_speed_button.pressed.connect(speed_pressed.emit)
@@ -359,6 +363,10 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 	_continue_button.hide()
 	_sound_button.hide()
 	_settings_button.hide()
+	if _encyclopedia_button:
+		_encyclopedia_button.hide()
+	if _encyclopedia_panel:
+		_encyclopedia_panel.close()
 	for i in 3:
 		var star := TextureRect.new()
 		star.texture = STAR_ICON
@@ -439,11 +447,17 @@ func show_pause_menu() -> void:
 	_forge_button.show()
 	_sound_button.hide()  # the sound switch lives in the settings dialog: keeps the menu short
 	_settings_button.show()
+	if _encyclopedia_button:
+		_encyclopedia_button.show()
 	_update_sound_label()
 
 
 func hide_pause_menu() -> void:
 	_settings_panel.close()
+	if _encyclopedia_panel:
+		_encyclopedia_panel.close()
+	if _encyclopedia_button:
+		_encyclopedia_button.hide()
 	_end_screen.hide()
 	_card_hash = 0
 	_card.visible = not _button_ids.is_empty()
@@ -647,8 +661,27 @@ func _build_settings() -> void:
 	_settings_panel.layout_changed.connect(apply_layout)
 
 
+func _build_encyclopedia() -> void:
+	_encyclopedia_button = Button.new()
+	_encyclopedia_button.name = "EncyclopediaButton"
+	_encyclopedia_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_encyclopedia_button.custom_minimum_size = _sound_button.custom_minimum_size
+	_encyclopedia_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_encyclopedia_button.theme_type_variation = &"SecondaryButton"
+	_encyclopedia_button.text = tr("HUD_ENCYCLOPEDIA")
+	_encyclopedia_button.icon = BOOK_ICON
+	_encyclopedia_button.hide()
+	_settings_button.add_sibling(_encyclopedia_button)
+	_encyclopedia_panel = EncyclopediaPanel.new()
+	_encyclopedia_panel.z_index = 10
+	_root.add_child(_encyclopedia_panel)
+	_encyclopedia_button.pressed.connect(_encyclopedia_panel.open)
+
+
 func _on_language_changed() -> void:
 	_settings_button.text = tr("HUD_SETTINGS")
+	if _encyclopedia_button:
+		_encyclopedia_button.text = tr("HUD_ENCYCLOPEDIA")
 	_update_sound_label()
 	if _end_screen.visible:
 		_message_label.text = tr("HUD_PAUSE")
