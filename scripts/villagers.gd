@@ -54,6 +54,8 @@ var lots_bought: int = 0
 ## Run and the Daily Challenge (their tables must stay comparable). Decided by the mode,
 ## the same on every client; a replay takes it from its journal header.
 var wood_economy: bool = true
+## Restocking of bought lots (+1 lot every 60s); disabled for legacy replays (< sim_version 3).
+var restock_enabled: bool = true
 
 var _villagers: Array[Villager] = []
 ## Per villager (spawn order = id): hired as a lumberjack, and the chopping progress in
@@ -244,6 +246,14 @@ func is_hired(index: int) -> bool:
 	return index >= 0 and index < _hired.size() and _hired[index]
 
 
+## Returns the index of the first villager not yet hired, or -1 if all are hired.
+func first_unhired_index() -> int:
+	for i in _hired.size():
+		if not _hired[i]:
+			return i
+	return -1
+
+
 ## Index of `villager` in the spawn order (-1 if it is not one of ours).
 func index_of(villager: Villager) -> int:
 	return _villagers.find(villager)
@@ -277,7 +287,7 @@ func restock(lots: int = 1) -> bool:
 ## One simulation step: every lumberjack (by index) earns wood, a whole piece at a time;
 ## periodically restocks wood lots (+1 lot every 60 seconds).
 func sim_step() -> void:
-	if wood_economy and buy_lots_left() < trade.buy_max_lots:
+	if wood_economy and restock_enabled and buy_lots_left() < trade.buy_max_lots:
 		_restock_ticks += 1
 		if _restock_ticks >= RESTOCK_INTERVAL_TICKS:
 			_restock_ticks = 0

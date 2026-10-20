@@ -71,11 +71,20 @@ func _ready() -> void:
 	_button.custom_minimum_size = HudLayout.PIN_SIZE
 	_button.size = HudLayout.PIN_SIZE
 	_button.theme_type_variation = &"SecondaryButton"
-	_button.icon = BUTTON_ICON
-	_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_button.add_theme_constant_override("icon_max_width", 48)
 	_button.tooltip_text = tr("LANES_COMPASS")
 	_button.pressed.connect(toggle_compass)
+	var btn_icon := TextureRect.new()
+	btn_icon.name = "Icon"
+	btn_icon.texture = BUTTON_ICON
+	btn_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	btn_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	btn_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn_icon.offset_left = 12.0
+	btn_icon.offset_top = 8.0
+	btn_icon.offset_right = -12.0
+	btn_icon.offset_bottom = -12.0
+	_button.add_child(btn_icon)
 	add_child(_button)
 	_strat_button = Button.new()
 	_strat_button.name = "StrategicViewButton"
@@ -83,11 +92,20 @@ func _ready() -> void:
 	_strat_button.custom_minimum_size = HudLayout.PIN_SIZE
 	_strat_button.size = HudLayout.PIN_SIZE
 	_strat_button.theme_type_variation = &"SecondaryButton"
-	_strat_button.icon = STRAT_ICON
-	_strat_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_strat_button.add_theme_constant_override("icon_max_width", 48)
 	_strat_button.tooltip_text = tr("LANES_STRATEGIC")
 	_strat_button.pressed.connect(toggle_strategic_view)
+	var strat_icon := TextureRect.new()
+	strat_icon.name = "Icon"
+	strat_icon.texture = STRAT_ICON
+	strat_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	strat_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	strat_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strat_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	strat_icon.offset_left = 12.0
+	strat_icon.offset_top = 8.0
+	strat_icon.offset_right = -12.0
+	strat_icon.offset_bottom = -12.0
+	_strat_button.add_child(strat_icon)
 	add_child(_strat_button)
 	apply_settings()
 	resized.connect(_place_button)
@@ -219,7 +237,7 @@ func _place_button() -> void:
 		var pin_rect: Rect2 = r["pin"] as Rect2
 		_button.position = pin_rect.position
 		if _strat_button != null:
-			_strat_button.position = Vector2(pin_rect.end.x + HudLayout.GAP, pin_rect.position.y)
+			_strat_button.position = Vector2(pin_rect.position.x, pin_rect.end.y + HudLayout.GAP)
 
 
 func _gui_input(event: InputEvent) -> void:

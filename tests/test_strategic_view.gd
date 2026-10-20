@@ -64,6 +64,17 @@ func _run() -> void:
 	check(cam.is_strategic_view(), "hud.toggle_strategic_view() triggers camera strategic view")
 	lane_hint.toggle_strategic_view()
 	check(not cam.is_strategic_view(), "lane_hint.toggle_strategic_view() toggles camera back")
+	# Button layout: strategic view button sits vertically below the compass button, no overlaps with minimap
+	var compass_btn: Button = lane_hint.get_node("CompassButton")
+	var strat_btn: Button = lane_hint.get_node("StrategicViewButton")
+	check(strat_btn.position.y > compass_btn.position.y, "strategic button is positioned under compass button")
+	check(is_equal_approx(strat_btn.position.x, compass_btn.position.x), "strategic button aligned horizontally with compass button")
+	var compass_box := Rect2(compass_btn.position, compass_btn.size)
+	var strat_box := Rect2(strat_btn.position, strat_btn.size)
+	var map_rect: Rect2 = HudLayout.current(lane_hint.size)["map"]
+	check(not compass_box.intersects(strat_box), "compass and strategic buttons do not overlap")
+	check(not compass_box.intersects(map_rect), "compass button does not overlap minimap")
+	check(not strat_box.intersects(map_rect), "strategic button does not overlap minimap")
 
 	# Flyover
 	check(cam.has_method("start_flyover") and cam.has_method("stop_flyover"), "camera has flyover methods")

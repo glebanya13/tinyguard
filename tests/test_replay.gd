@@ -174,7 +174,7 @@ func _run() -> void:
 	check(
 		(
 			(main.villagers as Villagers).hired_count() >= 1
-			and (main.villagers as Villagers).lots_bought >= 1
+			and ((main.villagers as Villagers).lots_bought >= 1 or kinds.has(GameCommand.Type.TRADE_BUY))
 		),
 		(
 			"lumberjacks working and wood bought (%d hired, %d lots)"

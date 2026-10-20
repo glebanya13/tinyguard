@@ -125,13 +125,14 @@ func _test_commands() -> void:
 	check(folk.get_villagers().size() >= 2, "two villagers to hire")
 
 	# Buying.
+	var start_wood: int = gs.wood
 	gs.gold = 0
 	var journal_size: int = commands.journal.commands.size()
 	check(not commands.submit(GameCommand.trade_buy(1)), "no gold: buying refused")
 	check(commands.journal.commands.size() == journal_size, "a refused purchase is not journaled")
 	check(not commands.submit(GameCommand.trade_buy(0)), "zero lots refused")
 	check(not commands.submit(GameCommand.trade_buy(-3)), "negative lots refused")
-	check(folk.lots_bought == 0 and gs.wood == 60, "nothing changed")
+	check(folk.lots_bought == 0 and gs.wood == start_wood, "nothing changed")
 	gs.gold = 1000
 	var wood: int = gs.wood
 	var first_price: int = trade.buy_lot_gold(0)

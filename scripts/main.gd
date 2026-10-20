@@ -119,6 +119,10 @@ func _ready() -> void:
 	_wave_manager.sim = _sim
 	_build_manager.sim = _sim
 	_build_manager.villagers = villagers
+	_build_manager.commands = _commands
+	_build_manager.bounds = LevelBuilder.map_rect(level)
+	_build_manager.lumberjack_camp = builder.lumberjack_camp
+	_build_manager.mercenary_camp = builder.mercenary_camp
 	if _daily_key != "":
 		_sim.set_seed(DailyRun.seed_of(_daily_key))
 		DailyRun.apply(_daily_key, _wave_manager.plan, _wave_manager, _build_manager)
@@ -409,6 +413,14 @@ func _on_replay_begun(header: Dictionary) -> void:
 	_apply_perks(header.get("perks", {}))
 	_apply_difficulty()
 	villagers.wood_economy = not bool(header.get("endless", false))
+	if int(header.get("sim_version", 0)) < 3:
+		villagers.restock_enabled = false
+		# Legacy sim_version < 3 journals were recorded with original 90 gold / 60 wood for level 1 and 2.
+		if LevelCatalog.selected_id in [1, 2]:
+			_game_state.gold = 90
+			_game_state.wood = 60
+			_game_state.gold_changed.emit(_game_state.gold)
+			_game_state.wood_changed.emit(_game_state.wood)
 	if header.has("daily"):
 		DailyRun.apply(str(header["daily"]), _wave_manager.plan, _wave_manager, _build_manager)
 
@@ -623,7 +635,7 @@ func _on_lumberjack_chopped(index: int) -> void:
 
 func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 	battle_end.count_tower()
-	walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
+	walk_grid.block_slot(slot, TOWER_BLOCK_RADIUS)
 	_spawn_fx(BUILD_FX, slot.global_position)
 	# Rise out of the dust.
 	tower.scale = Vector3(1.0, 0.2, 1.0)
@@ -634,7 +646,7 @@ func _on_tower_built(slot: TowerSlot, tower: Tower) -> void:
 
 
 func _on_tower_sold(slot: TowerSlot, refund: Vector2i) -> void:
-	walk_grid.unblock(slot.global_position)
+	walk_grid.unblock_slot(slot)
 	_spawn_fx(BUILD_FX, slot.global_position)
 	_popup("+%d" % refund.x, slot.global_position + Vector3.UP * 1.2, GOLD_COLOR, COIN_ICON)
 	cards.refresh()
@@ -668,7 +680,7 @@ func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 
 ## The arrows of the wave go out when no wave has enemies left.
 func _on_wave_cleared(_wave: int) -> void:
-	if villagers != null:
+	if villagers != null and villagers.restock_enabled:
 		villagers.restock(1)
 	if not _wave_manager.is_wave_active():
 		_lane_hint.finish()

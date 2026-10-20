@@ -59,14 +59,16 @@ static func rects(
 		var map: Rect2
 		var pin: Rect2
 		if joy_side == SIDE_RIGHT:
-			pin = Rect2(MARGIN, size.y - MARGIN - PIN_SIZE.y, PIN_SIZE.x, PIN_SIZE.y)
+			pin = Rect2(MARGIN, size.y - MARGIN - 2.0 * PIN_SIZE.y - GAP, PIN_SIZE.x, PIN_SIZE.y)
 			map = Rect2(MARGIN, pin.position.y - GAP - panel.y, panel.x, panel.y)
 			corner_top = map.position.y
 			map_h = size.y - corner_top
 		else:
 			map = Rect2(size.x - MARGIN - panel.x, out["top_right"].end.y + GAP, panel.x, panel.y)
 			pin = Rect2(map.position.x - GAP - PIN_SIZE.x, map.position.y, PIN_SIZE.x, PIN_SIZE.y)
+		var strat := Rect2(pin.position.x, pin.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y)
 		out["pin"] = pin
+		out["strat"] = strat
 		out["map"] = map
 	var side: float = JOY_SIDES[joy_size]
 	var bottom: float

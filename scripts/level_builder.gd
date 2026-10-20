@@ -113,12 +113,14 @@ func build(
 	Cosmetics.apply(castle, Cosmetics.castle_flag())  # banner skin: colours only
 
 	# Camp structures: lumberjack camp near trees/village, mercenary camp on defense perimeter
+	var camp_positions: Dictionary = find_camp_positions(level, castle.position)
+
 	lumberjack_camp = CampStructures.create_lumberjack_camp()
-	lumberjack_camp.position = castle.position + Vector3(4.5, 0.0, 2.5)
+	lumberjack_camp.position = camp_positions["lumberjack"]
 	_root.add_child(lumberjack_camp)
 
 	mercenary_camp = CampStructures.create_mercenary_camp()
-	mercenary_camp.position = castle.position + Vector3(-3.5, 0.0, 3.5)
+	mercenary_camp.position = camp_positions["mercenary"]
 	mercenary_camp.sim = _sim
 	mercenary_camp.hero = hero
 	mercenary_camp.gate_position = castle.position
@@ -175,3 +177,107 @@ func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
 			trees.append(tree)
 
 	grove.build(trees)
+
+
+## Finds clear positions for lumberjack camp (towards trees) and mercenary camp (defensive flank),
+## ensuring both are 6-10m from the castle, at least 3.5m away from any tower slot,
+## and at least 2.5m away from all enemy paths.
+static func find_camp_positions(level: Dictionary, castle_pos: Vector3) -> Dictionary:
+	var slots: Array = level.get("slots", [])
+	var paths: Array = level.get("paths", [])
+	var bounds: Array = level.get("bounds", [-22.0, -15.0, 44.0, 30.0])
+	var trees: Array = level.get("trees", [])
+	var min_x: float = float(bounds[0]) + 2.0
+	var min_z: float = float(bounds[1]) + 2.0
+	var max_x: float = float(bounds[0]) + float(bounds[2]) - 2.0
+	var max_z: float = float(bounds[1]) + float(bounds[3]) - 2.0
+
+	var candidates: Array[Dictionary] = []
+	var radii: Array[float] = [7.0, 8.0, 9.0, 10.0, 6.5, 7.5, 8.5, 9.5, 6.0]
+
+	for r in radii:
+		for deg in range(0, 360, 5):
+			var rad: float = deg_to_rad(float(deg))
+			var x: float = castle_pos.x + r * cos(rad)
+			var z: float = castle_pos.z + r * sin(rad)
+			if x < min_x or x > max_x or z < min_z or z > max_z:
+				continue
+			var p2 := Vector2(x, z)
+			var ds: float = _min_dist_to_slots(p2, slots)
+			if ds < 3.5:
+				continue
+			var dp: float = _min_dist_to_paths(p2, paths)
+			if dp < 2.5:
+				continue
+			var dt: float = 10.0
+			if not trees.is_empty():
+				for t_val in trees:
+					var t_pos := Vector2(float(t_val[0]), float(t_val[1]))
+					dt = minf(dt, p2.distance_to(t_pos))
+			candidates.append({
+				"pos": Vector3(x, 0.0, z),
+				"p2": p2,
+				"r": r,
+				"ds": ds,
+				"dp": dp,
+				"dt": dt
+			})
+
+	# If candidates is empty (fallback safeguard), generate default positions with best effort
+	if candidates.is_empty():
+		return {
+			"lumberjack": castle_pos + Vector3(7.0, 0.0, -4.0),
+			"mercenary": castle_pos + Vector3(-7.0, 0.0, 5.0)
+		}
+
+	var best_pair_score: float = -1e9
+	var best_lj: Vector3 = candidates[0]["pos"]
+	var best_merc: Vector3 = candidates[-1]["pos"]
+
+	for c1 in candidates:
+		for c2 in candidates:
+			var sep: float = c1["p2"].distance_to(c2["p2"])
+			if sep < 5.0:
+				continue
+			# c1 is lumberjack (bonus for being close to trees: -c1["dt"] * 0.5)
+			# c2 is mercenary (bonus for large separation and flank coverage)
+			var score: float = sep + c1["ds"] + c1["dp"] + c2["ds"] + c2["dp"] - c1["dt"] * 0.5
+			if score > best_pair_score:
+				best_pair_score = score
+				best_lj = c1["pos"]
+				best_merc = c2["pos"]
+
+	return {
+		"lumberjack": best_lj,
+		"mercenary": best_merc
+	}
+
+
+static func _dist_to_segment_2d(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var len_sq := ab.length_squared()
+	if len_sq < 0.0001:
+		return p.distance_to(a)
+	var t: float = clampf((p - a).dot(ab) / len_sq, 0.0, 1.0)
+	var proj := a + ab * t
+	return p.distance_to(proj)
+
+
+static func _min_dist_to_paths(p: Vector2, paths: Array) -> float:
+	var min_d: float = INF
+	for route_val in paths:
+		var route: Array = route_val as Array
+		for i in range(route.size() - 1):
+			var a := Vector2(float(route[i][0]), float(route[i][1]))
+			var b := Vector2(float(route[i + 1][0]), float(route[i + 1][1]))
+			min_d = minf(min_d, _dist_to_segment_2d(p, a, b))
+	return min_d
+
+
+static func _min_dist_to_slots(p: Vector2, slots: Array) -> float:
+	var min_d: float = INF
+	for s_val in slots:
+		var s: Array = s_val as Array
+		var s_pos := Vector2(float(s[0]), float(s[1]))
+		min_d = minf(min_d, p.distance_to(s_pos))
+	return min_d

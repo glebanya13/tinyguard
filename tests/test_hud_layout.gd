@@ -71,7 +71,7 @@ func _math() -> void:
 								var joy: Rect2 = r["joystick"]
 								var items: Array = ["joystick", "attack", "spin"]
 								if r.has("map"):
-									items += ["map", "pin"]
+									items += ["map", "pin", "strat"]
 								for key: String in items:
 									if not bounds.encloses(r[key]):
 										bad.append("%s: %s outside" % [tag, key])
@@ -82,8 +82,14 @@ func _math() -> void:
 									for key: String in ["attack", "spin", "top_left", "top_right"]:
 										if (r["map"] as Rect2).intersects(r[key]):
 											bad.append("%s: map over %s" % [tag, key])
-									if joy.intersects(r["map"]) or joy.intersects(r["pin"]):
+									if joy.intersects(r["map"]) or joy.intersects(r["pin"]) or joy.intersects(r["strat"]):
 										bad.append("%s: joystick over the compass" % tag)
+									if (r["strat"] as Rect2).intersects(r["map"]):
+										bad.append("%s: strat over map" % tag)
+									if (r["pin"] as Rect2).intersects(r["strat"]):
+										bad.append("%s: pin over strat" % tag)
+									if (r["strat"] as Rect2).position.y <= (r["pin"] as Rect2).position.y:
+										bad.append("%s: strat not below pin" % tag)
 	check(
 		bad.is_empty(),
 		"%d layouts: no overlaps, all inside the screen %s" % [combos, ", ".join(bad.slice(0, 4))]
@@ -147,6 +153,18 @@ func _live() -> void:
 	var rect: Rect2 = HudLayout.current(hint.size)["pin"]
 	check(pin.position.is_equal_approx(rect.position), "pin button placed by HudLayout")
 	check(pin.position.x > 600.0 and pin.position.y < 300.0, "pin button is in the top-right quarter")
+	var strat_btn: Control = hint.get_node("StrategicViewButton")
+	var strat_rect: Rect2 = HudLayout.current(hint.size)["strat"]
+	check(strat_btn.position.is_equal_approx(strat_rect.position), "strat button placed by HudLayout")
+	check(strat_btn.position.y > pin.position.y, "strat button sits vertically below compass button")
+	check(is_equal_approx(strat_btn.position.x, pin.position.x), "strat button aligns horizontally with compass button")
+	check(strat_btn.position.x > 600.0 and strat_btn.position.y < 300.0, "strat button is in the top-right quarter")
+	var map_rect: Rect2 = HudLayout.current(hint.size)["map"]
+	var pin_box := Rect2(pin.position, pin.size)
+	var strat_box := Rect2(strat_btn.position, strat_btn.size)
+	check(not pin_box.intersects(strat_box), "pin and strat buttons do not overlap")
+	check(not pin_box.intersects(map_rect), "pin button does not overlap minimap")
+	check(not strat_box.intersects(map_rect), "strat button does not overlap minimap")
 	# Floating joystick: touching in the left zone centers base at touch position,
 	# releasing returns base to home position.
 	GameSettings.set_layout_value("joystick_side", 0)

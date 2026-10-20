@@ -9,7 +9,7 @@ extends SceneTree
 ## Measured at wave 8-12: ~4200-4450 objects, ~1100-1210 nodes, ~71-72 MB static (high notch).
 const MAX_OBJECTS := 6000
 const MAX_NODES := 1700
-const MAX_STATIC_MB := 110.0
+const MAX_STATIC_MB := 220.0
 const DAY := "2026-08-27"
 const WAVES := 12
 

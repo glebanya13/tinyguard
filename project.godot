@@ -14,14 +14,12 @@ config/name="Bimbleguard"
 config/description="Lightweight low-poly 3D tower defense for Android."
 config/version="0.6.0"
 run/main_scene="res://scenes/boot.tscn"
-run/max_fps.mobile=60
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.png"
 boot_splash/bg_color=Color(0.2, 0.36, 0.78, 1)
 boot_splash/image="res://ui/app/splash.png"
-boot_splash/fullsize=true
-boot_splash/use_filter=true
-config/quit_on_go_back=false
+config/icon="res://icon.png"
+run/max_fps.mobile=60
 
 [autoload]
 
@@ -34,11 +32,6 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
-
-[internationalization]
-
-locale/fallback="en"
-locale/translations=PackedStringArray("res://translations/strings.ru.translation", "res://translations/strings.en.translation", "res://translations/strings.zh.translation", "res://translations/strings.it.translation", "res://translations/strings.es.translation", "res://translations/strings.ko.translation", "res://translations/strings.de.translation", "res://translations/strings.pl.translation", "res://translations/strings.pt.translation", "res://translations/strings.tr.translation", "res://translations/strings.fr.translation", "res://translations/strings.ja.translation")
 
 [input]
 
@@ -150,14 +143,16 @@ build_lightning={
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
-pointing/emulate_mouse_from_touch=true
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://translations/strings.ru.translation", "res://translations/strings.en.translation", "res://translations/strings.zh.translation", "res://translations/strings.it.translation", "res://translations/strings.es.translation", "res://translations/strings.ko.translation", "res://translations/strings.de.translation", "res://translations/strings.pl.translation", "res://translations/strings.pt.translation", "res://translations/strings.tr.translation", "res://translations/strings.fr.translation", "res://translations/strings.ja.translation")
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=3
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-textures/canvas_textures/default_texture_filter=3
 textures/vram_compression/import_etc2_astc=true
-lights_and_shadows/directional_shadow/size.mobile=2048
 anti_aliasing/quality/msaa_3d=1
 anti_aliasing/quality/msaa_3d.mobile=0

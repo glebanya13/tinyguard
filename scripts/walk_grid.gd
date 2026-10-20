@@ -11,6 +11,8 @@ const CLEARANCE := 0.34
 const LINE_STEP := 0.2
 ## Half width of the corridor a shortcut must keep free (about the hero's radius).
 const LINE_HALF_WIDTH := 0.3
+## Radius blocked around a placed tower.
+const TOWER_BLOCK_RADIUS := 0.6
 
 var _astar := AStarGrid2D.new()
 var _origin := Vector2.ZERO
@@ -55,7 +57,13 @@ func block(point: Vector3, radius: float) -> void:
 			if near and _astar.is_in_boundsv(cell) and not _astar.is_point_solid(cell):
 				_astar.set_point_solid(cell)
 				cells.append(cell)
-	_blocked[center] = cells
+	if _blocked.has(center):
+		var existing: Array = _blocked[center]
+		for c in cells:
+			if not existing.has(c):
+				existing.append(c)
+	else:
+		_blocked[center] = cells
 
 
 ## Undoes block() at the same point.
@@ -63,6 +71,18 @@ func unblock(point: Vector3) -> void:
 	for cell: Vector2i in _blocked.get(_to_cell(point), []):
 		_astar.set_point_solid(cell, false)
 	_blocked.erase(_to_cell(point))
+
+
+## Blocks the walk grid cells occupied by a tower on a slot (static or dynamic).
+func block_slot(slot: TowerSlot, radius: float = TOWER_BLOCK_RADIUS) -> void:
+	if slot != null:
+		block(slot.global_position, radius)
+
+
+## Undoes block_slot() when a tower is sold/removed from a slot.
+func unblock_slot(slot: TowerSlot) -> void:
+	if slot != null:
+		unblock(slot.global_position)
 
 
 ## Waypoints (on the ground) from `from` to near `to`, without `from`.

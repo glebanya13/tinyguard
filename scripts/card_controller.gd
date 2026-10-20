@@ -49,6 +49,9 @@ var _game_state: GameState = null
 var _sim: Sim = null
 var _range_ring: MeshInstance3D = null
 var _upgrade_range_ring: MeshInstance3D = null
+var _active_dynamic_slot: TowerSlot = null
+var _placement_ring: MeshInstance3D = null
+var _invalid_preview_tween: Tween = null
 
 
 ## `hint_text` returns the guide line shown while nothing is selected.
@@ -76,10 +79,13 @@ func setup(
 	_upgrade_range_ring = upgrade_range_ring
 	if _upgrade_range_ring == null and _range_ring != null:
 		_upgrade_range_ring = _create_default_upgrade_ring()
+	if _placement_ring == null and _range_ring != null:
+		_placement_ring = _create_placement_ring()
 	hero.order_cancelled.connect(on_hero_order_ended)
 	hero.order_finished.connect(on_hero_order_ended)
 	game_state.lives_changed.connect(refresh.unbind(1))
 	build_manager.slot_selected.connect(on_slot_selected)
+	build_manager.camp_selected.connect(on_camp_selected)
 	build_manager.selection_cleared.connect(refresh)
 	build_manager.ground_tapped.connect(on_ground_tapped)
 
@@ -92,14 +98,26 @@ func update() -> void:
 
 ## Command card action: the hero walks to the selected slot and acts there.
 func on_command_pressed(id: StringName) -> void:
+	if id == &"hire_mercenary":
+		var merc_camp: CampStructures.MercenaryCamp = null
+		if _build_manager != null:
+			merc_camp = _build_manager.selected_camp as CampStructures.MercenaryCamp
+			if merc_camp == null:
+				merc_camp = _build_manager.mercenary_camp
+		if merc_camp != null:
+			merc_camp.hire_mercenary(_game_state, _sim)
+			refresh()
+		return
 	if id == &"talk_villager":
 		var near: Villager = _near_villager()
 		if near != null:
+			_cleanup_unbuilt_dynamic_slot()
 			_build_manager.clear_selection()
 			_trade_dismissed = null
 			_set_trade(near)
 		return
 	if _press_trade(id):
+		_cleanup_unbuilt_dynamic_slot()
 		refresh()
 		return
 	if id == &"cancel":
@@ -107,10 +125,12 @@ func on_command_pressed(id: StringName) -> void:
 		_set_trade(null)
 		forge_open = false
 		_hero.cancel_order()
+		_cleanup_unbuilt_dynamic_slot()
 		_build_manager.clear_selection()
 		refresh()
 		return
 	if _press_forge(id):
+		_cleanup_unbuilt_dynamic_slot()
 		return
 	if id == &"sell" or id == &"priority":
 		var chosen: TowerSlot = _build_manager.selected_slot
@@ -158,7 +178,7 @@ func _press_trade(id: StringName) -> bool:
 		if wanted > 0:
 			_commands.submit(GameCommand.trade_buy(wanted))
 	elif id == &"hire":
-		var index: int = _villagers.index_of(trade_with) if trade_with != null else -1
+		var index: int = _villagers.index_of(trade_with) if trade_with != null else _villagers.first_unhired_index()
 		if index >= 0:
 			_commands.submit(GameCommand.hire(index))
 	else:
@@ -179,10 +199,14 @@ func refresh() -> void:
 		_range_ring.hide()
 		if _upgrade_range_ring:
 			_upgrade_range_ring.hide()
+		_hide_placement_ring()
+		if pending_command == &"" and _active_dynamic_slot != null and _active_dynamic_slot.is_free():
+			_cleanup_unbuilt_dynamic_slot()
 	if forge_open:
 		_range_ring.hide()
 		if _upgrade_range_ring:
 			_upgrade_range_ring.hide()
+		_hide_placement_ring()
 		_hud.show_hint("")
 		_hud.update_card(CommandCards.forge(_hero, _game_state))
 		return
@@ -190,8 +214,21 @@ func refresh() -> void:
 		_range_ring.hide()
 		if _upgrade_range_ring:
 			_upgrade_range_ring.hide()
+		_hide_placement_ring()
 		_hud.show_hint("")
 		_hud.update_card(CommandCards.trade(_villagers, _game_state, trade_with))
+		return
+	var camp: Node3D = _build_manager.selected_camp if _build_manager != null else null
+	if camp != null:
+		_range_ring.hide()
+		if _upgrade_range_ring:
+			_upgrade_range_ring.hide()
+		_hide_placement_ring()
+		_hud.show_hint("")
+		if camp is CampStructures.LumberjackCamp:
+			_hud.update_card(CommandCards.lumberjack_camp(_villagers, _game_state))
+		elif camp is CampStructures.MercenaryCamp:
+			_hud.update_card(CommandCards.mercenary_camp(camp as CampStructures.MercenaryCamp, _game_state))
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text.call())
@@ -200,6 +237,10 @@ func refresh() -> void:
 	forge_open = false
 	_hud.show_hint("")
 	_show_range(slot)
+	if slot.is_dynamic and slot.is_free():
+		show_placement_preview(slot.global_position, true)
+	else:
+		_hide_placement_ring()
 	_hud.update_card(
 		CommandCards.for_slot(slot, _build_manager, pending_command != &"", _near_villager())
 	)
@@ -211,6 +252,17 @@ func on_slot_selected(slot: TowerSlot) -> void:
 	_selected_near = slot != null and _flat_distance(slot) <= AUTO_RELEASE_REACH
 	# Picking another slot drops a build/upgrade the hero was walking to do.
 	if pending_command != &"" and slot != _pending_slot:
+		_hero.cancel_order()
+	if _active_dynamic_slot != null and _active_dynamic_slot != slot and _active_dynamic_slot.is_free():
+		_cleanup_unbuilt_dynamic_slot()
+	refresh()
+
+
+func on_camp_selected(_camp: Node3D) -> void:
+	forge_open = false
+	_set_trade(null)
+	_cleanup_unbuilt_dynamic_slot()
+	if pending_command != &"" and _hero != null:
 		_hero.cancel_order()
 	refresh()
 
@@ -225,6 +277,7 @@ func on_ground_tapped(point: Vector3) -> void:
 	# A tap on a villager: open the trade card, the hero walks up to it.
 	var villager: Villager = _villagers.nearest(point, VILLAGER_TAP_REACH)
 	if villager != null:
+		_cleanup_unbuilt_dynamic_slot()
 		_build_manager.clear_selection()
 		_trade_dismissed = null
 		_hero.move_to(villager.global_position, _villagers.trade_reach * 0.7)
@@ -235,9 +288,28 @@ func on_ground_tapped(point: Vector3) -> void:
 	var to_castle: Vector3 = castle_position - point
 	to_castle.y = 0.0
 	if castle_position.is_finite() and to_castle.length() < CASTLE_TAP_REACH:
+		_cleanup_unbuilt_dynamic_slot()
 		if not forge_open:
 			toggle_forge()
 		return
+	# A tap on or near camp structures:
+	if _build_manager != null:
+		var camp_lj: Node3D = _build_manager.lumberjack_camp
+		if camp_lj != null:
+			var to_lj: Vector3 = camp_lj.global_position - point
+			to_lj.y = 0.0
+			if to_lj.length() <= 2.4:
+				_cleanup_unbuilt_dynamic_slot()
+				_build_manager.select_camp(camp_lj)
+				return
+		var camp_mc: Node3D = _build_manager.mercenary_camp
+		if camp_mc != null:
+			var to_mc: Vector3 = camp_mc.global_position - point
+			to_mc.y = 0.0
+			if to_mc.length() <= 2.6:
+				_cleanup_unbuilt_dynamic_slot()
+				_build_manager.select_camp(camp_mc)
+				return
 	# A tap on an enemy: chase it and attack.
 	var nearest_enemy: Enemy = null
 	var best_enemy_dist: float = ENEMY_TAP_REACH
@@ -250,6 +322,7 @@ func on_ground_tapped(point: Vector3) -> void:
 					best_enemy_dist = offset.length()
 					nearest_enemy = enemy
 	if nearest_enemy != null:
+		_cleanup_unbuilt_dynamic_slot()
 		_hero.chase_enemy(nearest_enemy)
 		return
 	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
@@ -262,10 +335,35 @@ func on_ground_tapped(point: Vector3) -> void:
 			best_distance = offset.length()
 			best = tree
 	if best != null:
+		_cleanup_unbuilt_dynamic_slot()
 		_hero.move_to(best.global_position, _hero.chop_range * 0.8)
 		return
-	if GameSettings.is_tap_to_move():
-		_hero.move_to(point, 0.15)
+
+	# Empty ground tap: Warcraft-style free placement!
+	var snapped_pos := Vector3(roundf(point.x * 2.0) / 2.0, 0.05, roundf(point.z * 2.0) / 2.0)
+	var paths: Array = []
+	if _sim != null and _sim.wave_manager != null:
+		paths = _sim.wave_manager.get_paths()
+	var trees: Array = _sim.trees if _sim != null else []
+	var camps: Array = []
+	if _hero != null and _hero.is_inside_tree():
+		camps = _hero.get_tree().get_nodes_in_group(&"camps")
+
+	var is_valid: bool = _build_manager.is_valid_tower_placement(
+		snapped_pos, paths, trees, castle_position, camps, _active_dynamic_slot
+	)
+
+	if is_valid:
+		_cleanup_unbuilt_dynamic_slot()
+		var slot: TowerSlot = _build_manager.create_dynamic_slot(snapped_pos)
+		_active_dynamic_slot = slot
+		_build_manager.select_slot(slot)
+		show_placement_preview(snapped_pos, true)
+	else:
+		_cleanup_unbuilt_dynamic_slot()
+		show_placement_preview(snapped_pos, false)
+		if GameSettings.is_tap_to_move():
+			_hero.move_to(point, 0.15)
 
 
 func _execute(id: StringName, slot: TowerSlot) -> void:
@@ -273,6 +371,9 @@ func _execute(id: StringName, slot: TowerSlot) -> void:
 		_commands.submit(GameCommand.upgrade(slot.slot_id))
 	else:
 		_commands.submit(GameCommand.build(slot.slot_id, _tower_index(id)))
+		if slot == _active_dynamic_slot:
+			_active_dynamic_slot = null
+			_hide_placement_ring()
 	refresh()
 
 
@@ -294,7 +395,7 @@ func _auto_select_near_hero() -> void:
 	# he walks up to another one. An open forge card is the player's choice: a slot the
 	# knight still drifts past (he keeps a little speed right after the pause menu) must
 	# not push it out; a tap on a slot or "Close" does.
-	if pending_command != &"" or forge_open or trade_with != null:
+	if pending_command != &"" or forge_open or trade_with != null or (_build_manager != null and _build_manager.selected_camp != null):
 		return
 	var moving: bool = _hero.velocity.length() >= 0.1
 	var current: TowerSlot = _build_manager.selected_slot
@@ -419,3 +520,66 @@ func _near_villager() -> Villager:
 		if _villagers != null and _hero != null
 		else null
 	)
+
+
+func _cleanup_unbuilt_dynamic_slot() -> void:
+	if _active_dynamic_slot != null:
+		if is_instance_valid(_active_dynamic_slot) and _active_dynamic_slot.is_dynamic and _active_dynamic_slot.is_free():
+			_build_manager.remove_dynamic_slot(_active_dynamic_slot)
+		_active_dynamic_slot = null
+	_hide_placement_ring()
+
+
+func show_placement_preview(pos: Vector3, valid: bool) -> void:
+	if _placement_ring == null:
+		_placement_ring = _create_placement_ring()
+	if _placement_ring == null:
+		return
+	if _invalid_preview_tween != null and _invalid_preview_tween.is_valid():
+		_invalid_preview_tween.kill()
+		_invalid_preview_tween = null
+	_placement_ring.global_position = Vector3(pos.x, 0.08, pos.z)
+	var mat := _placement_ring.material_override as StandardMaterial3D
+	if mat != null:
+		mat.albedo_color = Color(0.2, 0.9, 0.3, 0.85) if valid else Color(0.95, 0.2, 0.2, 0.85)
+	_placement_ring.visible = true
+	if not valid:
+		if _hero != null and _hero.is_inside_tree():
+			_invalid_preview_tween = _hero.create_tween()
+			if _invalid_preview_tween != null:
+				_invalid_preview_tween.tween_interval(0.6)
+				_invalid_preview_tween.tween_callback(func() -> void:
+					if _placement_ring != null and not (_active_dynamic_slot != null and _build_manager != null and _build_manager.selected_slot == _active_dynamic_slot):
+						_placement_ring.visible = false
+				)
+
+
+func _hide_placement_ring() -> void:
+	if _placement_ring != null:
+		_placement_ring.visible = false
+
+
+func _create_placement_ring() -> MeshInstance3D:
+	var ring := MeshInstance3D.new()
+	ring.name = "PlacementPreviewRing"
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.52
+	torus.outer_radius = 0.65
+	torus.rings = 24
+	torus.ring_segments = 4
+	ring.mesh = torus
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.2, 0.9, 0.3, 0.85)
+	ring.material_override = mat
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.visible = false
+	var parent: Node = null
+	if _range_ring != null and _range_ring.get_parent() != null:
+		parent = _range_ring.get_parent()
+	elif _hero != null and _hero.get_parent() != null:
+		parent = _hero.get_parent()
+	if parent != null:
+		parent.add_child(ring)
+	return ring

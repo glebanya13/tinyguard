@@ -20,6 +20,7 @@ var slot_id: int = 0
 var state: State = State.FREE
 var tower: Tower = null
 var is_selected: bool = false
+var is_dynamic: bool = false
 
 @onready var _pad: MeshInstance3D = $Pad
 @onready var _selection_ring: MeshInstance3D = $SelectionRing

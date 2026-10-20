@@ -333,3 +333,118 @@ static func _buy_and_hire(villagers: Villagers, game_state: GameState, index: in
 		hire["gold"] = trade.hire_gold
 		hire["enabled"] = index >= 0 and game_state.gold >= trade.hire_gold
 	return [buy_one, buy_all, hire]
+
+
+## Card of the Lumberjack Camp: trade wood (sell/buy) and hire lumberjacks.
+static func lumberjack_camp(villagers: Villagers, game_state: GameState) -> Dictionary:
+	if villagers == null or villagers.trade == null:
+		return {}
+	var lot: int = villagers.trade.wood_per_lot
+	var lots: int = villagers.lots_affordable()
+	var price: int = villagers.lot_price()
+	var next_unhired: int = villagers.first_unhired_index()
+	var title_str: String = TranslationServer.translate("CARD_LUMBERJACK_CAMP")
+	if title_str == "CARD_LUMBERJACK_CAMP":
+		title_str = "Лагерь лесорубов"
+	var info := {
+		"title": title_str
+	}
+	var stats_template: String = TranslationServer.translate("CARD_TRADE_STATS")
+	if stats_template == "CARD_TRADE_STATS":
+		stats_template = "%d дерева = %d золота · склад: %d"
+	info["stats"] = (
+		stats_template % [lot, price, game_state.wood]
+	)
+	var buttons: Array[Dictionary] = [
+		{
+			"id": &"trade_lot",
+			"icon": VILLAGER_ICON,
+			"caption": TranslationServer.translate("CARD_SELL_NAME"),
+			"gold": price,
+			"gain": true,
+			"enabled": lots > 0,
+			"tooltip": TranslationServer.translate("CARD_TRADE_LOT_TIP") % [lot, price]
+		},
+		{
+			"id": &"trade_all",
+			"icon": SELL_ICON,
+			"caption": TranslationServer.translate("CARD_ALL_NAME"),
+			"gold": villagers.quote(lots),
+			"gain": true,
+			"enabled": lots > 0,
+			"tooltip":
+			TranslationServer.translate("CARD_TRADE_ALL_TIP") % [lots * lot, villagers.quote(lots)]
+		},
+	]
+	if not villagers.wood_economy:
+		info["hint"] = TranslationServer.translate("CARD_TRADE_NO_ECONOMY")
+	else:
+		buttons.append_array(_buy_and_hire(villagers, game_state, next_unhired))
+		info["hint"] = (
+			TranslationServer.translate("CARD_TRADE_ECONOMY")
+			% [
+				villagers.trade.buy_max_lots - villagers.buy_lots_left(),
+				villagers.trade.buy_max_lots,
+				villagers.hired_count(),
+				villagers.trade.hire_max,
+				villagers.trade.hire_wood_per_minute
+			]
+		)
+	buttons.append(
+		{
+			"id": &"cancel",
+			"icon": CANCEL_ICON,
+			"label": "Esc",
+			"enabled": true,
+			"tooltip": TranslationServer.translate("CARD_CLOSE_TIP")
+		}
+	)
+	info["buttons"] = buttons
+	return info
+
+
+## Card of the Mercenary Camp: hire allied knight fighters for defense.
+static func mercenary_camp(camp: CampStructures.MercenaryCamp, game_state: GameState) -> Dictionary:
+	var camp_title: String = TranslationServer.translate("CARD_MERCENARY_CAMP")
+	if camp_title == "CARD_MERCENARY_CAMP":
+		camp_title = "Лагерь наёмников"
+	var info := {
+		"title": camp_title
+	}
+	var hired_total: int = camp.mercenaries.size() if camp != null else 0
+	var alive_count: int = 0
+	if camp != null:
+		for m in camp.mercenaries:
+			if m != null and m.is_alive():
+				alive_count += 1
+	var cost: int = CampStructures.MercenaryCamp.HIRE_COST
+	var stats_tmpl: String = TranslationServer.translate("CARD_MERCENARY_STATS")
+	if stats_tmpl == "CARD_MERCENARY_STATS":
+		stats_tmpl = "В строю: %d · Всего нанято: %d"
+	info["stats"] = stats_tmpl % [alive_count, hired_total]
+	var hint_str: String = TranslationServer.translate("CARD_MERCENARY_HINT")
+	if hint_str == "CARD_MERCENARY_HINT":
+		hint_str = "Рыцари-помощники патрулируют ворота и помогают в бою"
+	info["hint"] = hint_str
+	var tip_tmpl: String = TranslationServer.translate("CARD_MERCENARY_TIP")
+	if tip_tmpl == "CARD_MERCENARY_TIP":
+		tip_tmpl = "Нанять рыцаря-помощника за %d золота для защиты замка"
+	var hire_button := {
+		"id": &"hire_mercenary",
+		"icon": SWORD_ICON,
+		"caption": TranslationServer.translate("CARD_HIRE_NAME"),
+		"gold": cost,
+		"enabled": game_state.gold >= cost if game_state != null else false,
+		"tooltip": tip_tmpl % cost
+	}
+	info["buttons"] = [
+		hire_button,
+		{
+			"id": &"cancel",
+			"icon": CANCEL_ICON,
+			"label": "Esc",
+			"enabled": true,
+			"tooltip": TranslationServer.translate("CARD_CLOSE_TIP")
+		}
+	]
+	return info
