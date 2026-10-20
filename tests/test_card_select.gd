@@ -82,6 +82,49 @@ func _run() -> void:
 	_bm.select_slot(a)
 	await physics_frame
 	check(_bm.selected_slot == a, "a tapped slot stays selected")
+
+	# Tap-to-move disabled prevents moving to empty ground.
+	GameSettings.set_tap_to_move(false)
+	_hero.cancel_order()
+	var empty_ground := _hero.global_position + Vector3(5.0, 0.0, 0.0)
+	current_scene.cards.on_ground_tapped(empty_ground)
+	check(not _hero.has_order(), "tap_to_move off: ground tap does not move hero")
+	GameSettings.set_tap_to_move(true)
+	current_scene.cards.on_ground_tapped(empty_ground)
+	check(_hero.has_order(), "tap_to_move on: ground tap moves hero")
+	_hero.cancel_order()
+
+	# Villager near a slot: tapping villager clears slot and opens trade.
+	var villagers_list: Array[Villager] = current_scene.villagers.get_villagers()
+	check(villagers_list.size() > 0, "villagers present")
+	var v: Villager = villagers_list[0]
+	v.global_position = a.global_position + Vector3(0.5, 0.0, 0.0)
+	_bm.select_slot(a)
+	check(_bm.selected_slot == a, "slot A selected")
+	current_scene.cards.on_ground_tapped(v.global_position)
+	check(_bm.selected_slot == null, "tapping villager clears slot selection")
+	check(current_scene.cards.trade_with == v, "tapping villager sets trade_with")
+
+	# While trading, auto-select does not steal selection for slot A.
+	_hero.global_position = a.global_position + Vector3(0.2, 0.0, 0.0)
+	current_scene.cards.update()
+	check(_bm.selected_slot == null, "auto-select does not override trade_with")
+
+	# When slot is open with villager nearby, talk_villager card button is present.
+	current_scene.cards.on_command_pressed(&"cancel")
+	check(current_scene.cards.trade_with == null, "trade cancelled")
+	var slot_card: Dictionary = CommandCards.for_slot(a, _bm, false, v)
+	var has_talk := false
+	for btn: Dictionary in slot_card.get("buttons", []):
+		if btn.get("id") == &"talk_villager":
+			has_talk = true
+			break
+	check(has_talk, "talk_villager button present on slot card when villager is near")
+	_bm.select_slot(a)
+	current_scene.cards.on_command_pressed(&"talk_villager")
+	check(_bm.selected_slot == null and current_scene.cards.trade_with == v, "talk_villager opens trade")
+	current_scene.cards.on_command_pressed(&"cancel")
+
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

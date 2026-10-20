@@ -157,6 +157,20 @@ func _live() -> void:
 	check(
 		fired[0] == 1 and GameSettings.joystick_size() == 2, "an option saves and announces itself"
 	)
+	var tap_btn: Button = panel.find_child("TapToMoveToggle", true, false)
+	check(tap_btn != null, "TapToMoveToggle button exists")
+	var auto_btn: Button = panel.find_child("AutoAttackToggle", true, false)
+	check(auto_btn != null, "AutoAttackToggle button exists")
+	var initial_tap: bool = GameSettings.is_tap_to_move()
+	tap_btn.pressed.emit()
+	check(GameSettings.is_tap_to_move() != initial_tap, "tap_to_move toggled")
+	tap_btn.pressed.emit()
+	check(GameSettings.is_tap_to_move() == initial_tap, "tap_to_move restored")
+	var initial_auto: bool = GameSettings.is_auto_attack()
+	auto_btn.pressed.emit()
+	check(GameSettings.is_auto_attack() != initial_auto, "auto_attack toggled")
+	auto_btn.pressed.emit()
+	check(GameSettings.is_auto_attack() == initial_auto, "auto_attack restored")
 	# Graphics quality: four big switches on the general tab, saved on the device.
 	panel._on_tab(0)
 	panel.open()

@@ -498,7 +498,7 @@ func _perk_card(perk: PerkData) -> PanelContainer:
 	level_label.theme_type_variation = &"CaptionLabel"
 	texts.add_child(level_label)
 	var effect := Label.new()
-	var now: String = perk.format_value(level) if level > 0 else tr("MAP_PERK_NONE")
+	var now: String = perk.format_value(level)
 	effect.text = tr(perk.description) % now
 	if level < perk.max_level():
 		effect.text += " → " + perk.format_value(level + 1)

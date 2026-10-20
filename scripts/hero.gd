@@ -164,8 +164,14 @@ func _physics_process(delta: float) -> void:
 		if enemy != null:
 			if _flat_distance(enemy) <= attack_range:
 				should_attack = true
-		elif auto_action and direction == Vector3.ZERO and get_focus_target(true) != null:
-			should_attack = true
+		elif auto_action and direction == Vector3.ZERO:
+			var target: Node3D = get_focus_target(true)
+			if target != null:
+				if target is Enemy:
+					if GameSettings.is_auto_attack():
+						should_attack = true
+				else:
+					should_attack = true
 	if should_attack:
 		try_attack()
 	if _attack_left > 0.0:

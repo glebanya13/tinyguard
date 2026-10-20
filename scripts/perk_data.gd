@@ -27,4 +27,10 @@ func value_at(level: int) -> float:
 
 
 func format_value(level: int) -> String:
+	if level <= 0:
+		if id == &"axe":
+			return TranslationServer.translate("PERK_BASE_WOOD")
+		if display_scale == 100.0:
+			return "0 %"
+		return "0"
 	return value_format % roundi(value_at(level) * display_scale)

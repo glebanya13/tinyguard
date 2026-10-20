@@ -102,6 +102,25 @@ func _run() -> void:
 		_tree_a.hits_left() < hits, "a tree in reach is chopped, not an empty swing at a far enemy"
 	)
 	check(is_equal_approx(enemy.health, hp), "the far enemy was out of reach")
+
+	# C: with auto_attack off, hero does not attack enemy automatically. Manual try_attack() works.
+	_hero.auto_action = false
+	enemy.health = enemy.max_health
+	enemy.place(20.0 + 1.0)
+	await process_frame
+	_hero.global_position = here
+	_hero.auto_action = true
+	GameSettings.set_auto_attack(false)
+	hp = enemy.health
+	for i in 40:
+		await physics_frame
+	check(is_equal_approx(enemy.health, hp), "auto_attack off: enemy in reach is not attacked")
+	_hero.try_attack()
+	for i in 40:
+		await physics_frame
+	check(enemy.health < hp, "manual attack still damages enemy (%.1f -> %.1f)" % [hp, enemy.health])
+	GameSettings.set_auto_attack(true)
+
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

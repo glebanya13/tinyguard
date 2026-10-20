@@ -46,6 +46,8 @@ var _box: VBoxContainer
 var _sound_button: Button
 var _fx_button: Button
 var _crash_button: Button
+var _tap_to_move_button: Button
+var _auto_attack_button: Button
 var _preview: Control
 var _version_taps: int = 0
 var _last_version_tap_ms: int = 0
@@ -243,6 +245,27 @@ func _build_controls() -> void:
 	body.add_child(rows)
 	for spec: Array in OPTION_ROWS:
 		rows.add_child(_option_row(spec))
+
+	var toggles := HBoxContainer.new()
+	toggles.add_theme_constant_override("separation", 8)
+	rows.add_child(toggles)
+
+	_tap_to_move_button = _button("", _on_tap_to_move_pressed, true, 0)
+	_tap_to_move_button.name = "TapToMoveToggle"
+	_tap_to_move_button.custom_minimum_size.y = 56.0
+	_tap_to_move_button.add_theme_font_size_override("font_size", 17)
+	_tap_to_move_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggles.add_child(_tap_to_move_button)
+	_update_tap_to_move_text()
+
+	_auto_attack_button = _button("", _on_auto_attack_pressed, true, 0)
+	_auto_attack_button.name = "AutoAttackToggle"
+	_auto_attack_button.custom_minimum_size.y = 56.0
+	_auto_attack_button.add_theme_font_size_override("font_size", 17)
+	_auto_attack_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggles.add_child(_auto_attack_button)
+	_update_auto_attack_text()
+
 	var side := VBoxContainer.new()
 	side.add_theme_constant_override("separation", 8)
 	body.add_child(side)
@@ -356,6 +379,32 @@ func _on_fx_pressed() -> void:
 
 func _update_fx_text() -> void:
 	_fx_button.text = tr("SET_FX") % tr(FX_KEYS[GameSettings.effects()])
+
+
+func _on_tap_to_move_pressed() -> void:
+	GameSettings.set_tap_to_move(not GameSettings.is_tap_to_move())
+	_update_tap_to_move_text()
+
+
+func _update_tap_to_move_text() -> void:
+	if _tap_to_move_button != null:
+		_tap_to_move_button.text = "%s: %s" % [
+			tr("SET_TAP_TO_MOVE"),
+			tr("SET_ON") if GameSettings.is_tap_to_move() else tr("SET_OFF")
+		]
+
+
+func _on_auto_attack_pressed() -> void:
+	GameSettings.set_auto_attack(not GameSettings.is_auto_attack())
+	_update_auto_attack_text()
+
+
+func _update_auto_attack_text() -> void:
+	if _auto_attack_button != null:
+		_auto_attack_button.text = "%s: %s" % [
+			tr("SET_AUTO_ATTACK"),
+			tr("SET_ON") if GameSettings.is_auto_attack() else tr("SET_OFF")
+		]
 
 
 func _open_link(url: String) -> void:

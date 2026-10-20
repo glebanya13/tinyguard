@@ -679,3 +679,10 @@ CALENDAR_COME_BACK,Возвращайся завтра!,Come back tomorrow!,明�
 CALENDAR_PROGRESS,Собрано дней: %d из 28,Claimed days: %d of 28,已签到天数：%d / 28,Giorni riscattati: %d di 28,Días reclamados: %d de 28,수령한 날: 28일 중 %d일,Eingeforderte Tage: %d von 28,Odebrane dni: %d z 28,Dias reivindicados: %d de 28,Alınan günler: %d / 28,Jours réclamés : %d sur 28,獲得日数：28日中 %d日
 CALENDAR_RULE,Не сбрасывается при пропуске дней.,Does not reset on missed days.,漏签不会重置进度。,Non si azzera se salti dei giorni.,No se reinicia si pierdes días.,접속하지 않은 날이 있어도 초기화되지 않습니다.,Wird bei verpassten Tagen nicht zurückgesetzt.,Nie resetuje się po opuszczeniu dni.,Não é reiniciado se perder dias.,Kaçırılan günlerde sıfırlanmaz.,Ne se réinitialise pas en cas de jours manqués.,ログインしなかった日があってもリセットされません。
 COINS_NAME,Монеты казны,Treasury Coins,国库金币,Monete del tesoro,Monedas del tesoro,국고 코인,Schatzkammermünzen,Monety skarbu,Moedas do tesouro,Hazine Jetonları,Pièces du trésor,国庫コイン
+SET_TAP_TO_MOVE,Ходьба нажатием на экран,Tap to move,点击移动,Tocca per muoverti,Toca para moverte,탭하여 이동,Tippen zum Bewegen,"Dotknij, aby przejść",Toque para mover,Hareket etmek için dokunun,Appuyer pour déplacer,タップして移動
+SET_AUTO_ATTACK,Автоматическая атака,Auto-attack,自动攻击,Attacco automatico,Ataque automático,자동 공격,Automatischer Angriff,Automatyczny atak,Ataque automático,Otomatik saldırı,Attaque automatique,自動攻撃
+SET_ON,вкл,on,开启,attivo,activado,켜짐,an,włączone,ligado,açık,activé,オン
+SET_OFF,выкл,off,关闭,spento,desactivado,꺼짐,aus,wyłączone,desligado,kapalı,désactivé,オフ
+CARD_TALK_VILLAGER,Поговорить,Talk,交谈,Parla,Hablar,대화하기,Sprechen,Rozmawiaj,Conversar,Konuş,Parler,話す
+CARD_TALK_VILLAGER_TIP,Открыть торговлю с жителем,Open trade with villager,与村民交易,Apri il commercio con il villico,Abrir comercio con el aldeano,마을 사람과 거래 열기,Handel mit Dorfbewohner öffnen,Otwórz handel z mieszkańcem,Abrir comércio com o aldeão,Köylüyle ticareti aç,Ouvrir le commerce avec le villageois,村人と取引を開始する
+PERK_BASE_WOOD,3 дерева,3 wood,3 木材,3 legna,3 madera,3 목재,3 Holz,3 drewno,3 madeira,3 odun,3 bois,3 木材
