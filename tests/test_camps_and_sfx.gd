@@ -85,6 +85,16 @@ func _run() -> void:
 			print("Clearance failed on level %d: d1=%.2f, d2=%.2f, p1=%.2f, p2=%.2f" % [lvl_id, d1, d2, p1, p2])
 	check(all_clear, "all 6 levels satisfy camp clearance (slot >= 3.5m, path >= 2.5m)")
 
+	# Ambient interactive rings (permanently visible warm translucent yellow)
+	var lj_amb: Node = builder.lumberjack_camp.find_child("AmbientRing", true, false)
+	var mc_amb: Node = builder.mercenary_camp.find_child("AmbientRing", true, false)
+	check(lj_amb != null, "lumberjack camp has AmbientRing")
+	check(mc_amb != null, "mercenary camp has AmbientRing")
+	check((lj_amb as MeshInstance3D).visible, "lumberjack camp AmbientRing is permanently visible")
+	check((mc_amb as MeshInstance3D).visible, "mercenary camp AmbientRing is permanently visible")
+	check((lj_amb as MeshInstance3D).mesh is TorusMesh, "lumberjack camp AmbientRing mesh is TorusMesh")
+	check((mc_amb as MeshInstance3D).mesh is TorusMesh, "mercenary camp AmbientRing mesh is TorusMesh")
+
 	# Selection rings and Area3D
 	var lj_ring: Node = builder.lumberjack_camp.find_child("SelectionRing", true, false)
 	var mc_ring: Node = builder.mercenary_camp.find_child("SelectionRing", true, false)
@@ -95,13 +105,17 @@ func _run() -> void:
 
 	builder.lumberjack_camp.select()
 	check((lj_ring as MeshInstance3D).visible, "lumberjack camp select() shows SelectionRing")
+	check((lj_amb as MeshInstance3D).visible, "lumberjack camp AmbientRing remains visible while selected")
 	builder.lumberjack_camp.deselect()
 	check(not (lj_ring as MeshInstance3D).visible, "lumberjack camp deselect() hides SelectionRing")
+	check((lj_amb as MeshInstance3D).visible, "lumberjack camp AmbientRing remains visible after deselect")
 
 	builder.mercenary_camp.select()
 	check((mc_ring as MeshInstance3D).visible, "mercenary camp select() shows SelectionRing")
+	check((mc_amb as MeshInstance3D).visible, "mercenary camp AmbientRing remains visible while selected")
 	builder.mercenary_camp.deselect()
 	check(not (mc_ring as MeshInstance3D).visible, "mercenary camp deselect() hides SelectionRing")
+	check((mc_amb as MeshInstance3D).visible, "mercenary camp AmbientRing remains visible after deselect")
 
 	check(builder.lumberjack_camp.find_child("CampArea", true, false) != null, "lumberjack camp has CampArea (Area3D)")
 	check(builder.mercenary_camp.find_child("CampArea", true, false) != null, "mercenary camp has CampArea (Area3D)")

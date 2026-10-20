@@ -15,6 +15,7 @@ const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const SHOP_ICON: Texture2D = preload("res://ui/icons/shop.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
 const CASTLE_ICON: Texture2D = preload("res://ui/icons/castle.png")
+const HAMMER_ICON: Texture2D = preload("res://ui/icons/hammer.png")
 
 
 static func _t(key: String) -> String:
@@ -343,15 +344,11 @@ static func lumberjack_camp(villagers: Villagers, game_state: GameState) -> Dict
 	var lots: int = villagers.lots_affordable()
 	var price: int = villagers.lot_price()
 	var next_unhired: int = villagers.first_unhired_index()
-	var title_str: String = TranslationServer.translate("CARD_LUMBERJACK_CAMP")
-	if title_str == "CARD_LUMBERJACK_CAMP":
-		title_str = "Лагерь лесорубов"
+	var title_str: String = _t("CARD_LUMBERJACK_CAMP")
 	var info := {
 		"title": title_str
 	}
-	var stats_template: String = TranslationServer.translate("CARD_TRADE_STATS")
-	if stats_template == "CARD_TRADE_STATS":
-		stats_template = "%d дерева = %d золота · склад: %d"
+	var stats_template: String = _t("CARD_TRADE_STATS")
 	info["stats"] = (
 		stats_template % [lot, price, game_state.wood]
 	)
@@ -405,9 +402,7 @@ static func lumberjack_camp(villagers: Villagers, game_state: GameState) -> Dict
 
 ## Card of the Mercenary Camp: hire allied knight fighters for defense.
 static func mercenary_camp(camp: CampStructures.MercenaryCamp, game_state: GameState) -> Dictionary:
-	var camp_title: String = TranslationServer.translate("CARD_MERCENARY_CAMP")
-	if camp_title == "CARD_MERCENARY_CAMP":
-		camp_title = "Лагерь наёмников"
+	var camp_title: String = _t("CARD_MERCENARY_CAMP")
 	var info := {
 		"title": camp_title
 	}
@@ -418,21 +413,15 @@ static func mercenary_camp(camp: CampStructures.MercenaryCamp, game_state: GameS
 			if m != null and m.is_alive():
 				alive_count += 1
 	var cost: int = CampStructures.MercenaryCamp.HIRE_COST
-	var stats_tmpl: String = TranslationServer.translate("CARD_MERCENARY_STATS")
-	if stats_tmpl == "CARD_MERCENARY_STATS":
-		stats_tmpl = "В строю: %d · Всего нанято: %d"
+	var stats_tmpl: String = _t("CARD_MERCENARY_STATS")
 	info["stats"] = stats_tmpl % [alive_count, hired_total]
-	var hint_str: String = TranslationServer.translate("CARD_MERCENARY_HINT")
-	if hint_str == "CARD_MERCENARY_HINT":
-		hint_str = "Рыцари-помощники патрулируют ворота и помогают в бою"
+	var hint_str: String = _t("CARD_MERCENARY_HINT")
 	info["hint"] = hint_str
-	var tip_tmpl: String = TranslationServer.translate("CARD_MERCENARY_TIP")
-	if tip_tmpl == "CARD_MERCENARY_TIP":
-		tip_tmpl = "Нанять рыцаря-помощника за %d золота для защиты замка"
+	var tip_tmpl: String = _t("CARD_MERCENARY_TIP")
 	var hire_button := {
 		"id": &"hire_mercenary",
 		"icon": SWORD_ICON,
-		"caption": TranslationServer.translate("CARD_HIRE_NAME"),
+		"caption": _t("CARD_HIRE_NAME"),
 		"gold": cost,
 		"enabled": game_state.gold >= cost if game_state != null else false,
 		"tooltip": tip_tmpl % cost
@@ -444,7 +433,74 @@ static func mercenary_camp(camp: CampStructures.MercenaryCamp, game_state: GameS
 			"icon": CANCEL_ICON,
 			"label": "Esc",
 			"enabled": true,
-			"tooltip": TranslationServer.translate("CARD_CLOSE_TIP")
+			"tooltip": _t("CARD_CLOSE_TIP")
 		}
 	]
+	return info
+
+
+## Card of the Workbench: choose one of the 4 towers to enter placement mode.
+static func build_menu(build_manager: BuildManager, game_state: GameState) -> Dictionary:
+	var info := {
+		"title": _t("CARD_WORKBENCH"),
+		"stats": _t("CARD_WORKBENCH_STATS"),
+	}
+	var buttons: Array[Dictionary] = []
+	var tower_types: Array[TowerData] = build_manager.tower_types
+	var any_affordable: bool = false
+	for i in tower_types.size():
+		var data: TowerData = tower_types[i]
+		var can_afford: bool = game_state != null and game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+		if can_afford:
+			any_affordable = true
+		buttons.append({
+			"id": StringName("build_%d" % i),
+			"icon": data.icon,
+			"caption": _t(data.display_name),
+			"gold": data.cost_gold,
+			"wood": data.cost_wood,
+			"enabled": can_afford,
+			"tooltip": _t("CARD_TOWER_TIP") % [_t(data.display_name), i + 1, _t(data.role), data.stats_text(0)],
+		})
+	if not any_affordable:
+		info["hint"] = _t("CARD_NEED_BOTH")
+	buttons.append({
+		"id": &"cancel",
+		"icon": CANCEL_ICON,
+		"label": "Esc",
+		"enabled": true,
+		"tooltip": _t("CARD_CLOSE_TIP"),
+	})
+	info["buttons"] = buttons
+	return info
+
+
+## Card shown during interactive tower placement mode (Warcraft style).
+static func placement_mode(
+	data: TowerData, is_valid: bool, can_afford: bool, hint_msg: String
+) -> Dictionary:
+	var info := {
+		"title": _t(data.display_name),
+		"stats": "%s · %d %s, %d %s" % [_t(data.role), data.cost_gold, _t("HUD_GOLD"), data.cost_wood, _t("HUD_WOOD")],
+		"hint": hint_msg,
+	}
+	var buttons: Array[Dictionary] = [
+		{
+			"id": &"confirm_build",
+			"icon": HAMMER_ICON,
+			"caption": _t("CARD_CONFIRM_BUILD"),
+			"gold": data.cost_gold,
+			"wood": data.cost_wood,
+			"enabled": is_valid and can_afford,
+			"tooltip": _t("CARD_CONFIRM_BUILD_TIP"),
+		},
+		{
+			"id": &"cancel",
+			"icon": CANCEL_ICON,
+			"label": "Esc",
+			"enabled": true,
+			"tooltip": _t("CARD_CLOSE_TIP"),
+		}
+	]
+	info["buttons"] = buttons
 	return info

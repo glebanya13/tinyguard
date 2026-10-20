@@ -20,6 +20,7 @@ func check(c: bool, w: String) -> void:
 func _initialize() -> void:
 	LevelCatalog.save_path = "user://test_map_layout.cfg"
 	GameSettings.config_path = "user://test_map_layout_settings.cfg"
+	BattleCheckpoint.clear_checkpoint()
 	_run.call_deferred()
 
 

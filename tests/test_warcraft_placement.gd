@@ -69,6 +69,15 @@ func _run() -> void:
 	print("=== 5. WalkGrid Blocking on Dynamic Slot ===")
 	await _test_walkgrid_blocking()
 
+	print("=== 6. Workbench / Build Button & Menu ===")
+	await _test_workbench_button_and_menu()
+
+	print("=== 7. Interactive Placement Mode (Warcraft 3 style) ===")
+	await _test_interactive_placement_mode()
+
+	print("=== 8. Placement Mode Cancel & Cleanup ===")
+	await _test_placement_mode_cancel()
+
 	print("\nRESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
 
@@ -284,3 +293,121 @@ func _test_walkgrid_blocking() -> void:
 	await frames(5)
 
 	check(walk_grid.is_free(pos_2d), "walk_grid cell is unblocked after tower is sold")
+
+
+func _test_workbench_button_and_menu() -> void:
+	var hud: Hud = main.get_node("HUD")
+	check(hud._workbench_button != null, "workbench button exists in HUD")
+	check(hud._workbench_button.visible, "workbench button is visible")
+
+	# Tap workbench button
+	hud._workbench_button.pressed.emit()
+	await frames(2)
+
+	check(cards.workbench_open, "workbench menu opened on button press")
+	check(hud._card.visible, "command card is visible")
+	check(hud._button_ids.size() == 5, "build menu has 5 buttons (4 towers + cancel)")
+	check(
+		hud._button_ids.has(&"build_0")
+		and hud._button_ids.has(&"build_1")
+		and hud._button_ids.has(&"build_2")
+		and hud._button_ids.has(&"build_3")
+		and hud._button_ids.has(&"cancel"),
+		"build menu has all 4 tower types and cancel"
+	)
+
+	# Cancel closes workbench
+	cards.on_command_pressed(&"cancel")
+	await frames(2)
+	check(not cards.workbench_open, "workbench closed on cancel")
+
+
+func _test_interactive_placement_mode() -> void:
+	# Give resources
+	gs.gold = 500
+	gs.wood = 500
+
+	# Open workbench and select Archer Tower
+	cards.toggle_workbench()
+	await frames(2)
+	cards.on_command_pressed(&"build_0")
+	await frames(2)
+
+	check(cards.placement_mode, "entered placement mode")
+	check(not cards.workbench_open, "workbench closed on tower select")
+	check(cards.placement_tower_index == 0, "archer tower selected (index 0)")
+	check(cards._placement_ghost != null and is_instance_valid(cards._placement_ghost), "3D preview ghost created")
+
+	var fp: MeshInstance3D = cards._placement_ghost.get_node_or_null("FootprintRing") as MeshInstance3D
+	var range_c: MeshInstance3D = cards._placement_ghost.get_node_or_null("RangeCircle") as MeshInstance3D
+	check(fp != null, "ghost has FootprintRing")
+	check(range_c != null, "ghost has RangeCircle")
+
+	# Test invalid placement on enemy path
+	var path_curve: Curve3D = sim.wave_manager.get_paths()[0].curve
+	var path_pt: Vector3 = path_curve.get_point_position(path_curve.point_count / 2)
+	cards.on_placement_moved(path_pt)
+	await frames(2)
+
+	check(not cards.placement_valid, "placement on enemy path is rejected")
+	var fp_mat: StandardMaterial3D = fp.material_override as StandardMaterial3D
+	check(fp_mat != null and fp_mat.albedo_color.r > 0.8, "footprint ring is RED on path")
+	check(not range_c.visible, "range circle hidden on invalid spot")
+	check(
+		cards._placement_validation_message.contains("дорожк")
+		or cards._placement_validation_message.contains("path")
+		or cards._placement_validation_message == TranslationServer.translate("CARD_CANNOT_BUILD_PATH"),
+		"hint shows cannot build on path warning"
+	)
+
+	# Test invalid placement on tree obstacle
+	var tree_pos: Vector3 = sim.trees[0].global_position
+	cards.on_placement_moved(tree_pos)
+	await frames(2)
+	check(not cards.placement_valid, "placement on tree is rejected")
+	check(fp_mat.albedo_color.r > 0.8, "footprint ring is RED on obstacle")
+
+	# Test valid placement on free ground
+	var valid_pos := Vector3(-6.0, 0.0, -3.0)
+	for x in range(-6, 7):
+		for z in range(-6, 7):
+			var p := Vector3(float(x), 0.0, float(z))
+			if bm.is_valid_tower_placement(p, sim.wave_manager.get_paths(), sim.trees, cards.castle_position, main.get_tree().get_nodes_in_group(&"camps")):
+				valid_pos = p
+				break
+	cards.on_placement_moved(valid_pos)
+	await frames(2)
+
+	check(cards.placement_valid, "placement on free ground is accepted")
+	check(fp_mat.albedo_color.g > 0.8, "footprint ring is GREEN on free ground")
+	check(range_c.visible, "range circle visible on valid spot")
+
+	# Confirm build via dedicated on-screen Build button
+	var count_before: int = commands.slots.size()
+	hero.position = valid_pos
+	cards.on_command_pressed(&"confirm_build")
+	await frames(5)
+
+	check(not cards.placement_mode, "exited placement mode on confirm build")
+	check(cards._placement_ghost == null, "preview ghost cleaned up")
+	check(commands.slots.size() == count_before + 1, "dynamic slot created on confirm build")
+	var slot: TowerSlot = bm.selected_slot
+	check(slot != null and not slot.is_free(), "tower constructed on dynamic slot")
+	check(slot.tower != null and slot.tower.data.display_name == "TOWER_ARCHER_NAME", "archer tower built")
+
+
+func _test_placement_mode_cancel() -> void:
+	var initial_slots: int = commands.slots.size()
+	cards.start_placement_mode(1) # Cannon
+	await frames(2)
+
+	check(cards.placement_mode, "in placement mode for cannon")
+	check(cards._placement_ghost != null, "preview ghost exists")
+
+	# Cancel placement mode
+	cards.on_command_pressed(&"cancel")
+	await frames(2)
+
+	check(not cards.placement_mode, "placement mode exited cleanly on cancel")
+	check(cards._placement_ghost == null, "preview ghost destroyed on cancel")
+	check(commands.slots.size() == initial_slots, "no slot created on cancel")

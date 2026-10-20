@@ -23,6 +23,13 @@ const CASTLE_TAP_REACH := 2.4
 const TRADE_KEEP_SLACK := 0.6
 
 var forge_open: bool = false
+var workbench_open: bool = false
+var placement_mode: bool = false
+var placement_tower_index: int = -1
+var placement_position: Vector3 = Vector3.ZERO
+var placement_valid: bool = false
+var _placement_validation_message: String = ""
+var _placement_ghost: Node3D = null
 ## Where the castle stands (set by main once the level is built).
 var castle_position: Vector3 = Vector3(INF, INF, INF)
 ## Villager whose trade card is open.
@@ -88,6 +95,7 @@ func setup(
 	build_manager.camp_selected.connect(on_camp_selected)
 	build_manager.selection_cleared.connect(refresh)
 	build_manager.ground_tapped.connect(on_ground_tapped)
+	build_manager.placement_moved.connect(on_placement_moved)
 
 
 ## Per frame: select the slot the walking hero reaches, open / close the trade card.
@@ -121,6 +129,13 @@ func on_command_pressed(id: StringName) -> void:
 		refresh()
 		return
 	if id == &"cancel":
+		if placement_mode:
+			cancel_placement()
+			return
+		if workbench_open:
+			workbench_open = false
+			refresh()
+			return
 		_trade_dismissed = trade_with
 		_set_trade(null)
 		forge_open = false
@@ -128,6 +143,13 @@ func on_command_pressed(id: StringName) -> void:
 		_cleanup_unbuilt_dynamic_slot()
 		_build_manager.clear_selection()
 		refresh()
+		return
+	if id == &"confirm_build":
+		_confirm_placement()
+		return
+	if workbench_open and id.begins_with("build_"):
+		var tower_idx: int = _tower_index(id)
+		start_placement_mode(tower_idx)
 		return
 	if _press_forge(id):
 		_cleanup_unbuilt_dynamic_slot()
@@ -186,7 +208,23 @@ func _press_trade(id: StringName) -> bool:
 	return true
 
 
+func toggle_workbench() -> void:
+	if placement_mode:
+		cancel_placement()
+		return
+	workbench_open = not workbench_open
+	if workbench_open:
+		forge_open = false
+		_set_trade(null)
+		_build_manager.clear_selection()
+		_cleanup_unbuilt_dynamic_slot()
+	refresh()
+
+
 func toggle_forge() -> void:
+	if placement_mode:
+		cancel_placement(false)
+	workbench_open = false
 	forge_open = not forge_open
 	if forge_open:
 		_build_manager.clear_selection()
@@ -194,6 +232,24 @@ func toggle_forge() -> void:
 
 
 func refresh() -> void:
+	if placement_mode:
+		_range_ring.hide()
+		if _upgrade_range_ring:
+			_upgrade_range_ring.hide()
+		_hide_placement_ring()
+		var data: TowerData = _build_manager.tower_types[placement_tower_index]
+		var can_afford: bool = _game_state != null and _game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+		_hud.show_hint("")
+		_hud.update_card(CommandCards.placement_mode(data, placement_valid, can_afford, _placement_validation_message))
+		return
+	if workbench_open:
+		_range_ring.hide()
+		if _upgrade_range_ring:
+			_upgrade_range_ring.hide()
+		_hide_placement_ring()
+		_hud.show_hint("")
+		_hud.update_card(CommandCards.build_menu(_build_manager, _game_state))
+		return
 	var slot: TowerSlot = _build_manager.selected_slot
 	if slot == null:
 		_range_ring.hide()
@@ -250,6 +306,9 @@ func on_slot_selected(slot: TowerSlot) -> void:
 	if not _auto_selecting:
 		_auto_selected = false  # a tap
 	_selected_near = slot != null and _flat_distance(slot) <= AUTO_RELEASE_REACH
+	if placement_mode:
+		cancel_placement(false)
+	workbench_open = false
 	# Picking another slot drops a build/upgrade the hero was walking to do.
 	if pending_command != &"" and slot != _pending_slot:
 		_hero.cancel_order()
@@ -260,6 +319,9 @@ func on_slot_selected(slot: TowerSlot) -> void:
 
 func on_camp_selected(_camp: Node3D) -> void:
 	forge_open = false
+	workbench_open = false
+	if placement_mode:
+		cancel_placement(false)
 	_set_trade(null)
 	_cleanup_unbuilt_dynamic_slot()
 	if pending_command != &"" and _hero != null:
@@ -273,7 +335,30 @@ func on_hero_order_ended() -> void:
 	refresh()
 
 
+func on_placement_moved(ground_pos: Vector3) -> void:
+	if placement_mode:
+		update_placement_position(ground_pos)
+		return
+	if _build_manager == null:
+		return
+	var snapped_pos := Vector3(roundf(ground_pos.x * 2.0) / 2.0, 0.05, roundf(ground_pos.z * 2.0) / 2.0)
+	var paths: Array = []
+	if _sim != null and _sim.wave_manager != null:
+		paths = _sim.wave_manager.get_paths()
+	var trees: Array = _sim.trees if _sim != null else []
+	var camps: Array = []
+	if _hero != null and _hero.is_inside_tree():
+		camps = _hero.get_tree().get_nodes_in_group(&"camps")
+	var is_valid: bool = _build_manager.is_valid_tower_placement(
+		snapped_pos, paths, trees, castle_position, camps, _active_dynamic_slot
+	)
+	show_placement_preview(snapped_pos, is_valid)
+
+
 func on_ground_tapped(point: Vector3) -> void:
+	if placement_mode:
+		update_placement_position(point)
+		return
 	# A tap on a villager: open the trade card, the hero walks up to it.
 	var villager: Villager = _villagers.nearest(point, VILLAGER_TAP_REACH)
 	if villager != null:
@@ -395,7 +480,7 @@ func _auto_select_near_hero() -> void:
 	# he walks up to another one. An open forge card is the player's choice: a slot the
 	# knight still drifts past (he keeps a little speed right after the pause menu) must
 	# not push it out; a tap on a slot or "Close" does.
-	if pending_command != &"" or forge_open or trade_with != null or (_build_manager != null and _build_manager.selected_camp != null):
+	if pending_command != &"" or forge_open or workbench_open or placement_mode or trade_with != null or (_build_manager != null and _build_manager.selected_camp != null):
 		return
 	var moving: bool = _hero.velocity.length() >= 0.1
 	var current: TowerSlot = _build_manager.selected_slot
@@ -583,3 +668,202 @@ func _create_placement_ring() -> MeshInstance3D:
 	if parent != null:
 		parent.add_child(ring)
 	return ring
+
+
+func start_placement_mode(tower_index: int) -> void:
+	if _build_manager == null or tower_index < 0 or tower_index >= _build_manager.tower_types.size():
+		return
+	workbench_open = false
+	forge_open = false
+	_set_trade(null)
+	_build_manager.clear_selection()
+	_cleanup_unbuilt_dynamic_slot()
+
+	placement_mode = true
+	placement_tower_index = tower_index
+	_build_manager.placement_mode_active = true
+
+	var start_pos := Vector3.ZERO
+	if _hero != null:
+		start_pos = _hero.global_position
+	var snapped_x := roundf(start_pos.x * 2.0) / 2.0
+	var snapped_z := roundf(start_pos.z * 2.0) / 2.0
+	placement_position = Vector3(snapped_x, 0.05, snapped_z)
+
+	if _placement_ghost != null:
+		if is_instance_valid(_placement_ghost):
+			if _placement_ghost.get_parent() != null:
+				_placement_ghost.get_parent().remove_child(_placement_ghost)
+			_placement_ghost.queue_free()
+		_placement_ghost = null
+
+	var data: TowerData = _build_manager.tower_types[placement_tower_index]
+	_placement_ghost = _create_placement_ghost(data)
+	update_placement_position(placement_position)
+
+
+func update_placement_position(pos: Vector3) -> void:
+	if not placement_mode or _build_manager == null or placement_tower_index < 0:
+		return
+	var snapped_x := roundf(pos.x * 2.0) / 2.0
+	var snapped_z := roundf(pos.z * 2.0) / 2.0
+	placement_position = Vector3(snapped_x, 0.05, snapped_z)
+
+	if _placement_ghost != null and is_instance_valid(_placement_ghost):
+		_placement_ghost.global_position = placement_position
+
+	var paths: Array = []
+	if _sim != null and _sim.wave_manager != null:
+		paths = _sim.wave_manager.get_paths()
+	var trees: Array = _sim.trees if _sim != null else []
+	var camps: Array = []
+	if _hero != null and _hero.is_inside_tree():
+		camps = _hero.get_tree().get_nodes_in_group(&"camps")
+
+	var val_result: Dictionary = _build_manager.validate_placement_detailed(
+		placement_position, paths, trees, castle_position, camps, _active_dynamic_slot
+	)
+	placement_valid = val_result.get("valid", false)
+	_placement_validation_message = val_result.get("message", "")
+
+	_update_ghost_appearance(placement_valid)
+	refresh()
+
+
+func _confirm_placement() -> void:
+	if not placement_mode or not placement_valid:
+		return
+	var tower_idx: int = placement_tower_index
+	var build_pos: Vector3 = placement_position
+	var data: TowerData = _build_manager.tower_types[tower_idx]
+	if not _game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood)):
+		return
+
+	# End placement mode and clean up ghost
+	cancel_placement(false)
+
+	# Create dynamic slot
+	var slot: TowerSlot = _build_manager.create_dynamic_slot(build_pos)
+	_active_dynamic_slot = slot
+
+	# Command hero to walk and build
+	var cmd_id: StringName = StringName("build_%d" % tower_idx)
+	_build_manager.select_slot(slot)
+	if _hero.is_near(slot.global_position, BUILD_REACH):
+		_execute(cmd_id, slot)
+	else:
+		_hero.move_to(slot.global_position, BUILD_REACH, _execute.bind(cmd_id, slot))
+		pending_command = cmd_id
+		_pending_slot = slot
+	refresh()
+
+
+func cancel_placement(do_refresh: bool = true) -> void:
+	placement_mode = false
+	placement_tower_index = -1
+	if _build_manager != null:
+		_build_manager.placement_mode_active = false
+	if _placement_ghost != null:
+		if is_instance_valid(_placement_ghost):
+			if _placement_ghost.get_parent() != null:
+				_placement_ghost.get_parent().remove_child(_placement_ghost)
+			_placement_ghost.queue_free()
+		_placement_ghost = null
+	if do_refresh:
+		refresh()
+
+
+func _create_placement_ghost(data: TowerData) -> Node3D:
+	var ghost := Node3D.new()
+	ghost.name = "TowerPlacementGhost"
+
+	# Tower visual model
+	if data.scene != null:
+		var model_root: Node = data.scene.instantiate()
+		model_root.process_mode = Node.PROCESS_MODE_DISABLED
+		for child in model_root.get_children():
+			if child is AudioStreamPlayer or child is AudioStreamPlayer3D or child is CollisionShape3D:
+				child.queue_free()
+		_make_meshes_translucent(model_root, Color(0.7, 0.9, 1.0, 0.6))
+		ghost.add_child(model_root)
+
+	# Footprint ring (0.65m outer radius, 0.52m inner radius)
+	var footprint := MeshInstance3D.new()
+	footprint.name = "FootprintRing"
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.52
+	torus.outer_radius = 0.65
+	torus.rings = 24
+	torus.ring_segments = 4
+	footprint.mesh = torus
+	var fp_mat := StandardMaterial3D.new()
+	fp_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fp_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fp_mat.albedo_color = Color(0.2, 0.9, 0.3, 0.85)
+	footprint.material_override = fp_mat
+	footprint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	footprint.position.y = 0.06
+	ghost.add_child(footprint)
+
+	# Range circle
+	var range_mesh := MeshInstance3D.new()
+	range_mesh.name = "RangeCircle"
+	var range_radius: float = data.range_levels[0] if not data.range_levels.is_empty() else 4.0
+	var range_torus := TorusMesh.new()
+	range_torus.inner_radius = range_radius - 0.05
+	range_torus.outer_radius = range_radius + 0.05
+	range_torus.rings = 48
+	range_torus.ring_segments = 4
+	range_mesh.mesh = range_torus
+	var r_mat := StandardMaterial3D.new()
+	r_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	r_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	r_mat.albedo_color = Color(0.3, 0.6, 1.0, 0.45)
+	range_mesh.material_override = r_mat
+	range_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	range_mesh.position.y = 0.04
+	ghost.add_child(range_mesh)
+
+	var parent: Node = null
+	if _hero != null and _hero.get_parent() != null:
+		parent = _hero.get_parent()
+	elif _build_manager != null and _build_manager.is_inside_tree():
+		parent = _build_manager.get_tree().current_scene
+	if parent != null:
+		parent.add_child(ghost)
+	return ghost
+
+
+func _make_meshes_translucent(node: Node, tint: Color) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		var mat := StandardMaterial3D.new()
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = tint
+		mi.material_override = mat
+	for child in node.get_children():
+		_make_meshes_translucent(child, tint)
+
+
+func _update_ghost_appearance(valid: bool) -> void:
+	if _placement_ghost == null or not is_instance_valid(_placement_ghost):
+		return
+	var fp: MeshInstance3D = _placement_ghost.get_node_or_null("FootprintRing") as MeshInstance3D
+	if fp != null and fp.material_override is StandardMaterial3D:
+		var fp_mat: StandardMaterial3D = fp.material_override as StandardMaterial3D
+		fp_mat.albedo_color = Color(0.2, 0.9, 0.3, 0.85) if valid else Color(0.95, 0.2, 0.2, 0.85)
+	var range_c: MeshInstance3D = _placement_ghost.get_node_or_null("RangeCircle") as MeshInstance3D
+	if range_c != null:
+		range_c.visible = valid
+	var tint := Color(0.4, 1.0, 0.5, 0.6) if valid else Color(1.0, 0.3, 0.3, 0.6)
+	_tint_ghost_meshes(_placement_ghost, tint)
+
+
+func _tint_ghost_meshes(node: Node, tint: Color) -> void:
+	if node is MeshInstance3D and node.name != "FootprintRing" and node.name != "RangeCircle":
+		var mi := node as MeshInstance3D
+		if mi.material_override is StandardMaterial3D:
+			(mi.material_override as StandardMaterial3D).albedo_color = tint
+	for child in node.get_children():
+		_tint_ghost_meshes(child, tint)

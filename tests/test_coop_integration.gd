@@ -269,9 +269,15 @@ func _bot(side: Peer) -> void:
 		commands.submit(GameCommand.hire(0))
 	if side.slot == 1 and t == 10:
 		commands.submit(GameCommand.hire(1))
-	if (side.slot == 0 and t == 5) or (side.slot == 1 and t % 100 == 10):
-		if side.main.villagers.lots_bought < 2:
-			commands.submit(GameCommand.trade_buy(1))
+	if side.slot == 0 and t == 5:
+		commands.submit(GameCommand.trade_buy(1))
+	elif (
+		side.slot == 1
+		and t >= 20
+		and side.main.villagers.lots_bought < 2
+		and side.main.villagers.buy_lots_affordable(1) > 0
+	):
+		commands.submit(GameCommand.trade_buy(1))
 	# The castle upgrade is shared like the gold: both players try in turn, the lockstep
 	# decides the order (a refused one is refused alike on both sides).
 	var level: int = side.gs.castle_level

@@ -17,31 +17,31 @@ VARIANTS = {
     # leg: leg height, hunch: degrees the back is raised, ear: ellipsoid size, spikes: count on the back.
     "slime": dict(col="chupa", dark="chupa_dark", belly="chupa_belly", spike="chupa_spike", k=0.9,
                   torso=(0.42, 0.32, 0.32), head=(0.34, 0.28, 0.28), leg=0.1, hunch=12, ear=(0.07, 0.12, 0.2),
-                  spikes=4, spike_h=0.13, brow=0, hop=0.05, extra=None),
+                  spikes=4, spike_h=0.13, brow=10, hop=0.05, extra=None),
     "slime_fast": dict(col="berry", dark="slime_dark", belly="cream", spike="flower_yellow", k=0.9,
                        torso=(0.3, 0.38, 0.25), head=(0.27, 0.34, 0.25), leg=0.17, hunch=6,
-                       ear=(0.06, 0.2, 0.12), spikes=5, spike_h=0.09, brow=-22, hop=0.07, extra="fast"),
+                       ear=(0.06, 0.2, 0.12), spikes=5, spike_h=0.09, brow=15, hop=0.07, extra="fast"),
     "slime_tank": dict(col="chupa_olive", dark="chupa_olive_dark", belly="cream", spike="cream", k=0.9,
                        torso=(0.54, 0.36, 0.4), head=(0.3, 0.26, 0.25), leg=0.09, hunch=10,
                        ear=(0.06, 0.1, 0.14), spikes=4, spike_h=0.14, brow=30, hop=0.03, extra="brute"),
     "slime_king": dict(col="chupa", dark="chupa_dark", belly="chupa_belly", spike="chupa_spike", k=1.7,
                        torso=(0.46, 0.34, 0.36), head=(0.36, 0.3, 0.3), leg=0.1, hunch=10, ear=(0.07, 0.14, 0.22),
-                       spikes=5, spike_h=0.12, brow=22, hop=0.04, extra="king"),
+                       spikes=5, spike_h=0.12, brow=24, hop=0.04, extra="king"),
     "slime_bat": dict(col="portal_glow", dark="portal", belly="cream", spike="flower_yellow", k=0.9,
                       torso=(0.3, 0.3, 0.28), head=(0.32, 0.27, 0.27), leg=0.12, hunch=0, ear=(0.08, 0.05, 0.22),
-                      spikes=3, spike_h=0.07, brow=0, hop=0.08, extra="bat"),
+                      spikes=3, spike_h=0.07, brow=12, hop=0.08, extra="bat"),
     "slime_shield": dict(col="chupa", dark="chupa_dark", belly="chupa_belly", spike="chupa_spike", k=0.9,
                          torso=(0.42, 0.32, 0.32), head=(0.34, 0.28, 0.28), leg=0.1, hunch=12,
-                         ear=(0.07, 0.12, 0.2), spikes=3, spike_h=0.09, brow=18, hop=0.03, extra="shield"),
+                         ear=(0.07, 0.12, 0.2), spikes=3, spike_h=0.09, brow=20, hop=0.03, extra="shield"),
     "slime_splitter": dict(col="ice", dark="ice_dark", belly="ice_light", spike="chupa_spike", k=0.9,
                            torso=(0.5, 0.32, 0.32), head=(0.28, 0.24, 0.24), leg=0.1, hunch=12,
-                           ear=(0.06, 0.1, 0.17), spikes=4, spike_h=0.09, brow=0, hop=0.05, extra="twin"),
+                           ear=(0.06, 0.1, 0.17), spikes=4, spike_h=0.09, brow=12, hop=0.05, extra="twin"),
     "slime_mini": dict(col="ice", dark="ice_dark", belly="ice_light", spike="chupa_spike", k=0.58,
                        torso=(0.38, 0.28, 0.3), head=(0.4, 0.34, 0.34), leg=0.08, hunch=8,
-                       ear=(0.08, 0.14, 0.22), spikes=3, spike_h=0.1, brow=0, hop=0.07, extra=None, lod=0.75),
+                       ear=(0.08, 0.14, 0.22), spikes=3, spike_h=0.1, brow=12, hop=0.07, extra=None, lod=0.75),
     "slime_healer": dict(col="flower_pink", dark="berry", belly="cream", spike="flower_yellow", k=0.9,
                          torso=(0.4, 0.32, 0.32), head=(0.34, 0.28, 0.28), leg=0.1, hunch=6,
-                         ear=(0.07, 0.12, 0.2), spikes=3, spike_h=0.08, brow=-14, hop=0.04, extra="shaman"),
+                         ear=(0.07, 0.12, 0.2), spikes=3, spike_h=0.08, brow=14, hop=0.04, extra="shaman"),
 }
 
 
@@ -109,15 +109,26 @@ def build_variant(name: str, v: dict):
             fx, fy = sx * tw * 0.33, -tl * 0.27
             parts.append(cone(f"fleg{sx}", 0.052, 0.062, leg + 0.06, (fx, fy, 0), dark, 7))
             parts.append(sph(f"fpaw{sx}", (0.11, 0.14, 0.06), (fx, fy - 0.025, 0.03), dark, 6, 4))
+            for ci, (cx_off, rot_z) in enumerate([(-0.032, 16), (0.0, 0), (0.032, -16)]):
+                parts.append(cone(f"fclaw{sx}_{ci}", 0.016, 0.0, 0.065,
+                                  (fx + cx_off, fy - 0.075, 0.025), "white", 4,
+                                  rot=(105, 0, rot_z * sx)))
             bx, by = sx * tw * 0.42, ty + tl * 0.3
             parts.append(sph(f"haunch{sx}", (0.13 * tw / 0.36, 0.2, 0.2 + leg * 0.8), (bx, by, tz - 0.03), col, 8, 5))
             parts.append(sph(f"bpaw{sx}", (0.11, 0.15, 0.06), (bx, by - 0.03, 0.03), dark, 6, 4))
+            for ci, (cx_off, rot_z) in enumerate([(-0.032, 16), (0.0, 0), (0.032, -16)]):
+                parts.append(cone(f"bclaw{sx}_{ci}", 0.016, 0.0, 0.065,
+                                  (bx + cx_off, by - 0.085, 0.025), "white", 4,
+                                  rot=(105, 0, rot_z * sx)))
         ry, rz = ridge(0.95)
         parts.append(cone("tail", 0.04, 0.012, 0.13, (0, ry, rz - 0.04), dark, 5, rot=(-55, 0, 0)))
     else:
         for sx in (-1, 1):
             parts.append(cone(f"foot{sx}", 0.032, 0.012, 0.1, (sx * 0.07, -0.02, 0.1), dark, 5, rot=(180, 0, 0)))
-            parts.append(cone(f"foot_claw{sx}", 0.018, 0.0, 0.05, (sx * 0.07, -0.05, 0.02), "white", 4, rot=(150, 0, 0)))
+            parts.append(cone(f"foot_claw{sx}_0", 0.016, 0.0, 0.06, (sx * 0.07 - 0.016 * sx, -0.05, 0.02), "white", 4,
+                              rot=(150, 15 * sx, 0)))
+            parts.append(cone(f"foot_claw{sx}_1", 0.016, 0.0, 0.06, (sx * 0.07 + 0.016 * sx, -0.05, 0.02), "white", 4,
+                              rot=(150, -15 * sx, 0)))
 
     # --- back spikes
     n = v["spikes"]
@@ -138,36 +149,98 @@ def build_variant(name: str, v: dict):
         out = [sph(f"head{tag}", hsz, (cx, cy, cz), col, 12, 6)]
         f = hs * hw / 0.32
         ef = f * eye_scale
+
+        # --- Glowing demonic eyes & aggressive menacing brow ridges
+        eye_mat = "ruby"
+        brow_ang = 30 + max(0, v.get("brow", 0)) * 0.25
         for sx in (-1, 1):
             ex = sx * 0.25 * hsz[0]
-            dz = 0.04 * f
+            dz = 0.042 * f
             yfront = cy - 0.5 * hsz[1] * math.sqrt(max(0.0, 1 - (ex / (hsz[0] / 2)) ** 2 - (dz / (hsz[2] / 2)) ** 2))
-            ey = yfront + 0.008 * ef
+            ey = yfront + 0.01 * ef
             ez = cz + dz
-            out.append(sph(f"eye{tag}{sx}", (0.115 * ef, 0.06 * ef, 0.13 * ef), (cx + ex, ey, ez), "white", 8, 5))
-            px = cx + ex * 0.82
-            out.append(sph(f"pupil{tag}{sx}", (0.062 * ef, 0.035 * ef, 0.08 * ef), (px, ey - 0.027 * ef, ez - 0.006 * ef),
-                           "eye", 6, 4))
-            out.append(sph(f"hl{tag}{sx}", (0.024 * ef, 0.014 * ef, 0.026 * ef),
-                           (px + 0.012 * ef, ey - 0.05 * ef, ez + 0.026 * ef), "white", 5, 3))
-            if v["brow"]:
-                out.append(sph(f"brow{tag}{sx}", (0.12 * ef, 0.035 * ef, 0.04 * ef),
-                               (cx + ex, ey - 0.012 * ef, ez + 0.075 * ef), dark, 8, 4, rot=(0, -v["brow"] * sx, 0)))
-        sy = cy - 0.5 * hsz[1] + 0.01 * f
-        sz = cz - 0.07 * f
-        out.append(sph(f"snout{tag}", (0.18 * f, 0.13 * f, 0.11 * f), (cx, sy, sz), belly, 8, 5))
-        out.append(sph(f"nose{tag}", (0.065 * f, 0.045 * f, 0.045 * f), (cx, sy - 0.058 * f, sz + 0.02 * f), "eye", 6, 3))
+
+            # Deep sunken demonic socket
+            out.append(sph(f"socket{tag}{sx}", (0.115 * ef, 0.05 * ef, 0.085 * ef),
+                           (cx + ex, ey + 0.012 * ef, ez), "eye", 6, 4))
+            # Glowing demonic iris (no cute white highlights)
+            out.append(sph(f"eye{tag}{sx}", (0.088 * ef, 0.042 * ef, 0.07 * ef),
+                           (cx + ex, ey - 0.006 * ef, ez), eye_mat, 6, 4,
+                           rot=(10, -22 * sx, 8 * sx)))
+            # Sharp predatory vertical slit pupil
+            out.append(sph(f"pupil{tag}{sx}", (0.018 * ef, 0.02 * ef, 0.065 * ef),
+                           (cx + ex * 0.92, ey - 0.02 * ef, ez), "eye", 4, 3,
+                           rot=(10, -22 * sx, 8 * sx)))
+            # Heavy menacing overhanging brow ridge meeting in an angry V
+            out.append(sph(f"brow{tag}{sx}", (0.14 * ef, 0.055 * ef, 0.045 * ef),
+                           (cx + ex * 0.78, ey - 0.022 * ef, ez + 0.055 * ef), dark, 7, 4,
+                           rot=(16, -brow_ang * sx, -10 * sx)))
+
+        # --- Predatory fanged maw (no cute puppy snout or button nose)
+        my = cy - 0.44 * hsz[1]
+        mz = cz - 0.04 * f
+
+        # Snarling upper predator jaw
+        out.append(sph(f"upper_jaw{tag}", (0.20 * f, 0.11 * f, 0.06 * f),
+                       (cx, my - 0.015 * f, mz + 0.025 * f), dark, 7, 4, rot=(12, 0, 0)))
+        # Upper snout ridge
+        out.append(cone(f"snout_crest{tag}", 0.026 * f, 0.0, 0.075 * f,
+                        (cx, my + 0.02 * f, mz + 0.048 * f), dark, 4, rot=(65, 0, 0)))
+        # Dark crimson maw cavity
+        out.append(sph(f"maw{tag}", (0.16 * f, 0.10 * f, 0.08 * f),
+                       (cx, my + 0.025 * f, mz - 0.015 * f), "mouth", 6, 4))
+        # Menacing lower jaw / mandible with underbite
+        out.append(sph(f"lower_jaw{tag}", (0.17 * f, 0.12 * f, 0.06 * f),
+                       (cx, my + 0.012 * f, mz - 0.052 * f), dark, 6, 4, rot=(-6, 0, 0)))
+
+        # Sharp fangs & jagged interlocking teeth
         for sx in (-1, 1):
-            out.append(cone(f"fang{tag}{sx}", 0.021 * f, 0.0, 0.065 * f, (cx + sx * 0.052 * f, sy - 0.025 * f, sz - 0.03 * f),
-                            "white", 4, rot=(180, 0, 0)))
-        ew, el, eh = v["ear"]
+            # Long curved upper sabre fangs
+            out.append(cone(f"fang_up{tag}{sx}", 0.023 * f, 0.0, 0.095 * f,
+                            (cx + sx * 0.062 * f, my - 0.032 * f, mz + 0.022 * f), "white", 4,
+                            rot=(195, 12 * sx, 0)))
+            # Vicious lower underbite tusks
+            out.append(cone(f"fang_low{tag}{sx}", 0.021 * f, 0.0, 0.08 * f,
+                            (cx + sx * 0.040 * f, my - 0.042 * f, mz - 0.052 * f), "white", 4,
+                            rot=(-15, -12 * sx, 0)))
+            # Sharp upper front incisors
+            out.append(cone(f"incisor_up{tag}{sx}", 0.014 * f, 0.0, 0.045 * f,
+                            (cx + sx * 0.018 * f, my - 0.042 * f, mz + 0.020 * f), "white", 4,
+                            rot=(190, 6 * sx, 0)))
+            # Sharp lower front incisors
+            out.append(cone(f"incisor_low{tag}{sx}", 0.013 * f, 0.0, 0.040 * f,
+                            (cx + sx * 0.014 * f, my - 0.046 * f, mz - 0.048 * f), "white", 4,
+                            rot=(-12, -6 * sx, 0)))
+            # Serrated side teeth
+            out.append(cone(f"side_tooth{tag}{sx}", 0.016 * f, 0.0, 0.050 * f,
+                            (cx + sx * 0.082 * f, my - 0.012 * f, mz + 0.014 * f), "white", 4,
+                            rot=(185, 20 * sx, 0)))
+
+        # --- Sharp curved demonic horns on the skull
+        for sx in (-1, 1):
+            hx = cx + sx * 0.28 * hsz[0]
+            hy_h = cy + 0.02 * f
+            hz_h = cz + 0.38 * hsz[2]
+            h1 = 0.095 * f
+            out.append(cone(f"horn_base{tag}{sx}", 0.040 * f, 0.022 * f, h1,
+                            (hx, hy_h, hz_h), dark, 5, rot=(-28, 28 * sx, 0)))
+            tx = hx + 0.038 * sx * f
+            ty = hy_h + 0.042 * f
+            tz_tip = hz_h + 0.076 * f
+            h2 = 0.12 * f
+            out.append(cone(f"horn{tag}{sx}", 0.024 * f, 0.0, h2,
+                            (tx, ty, tz_tip), spike, 5, rot=(-52, 18 * sx, 0)))
+
+        # --- Demonic pointed ears
         for sx in ears:
             if extra == "bat":
-                out.append(sph(f"ear{tag}{sx}", (ew, el, eh), (cx + sx * hsz[0] * 0.34, cy + 0.04, cz + hsz[2] * 0.42),
-                               dark, 6, 4, rot=(0, 18 * sx, 0)))
+                out.append(cone(f"ear{tag}{sx}", 0.045 * f, 0.008 * f, 0.19 * f,
+                                (cx + sx * hsz[0] * 0.34, cy + 0.03 * f, cz + hsz[2] * 0.36),
+                                dark, 4, rot=(-15, 22 * sx, 0)))
             else:
-                out.append(sph(f"ear{tag}{sx}", (ew * f, el * f, eh * f), (cx + sx * hsz[0] * 0.5, cy + 0.05 * f, cz + 0.02 * f),
-                               dark, 6, 4, rot=(0, -32 * sx, 0)))
+                out.append(cone(f"ear{tag}{sx}", 0.038 * f, 0.006 * f, 0.16 * f,
+                                (cx + sx * hsz[0] * 0.44, cy + 0.03 * f, cz + 0.05 * f),
+                                dark, 4, rot=(-25, 55 * sx, -15 * sx)))
         return out, cy, cz, hsz
 
     if extra == "bat":
@@ -196,7 +269,7 @@ def build_variant(name: str, v: dict):
         tg.deform(cap, lambda p, z0=-0.01 * k: Vector((p.x, p.y, max(p.z, z0))))
         parts.append(cap)
         for sx in (-1, 1):
-            parts.append(cone(f"horn{sx}", 0.04, 0.0, 0.17, (sx * hw * 0.42, hcy + 0.02, head_top - 0.03), "cream", 6,
+            parts.append(cone(f"brute_horn{sx}", 0.04, 0.0, 0.17, (sx * hw * 0.42, hcy + 0.02, head_top - 0.03), "cream", 6,
                               rot=(0, 42 * sx, 0)))
             parts.append(sph(f"pad{sx}", (0.17, 0.2, 0.15), (sx * tw * 0.54, -tl * 0.1, tz + th * 0.28), "cream", 8, 5))
             parts.append(cone(f"pad_spike{sx}", 0.04, 0.0, 0.1, (sx * tw * 0.58, -tl * 0.1, tz + th * 0.4), "cream", 5,

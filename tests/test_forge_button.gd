@@ -183,6 +183,7 @@ func _run() -> void:
 	hero.joystick_vector = Vector2(-1.0, 0.0)
 	for i in 6:
 		await physics_frame
+	await process_frame
 	check(bm.selected_slot == slot, "walking up to the slot selects it")
 	await _click(pause)
 	await _click(forge)

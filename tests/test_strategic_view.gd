@@ -3,6 +3,8 @@ extends SceneTree
 ## simulation time, tower level visual badges (I..III, ★), and minimap enemy markers.
 ## godot --headless --fixed-fps 60 --path . --script res://tests/test_strategic_view.gd
 
+const SETTINGS := "user://test_strat_settings.cfg"
+
 var fails := 0
 
 
@@ -14,7 +16,9 @@ func check(c: bool, w: String) -> void:
 
 func _initialize() -> void:
 	LevelCatalog.save_path = "user://test_strategic_view.cfg"
+	GameSettings.config_path = SETTINGS
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS))
 	LevelCatalog.selected_id = 1
 	LevelCatalog.endless = false
 	LevelCatalog.tutorial = false
@@ -64,17 +68,34 @@ func _run() -> void:
 	check(cam.is_strategic_view(), "hud.toggle_strategic_view() triggers camera strategic view")
 	lane_hint.toggle_strategic_view()
 	check(not cam.is_strategic_view(), "lane_hint.toggle_strategic_view() toggles camera back")
-	# Button layout: strategic view button sits vertically below the compass button, no overlaps with minimap
+	# Button layout: when minimap is visible, strategic view button sits vertically below the compass button
+	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
+	lane_hint.apply_settings()
+	check(lane_hint.compass_visible(), "compass is visible in MAP_SHOW mode")
 	var compass_btn: Button = lane_hint.get_node("CompassButton")
 	var strat_btn: Button = lane_hint.get_node("StrategicViewButton")
 	check(strat_btn.position.y > compass_btn.position.y, "strategic button is positioned under compass button")
 	check(is_equal_approx(strat_btn.position.x, compass_btn.position.x), "strategic button aligned horizontally with compass button")
 	var compass_box := Rect2(compass_btn.position, compass_btn.size)
 	var strat_box := Rect2(strat_btn.position, strat_btn.size)
-	var map_rect: Rect2 = HudLayout.current(lane_hint.size)["map"]
+	var map_rect: Rect2 = HudLayout.current(lane_hint.size, true)["map"]
 	check(not compass_box.intersects(strat_box), "compass and strategic buttons do not overlap")
 	check(not compass_box.intersects(map_rect), "compass button does not overlap minimap")
 	check(not strat_box.intersects(map_rect), "strategic button does not overlap minimap")
+
+	# When minimap is hidden, buttons sit side-by-side under Speed and Pause
+	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_HIDE)
+	lane_hint.apply_settings()
+	check(not lane_hint.compass_visible(), "compass is hidden in MAP_HIDE mode")
+	check(is_equal_approx(strat_btn.position.y, compass_btn.position.y), "hidden: buttons aligned vertically")
+	check(strat_btn.position.x > compass_btn.position.x, "hidden: strat button is to the right of compass button")
+	var hid_compass_box := Rect2(compass_btn.position, compass_btn.size)
+	var hid_strat_box := Rect2(strat_btn.position, strat_btn.size)
+	check(not hid_compass_box.intersects(hid_strat_box), "hidden: compass and strategic buttons do not overlap")
+
+	# Restore minimap mode to MAP_SHOW
+	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
+	lane_hint.apply_settings()
 
 	# Flyover
 	check(cam.has_method("start_flyover") and cam.has_method("stop_flyover"), "camera has flyover methods")
@@ -197,6 +218,8 @@ func _run() -> void:
 	ground_enemy.free()
 	flying_enemy.free()
 	boss_enemy.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS))
 
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

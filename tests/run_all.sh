@@ -49,8 +49,12 @@ else
 fi
 
 if ! command -v "$GODOT" >/dev/null 2>&1 && [ ! -x "$GODOT" ]; then
-	echo "FATAL: Godot not found: $GODOT" >&2
-	exit 2
+	if [ -x "/Applications/Godot.app/Contents/MacOS/Godot" ]; then
+		GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
+	else
+		echo "FATAL: Godot not found: $GODOT" >&2
+		exit 2
+	fi
 fi
 
 limit "$GODOT" --headless --path . --import >/dev/null 2>&1
@@ -120,6 +124,8 @@ run "$GODOT" --headless --path . --script res://tests/test_waves.gd
 run "$GODOT" --headless --path . --script res://tests/test_difficulty.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_units.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_warcraft_placement.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_camps_and_sfx.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_strategic_view.gd
 run "$GODOT" --headless --path . --script res://tests/test_i18n.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_fx.gd
 run "$GODOT" --headless --path . --script res://tests/test_quality_guard.gd

@@ -55,6 +55,7 @@ var _button: Button = null
 var _strat_button: Button = null
 ## Compass mode from the settings (GameSettings): see apply_settings().
 var _mode: int = HudLayout.MAP_WAVE
+var _last_compass_visible: bool = false
 
 
 func _ready() -> void:
@@ -124,6 +125,10 @@ func _process(delta: float) -> void:
 		_compass_left -= delta
 		busy = true
 	_age += delta
+	var now_visible: bool = compass_visible()
+	if _last_compass_visible != now_visible:
+		_last_compass_visible = now_visible
+		_place_button()
 	if busy or _pinned:
 		queue_redraw()
 
@@ -160,6 +165,8 @@ func announce(portals: Array[Node3D], lanes: Array) -> void:
 	_arrow_age = 0.0
 	_compass_left = COMPASS_SECONDS if not _lanes.is_empty() else 0.0
 	_stopped = false
+	_last_compass_visible = compass_visible()
+	_place_button()
 	show_points(points)
 
 
@@ -169,6 +176,8 @@ func finish() -> void:
 	_compass_left = 0.0
 	_lanes.clear()
 	_lane_texts.clear()
+	_last_compass_visible = compass_visible()
+	_place_button()
 	queue_redraw()
 
 
@@ -181,12 +190,16 @@ func stop() -> void:
 	_button.hide()
 	if _strat_button != null:
 		_strat_button.hide()
+	_last_compass_visible = compass_visible()
+	_place_button()
 	queue_redraw()
 
 
 ## The button: the compass stays open until pressed again.
 func toggle_compass() -> void:
 	_pinned = not _pinned
+	_last_compass_visible = compass_visible()
+	_place_button()
 	show()
 	queue_redraw()
 
@@ -221,9 +234,10 @@ func apply_settings() -> void:
 	_mode = GameSettings.minimap_mode()
 	_pinned = _mode == HudLayout.MAP_SHOW
 	if _button != null:
-		_button.visible = _mode != HudLayout.MAP_HIDE and not _stopped
+		_button.visible = not _stopped
 	if _strat_button != null:
-		_strat_button.visible = _mode != HudLayout.MAP_HIDE and not _stopped
+		_strat_button.visible = not _stopped
+	_last_compass_visible = compass_visible()
 	_place_button()
 	queue_redraw()
 
@@ -232,12 +246,14 @@ func apply_settings() -> void:
 func _place_button() -> void:
 	if _button == null:
 		return
-	var r: Dictionary = HudLayout.current(size)
+	var is_visible: bool = compass_visible()
+	var r: Dictionary = HudLayout.current(size, is_visible)
 	if r.has("pin"):
 		var pin_rect: Rect2 = r["pin"] as Rect2
 		_button.position = pin_rect.position
-		if _strat_button != null:
-			_strat_button.position = Vector2(pin_rect.position.x, pin_rect.end.y + HudLayout.GAP)
+	if _strat_button != null and r.has("strat"):
+		var strat_rect: Rect2 = r["strat"] as Rect2
+		_strat_button.position = strat_rect.position
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -432,5 +448,9 @@ func _draw_badge(atlas: Texture2D, region: Rect2, at: Vector2, half: float, colo
 
 ## Geometry of the compass (public for tests); built for the current panel box.
 func compass_map() -> LaneMap:
-	_map.build(level, HudLayout.current(size)["map"].size, get_theme_default_font())
+	var cur := HudLayout.current(size, true)
+	var box_size: Vector2 = (
+		cur["map"].size if cur.has("map") else HudLayout.MAP_SIZES[GameSettings.minimap_size()]
+	)
+	_map.build(level, box_size, get_theme_default_font())
 	return _map

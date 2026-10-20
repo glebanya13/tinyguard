@@ -35,10 +35,19 @@ const ATTACK_SIZE := 132.0
 const SPIN_SIZE := 92.0
 
 
-## Rects ("joystick", "map", "pin", "attack", "spin", "top_right", "top_left") for a HUD root
+## Rects ("joystick", "map", "pin", "strat", "attack", "spin", "top_right", "top_left") for a HUD root
 ## of `size` and the given settings (indices as in GameSettings).
+## When map_visible is true and map_mode != MAP_HIDE, map is present and pin/strat are stacked vertically.
+## When map is hidden/not visible, pin (Compass) and strat (Strategic View) sit side-by-side
+## directly under the Speed and Pause buttons (top_right).
 static func rects(
-	size: Vector2, joy_size: int, joy_pos: int, joy_side: int, map_size: int, map_mode: int
+	size: Vector2,
+	joy_size: int,
+	joy_pos: int,
+	joy_side: int,
+	map_size: int,
+	map_mode: int,
+	map_visible: bool = true
 ) -> Dictionary:
 	joy_size = clampi(joy_size, 0, 2)
 	joy_pos = clampi(joy_pos, 0, 2)
@@ -50,11 +59,13 @@ static func rects(
 	var spin := Rect2(size.x - 44.0 - SPIN_SIZE, size.y - 176.0 - SPIN_SIZE, SPIN_SIZE, SPIN_SIZE)
 	out["attack"] = attack
 	out["spin"] = spin
-	out["top_right"] = Rect2(size.x - 192.0, 16.0, 176.0, 84.0)
+	var top_right := Rect2(size.x - 192.0, 16.0, 176.0, 84.0)
+	out["top_right"] = top_right
 	out["top_left"] = Rect2(16.0, 16.0, 600.0, 48.0)
 	var map_h: float = 0.0
 	var corner_top: float = size.y - MARGIN  # top edge of what the corner holds
-	if map_mode != MAP_HIDE:
+	var show_map: bool = map_mode != MAP_HIDE and map_visible
+	if show_map:
 		var panel: Vector2 = MAP_SIZES[map_size]
 		var map: Rect2
 		var pin: Rect2
@@ -64,12 +75,25 @@ static func rects(
 			corner_top = map.position.y
 			map_h = size.y - corner_top
 		else:
-			map = Rect2(size.x - MARGIN - panel.x, out["top_right"].end.y + GAP, panel.x, panel.y)
+			map = Rect2(size.x - MARGIN - panel.x, top_right.end.y + GAP, panel.x, panel.y)
 			pin = Rect2(map.position.x - GAP - PIN_SIZE.x, map.position.y, PIN_SIZE.x, PIN_SIZE.y)
 		var strat := Rect2(pin.position.x, pin.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y)
 		out["pin"] = pin
 		out["strat"] = strat
 		out["map"] = map
+	else:
+		var pin: Rect2
+		var strat: Rect2
+		if joy_side == SIDE_RIGHT:
+			pin = Rect2(MARGIN, size.y - MARGIN - 2.0 * PIN_SIZE.y - GAP, PIN_SIZE.x, PIN_SIZE.y)
+			strat = Rect2(pin.position.x, pin.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y)
+		else:
+			pin = Rect2(top_right.position.x, top_right.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y)
+			strat = Rect2(
+				top_right.position.x + PIN_SIZE.x + GAP, top_right.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y
+			)
+		out["pin"] = pin
+		out["strat"] = strat
 	var side: float = JOY_SIDES[joy_size]
 	var bottom: float
 	var x: float
@@ -89,12 +113,13 @@ static func rects(
 
 
 ## Same, with the saved settings.
-static func current(size: Vector2) -> Dictionary:
+static func current(size: Vector2, map_visible: bool = true) -> Dictionary:
 	return rects(
 		size,
 		GameSettings.joystick_size(),
 		GameSettings.joystick_position(),
 		GameSettings.joystick_side(),
 		GameSettings.minimap_size(),
-		GameSettings.minimap_mode()
+		GameSettings.minimap_mode(),
+		map_visible
 	)

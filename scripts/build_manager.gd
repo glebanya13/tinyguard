@@ -14,6 +14,7 @@ signal tower_built(slot: TowerSlot, tower: Tower)
 signal tower_upgraded(slot: TowerSlot, tower: Tower)
 signal tower_sold(slot: TowerSlot, refund: Vector2i)
 signal ground_tapped(point: Vector3)
+signal placement_moved(point: Vector3)
 
 ## Buildable tower types, in command card order.
 @export var tower_types: Array[TowerData] = []
@@ -37,6 +38,7 @@ var commands: GameCommands = null
 var bounds: Rect2 = Rect2()
 ## Permanent tower damage bonus (perk), applied after every level change.
 var damage_multiplier: float = 1.0
+var placement_mode_active: bool = false
 
 const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 
@@ -45,6 +47,13 @@ var _pressed: bool = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if placement_mode_active:
+		var motion := event as InputEventMouseMotion
+		if motion != null:
+			var ground_motion: Variant = _pick_ground(motion.position)
+			if ground_motion != null:
+				placement_moved.emit(ground_motion)
+			return
 	# Act on release, so a pinch (second finger) or a drag does not count as a tap.
 	var press := event as InputEventMouseButton
 	if press == null or press.button_index != MOUSE_BUTTON_LEFT:
@@ -53,6 +62,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if press.pressed:
 		_pressed = true
 		_press_position = press.position
+		if placement_mode_active:
+			var ground_down: Variant = _pick_ground(press.position)
+			if ground_down != null:
+				placement_moved.emit(ground_down)
 		return
 	if not _pressed:
 		return
@@ -66,6 +79,10 @@ func _unhandled_input(event: InputEvent) -> void:
 ## reports the ground point.
 func handle_tap(screen_pos: Vector2) -> void:
 	var ground: Variant = _pick_ground(screen_pos)
+	if placement_mode_active:
+		if ground != null:
+			placement_moved.emit(ground)
+		return
 	if ground != null and villagers != null:
 		var villager: Villager = villagers.nearest(ground, 1.0)
 		if villager != null:
@@ -73,14 +90,7 @@ func handle_tap(screen_pos: Vector2) -> void:
 			ground_tapped.emit(ground)
 			return
 
-	# Camp tap detection (Area3D collider or proximity on ground)
-	var camp: Node3D = _pick_camp(screen_pos)
-	if camp == null and ground != null:
-		camp = _camp_near_ground(ground)
-	if camp != null:
-		select_camp(camp)
-		return
-
+	# 1. Tower slot pick (direct collider pick or within 1.35m zone radius)
 	var slot: TowerSlot = _pick_slot(screen_pos)
 	if slot == null and ground != null:
 		var best_dist: float = 1.35
@@ -93,6 +103,14 @@ func handle_tap(screen_pos: Vector2) -> void:
 					slot = ts
 	if slot != null:
 		select_slot(slot)
+		return
+
+	# 2. Camp tap detection (Area3D collider or proximity on ground)
+	var camp: Node3D = _pick_camp(screen_pos)
+	if camp == null and ground != null:
+		camp = _camp_near_ground(ground)
+	if camp != null:
+		select_camp(camp)
 		return
 	clear_selection()
 	if ground != null:
@@ -286,6 +304,21 @@ func is_valid_tower_placement(
 	ignore_slot: TowerSlot = null,
 	check_slots: bool = true
 ) -> bool:
+	return validate_placement_detailed(
+		pos, paths, trees, castle_pos, camps, ignore_slot, check_slots
+	).get("valid", false)
+
+
+## Detailed placement validation returning {"valid": bool, "message": String, "reason": String}.
+func validate_placement_detailed(
+	pos: Vector3,
+	paths: Array = [],
+	trees: Array = [],
+	castle_pos: Vector3 = Vector3.INF,
+	camps: Array = [],
+	ignore_slot: TowerSlot = null,
+	check_slots: bool = true
+) -> Dictionary:
 	var pos_2d := Vector2(pos.x, pos.z)
 
 	# 1. Level bounds check
@@ -294,7 +327,7 @@ func is_valid_tower_placement(
 		effective_bounds = camera.bounds.grow(LevelBuilder.CAMERA_MARGIN)
 	if effective_bounds.size != Vector2.ZERO:
 		if not effective_bounds.has_point(pos_2d):
-			return false
+			return {"valid": false, "reason": "bounds", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
 	# 2. Distance to all enemy Path3D curves (curve sample distance >= 1.35m to keep paths clear)
 	for p in paths:
@@ -308,30 +341,30 @@ func is_valid_tower_placement(
 			else:
 				closest = p.curve.get_closest_point(pos)
 			if Vector2(closest.x - pos.x, closest.z - pos.z).length() < 1.35:
-				return false
+				return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is Curve3D:
 			if p.point_count < 2:
 				continue
 			var closest: Vector3 = p.get_closest_point(pos)
 			if Vector2(closest.x - pos.x, closest.z - pos.z).length() < 1.35:
-				return false
+				return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is PackedVector2Array:
 			for i in range(p.size() - 1):
 				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(pos_2d, p[i], p[i + 1])
 				if closest_pt.distance_to(pos_2d) < 1.35:
-					return false
+					return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is PackedVector3Array:
 			for i in range(p.size() - 1):
 				var seg_start := Vector2(p[i].x, p[i].z)
 				var seg_end := Vector2(p[i + 1].x, p[i + 1].z)
 				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(pos_2d, seg_start, seg_end)
 				if closest_pt.distance_to(pos_2d) < 1.35:
-					return false
+					return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 
 	# 3. Distance to castle (>= 3.0m)
 	if castle_pos.is_finite():
 		if Vector2(castle_pos.x - pos.x, castle_pos.z - pos.z).length() < 3.0:
-			return false
+			return {"valid": false, "reason": "castle", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
 	# 4. Distance to all trees (>= 1.5m)
 	for tree in trees:
@@ -345,7 +378,7 @@ func is_valid_tower_placement(
 		else:
 			continue
 		if Vector2(t_pos.x - pos.x, t_pos.z - pos.z).length() < 1.5:
-			return false
+			return {"valid": false, "reason": "tree", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
 	# 5. Distance to camps (>= 3.0m)
 	for camp in camps:
@@ -359,7 +392,7 @@ func is_valid_tower_placement(
 		else:
 			continue
 		if Vector2(cp.x - pos.x, cp.z - pos.z).length() < 3.0:
-			return false
+			return {"valid": false, "reason": "camp", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
 	# 6. Distance to existing towers/slots (>= 2.0m)
 	if check_slots:
@@ -369,21 +402,21 @@ func is_valid_tower_placement(
 				if slot != null and is_instance_valid(slot) and slot != ignore_slot:
 					checked_slots.append(slot)
 					if Vector2(slot.global_position.x - pos.x, slot.global_position.z - pos.z).length() < 2.0:
-						return false
+						return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 		if is_inside_tree():
 			for slot_node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
 				if slot_node is TowerSlot and is_instance_valid(slot_node) and slot_node != ignore_slot:
 					if checked_slots.has(slot_node):
 						continue
 					if Vector2(slot_node.global_position.x - pos.x, slot_node.global_position.z - pos.z).length() < 2.0:
-						return false
+						return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 		if sim != null:
 			for tower in sim.towers:
 				if tower != null and is_instance_valid(tower):
 					if Vector2(tower.global_position.x - pos.x, tower.global_position.z - pos.z).length() < 2.0:
-						return false
+						return {"valid": false, "reason": "tower", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
-	return true
+	return {"valid": true, "reason": "", "message": tr("CARD_PLACE_FREE_GROUND")}
 
 
 ## Creates a dynamic TowerSlot snapped to a 0.5m grid and registers it with commands.slots.

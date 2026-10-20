@@ -90,6 +90,12 @@ func _math() -> void:
 										bad.append("%s: pin over strat" % tag)
 									if (r["strat"] as Rect2).position.y <= (r["pin"] as Rect2).position.y:
 										bad.append("%s: strat not below pin" % tag)
+								var r_hid: Dictionary = HudLayout.rects(size, js, jp, side, ms, mode, false)
+								for key: String in ["pin", "strat"]:
+									if not bounds.encloses(r_hid[key]):
+										bad.append("%s (hidden): %s outside" % [tag, key])
+								if (r_hid["pin"] as Rect2).intersects(r_hid["strat"] as Rect2):
+									bad.append("%s (hidden): pin over strat" % tag)
 	check(
 		bad.is_empty(),
 		"%d layouts: no overlaps, all inside the screen %s" % [combos, ", ".join(bad.slice(0, 4))]
@@ -165,6 +171,30 @@ func _live() -> void:
 	check(not pin_box.intersects(strat_box), "pin and strat buttons do not overlap")
 	check(not pin_box.intersects(map_rect), "pin button does not overlap minimap")
 	check(not strat_box.intersects(map_rect), "strat button does not overlap minimap")
+
+	# When minimap is hidden: Compass and Strategic View buttons sit directly under Speed and Pause
+	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_HIDE)
+	hint.apply_settings()
+	check(not hint.compass_visible(), "mode hide: compass is not visible")
+	var hidden_r: Dictionary = HudLayout.current(hint.size, false)
+	var tr_rect: Rect2 = hidden_r["top_right"]
+	check(pin.position.is_equal_approx(hidden_r["pin"].position), "hidden: pin placed by HudLayout under speed")
+	check(strat_btn.position.is_equal_approx(hidden_r["strat"].position), "hidden: strat placed by HudLayout under pause")
+	check(is_equal_approx(pin.position.x, tr_rect.position.x), "hidden: pin x matches speed button x")
+	check(is_equal_approx(pin.position.y, tr_rect.end.y + HudLayout.GAP), "hidden: pin y sits directly below top_right")
+	check(
+		is_equal_approx(strat_btn.position.x, tr_rect.position.x + HudLayout.PIN_SIZE.x + HudLayout.GAP),
+		"hidden: strat x matches pause button x"
+	)
+	check(is_equal_approx(strat_btn.position.y, tr_rect.end.y + HudLayout.GAP), "hidden: strat y sits directly below top_right")
+	check(is_equal_approx(pin.position.y, strat_btn.position.y), "hidden: pin and strat are side by side")
+	var hidden_pin_box := Rect2(pin.position, pin.size)
+	var hidden_strat_box := Rect2(strat_btn.position, strat_btn.size)
+	check(not hidden_pin_box.intersects(hidden_strat_box), "hidden: pin and strat do not overlap")
+
+	# Restore minimap mode to MAP_SHOW
+	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
+	hint.apply_settings()
 	# Floating joystick: touching in the left zone centers base at touch position,
 	# releasing returns base to home position.
 	GameSettings.set_layout_value("joystick_side", 0)

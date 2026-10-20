@@ -99,11 +99,6 @@ func build(
 			_sim.add_outpost(outpost)
 	wave_manager.enemy_paths = paths
 
-	if decor_node != null:
-		_plant_trees(decor_node, outposts)
-
-	wave_manager.build_air_paths(LevelCatalog.air_routes(level), _root, PATH_HEIGHT)
-
 	var path: Array = level["paths"][0]
 	var last_dir: Vector3 = (ground(path[-1]) - ground(path[-2])).normalized()
 	castle = CASTLE_SCENE.instantiate()
@@ -113,7 +108,12 @@ func build(
 	Cosmetics.apply(castle, Cosmetics.castle_flag())  # banner skin: colours only
 
 	# Camp structures: lumberjack camp near trees/village, mercenary camp on defense perimeter
-	var camp_positions: Dictionary = find_camp_positions(level, castle.position)
+	var camp_positions: Dictionary = find_camp_positions(level, castle.position, decor_node, outposts)
+
+	if decor_node != null:
+		_plant_trees(decor_node, outposts)
+
+	wave_manager.build_air_paths(LevelCatalog.air_routes(level), _root, PATH_HEIGHT)
 
 	lumberjack_camp = CampStructures.create_lumberjack_camp()
 	lumberjack_camp.position = camp_positions["lumberjack"]
@@ -140,6 +140,7 @@ func build(
 
 ## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees,
 ## and plants thicket grove trees around each outpost.
+## Ensures no tree ever spawns within 3.0m of lumberjack_camp or mercenary_camp.
 ## Standing trees are drawn by one Grove (MultiMesh) to save draw calls.
 func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
 	var grove := Grove.new()
@@ -181,8 +182,13 @@ func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
 
 ## Finds clear positions for lumberjack camp (towards trees) and mercenary camp (defensive flank),
 ## ensuring both are 6-10m from the castle, at least 3.5m away from any tower slot,
-## and at least 2.5m away from all enemy paths.
-static func find_camp_positions(level: Dictionary, castle_pos: Vector3) -> Dictionary:
+## at least 2.5m away from all enemy paths, and prioritizing distance from trees (dt >= 2.0m).
+static func find_camp_positions(
+	level: Dictionary,
+	castle_pos: Vector3,
+	decor: Node3D = null,
+	active_outposts: Array = []
+) -> Dictionary:
 	var slots: Array = level.get("slots", [])
 	var paths: Array = level.get("paths", [])
 	var bounds: Array = level.get("bounds", [-22.0, -15.0, 44.0, 30.0])
@@ -192,64 +198,77 @@ static func find_camp_positions(level: Dictionary, castle_pos: Vector3) -> Dicti
 	var max_x: float = float(bounds[0]) + float(bounds[2]) - 2.0
 	var max_z: float = float(bounds[1]) + float(bounds[3]) - 2.0
 
-	var candidates: Array[Dictionary] = []
+	var all_trees: Array[Vector2] = []
+	for t_val in trees:
+		all_trees.append(Vector2(float(t_val[0]), float(t_val[1])))
+	if decor != null:
+		for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
+			var spot := marker as Node3D
+			all_trees.append(Vector2(spot.global_position.x, spot.global_position.z))
+	for outpost in active_outposts:
+		var lane: int = outpost.lane if outpost is Outpost else int(outpost)
+		for spot: Vector2 in LevelCatalog.outpost_thickets(level, lane):
+			all_trees.append(spot)
+
 	var radii: Array[float] = [7.0, 8.0, 9.0, 10.0, 6.5, 7.5, 8.5, 9.5, 6.0]
 
-	for r in radii:
-		for deg in range(0, 360, 5):
-			var rad: float = deg_to_rad(float(deg))
-			var x: float = castle_pos.x + r * cos(rad)
-			var z: float = castle_pos.z + r * sin(rad)
-			if x < min_x or x > max_x or z < min_z or z > max_z:
-				continue
-			var p2 := Vector2(x, z)
-			var ds: float = _min_dist_to_slots(p2, slots)
-			if ds < 3.5:
-				continue
-			var dp: float = _min_dist_to_paths(p2, paths)
-			if dp < 2.5:
-				continue
-			var dt: float = 10.0
-			if not trees.is_empty():
-				for t_val in trees:
-					var t_pos := Vector2(float(t_val[0]), float(t_val[1]))
-					dt = minf(dt, p2.distance_to(t_pos))
-			candidates.append({
-				"pos": Vector3(x, 0.0, z),
-				"p2": p2,
-				"r": r,
-				"ds": ds,
-				"dp": dp,
-				"dt": dt
-			})
+	for min_dt in [2.5, 2.0, 1.5, 1.0, 0.5, 0.0]:
+		var candidates: Array[Dictionary] = []
+		for r in radii:
+			for deg in range(0, 360, 5):
+				var rad: float = deg_to_rad(float(deg))
+				var x: float = castle_pos.x + r * cos(rad)
+				var z: float = castle_pos.z + r * sin(rad)
+				if x < min_x or x > max_x or z < min_z or z > max_z:
+					continue
+				var p2 := Vector2(x, z)
+				var ds: float = _min_dist_to_slots(p2, slots)
+				if ds < 3.5:
+					continue
+				var dp: float = _min_dist_to_paths(p2, paths)
+				if dp < 2.5:
+					continue
+				var dt: float = 10.0
+				if not all_trees.is_empty():
+					for t_pos in all_trees:
+						dt = minf(dt, p2.distance_to(t_pos))
+					if dt < min_dt:
+						continue
+				candidates.append({
+					"pos": Vector3(x, 0.0, z),
+					"p2": p2,
+					"r": r,
+					"ds": ds,
+					"dp": dp,
+					"dt": dt
+				})
 
-	# If candidates is empty (fallback safeguard), generate default positions with best effort
-	if candidates.is_empty():
-		return {
-			"lumberjack": castle_pos + Vector3(7.0, 0.0, -4.0),
-			"mercenary": castle_pos + Vector3(-7.0, 0.0, 5.0)
-		}
+		var best_pair_score: float = -1e9
+		var best_lj: Vector3 = Vector3.ZERO
+		var best_merc: Vector3 = Vector3.ZERO
+		var found_pair := false
 
-	var best_pair_score: float = -1e9
-	var best_lj: Vector3 = candidates[0]["pos"]
-	var best_merc: Vector3 = candidates[-1]["pos"]
+		for c1 in candidates:
+			for c2 in candidates:
+				var sep: float = c1["p2"].distance_to(c2["p2"])
+				if sep < 5.0:
+					continue
+				var score: float = sep + c1["ds"] + c1["dp"] + c2["ds"] + c2["dp"] + c1["dt"] * 0.5 + c2["dt"] * 0.5
+				if score > best_pair_score:
+					best_pair_score = score
+					best_lj = c1["pos"]
+					best_merc = c2["pos"]
+					found_pair = true
 
-	for c1 in candidates:
-		for c2 in candidates:
-			var sep: float = c1["p2"].distance_to(c2["p2"])
-			if sep < 5.0:
-				continue
-			# c1 is lumberjack (bonus for being close to trees: -c1["dt"] * 0.5)
-			# c2 is mercenary (bonus for large separation and flank coverage)
-			var score: float = sep + c1["ds"] + c1["dp"] + c2["ds"] + c2["dp"] - c1["dt"] * 0.5
-			if score > best_pair_score:
-				best_pair_score = score
-				best_lj = c1["pos"]
-				best_merc = c2["pos"]
+		if found_pair:
+			return {
+				"lumberjack": best_lj,
+				"mercenary": best_merc
+			}
 
 	return {
-		"lumberjack": best_lj,
-		"mercenary": best_merc
+		"lumberjack": castle_pos + Vector3(7.0, 0.0, -4.0),
+		"mercenary": castle_pos + Vector3(-7.0, 0.0, 5.0)
 	}
 
 

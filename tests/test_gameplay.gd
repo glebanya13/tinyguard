@@ -173,6 +173,7 @@ func _run() -> void:
 		"paid 40 gold + 30 wood (%d/%d)" % [gs.gold, gs.wood]
 	)
 	await frames(30)
+	bm.select_slot(slot)
 	await tap_key(KEY_U)
 	await frames(5)
 	check(slot.tower.level == 1, "upgraded")

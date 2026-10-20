@@ -208,6 +208,7 @@ func _ready() -> void:
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
 	_hud.forge_pressed.connect(_on_forge_pressed)
+	_hud.workbench_pressed.connect(_on_workbench_pressed)
 	_hud.strategic_view_pressed.connect(_on_strategic_view_toggle)
 	_hud.joystick_changed.connect(
 		func(v: Vector2) -> void:
@@ -333,6 +334,15 @@ func _on_forge_pressed() -> void:
 		_coop_menu_open = false
 	_hud.hide_pause_menu()
 	cards.toggle_forge()
+
+
+func _on_workbench_pressed() -> void:
+	if _paused:
+		_toggle_pause()
+	elif _coop_on() and _coop_menu_open:
+		_coop_menu_open = false
+	_hud.hide_pause_menu()
+	cards.toggle_workbench()
 
 
 ## The pause command was applied: stop / resume the whole tree.

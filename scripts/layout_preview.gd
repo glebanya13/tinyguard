@@ -22,7 +22,10 @@ func _draw() -> void:
 	_box(r["top_right"], k, Color(0.12, 0.17, 0.4, 0.8))
 	if r.has("map"):
 		_box(r["map"], k, Color(0.16, 0.24, 0.55, 0.9))
+	if r.has("pin"):
 		_box(r["pin"], k, Color(0.3, 0.55, 0.95))
+	if r.has("strat"):
+		_box(r["strat"], k, Color(0.25, 0.45, 0.85))
 	var joy: Rect2 = r["joystick"]
 	var c: Vector2 = joy.get_center() * k
 	draw_circle(c, joy.size.x * k * 0.5, Color(0.1, 0.16, 0.35, 0.65))

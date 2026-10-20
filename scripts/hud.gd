@@ -17,6 +17,7 @@ signal pause_pressed
 signal continue_pressed
 signal speed_pressed
 signal forge_pressed
+signal workbench_pressed
 ## Strategic camera overview ("General mode") toggled.
 signal strategic_view_pressed
 ## End screen of the Record Run: open the records table on the map.
@@ -59,6 +60,7 @@ const SHORTCUTS := {
 	&"sword": &"upgrade_tower",
 	&"sell": &"sell_tower",
 	&"cancel": &"cancel_command",
+	&"confirm_build": &"build_tower",
 }
 
 ## Seconds the first-steps hint stays up after it last changed.
@@ -110,6 +112,7 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _buttons: HBoxContainer = $Root/CommandCard/Content/Buttons
 @onready var _attack_button: Button = $Root/AttackButton
 @onready var _spin_button: Button = $Root/SpinButton
+@onready var _workbench_button: Button = $Root/WorkbenchButton
 @onready var _spin_icon: Control = $Root/SpinButton/Icon
 @onready var _spin_label: Label = $Root/SpinButton/Swirl
 @onready var _joystick: Control = $Root/Joystick
@@ -157,10 +160,12 @@ func _ready() -> void:
 		_forge_button.tooltip_text = tr("HUD_FORGE_TIP")
 	_attack_button.pressed.connect(attack_pressed.emit)
 	_spin_button.pressed.connect(spin_pressed.emit)
+	_workbench_button.pressed.connect(workbench_pressed.emit)
 	_spin_icon.pivot_offset = _spin_icon.size / 2.0
 	if not _touch:
 		_attack_button.tooltip_text = tr("HUD_ATTACK_TIP")
 		_spin_button.tooltip_text = tr("HUD_SPIN_TIP")
+		_workbench_button.tooltip_text = tr("HUD_WORKBENCH_TIP")
 	_joystick.vector_changed.connect(joystick_changed.emit)
 	_end_screen.hide()
 	_banner.hide()
@@ -184,6 +189,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	# The forge has no button on the battlefield any more: K opens it directly.
 	if event.is_action_pressed(&"forge") and not _end_screen.visible:
 		forge_pressed.emit()
+		get_viewport().set_input_as_handled()
+	elif not _end_screen.visible and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+		workbench_pressed.emit()
 		get_viewport().set_input_as_handled()
 
 
@@ -476,6 +484,8 @@ func hide_pause_menu() -> void:
 	_card.visible = not _button_ids.is_empty()
 	_attack_button.show()
 	_spin_button.show()
+	if _workbench_button:
+		_workbench_button.show()
 	_joystick.visible = _joystick_visible
 
 
@@ -490,6 +500,8 @@ func _show_menu(text: String, ribbon: StringName) -> void:
 	_card.hide()
 	_attack_button.hide()
 	_spin_button.hide()
+	if _workbench_button:
+		_workbench_button.hide()
 	_joystick.hide()
 	_end_screen.show()
 
