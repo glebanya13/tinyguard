@@ -50,22 +50,45 @@ func _test_table() -> void:
 		rising = rising and CastleUpgrades.armor_at(level + 1) >= previous_armor
 		previous_armor = CastleUpgrades.armor_at(level + 1)
 	check(rising, "prices (gold and wood) rise and armor never drops")
-	check(lives_sum >= 8 and previous_armor >= 2, "total +%d lives, armor %d" % [lives_sum, previous_armor])
+	check(
+		lives_sum >= 8 and previous_armor >= 2,
+		"total +%d lives, armor %d" % [lives_sum, previous_armor]
+	)
 	check(CastleUpgrades.cost(top) == Vector2i(-1, -1), "no price past the last upgrade")
-	check(CastleUpgrades.armor_at(0) == 0 and CastleUpgrades.armor_at(-3) == 0, "plain castle: armor 0")
-	check(CastleUpgrades.armor_at(99) == CastleUpgrades.armor_at(top), "armor is capped at the top level")
+	check(
+		CastleUpgrades.armor_at(0) == 0 and CastleUpgrades.armor_at(-3) == 0,
+		"plain castle: armor 0"
+	)
+	check(
+		CastleUpgrades.armor_at(99) == CastleUpgrades.armor_at(top),
+		"armor is capped at the top level"
+	)
 	# Leaks: a king (5), a golem or tank (2) and a light slime (1) at every level.
 	for level in range(top + 1):
 		var armor: int = CastleUpgrades.armor_at(level)
-		check(CastleUpgrades.leak_damage(1, level) == 1, "level %d: a light leak always costs 1" % level)
 		check(
-			CastleUpgrades.leak_damage(2, level) == maxi(1, 2 - armor)
-			and CastleUpgrades.leak_damage(5, level) == maxi(1, 5 - armor),
-			"level %d: tank 2 -> %d, king 5 -> %d" % [level, CastleUpgrades.leak_damage(2, level), CastleUpgrades.leak_damage(5, level)]
+			CastleUpgrades.leak_damage(1, level) == 1,
+			"level %d: a light leak always costs 1" % level
+		)
+		check(
+			(
+				CastleUpgrades.leak_damage(2, level) == maxi(1, 2 - armor)
+				and CastleUpgrades.leak_damage(5, level) == maxi(1, 5 - armor)
+			),
+			(
+				"level %d: tank 2 -> %d, king 5 -> %d"
+				% [
+					level,
+					CastleUpgrades.leak_damage(2, level),
+					CastleUpgrades.leak_damage(5, level)
+				]
+			)
 		)
 	check(
-		CastleUpgrades.leak_damage(5, top) < CastleUpgrades.leak_damage(5, 0)
-		and CastleUpgrades.leak_damage(2, top) < CastleUpgrades.leak_damage(2, 0),
+		(
+			CastleUpgrades.leak_damage(5, top) < CastleUpgrades.leak_damage(5, 0)
+			and CastleUpgrades.leak_damage(2, top) < CastleUpgrades.leak_damage(2, 0)
+		),
 		"armor helps against the heavy ones"
 	)
 
@@ -75,16 +98,25 @@ func _test_state() -> void:
 	var gs := GameState.new()
 	gs.configure({"gold": 0, "wood": 0, "lives": 10})
 	gs.reset()
-	check(gs.castle_level == 0 and gs.lives == 10 and gs.starting_lives == 10, "plain castle: 10 lives")
+	check(
+		gs.castle_level == 0 and gs.lives == 10 and gs.starting_lives == 10,
+		"plain castle: 10 lives"
+	)
 	check(not gs.upgrade_castle(), "refused without gold and wood")
 	gs.gold = CastleUpgrades.cost(0).x
 	gs.wood = CastleUpgrades.cost(0).y - 1
-	check(not gs.upgrade_castle() and gs.gold == CastleUpgrades.cost(0).x, "refused with 1 wood short, nothing spent")
+	check(
+		not gs.upgrade_castle() and gs.gold == CastleUpgrades.cost(0).x,
+		"refused with 1 wood short, nothing spent"
+	)
 	gs.wood = CastleUpgrades.cost(0).y
 	check(gs.upgrade_castle(), "upgrade 1 bought")
 	check(gs.gold == 0 and gs.wood == 0, "exact price paid (gold and wood)")
 	var bonus: int = CastleUpgrades.lives_bonus(0)
-	check(gs.castle_level == 1 and gs.lives == 10 + bonus and gs.starting_lives == 10 + bonus, "lives +%d, repair ceiling +%d" % [bonus, bonus])
+	check(
+		gs.castle_level == 1 and gs.lives == 10 + bonus and gs.starting_lives == 10 + bonus,
+		"lives +%d, repair ceiling +%d" % [bonus, bonus]
+	)
 	gs.lose_lives(3)
 	check(gs.lives == 10 + bonus - 3, "the added lives are real lives")
 	gs.gold = 100000
@@ -93,11 +125,20 @@ func _test_state() -> void:
 		check(gs.upgrade_castle(), "upgrade %d bought" % (i + 1))
 	check(gs.castle_level == CastleUpgrades.max_level(), "maximum level reached")
 	var gold_before: int = gs.gold
-	check(not gs.upgrade_castle() and gs.gold == gold_before, "past the maximum: refused, nothing spent")
-	check(gs.castle_upgrade_cost().x < 0 and not gs.can_upgrade_castle(), "no price and no button action at the maximum")
+	check(
+		not gs.upgrade_castle() and gs.gold == gold_before,
+		"past the maximum: refused, nothing spent"
+	)
+	check(
+		gs.castle_upgrade_cost().x < 0 and not gs.can_upgrade_castle(),
+		"no price and no button action at the maximum"
+	)
 	var before: int = gs.lives
 	gs.take_leak(5)
-	check(before - gs.lives == 5 - gs.castle_armor(), "a king leak takes %d (armor %d)" % [before - gs.lives, gs.castle_armor()])
+	check(
+		before - gs.lives == 5 - gs.castle_armor(),
+		"a king leak takes %d (armor %d)" % [before - gs.lives, gs.castle_armor()]
+	)
 	before = gs.lives
 	gs.take_leak(1)
 	check(before - gs.lives == 1, "a light leak still takes 1")
@@ -117,7 +158,10 @@ func _test_state() -> void:
 func _test_wire() -> void:
 	print("-- wire")
 	var cmd: GameCommand = GameCommand.from_wire("castle", [], 1, 7)
-	check(cmd != null and cmd.type == GameCommand.Type.UPGRADE_CASTLE and cmd.player == 1, "castle travels")
+	check(
+		cmd != null and cmd.type == GameCommand.Type.UPGRADE_CASTLE and cmd.player == 1,
+		"castle travels"
+	)
 	check(GameCommand.from_wire("castle", [1], 1, 7) == null, "castle with an argument is refused")
 	check(CoopProtocol.is_valid_command(9, "castle", []), "the protocol knows it")
 	check(
@@ -125,7 +169,10 @@ func _test_wire() -> void:
 		"appended after the last old command (journals store the number)"
 	)
 	var back: GameCommand = GameCommand.from_array(GameCommand.upgrade_castle().to_array())
-	check(back.type == GameCommand.Type.UPGRADE_CASTLE and back.args.is_empty(), "journal row round trip")
+	check(
+		back.type == GameCommand.Type.UPGRADE_CASTLE and back.args.is_empty(),
+		"journal row round trip"
+	)
 	check(Sim.VERSION >= 3, "Sim.VERSION raised (%d)" % Sim.VERSION)
 
 
@@ -178,7 +225,9 @@ func _test_scene(record: bool, daily: String) -> void:
 	gs.wood = 0
 	var h0: int = sim.state_hash()
 	check(not commands.submit(GameCommand.upgrade_castle()), "%s: refused without resources" % mode)
-	check(commands.journal.commands.is_empty(), "%s: a refused command is not in the journal" % mode)
+	check(
+		commands.journal.commands.is_empty(), "%s: a refused command is not in the journal" % mode
+	)
 	check(sim.state_hash() == h0, "%s: nothing changed (same hash)" % mode)
 	# Every upgrade in turn: price, lives, armor, the journal, the look.
 	var meshes: Array[Mesh] = [plain]
@@ -187,30 +236,55 @@ func _test_scene(record: bool, daily: String) -> void:
 		gs.gold = cost.x + 7
 		gs.wood = cost.y + 3
 		var lives_before: int = gs.lives
-		check(commands.submit(GameCommand.upgrade_castle()), "%s: upgrade %d accepted" % [mode, level])
+		check(
+			commands.submit(GameCommand.upgrade_castle()), "%s: upgrade %d accepted" % [mode, level]
+		)
 		check(gs.gold == 7 and gs.wood == 3, "%s: upgrade %d paid exactly %s" % [mode, level, cost])
 		check(
-			gs.castle_level == level and gs.lives == lives_before + CastleUpgrades.lives_bonus(level - 1),
+			(
+				gs.castle_level == level
+				and gs.lives == lives_before + CastleUpgrades.lives_bonus(level - 1)
+			),
 			"%s: level %d, lives %d -> %d" % [mode, level, lives_before, gs.lives]
 		)
-		check(gs.castle_armor() == CastleUpgrades.armor_at(level), "%s: armor %d" % [mode, gs.castle_armor()])
-		check(body.mesh != null and not meshes.has(body.mesh), "%s: the castle has a new body mesh" % mode)
+		check(
+			gs.castle_armor() == CastleUpgrades.armor_at(level),
+			"%s: armor %d" % [mode, gs.castle_armor()]
+		)
+		check(
+			body.mesh != null and not meshes.has(body.mesh),
+			"%s: the castle has a new body mesh" % mode
+		)
 		meshes.append(body.mesh)
 		check(
 			castle.find_children("*", "MeshInstance3D", true, false).size() == 1,
 			"%s: still one mesh instance (no extra draw calls)" % mode
 		)
-	check(commands.journal.commands.size() == CastleUpgrades.max_level(), "%s: four commands in the journal" % mode)
+	check(
+		commands.journal.commands.size() == CastleUpgrades.max_level(),
+		"%s: four commands in the journal" % mode
+	)
 	gs.gold = 99999
 	gs.wood = 99999
-	check(not commands.submit(GameCommand.upgrade_castle()), "%s: the maximum cannot be exceeded" % mode)
-	check(commands.journal.commands.size() == CastleUpgrades.max_level(), "%s: refused at max, not journaled" % mode)
-	check(gs.lives > lives0, "%s: more lives than at the start (%d > %d)" % [mode, gs.lives, lives0])
+	check(
+		not commands.submit(GameCommand.upgrade_castle()),
+		"%s: the maximum cannot be exceeded" % mode
+	)
+	check(
+		commands.journal.commands.size() == CastleUpgrades.max_level(),
+		"%s: refused at max, not journaled" % mode
+	)
+	check(
+		gs.lives > lives0, "%s: more lives than at the start (%d > %d)" % [mode, gs.lives, lives0]
+	)
 	# Leaks through the real handler: heavy ones lose to the armor, light ones always cost 1.
 	var armor: int = gs.castle_armor()
 	var before: int = gs.lives
 	main.call("_on_enemy_reached_base", 5)
-	check(before - gs.lives == maxi(1, 5 - armor), "%s: a king leak costs %d" % [mode, before - gs.lives])
+	check(
+		before - gs.lives == maxi(1, 5 - armor),
+		"%s: a king leak costs %d" % [mode, before - gs.lives]
+	)
 	before = gs.lives
 	main.call("_on_enemy_reached_base", 1)
 	check(before - gs.lives == 1, "%s: a light leak costs 1" % mode)
@@ -221,7 +295,9 @@ func _test_scene(record: bool, daily: String) -> void:
 		if spec["id"] == &"castle":
 			button = spec
 	check(not button.is_empty(), "%s: the forge card has the castle button" % mode)
-	check(button.has("label") and not button.has("gold"), "%s: at the top the button says max" % mode)
+	check(
+		button.has("label") and not button.has("gold"), "%s: at the top the button says max" % mode
+	)
 	check(str(info["hint"]).contains("4/4"), "%s: hint shows the level (%s)" % [mode, info["hint"]])
 	gs.reset()
 	info = CommandCards.forge(main.get_node("Level/Hero"), gs)
@@ -229,11 +305,17 @@ func _test_scene(record: bool, daily: String) -> void:
 		if spec["id"] == &"castle":
 			button = spec
 	check(
-		button.get("gold", 0) == CastleUpgrades.cost(0).x and button.get("wood", 0) == CastleUpgrades.cost(0).y,
+		(
+			button.get("gold", 0) == CastleUpgrades.cost(0).x
+			and button.get("wood", 0) == CastleUpgrades.cost(0).y
+		),
 		"%s: next price on the button" % mode
 	)
 	check(not button["enabled"], "%s: disabled while poor" % mode)
-	check(str(info["hint"]).contains("0/4") and str(info["hint"]).contains("+"), "%s: hint: %s" % [mode, info["hint"]])
+	check(
+		str(info["hint"]).contains("0/4") and str(info["hint"]).contains("+"),
+		"%s: hint: %s" % [mode, info["hint"]]
+	)
 	CastleModel.show_level(castle, 0)
 	check(body.mesh == plain, "%s: level 0 shows the plain castle again" % mode)
 	await process_frame  # the effects of the upgrades finish their deferred start

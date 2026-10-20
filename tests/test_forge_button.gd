@@ -110,8 +110,30 @@ func _run() -> void:
 	check(await _click_card(&"repair"), "repair button is clickable")
 	check(gs.lives > lives, "click on Repair mends the castle")
 	check(main.cards.forge_open, "forge card stays open after a purchase")
+	var castle_button: Button = _card_button(&"castle")
+	check(
+		castle_button != null and castle_button.size.x >= 84.0 and castle_button.size.y >= 84.0,
+		"castle button is at least 84 px (%s)" % [castle_button.size if castle_button else null]
+	)
+	var castle_lives: int = gs.lives
+	check(await _click_card(&"castle"), "castle button is clickable")
+	check(
+		gs.castle_level == 1 and gs.lives == castle_lives + CastleUpgrades.lives_bonus(0),
+		"click on Castle upgrades it (level %d, lives %d)" % [gs.castle_level, gs.lives]
+	)
+	check(main.cards.forge_open, "forge card stays open after the castle upgrade")
 	check(await _click_card(&"cancel"), "close button is clickable")
 	check(not main.cards.forge_open, "click on Close closes the forge")
+
+	# A tap on the castle opens the forge card (and does not send the knight anywhere).
+	var castle_spot: Vector3 = main.builder.castle.global_position + Vector3(0.6, 0.0, 0.3)
+	var knight_at: Vector3 = hero.global_position
+	main.cards.on_ground_tapped(castle_spot)
+	await process_frame
+	check(main.cards.forge_open, "a tap on the castle opens the forge card")
+	check(hero.global_position.distance_to(knight_at) < 0.2, "...and the knight stays")
+	main.cards.toggle_forge()
+	await process_frame
 
 	# Forge again from the pause menu, then a second toggle closes it.
 	await _click(pause)

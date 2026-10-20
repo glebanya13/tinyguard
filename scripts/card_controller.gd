@@ -95,15 +95,7 @@ func on_command_pressed(id: StringName) -> void:
 		_build_manager.clear_selection()
 		refresh()
 		return
-	if id == &"sword":
-		_commands.submit(GameCommand.sword())
-		return
-	if id == &"repair":
-		_commands.submit(GameCommand.repair())
-		return
-	if id == &"castle":
-		_commands.submit(GameCommand.upgrade_castle())
-		refresh()
+	if _press_forge(id):
 		return
 	if id == &"sell" or id == &"priority":
 		var chosen: TowerSlot = _build_manager.selected_slot
@@ -124,6 +116,20 @@ func on_command_pressed(id: StringName) -> void:
 		pending_command = id
 		_pending_slot = slot
 		refresh()
+
+
+## The forge's buttons: sword, repair, castle upgrade. False if `id` is none of them.
+func _press_forge(id: StringName) -> bool:
+	if id == &"sword":
+		_commands.submit(GameCommand.sword())
+	elif id == &"repair":
+		_commands.submit(GameCommand.repair())
+	elif id == &"castle":
+		_commands.submit(GameCommand.upgrade_castle())
+		refresh()
+	else:
+		return false
+	return true
 
 
 ## The villager's buttons: sell, buy, hire. False if `id` is none of them.
