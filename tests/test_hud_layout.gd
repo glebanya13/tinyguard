@@ -129,7 +129,7 @@ func _live() -> void:
 			got.is_equal_approx(want), "joystick %d placed by HudLayout %s vs %s" % [js, got, want]
 		)
 		check(
-			is_equal_approx(float(joy.get("radius")), want.size.x * HudLayout.JOY_RADIUS_RATIO),
+			is_equal_approx(joy.get("radius") as float, want.size.x * HudLayout.JOY_RADIUS_RATIO),
 			"radius scales with the size"
 		)
 	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_HIDE)
