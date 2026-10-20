@@ -145,9 +145,14 @@ func _physics_process(delta: float) -> void:
 		auto_action
 		and direction == Vector3.ZERO
 		and can_attack()
-		and get_focus_target(true) != null
 	):
-		try_attack()
+		var target: Node3D = get_focus_target(true)
+		if target != null:
+			if target is Enemy:
+				if GameSettings.is_auto_attack():
+					try_attack()
+			else:
+				try_attack()
 	if _attack_left > 0.0:
 		direction *= 0.3  # plant the feet while swinging
 	velocity = direction * walk_speed()

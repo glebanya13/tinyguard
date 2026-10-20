@@ -84,6 +84,13 @@ func update() -> void:
 
 ## Command card action: the hero walks to the selected slot and acts there.
 func on_command_pressed(id: StringName) -> void:
+	if id == &"talk_villager":
+		var near: Villager = _near_villager()
+		if near != null:
+			_build_manager.clear_selection()
+			_trade_dismissed = null
+			_set_trade(near)
+		return
 	if _press_trade(id):
 		refresh()
 		return
@@ -162,13 +169,14 @@ func refresh() -> void:
 	var slot: TowerSlot = _build_manager.selected_slot
 	if slot == null:
 		_range_ring.hide()
+	if trade_with != null:
+		_range_ring.hide()
+		_hud.show_hint("")
+		_hud.update_card(CommandCards.trade(_villagers, _game_state, trade_with))
+		return
 	if slot == null and forge_open:
 		_hud.show_hint("")
 		_hud.update_card(CommandCards.forge(_hero, _game_state))
-		return
-	if slot == null and trade_with != null:
-		_hud.show_hint("")
-		_hud.update_card(CommandCards.trade(_villagers, _game_state, trade_with))
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text.call())
@@ -177,7 +185,9 @@ func refresh() -> void:
 	forge_open = false
 	_hud.show_hint("")
 	_show_range(slot)
-	_hud.update_card(CommandCards.for_slot(slot, _build_manager, pending_command != &""))
+	_hud.update_card(
+		CommandCards.for_slot(slot, _build_manager, pending_command != &"", _near_villager())
+	)
 
 
 func on_slot_selected(slot: TowerSlot) -> void:
@@ -199,6 +209,7 @@ func on_ground_tapped(point: Vector3) -> void:
 	# A tap on a villager: open the trade card, the hero walks up to it.
 	var villager: Villager = _villagers.nearest(point, VILLAGER_TAP_REACH)
 	if villager != null:
+		_build_manager.clear_selection()
 		_trade_dismissed = null
 		_hero.move_to(villager.global_position, _villagers.trade_reach * 0.7)
 		_trade_walking = true
@@ -222,7 +233,22 @@ func on_ground_tapped(point: Vector3) -> void:
 			best = tree
 	if best != null:
 		_hero.move_to(best.global_position, _hero.chop_range * 0.8)
-	else:
+		return
+	# A tap on an enemy: walk up to strike reach.
+	var best_enemy: Enemy = null
+	var best_enemy_dist: float = 1.0
+	if _sim != null:
+		for enemy in _sim.enemies:
+			if enemy.is_alive():
+				var offset: Vector3 = enemy.global_position - point
+				offset.y = 0.0
+				if offset.length() < best_enemy_dist:
+					best_enemy_dist = offset.length()
+					best_enemy = enemy
+	if best_enemy != null:
+		_hero.move_to(best_enemy.global_position, _hero.strike_reach() * 0.8)
+		return
+	if GameSettings.is_tap_to_move():
 		_hero.move_to(point, 0.15)
 
 
@@ -252,7 +278,7 @@ func _auto_select_near_hero() -> void:
 	# he walks up to another one. An open forge card is the player's choice: a slot the
 	# knight still drifts past (he keeps a little speed right after the pause menu) must
 	# not push it out; a tap on a slot or "Close" does.
-	if pending_command != &"" or forge_open:
+	if pending_command != &"" or forge_open or trade_with != null:
 		return
 	var moving: bool = _hero.velocity.length() >= 0.1
 	var current: TowerSlot = _build_manager.selected_slot
@@ -329,3 +355,11 @@ func _set_trade(villager: Villager) -> void:
 	if villager != null:
 		villager.talk_to(_hero)
 	refresh()
+
+
+func _near_villager() -> Villager:
+	return (
+		_villagers.nearest(_hero.global_position, _villagers.trade_reach)
+		if _villagers != null and _hero != null
+		else null
+	)

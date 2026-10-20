@@ -23,7 +23,9 @@ static func _t(key: String) -> String:
 
 ## Card of the selected slot: build buttons on a free one, upgrade / priority / sell
 ## on a tower. `walking` = the knight is on his way to carry out a pressed command.
-static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool) -> Dictionary:
+static func for_slot(
+	slot: TowerSlot, build_manager: BuildManager, walking: bool, near_villager: Villager = null
+) -> Dictionary:
 	var info := {}
 	var buttons: Array[Dictionary] = []
 	var tower_types: Array[TowerData] = build_manager.tower_types
@@ -97,6 +99,16 @@ static func for_slot(slot: TowerSlot, build_manager: BuildManager, walking: bool
 				"gain": true,
 				"enabled": true,
 				"tooltip": _t("CARD_SELL_TIP") % roundi(Balance.sell_refund() * 100.0)
+			}
+		)
+	if near_villager != null:
+		buttons.append(
+			{
+				"id": &"talk_villager",
+				"icon": VILLAGER_ICON,
+				"caption": _t("CARD_TALK_VILLAGER"),
+				"enabled": true,
+				"tooltip": _t("CARD_TALK_VILLAGER_TIP"),
 			}
 		)
 	buttons.append(

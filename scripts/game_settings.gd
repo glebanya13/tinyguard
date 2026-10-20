@@ -58,6 +58,8 @@ static var config_path: String = "user://settings.cfg"
 static var _detected: int = 0
 ## Cached effects level (FX_*); -1 = not read from the file yet.
 static var _effects: int = -1
+static var _tap_to_move: int = -1
+static var _auto_attack: int = -1
 ## Level forced by BIMBLEGUARD_FX (-1 = none); -2 = environment not read yet.
 static var _forced: int = -2
 ## Ceiling set by the quality guard when the device cannot keep up (this session only,
@@ -205,6 +207,49 @@ static func set_crash_reports(on: bool) -> void:
 	cfg.load(config_path)
 	cfg.set_value("privacy", "crash_reports", on)
 	cfg.save(config_path)
+
+
+## Tap to move: hero moves to tapped empty ground when on (true by default).
+## When off, clicking on empty ground does not move the hero (he moves via joystick).
+static func is_tap_to_move() -> bool:
+	if _tap_to_move < 0:
+		var cfg := ConfigFile.new()
+		if cfg.load(config_path) != OK:
+			return true
+		_tap_to_move = 1 if bool(cfg.get_value("controls", "tap_to_move", true)) else 0
+	return _tap_to_move == 1
+
+
+static func set_tap_to_move(on: bool) -> void:
+	_tap_to_move = 1 if on else 0
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("controls", "tap_to_move", on)
+	cfg.save(config_path)
+
+
+## Auto-attack: on by default. When off, the hero does not automatically strike
+## enemies on proximity (player uses the attack button).
+static func is_auto_attack() -> bool:
+	if _auto_attack < 0:
+		var cfg := ConfigFile.new()
+		if cfg.load(config_path) != OK:
+			return true
+		_auto_attack = 1 if bool(cfg.get_value("controls", "auto_attack", true)) else 0
+	return _auto_attack == 1
+
+
+static func set_auto_attack(on: bool) -> void:
+	_auto_attack = 1 if on else 0
+	var cfg := ConfigFile.new()
+	cfg.load(config_path)
+	cfg.set_value("controls", "auto_attack", on)
+	cfg.save(config_path)
+
+
+static func reset_controls_cache() -> void:
+	_tap_to_move = -1
+	_auto_attack = -1
 
 
 static func layout_value(key: String) -> int:

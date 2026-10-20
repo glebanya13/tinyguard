@@ -116,6 +116,7 @@ func _ready() -> void:
 	_apply_difficulty()
 	_wave_manager.sim = _sim
 	_build_manager.sim = _sim
+	_build_manager.villagers = villagers
 	if _daily_key != "":
 		_sim.set_seed(DailyRun.seed_of(_daily_key))
 		DailyRun.apply(_daily_key, _wave_manager.plan, _wave_manager, _build_manager)

@@ -208,8 +208,20 @@ func _check_locale_choice() -> void:
 	check(GameSettings.language() == "ja", "unknown language ignored")
 	GameSettings.set_language("ru")
 	check(TranslationServer.get_locale().begins_with("ru"), "ru applied")
+	GameSettings.reset_controls_cache()
+	check(GameSettings.is_tap_to_move() == true, "default tap_to_move is true")
+	GameSettings.set_tap_to_move(false)
+	check(GameSettings.is_tap_to_move() == false, "tap_to_move set to false")
+	GameSettings.set_tap_to_move(true)
+	check(GameSettings.is_tap_to_move() == true, "tap_to_move set to true")
+	check(GameSettings.is_auto_attack() == true, "default auto_attack is true")
+	GameSettings.set_auto_attack(false)
+	check(GameSettings.is_auto_attack() == false, "auto_attack set to false")
+	GameSettings.set_auto_attack(true)
+	check(GameSettings.is_auto_attack() == true, "auto_attack set to true")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(GameSettings.config_path))
 	GameSettings.config_path = old_path
+	GameSettings.reset_controls_cache()
 
 
 func _check_urls() -> void:

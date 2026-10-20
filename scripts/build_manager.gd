@@ -28,6 +28,7 @@ var sim: Sim = null
 ## Daily challenge: resource names of the towers that may be built (empty = all).
 var allowed_towers: Array[String] = []
 var selected_slot: TowerSlot = null
+var villagers: Villagers = null
 ## Permanent tower damage bonus (perk), applied after every level change.
 var damage_multiplier: float = 1.0
 
@@ -56,12 +57,18 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Selects the slot under screen_pos; elsewhere clears the selection and
 ## reports the ground point.
 func handle_tap(screen_pos: Vector2) -> void:
+	var ground: Variant = _pick_ground(screen_pos)
+	if ground != null and villagers != null:
+		var villager: Villager = villagers.nearest(ground, 1.0)
+		if villager != null:
+			clear_selection()
+			ground_tapped.emit(ground)
+			return
 	var slot: TowerSlot = _pick_slot(screen_pos)
 	if slot != null:
 		select_slot(slot)
 		return
 	clear_selection()
-	var ground: Variant = _pick_ground(screen_pos)
 	if ground != null:
 		ground_tapped.emit(ground)
 
