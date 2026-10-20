@@ -182,6 +182,24 @@ service cloud.firestore {
         && s.grace is int && s.grace >= -1 && s.grace <= 1000000;
     }
 
+    // The camp: level 1..10, last_collect timestamp, treasury coins <= 999999, total_collected.
+    function campOk(c) {
+      return c is map
+        && c.keys().hasOnly(['level', 'last_collect', 'coins', 'total_collected'])
+        && c.level is int && c.level >= 1 && c.level <= 10
+        && c.last_collect is int && c.last_collect >= 0
+        && c.coins is int && c.coins >= 0 && c.coins <= 999999
+        && c.total_collected is int && c.total_collected >= 0;
+    }
+
+    // The 28-day calendar: claimed_days 0..100000, last_claim YYYY-MM-DD.
+    function calendarOk(cal) {
+      return cal is map
+        && cal.keys().hasOnly(['claimed_days', 'last_claim'])
+        && cal.claimed_days is int && cal.claimed_days >= 0 && cal.claimed_days <= 100000
+        && cal.last_claim is string && cal.last_claim.matches('^([0-9]{4}-[0-9]{2}-[0-9]{2})?$');
+    }
+
     function validProgression(p) {
       return p is map
         && p.keys().hasOnly(['unlocked', 'stars', 'endless', 'perks', 'dailyStars', 'crowns'])
@@ -198,7 +216,8 @@ service cloud.firestore {
     function validUser(d) {
       return d.keys().hasOnly(['schemaVersion', 'createdAt', 'updatedAt',
                                'onboardingCompleted', 'tutorialVersionCompleted',
-                               'progression', 'settings', 'achievements', 'wallet', 'streak'])
+                               'progression', 'settings', 'achievements', 'wallet', 'streak',
+                               'camp', 'calendar'])
         && d.schemaVersion is int && d.schemaVersion >= 1 && d.schemaVersion <= 1000
         && d.updatedAt == request.time
         && d.onboardingCompleted is bool
@@ -208,6 +227,8 @@ service cloud.firestore {
         && (!('achievements' in d) || achievementsOk(d.achievements))
         && (!('wallet' in d) || walletOk(d))
         && (!('streak' in d) || streakOk(d.streak))
+        && (!('camp' in d) || campOk(d.camp))
+        && (!('calendar' in d) || calendarOk(d.calendar))
         && d.settings is map && d.settings.keys().hasOnly(['sound'])
         && d.settings.get('sound', true) is bool;
     }

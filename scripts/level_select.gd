@@ -26,6 +26,8 @@ const FLAME_ICON: Texture2D = preload("res://ui/icons/flame.png")
 const FRIENDS_ICON: Texture2D = preload("res://ui/icons/friends.png")
 const CLOUD_OK_ICON: Texture2D = preload("res://ui/icons/cloud_ok.png")
 const CLOUD_OFF_ICON: Texture2D = preload("res://ui/icons/cloud_off.png")
+const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
+const CALENDAR_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
 const GOLD := Color(1.0, 0.88, 0.45)
 ## Tint of the difficulty crown: Hard, Nightmare.
 const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
@@ -56,6 +58,12 @@ var _reminder: AccountReminder = null
 var _coop_button: Button = null
 var _daily: DailyPanel = null
 var _achievements: AchievementsPanel = null
+var _camp_panel: CampPanel = null
+var _calendar_panel: CalendarPanel = null
+var _camp_button: Button = null
+var _camp_dot: Control = null
+var _calendar_button: Button = null
+var _calendar_dot: Control = null
 var _gems: GemsHud = null
 var _tab_bar: PanelContainer = null
 var _tab_row: HBoxContainer = null
@@ -139,6 +147,10 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _gems.is_panel_open():
 			_gems.close_panel()
+		elif _camp_panel and _camp_panel.visible:
+			_camp_panel.close()
+		elif _calendar_panel and _calendar_panel.visible:
+			_calendar_panel.close()
 		elif _daily.visible:
 			_daily.close()
 		elif _achievements.visible:
@@ -268,7 +280,29 @@ func _build_tabs() -> void:
 	_daily.start_requested.connect(_start_daily)
 	_achievements = AchievementsPanel.new()
 	_ui_root.add_child(_achievements)
+	_camp_panel = CampPanel.new()
+	_ui_root.add_child(_camp_panel)
+	_calendar_panel = CalendarPanel.new()
+	_ui_root.add_child(_calendar_panel)
+	_camp_panel.collected.connect(func(_amt: int) -> void:
+		_gems.refresh()
+		_update_retention_dots()
+	)
+	_camp_panel.upgraded.connect(func(_lvl: int) -> void:
+		_gems.refresh()
+		_update_retention_dots()
+	)
+	_calendar_panel.reward_claimed.connect(func(_s: int, _c: int, _g: int) -> void:
+		_gems.refresh()
+		_update_retention_dots()
+	)
 	var shop_tab := _make_tab("ShopButton", tr("SHOP_BUTTON"), SHOP_ICON)
+	_camp_button = _make_tab("CampButton", tr("MAP_CAMP"), COIN_ICON)
+	_camp_button.pressed.connect(_camp_panel.open)
+	_camp_dot = _dot(_camp_button)
+	_calendar_button = _make_tab("CalendarButton", tr("CALENDAR_BUTTON"), CALENDAR_ICON)
+	_calendar_button.pressed.connect(_calendar_panel.open)
+	_calendar_dot = _dot(_calendar_button)
 	_treasury_button = _make_tab("TreasuryButton", tr("MAP_TREASURY"), CHEST_ICON)
 	_treasury_button.pressed.connect(_open_treasury)
 	_treasury_dot = _dot(_treasury_button)
@@ -394,6 +428,24 @@ func _refresh_stars() -> void:
 	_stars_label.text = "%d / %d" % [Perks.earned_stars(), Perks.max_stars()]
 	if _treasury_dot != null:
 		_treasury_dot.visible = Perks.any_affordable()
+	_update_retention_dots()
+
+
+func _update_retention_dots() -> void:
+	if _camp_dot != null:
+		var p: Dictionary = PlayerProfile.local()
+		var now: int = int(Time.get_unix_time_from_system())
+		var pending: int = Camp.pending_coins(p["camp"], now)
+		_camp_dot.visible = pending > 0
+		if pending > 0:
+			_camp_button.text = tr("MAP_CAMP") + "\n(+%d)" % pending
+		else:
+			_camp_button.text = tr("MAP_CAMP")
+	if _calendar_dot != null:
+		var p: Dictionary = PlayerProfile.local()
+		_calendar_dot.visible = Calendar28.can_claim(
+			p["calendar"], Daily.today_key(), p["wallet"]
+		)
 
 
 func _open_treasury() -> void:

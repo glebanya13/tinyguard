@@ -19,7 +19,7 @@ extends RefCounted
 ##  (the server said the name is taken), newer (cloud written by a newer app)}
 ## The Firebase uid is the stable id; the nickname is only a display name.
 
-const SCHEMA_VERSION := 3
+const SCHEMA_VERSION := 4
 const SECTION := "profile"
 ## Upper bound for a stars / endless / perk value read from the cloud (the rules cap them too).
 const MAX_CLOUD_VALUE := 5000
@@ -36,7 +36,9 @@ const SYNC_KEYS: Array[String] = [
 	"settings",
 	"achievements",
 	"wallet",
-	"streak"
+	"streak",
+	"camp",
+	"calendar"
 ]
 
 
@@ -57,6 +59,8 @@ static func empty() -> Dictionary:
 		"achievements": 0,
 		"wallet": Wallet.empty(),
 		"streak": Streak.empty(),
+		"camp": Camp.empty(),
+		"calendar": Calendar28.empty(),
 	}
 
 
@@ -91,6 +95,8 @@ static func from_save(cfg: ConfigFile) -> Dictionary:
 	p["achievements"] = maxi(int(cfg.get_value(SECTION, "achievements", 0)), 0)
 	p["wallet"] = Wallet.from_save(cfg)
 	p["streak"] = Streak.from_save(cfg)
+	p["camp"] = Camp.from_save(cfg)
+	p["calendar"] = Calendar28.from_save(cfg)
 	if not cfg.has_section(SECTION):
 		p["schemaVersion"] = 0
 		p["legacyName"] = str(cfg.get_value("online", "name", ""))
@@ -128,6 +134,8 @@ static func write_to_save(p: Dictionary, cfg: ConfigFile) -> void:
 	cfg.set_value(SECTION, "achievements", int(p["achievements"]))
 	Wallet.write_to_save(p["wallet"], cfg)
 	Streak.write_to_save(p["streak"], cfg)
+	Camp.write_to_save(p["camp"], cfg)
+	Calendar28.write_to_save(p["calendar"], cfg)
 	cfg.set_value(SECTION, "schema", int(p["schemaVersion"]))
 	cfg.set_value(SECTION, "nickname", str(p["nickname"]))
 	cfg.set_value(SECTION, "nickname_normalized", str(p["nicknameNormalized"]))
@@ -153,6 +161,8 @@ static func migrate(p: Dictionary) -> Dictionary:
 		out = _migrate_1_to_2(out)
 	if version < 3:
 		out = _migrate_2_to_3(out)
+	if version < 4:
+		out = _migrate_3_to_4(out)
 	out["schemaVersion"] = SCHEMA_VERSION
 	return out
 
@@ -185,6 +195,8 @@ static func merge(local: Dictionary, cloud: Dictionary) -> Dictionary:
 		Daily.today_key()
 	)
 	out["streak"] = Streak.merge(local.get("streak", {}), cloud.get("streak", {}))
+	out["camp"] = Camp.merge(local.get("camp", {}), cloud.get("camp", {}))
+	out["calendar"] = Calendar28.merge(local.get("calendar", {}), cloud.get("calendar", {}))
 	var local_spent: int = spent_stars(a["perks"])
 	var cloud_spent: int = spent_stars(b.get("perks", {}))
 	if cloud_spent > local_spent or (cloud_spent == local_spent and cloud_newer):
@@ -273,6 +285,8 @@ static func from_cloud(fields: Dictionary) -> Dictionary:
 					out_prog[key][str(id)] = clampi(value, 0, top)
 	p["wallet"] = Wallet.from_cloud(fields.get("wallet"))
 	p["streak"] = Streak.sanitize(fields.get("streak"))
+	p["camp"] = Camp.sanitize(fields.get("camp"))
+	p["calendar"] = Calendar28.sanitize(fields.get("calendar"))
 	var settings: Variant = fields.get("settings", {})
 	if settings is Dictionary:
 		p["settings"]["sound"] = bool((settings as Dictionary).get("sound", true))
@@ -368,6 +382,15 @@ static func _migrate_2_to_3(p: Dictionary) -> Dictionary:
 		p["wallet"] = Wallet.empty()
 	if not p.get("streak") is Dictionary:
 		p["streak"] = Streak.empty()
+	return p
+
+
+## Schema 4: Camp (treasury coins, offline accumulation) and 28-day calendar.
+static func _migrate_3_to_4(p: Dictionary) -> Dictionary:
+	if not p.get("camp") is Dictionary:
+		p["camp"] = Camp.empty()
+	if not p.get("calendar") is Dictionary:
+		p["calendar"] = Calendar28.empty()
 	return p
 
 
