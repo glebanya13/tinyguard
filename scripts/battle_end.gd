@@ -124,6 +124,7 @@ func on_all_waves_cleared() -> void:
 	var crown_before: int = LevelCatalog.crown(int(_level["id"]))
 	LevelCatalog.complete(int(_level["id"]), stars, difficulty)
 	Economy.award_level_win(int(_level["id"]), stars, difficulty)
+	var fw: Dictionary = Economy.award_first_run()
 	var gained: int = Perks.earned_stars() - before
 	_victory_sound.play()
 	var line: String = tr("END_STARS_TOTAL") % [Perks.earned_stars(), Perks.max_stars()]
@@ -135,6 +136,8 @@ func on_all_waves_cleared() -> void:
 		line = tr("END_DIFFICULTY") % tr(str(Balance.difficulty(difficulty)["name"])) + "\n" + line
 		if LevelCatalog.crown(int(_level["id"])) > crown_before:
 			line += "\n" + tr("END_CROWN_NEW")
+	if bool(fw.get("first_win", false)):
+		line += "\n" + tr("FIRST_RUN_BONUS") % int(fw.get("gems", 5))
 	end_game(tr("HUD_VICTORY"), true, stars, line + _gems_line() + "\n")
 
 

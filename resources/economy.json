@@ -31,6 +31,44 @@
 			"perk_buyer": "common"
 		}
 	},
+	"camp": {
+		"rates": [10, 15, 20, 25, 30],
+		"caps_hours": [8, 10, 12, 14, 16],
+		"upgrade_costs": [0, 150, 350, 750, 1500],
+		"battle_reward": 40
+	},
+	"calendar": {
+		"rewards": [
+			{"coins": 20, "gems": 5},
+			{"coins": 25, "gems": 5},
+			{"coins": 30, "gems": 10},
+			{"coins": 35, "gems": 10},
+			{"coins": 40, "gems": 15},
+			{"coins": 45, "gems": 15},
+			{"coins": 100, "gems": 50},
+			{"coins": 30, "gems": 10},
+			{"coins": 35, "gems": 10},
+			{"coins": 40, "gems": 15},
+			{"coins": 45, "gems": 15},
+			{"coins": 50, "gems": 20},
+			{"coins": 60, "gems": 20},
+			{"coins": 150, "gems": 75},
+			{"coins": 40, "gems": 15},
+			{"coins": 45, "gems": 15},
+			{"coins": 50, "gems": 20},
+			{"coins": 55, "gems": 20},
+			{"coins": 60, "gems": 25},
+			{"coins": 70, "gems": 25},
+			{"coins": 200, "gems": 100},
+			{"coins": 50, "gems": 20},
+			{"coins": 55, "gems": 20},
+			{"coins": 60, "gems": 25},
+			{"coins": 70, "gems": 25},
+			{"coins": 80, "gems": 30},
+			{"coins": 90, "gems": 35},
+			{"coins": 300, "gems": 150}
+		]
+	},
 	"limits": {
 		"max_claim": 5000,
 		"max_claims": 400,

@@ -115,6 +115,31 @@ static func award_quest(day: String, index: int) -> int:
 	return _finish(p, paid)
 
 
+## Reward for the first won run of the day (First Run Bonus, Stage A):
+## +5 gems under the idempotent key "fw:<date>" and x2 treasury coins into Camp.
+## If already claimed today, awards 1x base coins and 0 gems.
+static func award_first_run(day: String = "") -> Dictionary:
+	if day == "":
+		day = Daily.today_key()
+	if not Daily.is_valid_key(day):
+		return {"first_win": false, "gems": 0, "coins": 0}
+	var p: Dictionary = PlayerProfile.local()
+	var w: Dictionary = p["wallet"]
+	var camp: Dictionary = p["camp"]
+	var base_coins: int = Camp.battle_reward()
+	var is_first: bool = not Wallet.has_claim(w, "fw:" + day)
+	var gems_paid: int = 0
+	var coins_paid: int = 0
+	if is_first:
+		gems_paid = _claim(w, "fw:" + day, 5)
+		coins_paid = base_coins * 2
+	else:
+		coins_paid = base_coins
+	Camp.add_coins(camp, coins_paid)
+	_finish(p, gems_paid, true, true)
+	return {"first_win": is_first, "gems": gems_paid, "coins": coins_paid}
+
+
 ## Pays what progress made before gems existed (or on another device that has not
 ## synced yet) is worth: first stars, crowns, siege milestones, achievements. No event
 ## multiplier. Returns the gems paid (0 on every later call).
@@ -143,12 +168,17 @@ static func backfill() -> int:
 	return _finish(p, paid, false)
 
 
-## Called when the map opens: backfill, then the day's streak check-in with its reward.
-## Returns {"backfill": gems, "streak": Streak.check_in() result or {}, "gems": paid today}.
+## Called when the map opens: backfill, then the day's streak check-in with its reward,
+## and camp/calendar status check.
+## Returns {"backfill": gems, "streak": Streak.check_in() result or {}, "gems": paid today,
+##          "camp": {coins, pending}, "calendar": {can_claim, claimed_days}}.
 static func on_app_open() -> Dictionary:
-	var out := {"backfill": backfill(), "streak": {}, "gems": 0}
+	var out := {"backfill": backfill(), "streak": {}, "gems": 0, "camp": {}, "calendar": {}}
 	var today: String = Daily.today_key()
+	var now: int = int(Time.get_unix_time_from_system())
 	var p: Dictionary = PlayerProfile.local()
+	if int(p["camp"].get("last_collect", 0)) == 0:
+		p["camp"]["last_collect"] = now
 	var visit: Dictionary = Streak.check_in(p["streak"], today)
 	p["streak"] = visit["state"]
 	var paid: int = 0
@@ -156,6 +186,14 @@ static func on_app_open() -> Dictionary:
 		paid = _claim(p["wallet"], "streak:" + today, int(visit["reward"]))
 	out["streak"] = visit
 	out["gems"] = paid
+	out["camp"] = {
+		"coins": int(p["camp"].get("coins", 0)),
+		"pending": Camp.pending_coins(p["camp"], now)
+	}
+	out["calendar"] = {
+		"can_claim": Calendar28.can_claim(p["calendar"], today, p["wallet"]),
+		"claimed_days": int(p["calendar"].get("claimed_days", 0))
+	}
 	_finish(p, paid, true, true)
 	return out
 

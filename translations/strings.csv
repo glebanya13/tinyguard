@@ -661,3 +661,27 @@ CARD_CASTLE_STATE,"Замок %d/%d · дальше: %s","Castle %d/%d · next: 
 CARD_CASTLE_STATE_MAX,"Замок %d/%d · максимум","Castle %d/%d · maximum"
 CARD_CASTLE_TIP,"Улучшить замок: %s (протечка отнимает меньше жизней)","Upgrade the castle: %s (a leak costs fewer lives)"
 POPUP_CASTLE,Замок улучшен до %d,Castle upgraded to %d
+FIRST_RUN_BONUS,Первый забег дня: +%d 💎 и ×2 монет!,First run of the day: +%d 💎 and ×2 coins!
+CAMP_TITLE,Лагерь,Camp
+CAMP_LEVEL,Уровень %d,Level %d
+CAMP_MAX_LEVEL,Максимальный уровень,Max level
+CAMP_COLLECT,Собрать,Collect
+CAMP_COLLECTED,Собрано %d монет,Collected %d coins
+CAMP_UPGRADE,Улучшить (%d 🪙),Upgrade (%d 🪙)
+CAMP_UPGRADED,Лагерь улучшен до уровня %d!,Camp upgraded to level %d!
+CAMP_UPGRADE_NEXT,"Ур. %d -> Ур. %d: +%d монет/ч, потолок %d ч","Lv. %d -> Lv. %d: +%d coins/h, cap %d h"
+CAMP_ACCUMULATED,Накоплено монет: %d / %d,Accumulated coins: %d / %d
+CAMP_RATE,+%d монет/час,+%d coins/h
+CAMP_CAP,Потолок: %d ч,Cap: %d h
+CAMP_FULL,Лагерь полон!,Camp is full!
+CAMP_NOTHING,Пока ничего не накопилось,Nothing accumulated yet
+MAP_CAMP,Лагерь,Camp
+CALENDAR_TITLE,Календарь наград,Reward Calendar
+CALENDAR_BUTTON,Календарь,Calendar
+CALENDAR_DAY,День %d,Day %d
+CALENDAR_CLAIM,Забрать награду,Claim Reward
+CALENDAR_CLAIMED,Забрано,Claimed
+CALENDAR_COME_BACK,Возвращайся завтра!,Come back tomorrow!
+CALENDAR_PROGRESS,Собрано дней: %d из 28,Claimed days: %d of 28
+CALENDAR_RULE,Не сбрасывается при пропуске дней.,Does not reset on missed days.
+COINS_NAME,Монеты казны,Treasury Coins
