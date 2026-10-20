@@ -21,6 +21,7 @@ enum Type {
 	## New types are only ever appended: journals store the numbers.
 	TRADE_BUY,  ## args: lots of wood to buy from a villager (campaign and co-op only)
 	HIRE,  ## args: villager index (spawn order): hire him as a lumberjack (same modes)
+	UPGRADE_CASTLE,  ## no args: the next castle upgrade (lives and armor), every mode
 }
 
 ## Co-op wire names (CoopProtocol.COMMAND_TYPES) and argument counts of the commands
@@ -37,6 +38,7 @@ const WIRE_NAMES: Dictionary = {
 	Type.SET_PRIORITY: "priority",
 	Type.TRADE_BUY: "buy_wood",
 	Type.HIRE: "hire",
+	Type.UPGRADE_CASTLE: "castle",
 }
 const ARG_COUNTS: Dictionary = {
 	Type.BUILD: 2,
@@ -50,6 +52,7 @@ const ARG_COUNTS: Dictionary = {
 	Type.SET_PRIORITY: 2,
 	Type.TRADE_BUY: 1,
 	Type.HIRE: 1,
+	Type.UPGRADE_CASTLE: 0,
 	Type.SET_PAUSE: 1,
 	Type.SET_SPEED: 1,
 }
@@ -98,6 +101,10 @@ static func trade_buy(lots: int) -> GameCommand:
 
 static func hire(villager_index: int) -> GameCommand:
 	return make(Type.HIRE, [villager_index])
+
+
+static func upgrade_castle() -> GameCommand:
+	return make(Type.UPGRADE_CASTLE)
 
 
 static func hero_attack(origin: Vector3, yaw: float) -> GameCommand:

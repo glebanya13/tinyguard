@@ -19,7 +19,7 @@ signal speed_changed(speed: int)
 signal replay_begun(header: Dictionary)
 
 ## Bump on any change that alters battle results (replays of other versions are stale).
-const VERSION: int = 2
+const VERSION: int = 3
 const TICK_RATE: int = 30
 const TICK_DT: float = 1.0 / TICK_RATE
 ## Steps per frame at most (a long hitch must not freeze the game in catch-up).
@@ -275,6 +275,8 @@ func state_hash() -> int:
 	h = _mix(h, rng.state())
 	if game_state != null:
 		h = _mix_all(h, [game_state.gold, game_state.wood, game_state.lives])
+		if game_state.castle_level > 0:
+			h = _mix(h, game_state.castle_level)
 	if wave_manager != null:
 		h = _mix_all(h, wave_manager.state_ints())
 	if not heroes.is_empty():

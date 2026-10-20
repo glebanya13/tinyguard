@@ -53,6 +53,14 @@ func check(c: bool, w: String) -> void:
 func _initialize() -> void:
 	LevelCatalog.save_path = SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
+	# Cheap castle upgrades so that both players can afford some within the short battle.
+	CastleUpgrades.rows()
+	CastleUpgrades._rows = [
+		{"gold": 10, "wood": 10, "lives": 2, "armor": 0},
+		{"gold": 10, "wood": 15, "lives": 2, "armor": 1},
+		{"gold": 15, "wood": 20, "lives": 3, "armor": 1},
+		{"gold": 15, "wood": 25, "lives": 3, "armor": 2},
+	]
 	# The bot plays: nobody swings by himself.
 	node_added.connect(
 		func(node: Node) -> void:
@@ -260,6 +268,11 @@ func _bot(side: Peer) -> void:
 	if (side.slot == 0 and t == 5) or (side.slot == 1 and t % 100 == 10):
 		if side.main.villagers.lots_bought < 2:
 			commands.submit(GameCommand.trade_buy(1))
+	# The castle upgrade is shared like the gold: both players try in turn, the lockstep
+	# decides the order (a refused one is refused alike on both sides).
+	var level: int = side.gs.castle_level
+	if t % 100 == 30 + 5 * side.slot and level % 2 == side.slot:  # the host buys 1, 3, the guest 2, 4
+		commands.submit(GameCommand.upgrade_castle())
 	# Target priority is a command that travels between the players too.
 	if t >= 600 and t % 150 == 0:
 		for slot in commands.slots:
@@ -459,6 +472,22 @@ func _test_match() -> void:
 	check(
 		folk_h.lots_bought == folk_g.lots_bought and folk_h.state_ints() == folk_g.state_ints(),
 		"villager economy equal on both sides (%d lots)" % folk_h.lots_bought
+	)
+	var upgraders: Array[int] = []
+	for cmd: GameCommand in jh:
+		if cmd.type == GameCommand.Type.UPGRADE_CASTLE:
+			upgraders.append(cmd.player)
+	check(
+		upgraders.has(0) and upgraders.has(1),
+		"both players upgraded the shared castle: %s" % [upgraders]
+	)
+	check(
+		host.gs.castle_level == guest.gs.castle_level and host.gs.castle_level == upgraders.size(),
+		"castle level equal on both sides (%d)" % host.gs.castle_level
+	)
+	check(
+		host.gs.lives == guest.gs.lives and host.gs.starting_lives == guest.gs.starting_lives,
+		"lives equal on both sides (%d of %d)" % [host.gs.lives, host.gs.starting_lives]
 	)
 	check(ha[HASH_EVERY * 10] != ha[HASH_EVERY * 100], "the state changes over time")
 	var same_prefix := true

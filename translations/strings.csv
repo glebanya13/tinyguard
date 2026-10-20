@@ -653,3 +653,11 @@ MAP_REC_OFFLINE,Нужен интернет,Internet needed
 MAP_REC_FAILED,Не удалось загрузить таблицу,Could not load the table
 MAP_REC_DENIED,Таблица сейчас недоступна,The table is unavailable right now
 MAP_REC_DISABLED,Онлайн-таблица в этой сборке недоступна,The online table is not available in this build
+CARD_CASTLE_NAME,Замок,Castle
+CARD_CASTLE_MAX,Максимум,Maximum
+CARD_CASTLE_LIVES,"+%d жизни","+%d lives"
+CARD_CASTLE_ARMOR,"броня −%d к протечке","armor −%d per leak"
+CARD_CASTLE_STATE,"Замок %d/%d · дальше: %s","Castle %d/%d · next: %s"
+CARD_CASTLE_STATE_MAX,"Замок %d/%d · максимум","Castle %d/%d · maximum"
+CARD_CASTLE_TIP,"Улучшить замок: %s (протечка отнимает меньше жизней)","Upgrade the castle: %s (a leak costs fewer lives)"
+POPUP_CASTLE,Замок улучшен до %d,Castle upgraded to %d

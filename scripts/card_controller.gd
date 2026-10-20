@@ -15,10 +15,14 @@ const BUILD_REACH := 1.25
 const TREE_TAP_REACH := 1.0
 ## A tap this close to a villager sends the hero to trade with it.
 const VILLAGER_TAP_REACH := 1.0
+## A tap this close to the castle opens the forge card (castle upgrades live there).
+const CASTLE_TAP_REACH := 2.4
 ## The trade card stays open until the hero is this much further than the trade reach.
 const TRADE_KEEP_SLACK := 0.6
 
 var forge_open: bool = false
+## Where the castle stands (set by main once the level is built).
+var castle_position: Vector3 = Vector3(INF, INF, INF)
 ## Villager whose trade card is open.
 var trade_with: Villager = null
 ## Command to run when the hero reaches the selected slot, or &"".
@@ -91,11 +95,7 @@ func on_command_pressed(id: StringName) -> void:
 		_build_manager.clear_selection()
 		refresh()
 		return
-	if id == &"sword":
-		_commands.submit(GameCommand.sword())
-		return
-	if id == &"repair":
-		_commands.submit(GameCommand.repair())
+	if _press_forge(id):
 		return
 	if id == &"sell" or id == &"priority":
 		var chosen: TowerSlot = _build_manager.selected_slot
@@ -116,6 +116,20 @@ func on_command_pressed(id: StringName) -> void:
 		pending_command = id
 		_pending_slot = slot
 		refresh()
+
+
+## The forge's buttons: sword, repair, castle upgrade. False if `id` is none of them.
+func _press_forge(id: StringName) -> bool:
+	if id == &"sword":
+		_commands.submit(GameCommand.sword())
+	elif id == &"repair":
+		_commands.submit(GameCommand.repair())
+	elif id == &"castle":
+		_commands.submit(GameCommand.upgrade_castle())
+		refresh()
+	else:
+		return false
+	return true
 
 
 ## The villager's buttons: sell, buy, hire. False if `id` is none of them.
@@ -189,6 +203,13 @@ func on_ground_tapped(point: Vector3) -> void:
 		_hero.move_to(villager.global_position, _villagers.trade_reach * 0.7)
 		_trade_walking = true
 		_set_trade(villager)
+		return
+	# A tap on the castle: its card (the forge with the castle upgrade), the knight stays.
+	var to_castle: Vector3 = castle_position - point
+	to_castle.y = 0.0
+	if castle_position.is_finite() and to_castle.length() < CASTLE_TAP_REACH:
+		if not forge_open:
+			toggle_forge()
 		return
 	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
 	var best: WoodTree = null

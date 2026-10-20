@@ -46,6 +46,7 @@ const COMMAND_TYPES: Array[String] = [
 	"priority",
 	"buy_wood",
 	"hire",
+	"castle",
 	"speed",
 	"pause",
 ]

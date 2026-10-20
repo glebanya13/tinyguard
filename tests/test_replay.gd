@@ -1,6 +1,6 @@
 extends SceneTree
 ## Determinism of the battle simulation: a scripted bot plays a level (builds,
-## upgrades, sells, swings the sword, whirlwind, forge, trade, speed, pause)
+## upgrades, sells, swings the sword, whirlwind, forge, castle upgrades, trade, speed, pause)
 ## while the journal is recorded; the same journal is then replayed twice on a
 ## fresh level with other frame times (jittery, and a steady 10 fps) and the
 ## state hash must match the recording at every 30th step, bit for bit.
@@ -72,7 +72,15 @@ func _collect(sim: Sim, main: Node) -> void:
 				_trace.append(sim.state_hash())
 			if t == TOTAL_TICKS:
 				_final.assign(
-					[gs.gold, gs.wood, gs.lives, wm.killed, wm.leaked, sim.enemies.size()]
+					[
+						gs.gold,
+						gs.wood,
+						gs.lives,
+						wm.killed,
+						wm.leaked,
+						sim.enemies.size(),
+						gs.castle_level
+					]
 				)
 	)
 
@@ -87,6 +95,17 @@ func _run() -> void:
 		first == [3270867926, 1795671209, 1924641435, 1143034755, 4121910957],
 		"SimRng: golden sequence %s" % [first]
 	)
+
+	# The castle upgrades cost little here so that the short battle goes through ALL of them
+	# (the real prices are in resources/castle_upgrades.json; the recording and both replays
+	# run in this process and see the same table).
+	CastleUpgrades.rows()
+	CastleUpgrades._rows = [
+		{"gold": 10, "wood": 10, "lives": 2, "armor": 0},
+		{"gold": 10, "wood": 15, "lives": 2, "armor": 1},
+		{"gold": 15, "wood": 20, "lives": 3, "armor": 1},
+		{"gold": 15, "wood": 25, "lives": 3, "armor": 2},
+	]
 
 	# --- 1. Recording: the bot plays.
 	var main: Node = await _load_level()
@@ -135,8 +154,18 @@ func _run() -> void:
 	check(wm.killed > 0 and sim.towers.size() > 0, "battle happened: kills and towers")
 	check(recorded[-1] != recorded[0], "state changes over time")
 	var kinds := {}
+	var castle_upgrades: int = 0
 	for cmd in journal.commands:
 		kinds[cmd.type] = true
+		if cmd.type == GameCommand.Type.UPGRADE_CASTLE:
+			castle_upgrades += 1
+	check(
+		castle_upgrades == CastleUpgrades.max_level() and gs.castle_level == castle_upgrades,
+		(
+			"the bot upgraded the castle through all %d levels (%d commands)"
+			% [CastleUpgrades.max_level(), castle_upgrades]
+		)
+	)
 	check(kinds.size() >= 7, "many command kinds in the journal (%d)" % kinds.size())
 	check(
 		kinds.has(GameCommand.Type.HIRE) and kinds.has(GameCommand.Type.TRADE_BUY),
@@ -293,6 +322,38 @@ func _negative_controls(original: CommandLog, recorded: Array[int]) -> void:
 			)
 		)
 
+	# The castle level is part of the hash: without an upgrade (the first or the last) it differs.
+	for which: String in ["first", "last"]:
+		var index: int = -1
+		for i in original.commands.size():
+			if original.commands[i].type == GameCommand.Type.UPGRADE_CASTLE:
+				index = i
+				if which == "first":
+					break
+		check(index >= 0, "control: the journal has castle upgrades")
+		var no_castle := CommandLog.from_json(original.to_json())
+		var castle_tick: int = no_castle.commands[index].tick
+		no_castle.commands.remove_at(index)
+		result = await _replay_trace(no_castle)
+		diff = _first_diff(recorded, result["trace"])
+		check(
+			diff >= castle_tick and diff > 0,
+			(
+				"control: dropping the %s castle upgrade diverges (tick %d, command at %d)"
+				% [which, diff, castle_tick]
+			)
+		)
+	var late_castle := CommandLog.from_json(original.to_json())
+	for cmd2: GameCommand in late_castle.commands:
+		if cmd2.type == GameCommand.Type.UPGRADE_CASTLE:
+			cmd2.tick += 45
+			break
+	result = await _replay_trace(late_castle)
+	check(
+		_first_diff(recorded, result["trace"]) > 0,
+		"control: a castle upgrade 45 ticks late diverges"
+	)
+
 	var reseeded := CommandLog.from_json(original.to_json())
 	reseeded.header["seed"] = int(reseeded.header["seed"]) + 1
 	result = await _replay_trace(reseeded)
@@ -342,6 +403,9 @@ func _bot(main: Node, sim: Sim, commands: GameCommands) -> void:
 		commands.submit(GameCommand.hire(folk.hired_count()))
 	if t == 10 or (t % 100 == 50 and gs.wood < 30):
 		commands.submit(GameCommand.trade_buy(1))
+	# The castle: an upgrade whenever one is affordable (a refused command is not journaled).
+	if t >= 120 and t % 20 == 0:
+		commands.submit(GameCommand.upgrade_castle())
 	# Speed and pause are commands too (a pause and resume at one tick).
 	if t == 300:
 		commands.submit(GameCommand.set_speed(2))
@@ -360,8 +424,9 @@ func _bot(main: Node, sim: Sim, commands: GameCommands) -> void:
 	# Whirlwind on the first enemy.
 	if not sim.enemies.is_empty() and hero.spin_cooldown_left() <= 0.0:
 		commands.submit(GameCommand.hero_spin(sim.enemies[0].sim_position()))
-	# Build / upgrade, one action per decision.
-	if t % 10 == 0:
+	# Build / upgrade, one action per decision (the bot saves for the castle upgrade it is due).
+	var saving: bool = gs.castle_level < clampi((t - 100) / 450, 0, CastleUpgrades.max_level())
+	if t % 10 == 0 and not saving:
 		for slot in commands.slots:
 			var kind: int = slot.slot_id % bm.tower_types.size()
 			if slot.is_free() and bm.can_build(slot, bm.tower_types[kind]):

@@ -14,6 +14,7 @@ const VILLAGER_ICON: Texture2D = preload("res://ui/icons/villager.png")
 const WOOD_ICON: Texture2D = preload("res://ui/icons/wood.png")
 const SHOP_ICON: Texture2D = preload("res://ui/icons/shop.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
+const CASTLE_ICON: Texture2D = preload("res://ui/icons/castle.png")
 
 
 static func _t(key: String) -> String:
@@ -148,9 +149,11 @@ static func forge(hero: Hero, game_state: GameState) -> Dictionary:
 		"enabled": game_state.can_repair(),
 		"tooltip": TranslationServer.translate("CARD_REPAIR_TIP") % game_state.repair_lives
 	}
+	info["hint"] = castle_line(game_state)
 	info["buttons"] = [
 		upgrade,
 		repair,
+		castle_button(game_state),
 		{
 			"id": &"cancel",
 			"icon": CANCEL_ICON,
@@ -160,6 +163,45 @@ static func forge(hero: Hero, game_state: GameState) -> Dictionary:
 		}
 	]
 	return info
+
+
+## What upgrade number `level` + 1 gives: "+2 lives, armor 1" (armor only if it grows).
+static func castle_effect(level: int) -> String:
+	var lives: int = CastleUpgrades.lives_bonus(level)
+	var text: String = TranslationServer.translate("CARD_CASTLE_LIVES") % lives
+	var armor: int = CastleUpgrades.armor_at(level + 1)
+	if armor > CastleUpgrades.armor_at(level):
+		text += ", " + TranslationServer.translate("CARD_CASTLE_ARMOR") % armor
+	return text
+
+
+## "Castle 2/4 - next: +3 lives, armor 1" (or "maximum").
+static func castle_line(game_state: GameState) -> String:
+	var level: int = game_state.castle_level
+	var top: int = CastleUpgrades.max_level()
+	if level >= top:
+		return TranslationServer.translate("CARD_CASTLE_STATE_MAX") % [level, top]
+	return TranslationServer.translate("CARD_CASTLE_STATE") % [level, top, castle_effect(level)]
+
+
+## The forge's "Upgrade the castle" button: price, or "max" at the top level.
+static func castle_button(game_state: GameState) -> Dictionary:
+	var level: int = game_state.castle_level
+	var cost: Vector2i = game_state.castle_upgrade_cost()
+	var button := {
+		"id": &"castle",
+		"icon": CASTLE_ICON,
+		"caption": TranslationServer.translate("CARD_CASTLE_NAME"),
+		"enabled": game_state.can_upgrade_castle(),
+	}
+	if cost.x < 0:
+		button["label"] = TranslationServer.translate("CARD_CASTLE_MAX")
+		button["tooltip"] = castle_line(game_state)
+	else:
+		button["gold"] = cost.x
+		button["wood"] = cost.y
+		button["tooltip"] = TranslationServer.translate("CARD_CASTLE_TIP") % castle_effect(level)
+	return button
 
 
 ## Trade card of the villager `who`: sell wood (the price drops with every lot), buy wood
