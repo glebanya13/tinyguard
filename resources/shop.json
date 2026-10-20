@@ -16,7 +16,8 @@
 			"palette": {
 				"armor": "#C0392B",
 				"armor_dark": "#8E2A20",
-				"cape": "#7A1F1F"
+				"cape": "#7A1F1F",
+				"ruby": "#F2A33A"
 			}
 		},
 		{
@@ -28,7 +29,8 @@
 			"palette": {
 				"armor": "#3F9A5E",
 				"armor_dark": "#2F7D4F",
-				"cape": "#1F5A36"
+				"cape": "#1F5A36",
+				"ruby": "#F4C842"
 			}
 		},
 		{
@@ -40,7 +42,8 @@
 			"palette": {
 				"armor": "#EE8FB0",
 				"armor_dark": "#C46489",
-				"cape": "#D9425A"
+				"cape": "#D9425A",
+				"ruby": "#FFFFFF"
 			}
 		},
 		{
@@ -53,7 +56,8 @@
 				"armor": "#F2A33A",
 				"armor_dark": "#C9762A",
 				"cape": "#B8323F",
-				"gold": "#FFE08A"
+				"gold": "#FFE08A",
+				"ruby": "#E23B4F"
 			}
 		},
 		{
@@ -66,7 +70,9 @@
 				"armor": "#7FD3F2",
 				"armor_dark": "#3E8FC4",
 				"cape": "#2E56AE",
-				"gold": "#DCE3EC"
+				"gold": "#DCE3EC",
+				"ruby": "#2E56AE",
+				"steel": "#F4F7FA"
 			}
 		},
 		{
@@ -79,7 +85,8 @@
 				"armor": "#8E5BD6",
 				"armor_dark": "#6A3FB0",
 				"cape": "#4B2F7A",
-				"gold": "#F4C842"
+				"gold": "#F4C842",
+				"ruby": "#F4C842"
 			}
 		},
 		{
@@ -92,7 +99,9 @@
 				"armor": "#4C525F",
 				"armor_dark": "#2F333C",
 				"cape": "#1E1C26",
-				"gold": "#B48CF2"
+				"gold": "#B48CF2",
+				"ruby": "#B48CF2",
+				"steel": "#8F96A0"
 			}
 		},
 		{
@@ -105,7 +114,9 @@
 				"armor": "#E9B44C",
 				"armor_dark": "#B8832A",
 				"cape": "#F1E4C6",
-				"gold": "#FFF2B0"
+				"gold": "#FFF2B0",
+				"ruby": "#E23B4F",
+				"steel": "#F1E4C6"
 			}
 		},
 		{

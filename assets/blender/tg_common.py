@@ -58,7 +58,7 @@ PALETTE: dict[str, tuple[str, float, float]] = {
     "armor": ("3E6FD6", 0.35, 0.25),
     "armor_dark": ("2A4FA8", 0.4, 0.2),
     "cream": ("F1E4C6", 0.7, 0.0),
-    "gold": ("E9B44C", 0.3, 0.85),
+    "gold": ("F2BE3A", 0.35, 0.35),
     "steel": ("DCE3EC", 0.3, 0.55),
     "leather": ("6A4327", 0.7, 0.0),
     "skin": ("F6C7A4", 0.6, 0.0),
