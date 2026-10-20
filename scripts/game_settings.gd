@@ -6,7 +6,9 @@ extends RefCounted
 ## opens web pages (https only).
 
 const LANG_AUTO := "auto"
-const LANGUAGES: Array[String] = ["auto", "ru", "en"]
+const LANGUAGES: Array[String] = [
+	"auto", "ru", "en", "zh", "it", "es", "ko", "de", "pl", "pt", "tr", "fr", "ja"
+]
 ## Visual effects (hit flashes, damage numbers, particles, screen shake): off /
 ## minimum / full. They never touch the battle simulation.
 const FX_OFF := 0
@@ -46,7 +48,9 @@ const WEAK_GPU_PATTERN := (
 )
 ## Locale used when the system language has no translation.
 const FALLBACK_LOCALE := "en"
-const SUPPORTED_LOCALES: Array[String] = ["ru", "en"]
+const SUPPORTED_LOCALES: Array[String] = [
+	"ru", "en", "zh", "it", "es", "ko", "de", "pl", "pt", "tr", "fr", "ja"
+]
 
 ## Tests point this at a scratch file.
 static var config_path: String = "user://settings.cfg"

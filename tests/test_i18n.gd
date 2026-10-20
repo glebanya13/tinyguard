@@ -6,6 +6,9 @@ extends SceneTree
 
 const CSV_PATH := "res://translations/strings.csv"
 const SOURCE_DIRS: Array[String] = ["res://scripts", "res://scenes", "res://ui", "res://resources"]
+const EXPECTED_LANGUAGES: Array[String] = [
+	"ru", "en", "zh", "it", "es", "ko", "de", "pl", "pt", "tr", "fr", "ja"
+]
 
 var fails := 0
 
@@ -32,17 +35,22 @@ func _run() -> void:
 	quit(0 if fails == 0 else 1)
 
 
-## {key: {"ru": text, "en": text}} from the translations CSV (header: keys,ru,en).
+## {key: {lang: text}} from the translations CSV (header: keys,ru,en,...).
 func _read_csv() -> Dictionary:
 	var out: Dictionary = {}
 	var file := FileAccess.open(CSV_PATH, FileAccess.READ)
 	var header: PackedStringArray = file.get_csv_line()
-	check(header.size() == 3 and header[0] == "keys", "csv header is keys,ru,en")
+	check(header.size() == 13 and header[0] == "keys", "csv header has 13 columns starting with keys")
+	for i in range(1, header.size()):
+		check(header[i] == EXPECTED_LANGUAGES[i - 1], "header column %d is %s" % [i, EXPECTED_LANGUAGES[i - 1]])
 	while not file.eof_reached():
 		var line: PackedStringArray = file.get_csv_line()
-		if line.size() < 3:
+		if line.size() < 13:
 			continue
-		out[line[0]] = {header[1]: line[1], header[2]: line[2]}
+		var row_dict: Dictionary = {}
+		for i in range(1, header.size()):
+			row_dict[header[i]] = line[i]
+		out[line[0]] = row_dict
 	return out
 
 
@@ -54,26 +62,41 @@ func _check_rows(rows: Dictionary) -> void:
 	var bad_fmt: Array[String] = []
 	var bad_ru: Array[String] = []
 	for key: String in rows:
-		var ru: String = rows[key]["ru"]
-		var en: String = rows[key]["en"]
-		if ru.strip_edges() == "" or en.strip_edges() == "":
-			bad_empty.append(key)
+		var row: Dictionary = rows[key]
+		var en_phs: Array[String] = _placeholders(placeholder, row["en"])
+		for lang: String in EXPECTED_LANGUAGES:
+			var text: String = row[lang]
+			if text.strip_edges() == "":
+				bad_empty.append("%s (%s)" % [key, lang])
+			if _placeholders(placeholder, text) != en_phs:
+				bad_fmt.append("%s (%s)" % [key, lang])
 		# Languages named in their own script are allowed ("Русский" in the picker).
-		if key != "SET_LANG_RU" and cyrillic.search(en) != null:
+		if key != "SET_LANG_RU" and cyrillic.search(row["en"]) != null:
 			bad_cyr.append(key)
-		if _placeholders(placeholder, ru) != _placeholders(placeholder, en):
-			bad_fmt.append(key)
-		if cyrillic.search(ru) == null and key not in _latin_ru_ok():
+		if cyrillic.search(row["ru"]) == null and key not in _latin_ru_ok():
 			bad_ru.append(key)
 	check(bad_empty.is_empty(), "no empty translations %s" % [bad_empty])
 	check(bad_cyr.is_empty(), "no Cyrillic in English %s" % [bad_cyr])
-	check(bad_fmt.is_empty(), "format placeholders match %s" % [bad_fmt])
+	check(bad_fmt.is_empty(), "format placeholders match across all languages %s" % [bad_fmt])
 	check(bad_ru.is_empty(), "Russian texts are Russian %s" % [bad_ru])
 
 
 ## Russian rows that legitimately contain no Cyrillic (a number, a language name).
 func _latin_ru_ok() -> Array[String]:
-	return ["CARD_TOWER_TIP", "SET_LANG_EN"]
+	return [
+		"CARD_TOWER_TIP",
+		"SET_LANG_EN",
+		"SET_LANG_ZH",
+		"SET_LANG_IT",
+		"SET_LANG_ES",
+		"SET_LANG_KO",
+		"SET_LANG_DE",
+		"SET_LANG_PL",
+		"SET_LANG_PT",
+		"SET_LANG_TR",
+		"SET_LANG_FR",
+		"SET_LANG_JA",
+	]
 
 
 ## Placeholders in order, e.g. ["%s", "%d"] ("%%" counts as a literal percent).
@@ -143,22 +166,14 @@ func _files(dir: String) -> Array[String]:
 
 
 func _check_runtime(rows: Dictionary) -> void:
-	TranslationServer.set_locale("ru")
-	check(TranslationServer.translate("HUD_PAUSE") == "Пауза", "ru: HUD_PAUSE")
-	TranslationServer.set_locale("en")
-	check(TranslationServer.translate("HUD_PAUSE") == "Paused", "en: HUD_PAUSE")
-	var all_ok := true
-	for key: String in rows:
-		if TranslationServer.translate(key) == key:
-			all_ok = false
-			print("  missing at run time: ", key)
-	check(all_ok, "the registered translation resolves every key in en")
-	TranslationServer.set_locale("ru")
-	all_ok = true
-	for key: String in rows:
-		if TranslationServer.translate(key) == key:
-			all_ok = false
-	check(all_ok, "the registered translation resolves every key in ru")
+	for lang: String in EXPECTED_LANGUAGES:
+		TranslationServer.set_locale(lang)
+		var all_ok := true
+		for key: String in rows:
+			if TranslationServer.translate(key) == key:
+				all_ok = false
+				print("  missing at run time in %s: " % lang, key)
+		check(all_ok, "the registered translation resolves every key in %s" % lang)
 	# Game data points at keys.
 	for level: Dictionary in LevelCatalog.levels():
 		check(rows.has(str(level["name"])) and rows.has(str(level["subtitle"])), "level text keys")
@@ -174,19 +189,23 @@ func _check_runtime(rows: Dictionary) -> void:
 
 func _check_locale_choice() -> void:
 	check(GameSettings.resolve_locale("auto", "ru") == "ru", "auto + ru system = ru")
-	check(GameSettings.resolve_locale("auto", "de") == "en", "auto + other system = en")
+	check(GameSettings.resolve_locale("auto", "de") == "de", "auto + de system = de")
+	check(GameSettings.resolve_locale("auto", "zh") == "zh", "auto + zh system = zh")
 	check(GameSettings.resolve_locale("auto", "en") == "en", "auto + en system = en")
+	check(GameSettings.resolve_locale("auto", "klingon") == "en", "auto + unknown system = fallback en")
 	check(GameSettings.resolve_locale("en", "ru") == "en", "forced en")
 	check(GameSettings.resolve_locale("ru", "de") == "ru", "forced ru")
+	check(GameSettings.resolve_locale("ja", "en") == "ja", "forced ja")
 	var old_path: String = GameSettings.config_path
 	GameSettings.config_path = "user://test_settings.cfg"
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(GameSettings.config_path))
 	check(GameSettings.language() == "auto", "default language is auto")
-	GameSettings.set_language("en")
-	check(GameSettings.language() == "en", "language saved")
-	check(TranslationServer.get_locale().begins_with("en"), "language applied at once")
+	for lang: String in GameSettings.SUPPORTED_LOCALES:
+		GameSettings.set_language(lang)
+		check(GameSettings.language() == lang, "%s saved" % lang)
+		check(TranslationServer.get_locale().begins_with(lang), "%s applied at once" % lang)
 	GameSettings.set_language("klingon")
-	check(GameSettings.language() == "en", "unknown language ignored")
+	check(GameSettings.language() == "ja", "unknown language ignored")
 	GameSettings.set_language("ru")
 	check(TranslationServer.get_locale().begins_with("ru"), "ru applied")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(GameSettings.config_path))

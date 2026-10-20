@@ -30,6 +30,16 @@ const LANGUAGE_KEYS: Dictionary = {
 	"auto": "SET_LANG_AUTO",
 	"ru": "SET_LANG_RU",
 	"en": "SET_LANG_EN",
+	"zh": "SET_LANG_ZH",
+	"it": "SET_LANG_IT",
+	"es": "SET_LANG_ES",
+	"ko": "SET_LANG_KO",
+	"de": "SET_LANG_DE",
+	"pl": "SET_LANG_PL",
+	"pt": "SET_LANG_PT",
+	"tr": "SET_LANG_TR",
+	"fr": "SET_LANG_FR",
+	"ja": "SET_LANG_JA",
 }
 
 var _box: VBoxContainer
@@ -75,7 +85,7 @@ func _build() -> void:
 	_option_buttons.clear()
 	var frame := DialogFrame.attach(self, 920.0 if _tab == 1 else 640.0, 0.7)
 	_box = frame.body
-	_box.add_theme_constant_override("separation", 12)
+	_box.add_theme_constant_override("separation", 8)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 12)
@@ -121,14 +131,19 @@ func _on_tab(index: int) -> void:
 
 func _build_general() -> void:
 	_box.add_child(UiKit.heading(tr("SET_LANGUAGE")))
-	var languages := HBoxContainer.new()
-	languages.add_theme_constant_override("separation", 8)
+	var languages := GridContainer.new()
+	languages.columns = 4
+	languages.add_theme_constant_override("h_separation", 8)
+	languages.add_theme_constant_override("v_separation", 6)
+	languages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_box.add_child(languages)
 	var group := ButtonGroup.new()
 	var current: String = GameSettings.language()
 	for code: String in GameSettings.LANGUAGES:
-		var button := _button(tr(LANGUAGE_KEYS[code]), _on_language.bind(code), true, 190)
+		var button := _button(tr(LANGUAGE_KEYS[code]), _on_language.bind(code), true, 0)
 		button.name = "Lang_" + code
+		button.custom_minimum_size = Vector2(0, 56.0)
+		button.add_theme_font_size_override("font_size", 18)
 		button.theme_type_variation = &"ToggleButton"
 		button.toggle_mode = true
 		button.button_group = group
@@ -136,14 +151,22 @@ func _build_general() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		languages.add_child(button)
 
+	var toggles := HBoxContainer.new()
+	toggles.add_theme_constant_override("separation", 8)
+	_box.add_child(toggles)
+
 	_sound_button = _button("", _on_sound_pressed, true, 0)
 	_sound_button.name = "SoundToggle"
-	_box.add_child(_sound_button)
+	_sound_button.custom_minimum_size.y = 56.0
+	_sound_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggles.add_child(_sound_button)
 	_update_sound_text()
 
 	_fx_button = _button("", _on_fx_pressed, true, 0)
 	_fx_button.name = "EffectsToggle"
-	_box.add_child(_fx_button)
+	_fx_button.custom_minimum_size.y = 56.0
+	_fx_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggles.add_child(_fx_button)
 	_update_fx_text()
 
 	_box.add_child(UiKit.heading(tr("SET_GFX")))
@@ -166,7 +189,7 @@ func _build_general() -> void:
 
 	_crash_button = _button("", _on_crash_pressed, true, 0)
 	_crash_button.name = "CrashReportsToggle"
-	_crash_button.custom_minimum_size.y = 84.0
+	_crash_button.custom_minimum_size.y = 56.0
 	_box.add_child(_crash_button)
 	_update_crash_text()
 
