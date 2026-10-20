@@ -627,7 +627,20 @@ PLACEHOLDER = re.compile(r"%[-+ 0#]*\d*(?:\.\d+)?[sdfxXc%]")
 # Cyrillic is allowed in English texts only for a language named in its own script.
 EN_CYRILLIC_OK = {"SET_LANG_RU"}
 # Russian rows without Cyrillic letters (format-only text, a language name).
-RU_LATIN_OK = {"CARD_TOWER_TIP", "SET_LANG_EN"}
+RU_LATIN_OK = {
+    "CARD_TOWER_TIP",
+    "SET_LANG_EN",
+    "SET_LANG_ZH",
+    "SET_LANG_IT",
+    "SET_LANG_ES",
+    "SET_LANG_KO",
+    "SET_LANG_DE",
+    "SET_LANG_PL",
+    "SET_LANG_PT",
+    "SET_LANG_TR",
+    "SET_LANG_FR",
+    "SET_LANG_JA",
+}
 
 
 def _strip_comment(line: str) -> str:
@@ -653,28 +666,34 @@ def check_translations() -> None:
         return
     with csv_path.open(encoding="utf-8", newline="") as f:
         rows = list(csv.reader(f))
-    if not rows or rows[0] != ["keys", "ru", "en"]:
-        errors.append("translations/strings.csv: header must be keys,ru,en")
+    expected_langs = ["ru", "en", "zh", "it", "es", "ko", "de", "pl", "pt", "tr", "fr", "ja"]
+    if not rows or rows[0][0] != "keys" or rows[0][1:] != expected_langs:
+        errors.append(f"translations/strings.csv: header must be keys,{','.join(expected_langs)}")
         return
     keys: set[str] = set()
+    num_cols = len(rows[0])
     for row in rows[1:]:
-        if len(row) != 3:
+        if len(row) != num_cols:
             errors.append(f"strings.csv: bad row {row[:1]}")
             continue
-        key, ru, en = row
+        key = row[0]
+        ru = row[1]
+        en = row[2]
         if key in keys:
             errors.append(f"strings.csv: duplicate key {key}")
         keys.add(key)
-        if not ru.strip() or not en.strip():
-            errors.append(f"strings.csv: {key} has an empty translation")
-        if key not in EN_CYRILLIC_OK and CYRILLIC.search(en):
-            errors.append(f"strings.csv: {key}: Cyrillic in the English text")
+        for col_idx, lang in enumerate(expected_langs, start=1):
+            val = row[col_idx]
+            if not val.strip():
+                errors.append(f"strings.csv: {key} has an empty translation in {lang}")
+            if lang != "ru" and key not in EN_CYRILLIC_OK and CYRILLIC.search(val) and lang not in ("zh", "ja", "ko"):
+                errors.append(f"strings.csv: {key}: Cyrillic in the {lang} text")
+            if PLACEHOLDER.findall(ru) != PLACEHOLDER.findall(val):
+                errors.append(f"strings.csv: {key}: format placeholders differ between ru and {lang}")
         if key not in RU_LATIN_OK and not CYRILLIC.search(ru):
             errors.append(f"strings.csv: {key}: the Russian text has no Cyrillic")
-        if PLACEHOLDER.findall(ru) != PLACEHOLDER.findall(en):
-            errors.append(f"strings.csv: {key}: format placeholders differ between ru and en")
     project = (ROOT / "project.godot").read_text(encoding="utf-8")
-    for lang in ("ru", "en"):
+    for lang in expected_langs:
         if f"res://translations/strings.{lang}.translation" not in project:
             errors.append(f"project.godot: strings.{lang}.translation is not registered")
     for sub in ("scripts", "scenes", "ui", "resources"):
