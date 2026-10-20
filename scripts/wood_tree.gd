@@ -129,6 +129,8 @@ func chop(from: Vector3) -> int:
 		tween.tween_property(_tree, "quaternion", _yaw, 0.12)
 		tween.tween_callback(_set_animated.bind(false))
 	else:
+		if has_node("Shape"):
+			$Shape.set_deferred("disabled", true)
 		if _stump != null:
 			_stump.visible = true
 		(
@@ -153,6 +155,8 @@ func state_ints() -> Array[int]:
 
 
 func _regrow() -> void:
+	if has_node("Shape"):
+		$Shape.set_deferred("disabled", false)
 	_hits_left = hits
 	_regrow_at = -1
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)

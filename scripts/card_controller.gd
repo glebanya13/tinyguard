@@ -11,6 +11,8 @@ const AUTO_SELECT_REACH := 1.6
 const AUTO_RELEASE_REACH := 2.6
 ## The hero builds when this close to a slot centre (metres).
 const BUILD_REACH := 1.25
+## A tap this close to an enemy sends the hero to chase it.
+const ENEMY_TAP_REACH := 1.8
 ## A tap this close to a tree sends the hero to chop it.
 const TREE_TAP_REACH := 1.0
 ## A tap this close to a villager sends the hero to trade with it.
@@ -210,6 +212,20 @@ func on_ground_tapped(point: Vector3) -> void:
 	if castle_position.is_finite() and to_castle.length() < CASTLE_TAP_REACH:
 		if not forge_open:
 			toggle_forge()
+		return
+	# A tap on an enemy: chase it and attack.
+	var nearest_enemy: Enemy = null
+	var best_enemy_dist: float = ENEMY_TAP_REACH
+	if _sim != null:
+		for enemy in _sim.enemies:
+			if enemy.is_alive():
+				var offset: Vector3 = enemy.global_position - point
+				offset.y = 0.0
+				if offset.length() < best_enemy_dist:
+					best_enemy_dist = offset.length()
+					nearest_enemy = enemy
+	if nearest_enemy != null:
+		_hero.chase_enemy(nearest_enemy)
 		return
 	# A tap on (or right next to) a tree: walk up to it, the hero chops by himself.
 	var best: WoodTree = null

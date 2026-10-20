@@ -86,6 +86,22 @@ var damage_multiplier: float = 1.0
 var wood_bonus: int = 0
 var speed_bonus: float = 0.0
 
+var _target_enemy: Enemy = null
+
+## Enemy the hero is pursuing and attacking.
+var target_enemy: Enemy:
+	get:
+		if _target_enemy != null and (not is_instance_valid(_target_enemy) or not _target_enemy.is_alive()):
+			_target_enemy = null
+		return _target_enemy
+	set(value):
+		if value != null and (not is_instance_valid(value) or not value.is_alive()):
+			value = null
+		if _target_enemy != value:
+			_target_enemy = value
+			if value != null and _has_order:
+				cancel_order(false)
+
 var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
 ## Remaining corners of the route to _order_target (the target is last).
@@ -136,17 +152,21 @@ func _physics_process(delta: float) -> void:
 	input = (input + joystick_vector).limit_length(1.0)
 	var direction := Vector3.ZERO
 	if input.length() > 0.1:
-		if _has_order:
-			cancel_order()
+		cancel_order()
 		direction = _screen_to_world(input)
+	elif target_enemy != null:
+		direction = _chase_direction(delta)
 	elif _has_order:
 		direction = _order_direction(delta)
-	if (
-		auto_action
-		and direction == Vector3.ZERO
-		and can_attack()
-		and get_focus_target(true) != null
-	):
+	var enemy: Enemy = target_enemy
+	var should_attack: bool = false
+	if can_attack():
+		if enemy != null:
+			if _flat_distance(enemy) <= attack_range:
+				should_attack = true
+		elif auto_action and direction == Vector3.ZERO and get_focus_target(true) != null:
+			should_attack = true
+	if should_attack:
 		try_attack()
 	if _attack_left > 0.0:
 		direction *= 0.3  # plant the feet while swinging
@@ -159,6 +179,20 @@ func _physics_process(delta: float) -> void:
 ## Walking speed with the perk, metres per second.
 func walk_speed() -> float:
 	return speed * (1.0 + speed_bonus)
+
+
+## Sets an enemy target to pursue and attack until dead.
+func chase_enemy(enemy: Enemy) -> void:
+	target_enemy = enemy
+
+
+## Stops pursuing the current enemy target, if any.
+func stop_chasing() -> void:
+	target_enemy = null
+
+
+func is_chasing() -> bool:
+	return target_enemy != null
 
 
 ## Walk to `target` until within `reach` metres, then call `on_arrive`.
@@ -246,7 +280,7 @@ func spin_cooldown_left() -> float:
 func apply_attack(origin: Vector3, yaw: float) -> bool:
 	if not can_attack():
 		return false
-	cancel_order()
+	cancel_order(false)
 	_attack_ready_tick = sim.tick + Sim.ticks(attack_cooldown)
 	_attack_left = _puppet.action_length(&"attack")
 	_model.rotation.y = yaw
@@ -261,7 +295,7 @@ func apply_attack(origin: Vector3, yaw: float) -> bool:
 func apply_spin(origin: Vector3) -> bool:
 	if spin_cooldown_left() > 0.0:
 		return false
-	cancel_order()
+	cancel_order(false)
 	_spin_ready_tick = sim.tick + Sim.ticks(spin_cooldown)
 	_attack_ready_tick = sim.tick + Sim.ticks(attack_cooldown)
 	_attack_left = spin_duration
@@ -319,7 +353,9 @@ func is_attacking() -> bool:
 	return _attack_left > 0.0
 
 
-func cancel_order() -> void:
+func cancel_order(drop_target: bool = true) -> void:
+	if drop_target:
+		_target_enemy = null
 	if not _has_order:
 		return
 	_has_order = false
@@ -387,6 +423,9 @@ func _in_cone(origin: Vector3, point: Vector3, forward: Vector3, reach: float) -
 ## reach, else a tree in chop reach), so a tree beside the knight is chopped even while an
 ## enemy walks by out of reach; only without both he turns to whatever is nearby.
 func _aim_target() -> Node3D:
+	var enemy: Enemy = target_enemy
+	if enemy != null:
+		return enemy
 	var focus: Node3D = get_focus_target(true)
 	return focus if focus != null else _nearest_target(auto_aim_range)
 
@@ -423,6 +462,19 @@ func _flat_distance(node: Node3D) -> float:
 	var offset: Vector3 = node.global_position - global_position
 	offset.y = 0.0
 	return offset.length()
+
+
+func _chase_direction(_delta: float) -> Vector3:
+	var enemy: Enemy = target_enemy
+	if enemy == null:
+		return Vector3.ZERO
+	var offset: Vector3 = enemy.global_position - global_position
+	offset.y = 0.0
+	var distance: float = offset.length()
+	var desired_distance: float = attack_range * 0.85
+	if distance > desired_distance:
+		return offset / distance
+	return Vector3.ZERO
 
 
 func _order_direction(delta: float) -> Vector3:
@@ -503,3 +555,9 @@ func _animate(direction: Vector3, delta: float) -> void:
 		var yaw: float = atan2(direction.x, direction.z)
 		_model.rotation.y = rotate_toward(_model.rotation.y, yaw, turn_speed * delta)
 		# The legs follow the real speed (Puppet measures it).
+	elif target_enemy != null:
+		var offset: Vector3 = target_enemy.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > 0.01:
+			var yaw: float = atan2(offset.x, offset.z)
+			_model.rotation.y = rotate_toward(_model.rotation.y, yaw, turn_speed * delta)
