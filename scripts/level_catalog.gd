@@ -325,3 +325,80 @@ static func erase_all() -> void:
 	_save = null
 	_save_loaded_from = ""
 	_save_broken = false
+
+
+## Coordinates of the thicket grove trees around outpost `lane` (up to 24 spots).
+## If the level dictionary contains "outposts", reads from it; otherwise computes
+## deterministic positions in an arc of radius 2.6..6.8m around the route entrance
+## inside the hero walking bounds and clear of the roads and slots.
+static func outpost_thickets(level: Dictionary, lane: int) -> Array[Vector2]:
+	var custom_outposts: Array = level.get("outposts", [])
+	for entry: Variant in custom_outposts:
+		if entry is Dictionary and int((entry as Dictionary).get("lane", -1)) == lane:
+			var list: Array[Vector2] = []
+			for pt: Variant in (entry as Dictionary).get("thicket", []):
+				if pt is Array and (pt as Array).size() >= 2:
+					list.append(Vector2(float((pt as Array)[0]), float((pt as Array)[1])))
+			return list
+
+	var all_routes: Array[PackedVector2Array] = routes(level)
+	if lane < 0 or lane >= all_routes.size():
+		return []
+	var route: PackedVector2Array = all_routes[lane]
+	if route.size() < 2:
+		return []
+
+	var start: Vector2 = route[0]
+	var hero_rect := Rect2(-21.0, -13.8, 42.0, 27.6)
+	var slots: Array = level.get("slots", [])
+	var trees: Array = level.get("trees", [])
+
+	var spots: Array[Vector2] = []
+	var radii: Array[float] = [2.6, 3.2, 3.8, 4.4, 5.0, 5.6, 6.2, 6.8]
+	for r in radii:
+		for a_deg in range(-180, 180, 8):
+			if spots.size() >= 24:
+				break
+			var rad: float = deg_to_rad(float(a_deg))
+			var pt := Vector2(start.x + r * cos(rad), start.y + r * sin(rad))
+			if not hero_rect.has_point(pt):
+				continue
+			var too_close_to_road := false
+			for rt: PackedVector2Array in all_routes:
+				for s_idx in rt.size() - 1:
+					if (
+						Geometry2D.get_closest_point_to_segment(pt, rt[s_idx], rt[s_idx + 1])
+						. distance_to(pt)
+						< 1.3
+					):
+						too_close_to_road = true
+						break
+				if too_close_to_road:
+					break
+			if too_close_to_road:
+				continue
+			var too_close_slot := false
+			for s in slots:
+				if pt.distance_to(Vector2(float(s[0]), float(s[1]))) < 1.4:
+					too_close_slot = true
+					break
+			if too_close_slot:
+				continue
+			var too_close_tree := false
+			for t in trees:
+				if pt.distance_to(Vector2(float(t[0]), float(t[1]))) < 1.2:
+					too_close_tree = true
+					break
+			if too_close_tree:
+				continue
+			var too_close_thicket := false
+			for existing in spots:
+				if pt.distance_to(existing) < 0.7:
+					too_close_thicket = true
+					break
+			if too_close_thicket:
+				continue
+			spots.append(Vector2(snappedf(pt.x, 0.01), snappedf(pt.y, 0.01)))
+		if spots.size() >= 24:
+			break
+	return spots

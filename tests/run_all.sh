@@ -107,6 +107,7 @@ for level in 1 2 3 4 5 6; do
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_command_validation.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_castle_upgrade.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_old_journal.gd
+	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_outposts.gd
 	LEVEL=$level run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_coop_integration.gd
 done
 echo "== pause / speed / stars / perks / endless"

@@ -368,8 +368,8 @@ func _strike(origin: Vector3, yaw: float) -> void:
 		if tree.is_choppable() and _in_cone(origin, tree.global_position, forward, chop_range):
 			var wood: int = tree.chop(origin)
 			if wood > 0:
-				chopped = true
 				wood_gathered.emit(wood + wood_bonus, tree.global_position)
+			chopped = true
 	if chopped:
 		_chop_sound.play()
 

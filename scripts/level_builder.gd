@@ -9,14 +9,16 @@ const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/wood_tree.tscn")
 const CASTLE_SCENE: PackedScene = preload("res://assets/models/castle.glb")
 const PORTAL_SCENE: PackedScene = preload("res://assets/models/spawn_portal.glb")
+const OUTPOST_SCENE: PackedScene = preload("res://scenes/outpost.tscn")
 const NO_SHADOW := preload("res://scripts/no_shadow.gd")
 ## Height of the path curve above the ground.
 const PATH_HEIGHT := 0.05
 ## Camera look-at area is the level bounds shrunk by this margin.
 const CAMERA_MARGIN := 4.0
 
-## Portals in path order (pulse when a wave comes out of them).
+## Portals / outposts in path order (pulse when a wave comes out of them).
 var portals: Array[Node3D] = []
+var outposts: Array[Outpost] = []
 var castle: Node3D = null
 
 var _level: Dictionary = {}
@@ -48,6 +50,9 @@ func build(
 	_level = level
 	_root = level_root
 	_sim = sim
+	portals.clear()
+	outposts.clear()
+	var decor_node: Node3D = null
 	var id: int = int(level["id"])
 	for part in ["terrain", "decor", "forest"]:
 		var scene: PackedScene = load(MODEL_PATH % [id, part])
@@ -59,7 +64,7 @@ func build(
 			node.add_to_group(&"qg_" + part)  # the quality guard may hide them
 		_root.add_child(node)
 		if part == "decor":
-			_plant_trees(node)
+			decor_node = node
 
 	# One Path3D per entry: the scene's EnemyPath for the first, siblings for the rest.
 	var paths: Array[Path3D] = []
@@ -75,13 +80,25 @@ func build(
 		path3d.curve = curve
 		paths.append(path3d)
 
+		var lane_idx: int = paths.size() - 1
 		var first_dir: Vector3 = Vector3(route[1].x - route[0].x, 0.0, route[1].y - route[0].y)
 		var portal: Node3D = PORTAL_SCENE.instantiate()
 		portal.position = Vector3(route[0].x, 0.0, route[0].y)
 		portal.rotation.y = atan2(first_dir.x, first_dir.z)
 		_root.add_child(portal)
 		portals.append(portal)
+
+		var outpost := OUTPOST_SCENE.instantiate() as Outpost
+		outpost.lane = lane_idx
+		outpost.sim = _sim
+		portal.add_child(outpost)
+		outposts.append(outpost)
+		if _sim != null:
+			_sim.add_outpost(outpost)
 	wave_manager.enemy_paths = paths
+
+	if decor_node != null:
+		_plant_trees(decor_node, outposts)
 
 	wave_manager.build_air_paths(LevelCatalog.air_routes(level), _root, PATH_HEIGHT)
 
@@ -105,18 +122,19 @@ func build(
 	camera.snap()
 
 
-## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees.
+## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees,
+## and plants thicket grove trees around each outpost.
 ## Standing trees are drawn by one Grove (MultiMesh) to save draw calls.
-func _plant_trees(decor: Node3D) -> void:
+func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
 	var grove := Grove.new()
 	grove.name = "Grove"
 	_root.add_child(grove)
 	var trees: Array[WoodTree] = []
+	var biome: String = _level.get("biome", "meadow")
 	for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
 		var spot := marker as Node3D
 		var tree := TREE_SCENE.instantiate() as WoodTree
 		var kind: String = String(spot.name).get_slice("_", 1)
-		var biome: String = _level.get("biome", "meadow")
 		tree.variant = StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
 		tree.model_scale = spot.scale.x
 		tree.grove = grove
@@ -125,4 +143,21 @@ func _plant_trees(decor: Node3D) -> void:
 		_root.add_child(tree)
 		trees.append(tree)
 		spot.queue_free()
+
+	# Thicket grove trees around each outpost (MultiMesh, <= 24 trees per side)
+	for outpost: Outpost in active_outposts:
+		var thicket_spots: Array[Vector2] = LevelCatalog.outpost_thickets(_level, outpost.lane)
+		for spot: Vector2 in thicket_spots:
+			var tree := TREE_SCENE.instantiate() as WoodTree
+			var thicket_kind: String = "pine_lite" if biome == "meadow" else "pine_%s" % biome
+			if not ResourceLoader.exists(WoodTree.MODEL_PATH % thicket_kind):
+				thicket_kind = "pine" if biome == "meadow" else "pine_%s" % biome
+			tree.variant = StringName(thicket_kind)
+			tree.grove = grove
+			tree.sim = _sim
+			tree.position = Vector3(spot.x, 0.0, spot.y)
+			outpost.add_thicket_tree(tree)
+			_root.add_child(tree)
+			trees.append(tree)
+
 	grove.build(trees)

@@ -75,6 +75,7 @@ var enemies: Array[Enemy] = []
 var towers: Array[Tower] = []
 var projectiles: Array[Projectile] = []
 var trees: Array[WoodTree] = []
+var outposts: Array[Outpost] = []
 
 ## Frames in which the step budget ran out / steps lost to it (diagnostics, quality guard).
 var over_budget_frames: int = 0
@@ -84,6 +85,7 @@ var last_frame_step_usec: int = 0
 
 var _accum: float = 0.0
 var _next_id: int = 1
+var _next_thicket_id: int = 10000
 var _in_step: bool = false
 ## tick -> Array[Callable] run at the start of that step, in scheduling order.
 var _scheduled: Dictionary = {}
@@ -235,8 +237,16 @@ func remove_projectile(projectile: Projectile) -> void:
 
 
 func add_tree(tree: WoodTree) -> void:
-	tree.id = next_id()
+	if tree.is_thicket:
+		tree.id = _next_thicket_id
+		_next_thicket_id += 1
+	else:
+		tree.id = next_id()
 	trees.append(tree)
+
+
+func add_outpost(outpost: Outpost) -> void:
+	outposts.append(outpost)
 
 
 ## One step of the simulation.
@@ -297,7 +307,13 @@ func state_hash() -> int:
 	for projectile in projectiles:
 		h = _mix_all(h, projectile.state_ints())
 	for tree in trees:
-		h = _mix_all(h, tree.state_ints())
+		if not tree.is_thicket:
+			h = _mix_all(h, tree.state_ints())
+		elif tree.hits_left() < tree.hits or tree.regrow_at() >= 0:
+			h = _mix_all(h, tree.state_ints())
+	for outpost in outposts:
+		if outpost.flow_pct() < 100:
+			h = _mix_all(h, outpost.state_ints())
 	return h
 
 

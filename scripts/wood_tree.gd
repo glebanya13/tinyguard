@@ -8,6 +8,9 @@ extends StaticBody3D
 ## What chopping does (hits left, regrowing after regrow_time) is simulation state
 ## counted in Sim steps; the tweens only show it.
 
+signal felled(tree: WoodTree)
+signal regrown(tree: WoodTree)
+
 const GROUP := &"wood_trees"
 ## Model per variant: res://assets/models/tree_<variant>.glb, e.g. "pine" or
 ## "pine_winter" (biome colours). Loaded once per variant.
@@ -22,7 +25,11 @@ const HIGHLIGHT: Material = preload("res://assets/materials/highlight.tres")
 @export var wood_per_hit: int = 3
 @export var hits: int = 4
 @export var regrow_time: float = 60.0
+@export var is_thicket: bool = false
+@export var outpost_id: int = -1
 
+## Set if this tree belongs to an outpost's thicket shield.
+var outpost: Outpost = null
 ## Set before adding the tree; null = always draw the own model.
 var grove: Grove = null
 ## Stable id (set by Sim.add_tree: the order the level plants the trees in).
@@ -42,7 +49,10 @@ var _regrow_at: int = -1
 
 
 func _ready() -> void:
-	add_to_group(GROUP)
+	if not is_thicket:
+		add_to_group(GROUP)
+	else:
+		add_to_group(&"thicket_trees")
 	if sim != null:
 		sim.add_tree(self)
 	_tree = model_scene(variant).instantiate()
@@ -52,7 +62,8 @@ func _ready() -> void:
 	add_child(_tree)
 	_tree.visible = grove == null
 	_hits_left = hits
-	_stump.visible = false
+	if _stump != null:
+		_stump.visible = false
 
 
 static func model_scene(kind: StringName) -> PackedScene:
@@ -90,6 +101,11 @@ func hits_left() -> int:
 	return _hits_left
 
 
+## Step at which the tree will regrow, or -1 if standing.
+func regrow_at() -> int:
+	return _regrow_at
+
+
 ## One axe/sword hit from `from`. Returns the wood gained (0 if the tree is down).
 func chop(from: Vector3) -> int:
 	if _hits_left <= 0:
@@ -113,7 +129,8 @@ func chop(from: Vector3) -> int:
 		tween.tween_property(_tree, "quaternion", _yaw, 0.12)
 		tween.tween_callback(_set_animated.bind(false))
 	else:
-		_stump.visible = true
+		if _stump != null:
+			_stump.visible = true
 		(
 			tween
 			. tween_property(_tree, "quaternion", Quaternion(axis, PI * 0.5) * _yaw, 0.7)
@@ -124,7 +141,10 @@ func chop(from: Vector3) -> int:
 		tween.tween_callback(_tree.hide)
 		_regrow_at = sim.tick + Sim.ticks(regrow_time)
 		sim.schedule_in(Sim.ticks(regrow_time), _regrow)
-	return wood_per_hit
+		felled.emit(self)
+		if outpost != null:
+			outpost.on_tree_felled(self)
+	return 0 if is_thicket else wood_per_hit
 
 
 ## Integers describing the simulated state (for Sim.state_hash).
@@ -148,8 +168,12 @@ func _regrow() -> void:
 		. set_trans(Tween.TRANS_BACK)
 		. set_ease(Tween.EASE_OUT)
 	)
-	_tween.tween_callback(_stump.hide)
+	if _stump != null:
+		_tween.tween_callback(_stump.hide)
 	_tween.tween_callback(_set_animated.bind(false))
+	regrown.emit(self)
+	if outpost != null:
+		outpost.on_tree_regrown(self)
 
 
 ## Own model while animating, grove instance while standing still.

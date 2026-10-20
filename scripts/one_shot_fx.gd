@@ -25,9 +25,16 @@ func _ready() -> void:
 
 
 func _start() -> void:
+	if not is_inside_tree():
+		queue_free()
+		return
 	for emitter: CPUParticles3D in find_children("*", "CPUParticles3D", true, false):
 		emitter.restart()
 	for player: AudioStreamPlayer in find_children("*", "AudioStreamPlayer", true, false):
 		player.pitch_scale = randf_range(1.0 - pitch_jitter, 1.0 + pitch_jitter)
 		player.play()
-	get_tree().create_timer(lifetime, false).timeout.connect(queue_free)
+	var t := get_tree()
+	if t != null:
+		t.create_timer(lifetime, false).timeout.connect(queue_free)
+	else:
+		queue_free()
