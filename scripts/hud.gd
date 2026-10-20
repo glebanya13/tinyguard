@@ -17,6 +17,8 @@ signal pause_pressed
 signal continue_pressed
 signal speed_pressed
 signal forge_pressed
+## Strategic camera overview ("General mode") toggled.
+signal strategic_view_pressed
 ## End screen of the Record Run: open the records table on the map.
 signal records_pressed
 signal joystick_changed(vector: Vector2)
@@ -682,3 +684,9 @@ func _on_end_button_pressed(next: Signal) -> void:
 	_map_button.disabled = true
 	_continue_button.disabled = true
 	next.emit()
+
+
+## Toggles strategic camera view ("General mode").
+func toggle_strategic_view() -> void:
+	strategic_view_pressed.emit()
+
