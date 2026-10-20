@@ -44,8 +44,13 @@ var hits_air: bool = true
 var chilled_bonus: float = 1.0
 ## Which enemy in range is shot (a TowerData.Priority); -1 until apply_level.
 var priority: int = -1
+var level_indicator: Label3D = null
 
 var _cooldown: float = 0.0
+
+
+func _ready() -> void:
+	update_level_indicator(level + 1)
 
 
 func _exit_tree() -> void:
@@ -90,6 +95,54 @@ func apply_level(tower_data: TowerData, new_level: int) -> void:
 	if priority < 0:
 		priority = data.default_priority
 	level_changed.emit(level)
+	update_level_indicator(level + 1)
+
+
+## Returns the Roman numeral or star string for the given display level (1..4).
+static func level_symbol(lvl: int) -> String:
+	match lvl:
+		1:
+			return "I"
+		2:
+			return "II"
+		3:
+			return "III"
+		4:
+			return "★"
+		_:
+			return "★" if lvl >= 4 else "I"
+
+
+## Gets the level symbol string (e.g. "I", "II", "III", "★").
+func get_level_symbol(lvl: int = -1) -> String:
+	return level_symbol(lvl if lvl > 0 else (level + 1))
+
+
+## Gets the text currently shown by the level indicator.
+func get_level_text() -> String:
+	return level_indicator.text if level_indicator != null else get_level_symbol()
+
+
+## Updates the 3D level badge above the tower.
+func update_level_indicator(lvl: int = -1) -> void:
+	var target_lvl: int = lvl if lvl > 0 else (level + 1)
+	if level_indicator == null:
+		level_indicator = Label3D.new()
+		level_indicator.name = "LevelIndicator"
+		level_indicator.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		level_indicator.no_depth_test = true
+		level_indicator.pixel_size = 0.0055
+		level_indicator.font_size = 32
+		level_indicator.outline_size = 8
+		level_indicator.outline_modulate = Color(0.12, 0.08, 0.05, 0.95)
+		level_indicator.position = Vector3(0.0, 2.3, 0.0)
+		add_child(level_indicator)
+	var sym: String = level_symbol(target_lvl)
+	level_indicator.text = sym
+	if sym == "★":
+		level_indicator.modulate = Color(1.0, 0.84, 0.15)
+	else:
+		level_indicator.modulate = Color(1.0, 0.96, 0.85)
 
 
 ## Integers describing the simulated state (for Sim.state_hash).

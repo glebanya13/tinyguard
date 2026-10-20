@@ -17,6 +17,8 @@ const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const BODY_POINTS: Array[Vector2] = [
 	Vector2.ZERO, Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN
 ]
+## Simulation ticks between wood lot restocks: 60 seconds at 30 ticks/s.
+const RESTOCK_INTERVAL_TICKS: int = 60 * 30
 
 @export var trade: VillagerTrade = preload("res://resources/villager_trade.tres")
 ## Villagers per level (each costs a few draw calls).
@@ -58,6 +60,7 @@ var _villagers: Array[Villager] = []
 ## 1/(TICK_RATE * 60) wood (whole numbers only: it is part of the simulation).
 var _hired: Array[bool] = []
 var _chop_progress: Array[int] = []
+var _restock_ticks: int = 0
 var _grid: WalkGrid = null
 var _paths: Array[Path3D] = []
 var _slots := PackedVector3Array()
@@ -260,8 +263,28 @@ func hire(index: int) -> bool:
 	return true
 
 
-## One simulation step: every lumberjack (by index) earns wood, a whole piece at a time.
+## Restocks bought lots (+1 available lot to buy, up to buy_max_lots).
+func restock(lots: int = 1) -> bool:
+	if not wood_economy or lots <= 0:
+		return false
+	if buy_lots_left() >= trade.buy_max_lots:
+		return false
+	lots_bought = maxi(lots_bought - lots, 0)
+	_restock_ticks = 0
+	return true
+
+
+## One simulation step: every lumberjack (by index) earns wood, a whole piece at a time;
+## periodically restocks wood lots (+1 lot every 60 seconds).
 func sim_step() -> void:
+	if wood_economy and buy_lots_left() < trade.buy_max_lots:
+		_restock_ticks += 1
+		if _restock_ticks >= RESTOCK_INTERVAL_TICKS:
+			_restock_ticks = 0
+			restock(1)
+	else:
+		_restock_ticks = 0
+
 	var per_wood: int = trade.chop_accum_limit()
 	for i in _hired.size():
 		if not _hired[i]:

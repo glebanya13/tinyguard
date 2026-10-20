@@ -383,3 +383,44 @@ static func _castle_color(
 	if Geometry2D.is_point_in_polygon(at, door):
 		return Color(0.2, 0.28, 0.6)
 	return Color(0.98, 0.8, 0.4)
+
+
+## Draws active enemies on the minimap in frame pixels.
+## Red dots = ground, blue = flying, large orange/yellow = bosses.
+func draw_enemies(canvas: CanvasItem, enemies: Array, fade: float = 1.0) -> void:
+	if enemies.is_empty():
+		return
+	for item in enemies:
+		if item == null:
+			continue
+		var enemy: Enemy = item as Enemy
+		if enemy == null:
+			continue
+		if enemy.is_queued_for_deletion():
+			continue
+		if enemy.has_method("is_alive") and not enemy.is_alive():
+			continue
+		var world_pos := Vector2.ZERO
+		if enemy.is_inside_tree():
+			world_pos = Vector2(enemy.global_position.x, enemy.global_position.z)
+		else:
+			world_pos = Vector2(enemy.position.x, enemy.position.z)
+		var at: Vector2 = to_map(world_pos)
+		var is_boss: bool = enemy.data != null and enemy.data.is_boss
+		var is_flyer: bool = enemy.data != null and enemy.data.flying
+		var col: Color
+		var rad: float
+		if is_boss:
+			col = Color(1.0, 0.72, 0.12, fade)
+			rad = 5.5
+		elif is_flyer:
+			col = Color(0.28, 0.65, 1.0, fade)
+			rad = 3.0
+		else:
+			col = Color(0.95, 0.22, 0.22, fade)
+			rad = 3.0
+
+		canvas.draw_circle(at, rad + 1.2, Color(0.08, 0.05, 0.12, 0.85 * fade))
+		canvas.draw_circle(at, rad, col)
+		if is_boss:
+			canvas.draw_circle(at, rad * 0.45, Color(1.0, 0.95, 0.7, fade))

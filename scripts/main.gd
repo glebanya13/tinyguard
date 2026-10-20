@@ -201,7 +201,13 @@ func _ready() -> void:
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
 	_hud.forge_pressed.connect(_on_forge_pressed)
-	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
+	_hud.strategic_view_pressed.connect(_on_strategic_view_toggle)
+	_hud.joystick_changed.connect(
+		func(v: Vector2) -> void:
+			_hero.joystick_vector = v
+			if v != Vector2.ZERO and _camera != null and _camera.has_method("stop_flyover"):
+				_camera.stop_flyover()
+	)
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	if coop != null:
 		coop.ghost.wood_gathered.connect(_on_wood_gathered)
@@ -224,6 +230,8 @@ func _ready() -> void:
 	_lane_hint = LaneHint.new()
 	_lane_hint.camera = _camera
 	_lane_hint.level = level
+	_lane_hint.sim = _sim
+	_lane_hint.strategic_view_requested.connect(_on_strategic_view_toggle)
 	var hud_root: Control = _hud.get_node("Root")
 	hud_root.add_child(_lane_hint)
 	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
@@ -240,6 +248,12 @@ func _ready() -> void:
 	)
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
+	if not LevelCatalog.tutorial and _camera != null and _camera.has_method("start_flyover"):
+		var spawns: Array[Vector3] = []
+		for p: Node3D in builder.portals:
+			spawns.append(p.global_position)
+		var castle_pos: Vector3 = builder.castle.global_position if builder.castle != null else Vector3.ZERO
+		_camera.start_flyover(spawns, castle_pos, 7.0)
 
 
 func _exit_tree() -> void:
@@ -625,6 +639,8 @@ func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 
 ## The arrows of the wave go out when no wave has enemies left.
 func _on_wave_cleared(_wave: int) -> void:
+	if villagers != null:
+		villagers.restock(1)
 	if not _wave_manager.is_wave_active():
 		_lane_hint.finish()
 
@@ -633,7 +649,14 @@ func _on_battle_finished() -> void:
 	_lane_hint.stop()
 
 
+func _on_strategic_view_toggle() -> void:
+	if _camera != null and _camera.has_method("toggle_strategic_view"):
+		_camera.toggle_strategic_view()
+
+
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
+	if _camera != null and _camera.has_method("stop_flyover"):
+		_camera.stop_flyover()
 	if wave % CRASH_LOG_WAVE_STEP == 0:
 		CrashReporter.set_key("wave", wave)
 		CrashReporter.log_line("wave %d" % wave)

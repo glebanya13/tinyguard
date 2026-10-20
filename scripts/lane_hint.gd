@@ -27,10 +27,14 @@ const OUTLINE := Color(0.2, 0.1, 0.28)
 const PANEL_ALPHA := 0.72
 const ROAD_DIM := Color(0.74, 0.8, 0.94, 0.6)
 const BUTTON_ICON: Texture2D = preload("res://ui/icons/compass.png")
+const STRAT_ICON: Texture2D = preload("res://ui/icons/map.png")
+
+signal strategic_view_requested
 
 var camera: Camera3D = null
 ## The level being played ("paths", "castle"): the compass is drawn from it.
 var level: Dictionary = {}
+var sim: Sim = null
 
 var _points: Array[Vector3] = []
 var _left: float = 0.0
@@ -48,12 +52,13 @@ var _stopped: bool = false
 var _map := LaneMap.new()
 var _panel_style: StyleBoxFlat = null
 var _button: Button = null
+var _strat_button: Button = null
 ## Compass mode from the settings (GameSettings): see apply_settings().
 var _mode: int = HudLayout.MAP_WAVE
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel_style = StyleBoxFlat.new()
 	_panel_style.bg_color = Color(0.07, 0.1, 0.26, PANEL_ALPHA)
@@ -72,6 +77,18 @@ func _ready() -> void:
 	_button.tooltip_text = tr("LANES_COMPASS")
 	_button.pressed.connect(toggle_compass)
 	add_child(_button)
+	_strat_button = Button.new()
+	_strat_button.name = "StrategicViewButton"
+	_strat_button.focus_mode = Control.FOCUS_NONE
+	_strat_button.custom_minimum_size = HudLayout.PIN_SIZE
+	_strat_button.size = HudLayout.PIN_SIZE
+	_strat_button.theme_type_variation = &"SecondaryButton"
+	_strat_button.icon = STRAT_ICON
+	_strat_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_strat_button.add_theme_constant_override("icon_max_width", 48)
+	_strat_button.tooltip_text = tr("LANES_STRATEGIC")
+	_strat_button.pressed.connect(toggle_strategic_view)
+	add_child(_strat_button)
 	apply_settings()
 	resized.connect(_place_button)
 
@@ -144,6 +161,8 @@ func stop() -> void:
 	finish()
 	_left = 0.0
 	_button.hide()
+	if _strat_button != null:
+		_strat_button.hide()
 	queue_redraw()
 
 
@@ -152,6 +171,11 @@ func toggle_compass() -> void:
 	_pinned = not _pinned
 	show()
 	queue_redraw()
+
+
+## Toggles strategic view ("General mode") of the camera.
+func toggle_strategic_view() -> void:
+	strategic_view_requested.emit()
 
 
 ## True while the rings are shown.
@@ -180,6 +204,8 @@ func apply_settings() -> void:
 	_pinned = _mode == HudLayout.MAP_SHOW
 	if _button != null:
 		_button.visible = _mode != HudLayout.MAP_HIDE and not _stopped
+	if _strat_button != null:
+		_strat_button.visible = _mode != HudLayout.MAP_HIDE and not _stopped
 	_place_button()
 	queue_redraw()
 
@@ -190,7 +216,22 @@ func _place_button() -> void:
 		return
 	var r: Dictionary = HudLayout.current(size)
 	if r.has("pin"):
-		_button.position = (r["pin"] as Rect2).position
+		var pin_rect: Rect2 = r["pin"] as Rect2
+		_button.position = pin_rect.position
+		if _strat_button != null:
+			_strat_button.position = Vector2(pin_rect.end.x + HudLayout.GAP, pin_rect.position.y)
+
+
+func _gui_input(event: InputEvent) -> void:
+	var mb := event as InputEventMouseButton
+	if mb and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+		if compass_visible():
+			var box: Rect2 = HudLayout.current(size)["map"]
+			var frame := Rect2(box.position + _map.frame.position, _map.frame.size)
+			if frame.has_point(mb.position):
+				toggle_strategic_view()
+				accept_event()
+				return
 
 
 func _draw() -> void:
@@ -353,6 +394,14 @@ func _draw_compass() -> void:
 			LaneMap.LABEL_SIZE,
 			color
 		)
+	# Draw active enemies on the minimap
+	var enemy_list: Array = []
+	if sim != null:
+		enemy_list = sim.enemies
+	elif Sim.current != null:
+		enemy_list = Sim.current.enemies
+	if not enemy_list.is_empty():
+		_map.draw_enemies(self, enemy_list, fade)
 	draw_set_transform(Vector2.ZERO)
 
 
