@@ -226,6 +226,10 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	damaged.emit(amount)
 
 
+func is_flashing() -> bool:
+	return _damage_flash_timer > 0.0
+
+
 func _set_flash_overlay(on: bool) -> void:
 	for mesh in _meshes:
 		if is_instance_valid(mesh):

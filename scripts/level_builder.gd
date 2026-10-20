@@ -20,6 +20,8 @@ const CAMERA_MARGIN := 4.0
 var portals: Array[Node3D] = []
 var outposts: Array[Outpost] = []
 var castle: Node3D = null
+var lumberjack_camp: CampStructures.LumberjackCamp = null
+var mercenary_camp: CampStructures.MercenaryCamp = null
 
 var _level: Dictionary = {}
 var _root: Node3D = null
@@ -109,6 +111,18 @@ func build(
 	castle.rotation.y = atan2(-last_dir.x, -last_dir.z)
 	_root.add_child(castle)
 	Cosmetics.apply(castle, Cosmetics.castle_flag())  # banner skin: colours only
+
+	# Camp structures: lumberjack camp near trees/village, mercenary camp on defense perimeter
+	lumberjack_camp = CampStructures.create_lumberjack_camp()
+	lumberjack_camp.position = castle.position + Vector3(4.5, 0.0, 2.5)
+	_root.add_child(lumberjack_camp)
+
+	mercenary_camp = CampStructures.create_mercenary_camp()
+	mercenary_camp.position = castle.position + Vector3(-3.5, 0.0, 3.5)
+	mercenary_camp.sim = _sim
+	mercenary_camp.hero = hero
+	mercenary_camp.gate_position = castle.position
+	_root.add_child(mercenary_camp)
 
 	for point: Array in level["slots"]:
 		var slot := SLOT_SCENE.instantiate() as TowerSlot

@@ -167,6 +167,10 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 		_die()
 
 
+func is_flashing() -> bool:
+	return _damage_flash_timer > 0.0
+
+
 func _die() -> void:
 	died.emit()
 	if sim != null:
