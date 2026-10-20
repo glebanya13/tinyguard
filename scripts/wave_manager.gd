@@ -128,7 +128,8 @@ func start_next_wave() -> bool:
 		return false
 	current_wave += 1
 	_next_wave_tick = -1
-	var queue: Array[Dictionary] = plan.spawns(current_wave)
+	var mults: Array = get_lane_flow_multipliers()
+	var queue: Array[Dictionary] = plan.spawns(current_wave, mults)
 	_remaining[current_wave] = queue.size()
 	(
 		_spawners
@@ -147,6 +148,16 @@ func start_next_wave() -> bool:
 	if has_next_wave():
 		_next_wave_tick = sim.tick + Sim.ticks(plan.wave_duration)
 	return true
+
+
+## Flow multipliers of the level's outposts (empty if none).
+func get_lane_flow_multipliers() -> Array:
+	if sim == null or sim.outposts.is_empty():
+		return []
+	var mults: Array = []
+	for outpost in sim.outposts:
+		mults.append(outpost.multiplier())
+	return mults
 
 
 ## Stops spawning for good, e.g. after defeat.

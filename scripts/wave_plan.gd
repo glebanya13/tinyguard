@@ -37,6 +37,8 @@ var difficulty: int = 0
 var wave_duration: float = 30.0
 ## Its enemies come out evenly during the first spawn_window seconds.
 var spawn_window: float = 24.0
+## Flow multipliers per path (e.g. from outposts), 0.4 .. 1.0.
+var lane_multipliers: Array = []
 
 var _w: Dictionary = {}
 var _base_times: Array[float] = []
@@ -183,11 +185,25 @@ func lane_count() -> int:
 
 
 ## Weight of every path in `wave` (0 = unused); empty without a lane plan.
-func lane_weights(wave: int) -> Array:
+## Scaled by lane multipliers (outpost flow, 0.4 .. 1.0 or 40 .. 100 percent).
+func lane_weights(wave: int, custom_multipliers: Array = []) -> Array:
 	var patterns: Array = _lanes.get("patterns", [])
 	if patterns.is_empty():
 		return []
-	return patterns[(wave - 1) % patterns.size()]
+	var base: Array = patterns[(wave - 1) % patterns.size()]
+	var mults: Array = custom_multipliers if not custom_multipliers.is_empty() else lane_multipliers
+	if mults.is_empty():
+		return base
+	var out: Array = []
+	for i in base.size():
+		var w: float = float(base[i])
+		if w > 0.0 and i < mults.size():
+			var m: float = float(mults[i])
+			if m > 1.0:
+				m /= 100.0
+			w *= m
+		out.append(w)
+	return out
 
 
 func is_elite_wave(wave: int) -> bool:
@@ -198,12 +214,12 @@ func is_elite_wave(wave: int) -> bool:
 
 ## Ordered spawn list: [{"data": EnemyData, "hp": float, "lane": int, "elite": bool}, ...].
 ## "lane" (index into the level's paths) is missing without a lane plan.
-func spawns(wave: int) -> Array[Dictionary]:
+func spawns(wave: int, custom_multipliers: Array = []) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var hp: float = health_factor(wave)
 	var count: int = count_for(wave)
 	var surprise: int = surprise_index(wave)
-	var weights: Array = lane_weights(wave)
+	var weights: Array = lane_weights(wave, custom_multipliers)
 	if surprise >= 0 and not weights.is_empty():
 		weights = _flags(range(weights.size()), weights.size())  # from every side
 	var dealt: Dictionary = {}  # kind -> enemies dealt to every lane so far
