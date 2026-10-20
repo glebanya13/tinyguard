@@ -128,6 +128,11 @@ func play_action(clip_name: StringName, duration: float = 0.0) -> void:
 	_clip_scale = float(clip.length) / duration if duration > 0.0 else 1.0
 
 
+## Convenience alias for sword swing action.
+func swing(duration: float = 0.0) -> void:
+	play_action(&"attack", duration)
+
+
 ## Length in seconds of the clip (0 if there is none).
 func action_length(clip_name: StringName) -> float:
 	return float(PuppetClips.get_clip(clip_name).get("length", 0.0))

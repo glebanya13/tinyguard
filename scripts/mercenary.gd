@@ -25,7 +25,7 @@ const GROUP := &"mercenaries"
 @export var attack_cooldown: float = 0.55
 @export var speed: float = 3.0
 @export var turn_speed: float = 12.0
-@export var detection_radius: float = 6.0
+@export var detection_radius: float = 9.0
 @export var patrol_radius: float = 2.5
 
 var mode: Mode = Mode.PATROL_GATE
@@ -42,6 +42,9 @@ var _patrol_target: Vector3 = Vector3.ZERO
 var _patrol_wait: float = 0.0
 var _flash_material: StandardMaterial3D = null
 var _meshes: Array[GeometryInstance3D] = []
+var _hp_bar: MeshInstance3D = null
+var _hp_bg: MeshInstance3D = null
+var _badge: Label3D = null
 
 @onready var _model: Node3D = find_child("Model") as Node3D
 @onready var _puppet: Puppet = find_child("Puppet") as Puppet
@@ -98,6 +101,69 @@ func _ready() -> void:
 		if mesh.name == &"Body":
 			mesh.material_override = tunic_mat
 
+	# Overhead badge and health bar
+	_badge = Label3D.new()
+	_badge.name = "Badge"
+	_badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_badge.no_depth_test = true
+	_badge.font_size = 18
+	_badge.pixel_size = 0.0035
+	_badge.position = Vector3(0.0, 1.35, 0.0)
+	_badge.text = "🛡 " + tr("CARD_HIRE_NAME")
+	_badge.modulate = Color(0.85, 1.0, 0.85)
+	add_child(_badge)
+
+	var bg_mesh := QuadMesh.new()
+	bg_mesh.size = Vector2(0.65, 0.08)
+	var bg_mat := StandardMaterial3D.new()
+	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bg_mat.albedo_color = Color(0.1, 0.1, 0.1, 0.8)
+	_hp_bg = MeshInstance3D.new()
+	_hp_bg.name = "HealthBarBg"
+	_hp_bg.mesh = bg_mesh
+	_hp_bg.material_override = bg_mat
+	_hp_bg.position = Vector3(0.0, 1.18, 0.0)
+	add_child(_hp_bg)
+
+	var bar_mesh := QuadMesh.new()
+	bar_mesh.size = Vector2(0.62, 0.06)
+	var bar_mat := StandardMaterial3D.new()
+	bar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bar_mat.albedo_color = Color(0.2, 0.85, 0.3, 0.95)
+	_hp_bar = MeshInstance3D.new()
+	_hp_bar.name = "HealthBar"
+	_hp_bar.mesh = bar_mesh
+	_hp_bar.material_override = bar_mat
+	_hp_bar.position = Vector3(0.0, 1.18, 0.01)
+	add_child(_hp_bar)
+
+
+func _process(_delta: float) -> void:
+	if not is_alive():
+		return
+	var cam: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam != null:
+		if _hp_bg != null and is_instance_valid(_hp_bg):
+			_hp_bg.rotation = cam.global_rotation
+		if _hp_bar != null and is_instance_valid(_hp_bar):
+			_hp_bar.rotation = cam.global_rotation
+
+
+func _update_hp_bar() -> void:
+	if _hp_bar == null or not is_instance_valid(_hp_bar):
+		return
+	var ratio := clampf(health / max_health, 0.0, 1.0)
+	_hp_bar.scale.x = ratio
+	_hp_bar.position.x = -0.31 * (1.0 - ratio)
+	var mat := _hp_bar.material_override as StandardMaterial3D
+	if mat != null:
+		if ratio < 0.25:
+			mat.albedo_color = Color(0.9, 0.2, 0.2, 0.95)
+		elif ratio < 0.5:
+			mat.albedo_color = Color(0.95, 0.8, 0.1, 0.95)
+		else:
+			mat.albedo_color = Color(0.2, 0.85, 0.3, 0.95)
+
 
 func _physics_process(delta: float) -> void:
 	if not is_alive():
@@ -143,7 +209,10 @@ func _attack(enemy: Enemy) -> void:
 		_swing_sound.pitch_scale = randf_range(0.9, 1.1)
 		_swing_sound.play()
 	if _puppet != null:
-		_puppet.swing()
+		if _puppet.has_method(&"play_action"):
+			_puppet.play_action(&"attack")
+		elif _puppet.has_method(&"swing"):
+			_puppet.swing()
 	if enemy != null and is_instance_valid(enemy) and enemy.is_alive():
 		enemy.take_damage(attack_damage)
 
@@ -154,6 +223,7 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	health = maxf(health - amount, 0.0)
 	_damage_flash_timer = 0.25
 	_set_flash_overlay(true)
+	_update_hp_bar()
 	if _hurt_sound != null:
 		_hurt_sound.pitch_scale = randf_range(0.92, 1.08)
 		_hurt_sound.play()
@@ -217,8 +287,10 @@ func _update_target_enemy() -> void:
 			if enemy == null or not is_instance_valid(enemy) or not enemy.is_alive():
 				continue
 			var d: float = global_position.distance_to(enemy.global_position)
-			if d <= best_d:
-				best_d = d
+			var d_gate: float = enemy.global_position.distance_to(patrol_center)
+			var score: float = minf(d, d_gate * 0.8)
+			if score <= best_d:
+				best_d = score
 				best = enemy
 		target_enemy = best
 

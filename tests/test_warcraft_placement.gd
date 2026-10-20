@@ -83,7 +83,7 @@ func _run() -> void:
 
 
 func _test_validation_logic() -> void:
-	# Test paths clearance (>= 1.35m)
+	# Test paths clearance (>= 0.85m: allows building near the curb)
 	var curve := Curve3D.new()
 	curve.add_point(Vector3(0, 0, 0))
 	curve.add_point(Vector3(10, 0, 0))
@@ -92,52 +92,52 @@ func _test_validation_logic() -> void:
 
 	check(
 		not bm.is_valid_tower_placement(Vector3(5, 0, 0.5), [path3d], [], Vector3.INF, [], null, false),
-		"point 0.5m from path is rejected (< 1.35m)"
+		"point 0.5m from path is rejected (< 0.85m)"
 	)
 	check(
-		not bm.is_valid_tower_placement(Vector3(5, 0, 1.2), [path3d], [], Vector3.INF, [], null, false),
-		"point 1.2m from path is rejected (< 1.35m)"
+		bm.is_valid_tower_placement(Vector3(5, 0, 1.0), [path3d], [], Vector3.INF, [], null, false),
+		"point 1.0m from path is accepted near curb (>= 0.85m)"
 	)
 	check(
 		bm.is_valid_tower_placement(Vector3(5, 0, 2.0), [path3d], [], Vector3.INF, [], null, false),
-		"point 2.0m from path is accepted (>= 1.35m)"
+		"point 2.0m from path is accepted (>= 0.85m)"
 	)
 
-	# Test castle clearance (>= 3.0m)
+	# Test castle clearance (>= 2.0m)
 	var castle_pos := Vector3(0, 0, 0)
 	check(
 		not bm.is_valid_tower_placement(Vector3(1.5, 0, 0), [], [], castle_pos, [], null, false),
-		"point 1.5m from castle is rejected (< 3.0m)"
+		"point 1.5m from castle is rejected (< 2.0m)"
 	)
 	check(
-		not bm.is_valid_tower_placement(Vector3(2.8, 0, 0), [], [], castle_pos, [], null, false),
-		"point 2.8m from castle is rejected (< 3.0m)"
+		bm.is_valid_tower_placement(Vector3(2.5, 0, 0), [], [], castle_pos, [], null, false),
+		"point 2.5m from castle is accepted (>= 2.0m)"
 	)
 	check(
 		bm.is_valid_tower_placement(Vector3(3.5, 0, 0), [], [], castle_pos, [], null, false),
-		"point 3.5m from castle is accepted (>= 3.0m)"
+		"point 3.5m from castle is accepted (>= 2.0m)"
 	)
 
-	# Test trees clearance (>= 1.5m)
+	# Test trees clearance (>= 0.85m)
 	var tree_pos := Vector3(5, 0, 5)
 	check(
-		not bm.is_valid_tower_placement(Vector3(5, 0, 5.8), [], [tree_pos], Vector3.INF, [], null, false),
-		"point 0.8m from tree is rejected (< 1.5m)"
+		not bm.is_valid_tower_placement(Vector3(5, 0, 5.5), [], [tree_pos], Vector3.INF, [], null, false),
+		"point 0.5m from tree is rejected (< 0.85m)"
 	)
 	check(
-		bm.is_valid_tower_placement(Vector3(5, 0, 6.8), [], [tree_pos], Vector3.INF, [], null, false),
-		"point 1.8m from tree is accepted (>= 1.5m)"
+		bm.is_valid_tower_placement(Vector3(5, 0, 6.2), [], [tree_pos], Vector3.INF, [], null, false),
+		"point 1.2m from tree is accepted (>= 0.85m)"
 	)
 
-	# Test camps clearance (>= 3.0m)
+	# Test camps clearance (>= 2.0m)
 	var camp_pos := Vector3(-5, 0, -5)
 	check(
-		not bm.is_valid_tower_placement(Vector3(-5, 0, -3.0), [], [], Vector3.INF, [camp_pos], null, false),
-		"point 2.0m from camp is rejected (< 3.0m)"
+		not bm.is_valid_tower_placement(Vector3(-5, 0, -3.5), [], [], Vector3.INF, [camp_pos], null, false),
+		"point 1.5m from camp is rejected (< 2.0m)"
 	)
 	check(
-		bm.is_valid_tower_placement(Vector3(-5, 0, -1.5), [], [], Vector3.INF, [camp_pos], null, false),
-		"point 3.5m from camp is accepted (>= 3.0m)"
+		bm.is_valid_tower_placement(Vector3(-5, 0, -2.5), [], [], Vector3.INF, [camp_pos], null, false),
+		"point 2.5m from camp is accepted (>= 2.0m)"
 	)
 
 	# Test level bounds
@@ -153,16 +153,26 @@ func _test_validation_logic() -> void:
 	# Restore bounds
 	bm.bounds = LevelBuilder.map_rect(main.level)
 
-	# Test slot clearance with real level slots (>= 2.0m)
-	var first_slot_pos: Vector3 = commands.slots[0].global_position
+	# Test built tower clearance (>= 1.2m between tower centers)
+	# Free slots do NOT block placement
+	var first_slot: TowerSlot = commands.slots[0]
+	var first_slot_pos: Vector3 = first_slot.global_position
+	check(
+		bm.is_valid_tower_placement(first_slot_pos, [], [], Vector3.INF, []),
+		"point on free slot is accepted"
+	)
+	# Build a tower on slot 0 to test collision with built towers
+	first_slot.place_tower(bm.tower_types[0].scene)
 	check(
 		not bm.is_valid_tower_placement(first_slot_pos + Vector3(0.5, 0, 0), [], [], Vector3.INF, []),
-		"point 0.5m from existing slot is rejected (< 2.0m)"
+		"point 0.5m from built tower is rejected (< 1.2m)"
 	)
 	check(
-		not bm.is_valid_tower_placement(first_slot_pos + Vector3(1.8, 0, 0), [], [], Vector3.INF, []),
-		"point 1.8m from existing slot is rejected (< 2.0m)"
+		bm.is_valid_tower_placement(first_slot_pos + Vector3(1.5, 0, 0), [], [], Vector3.INF, []),
+		"point 1.5m from built tower is accepted (>= 1.2m)"
 	)
+	# Remove tower to leave scene clean
+	first_slot.remove_tower()
 
 
 func _test_slot_creation() -> void:

@@ -54,6 +54,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			if ground_motion != null:
 				placement_moved.emit(ground_motion)
 			return
+		var drag := event as InputEventScreenDrag
+		if drag != null:
+			var ground_drag: Variant = _pick_ground(drag.position)
+			if ground_drag != null:
+				placement_moved.emit(ground_drag)
+			return
+		var touch := event as InputEventScreenTouch
+		if touch != null and touch.pressed:
+			var ground_touch: Variant = _pick_ground(touch.position)
+			if ground_touch != null:
+				placement_moved.emit(ground_touch)
+			return
 	# Act on release, so a pinch (second finger) or a drag does not count as a tap.
 	var press := event as InputEventMouseButton
 	if press == null or press.button_index != MOUSE_BUTTON_LEFT:
@@ -329,7 +341,8 @@ func validate_placement_detailed(
 		if not effective_bounds.has_point(pos_2d):
 			return {"valid": false, "reason": "bounds", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
-	# 2. Distance to all enemy Path3D curves (curve sample distance >= 1.35m to keep paths clear)
+	# 2. Distance to all enemy Path3D curves (clearance >= 0.85m to keep paths clear while allowing building near the curb)
+	var min_path_dist: float = 0.85
 	for p in paths:
 		if p is Path3D and p.curve != null:
 			if p.curve.point_count < 2:
@@ -340,33 +353,33 @@ func validate_placement_detailed(
 				closest = p.to_global(p.curve.get_closest_point(local_pt))
 			else:
 				closest = p.curve.get_closest_point(pos)
-			if Vector2(closest.x - pos.x, closest.z - pos.z).length() < 1.35:
+			if Vector2(closest.x - pos.x, closest.z - pos.z).length() < min_path_dist:
 				return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is Curve3D:
 			if p.point_count < 2:
 				continue
 			var closest: Vector3 = p.get_closest_point(pos)
-			if Vector2(closest.x - pos.x, closest.z - pos.z).length() < 1.35:
+			if Vector2(closest.x - pos.x, closest.z - pos.z).length() < min_path_dist:
 				return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is PackedVector2Array:
 			for i in range(p.size() - 1):
 				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(pos_2d, p[i], p[i + 1])
-				if closest_pt.distance_to(pos_2d) < 1.35:
+				if closest_pt.distance_to(pos_2d) < min_path_dist:
 					return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is PackedVector3Array:
 			for i in range(p.size() - 1):
 				var seg_start := Vector2(p[i].x, p[i].z)
 				var seg_end := Vector2(p[i + 1].x, p[i + 1].z)
 				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(pos_2d, seg_start, seg_end)
-				if closest_pt.distance_to(pos_2d) < 1.35:
+				if closest_pt.distance_to(pos_2d) < min_path_dist:
 					return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 
-	# 3. Distance to castle (>= 3.0m)
+	# 3. Distance to castle (>= 2.0m)
 	if castle_pos.is_finite():
-		if Vector2(castle_pos.x - pos.x, castle_pos.z - pos.z).length() < 3.0:
+		if Vector2(castle_pos.x - pos.x, castle_pos.z - pos.z).length() < 2.0:
 			return {"valid": false, "reason": "castle", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
-	# 4. Distance to all trees (>= 1.5m)
+	# 4. Distance to all trees (>= 0.85m to clear tree trunks)
 	for tree in trees:
 		var t_pos: Vector3
 		if tree is Node3D:
@@ -377,10 +390,10 @@ func validate_placement_detailed(
 			t_pos = Vector3(tree.x, 0.0, tree.y)
 		else:
 			continue
-		if Vector2(t_pos.x - pos.x, t_pos.z - pos.z).length() < 1.5:
+		if Vector2(t_pos.x - pos.x, t_pos.z - pos.z).length() < 0.85:
 			return {"valid": false, "reason": "tree", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
-	# 5. Distance to camps (>= 3.0m)
+	# 5. Distance to camps (>= 2.0m)
 	for camp in camps:
 		var cp: Vector3
 		if camp is Node3D:
@@ -391,29 +404,32 @@ func validate_placement_detailed(
 			cp = Vector3(camp.x, 0.0, camp.y)
 		else:
 			continue
-		if Vector2(cp.x - pos.x, cp.z - pos.z).length() < 3.0:
+		if Vector2(cp.x - pos.x, cp.z - pos.z).length() < 2.0:
 			return {"valid": false, "reason": "camp", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
-	# 6. Distance to existing towers/slots (>= 2.0m)
+	# 6. Distance to existing built towers (>= 1.2m between tower centers)
+	# NOTE: Free/unbuilt slots do not block placement!
 	if check_slots:
 		var checked_slots: Array = []
 		if commands != null:
 			for slot in commands.slots:
 				if slot != null and is_instance_valid(slot) and slot != ignore_slot:
 					checked_slots.append(slot)
-					if Vector2(slot.global_position.x - pos.x, slot.global_position.z - pos.z).length() < 2.0:
-						return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
+					if slot.tower != null:
+						if Vector2(slot.global_position.x - pos.x, slot.global_position.z - pos.z).length() < 1.2:
+							return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 		if is_inside_tree():
 			for slot_node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
 				if slot_node is TowerSlot and is_instance_valid(slot_node) and slot_node != ignore_slot:
 					if checked_slots.has(slot_node):
 						continue
-					if Vector2(slot_node.global_position.x - pos.x, slot_node.global_position.z - pos.z).length() < 2.0:
-						return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
+					if slot_node.tower != null:
+						if Vector2(slot_node.global_position.x - pos.x, slot_node.global_position.z - pos.z).length() < 1.2:
+							return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 		if sim != null:
 			for tower in sim.towers:
 				if tower != null and is_instance_valid(tower):
-					if Vector2(tower.global_position.x - pos.x, tower.global_position.z - pos.z).length() < 2.0:
+					if Vector2(tower.global_position.x - pos.x, tower.global_position.z - pos.z).length() < 1.2:
 						return {"valid": false, "reason": "tower", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
 	return {"valid": true, "reason": "", "message": tr("CARD_PLACE_FREE_GROUND")}

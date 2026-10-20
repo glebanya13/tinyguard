@@ -19,6 +19,7 @@ import tg_common as tg  # noqa: E402
 BUILDERS = {
     "hero": "build_hero",
     "tower": "build_tower",
+    "slime": "build_slime",
     "chupa": "build_chupa",
     "golem": "build_golem",
     "villager": "build_villager",

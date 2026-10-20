@@ -707,7 +707,18 @@ func update_placement_position(pos: Vector3) -> void:
 		return
 	var snapped_x := roundf(pos.x * 2.0) / 2.0
 	var snapped_z := roundf(pos.z * 2.0) / 2.0
-	placement_position = Vector3(snapped_x, 0.05, snapped_z)
+	var test_pos := Vector3(snapped_x, 0.05, snapped_z)
+
+	# If near an existing free slot, snap directly to it for easy placement on prepared slots
+	if _commands != null:
+		for s in _commands.slots:
+			if s != null and is_instance_valid(s) and s.is_free():
+				var d: float = Vector2(s.global_position.x - pos.x, s.global_position.z - pos.z).length()
+				if d <= 0.85:
+					test_pos = Vector3(s.global_position.x, 0.05, s.global_position.z)
+					break
+
+	placement_position = test_pos
 
 	if _placement_ghost != null and is_instance_valid(_placement_ghost):
 		_placement_ghost.global_position = placement_position
@@ -742,9 +753,19 @@ func _confirm_placement() -> void:
 	# End placement mode and clean up ghost
 	cancel_placement(false)
 
-	# Create dynamic slot
-	var slot: TowerSlot = _build_manager.create_dynamic_slot(build_pos)
-	_active_dynamic_slot = slot
+	# Check if placement corresponds to an existing free slot
+	var slot: TowerSlot = null
+	if _commands != null:
+		for s in _commands.slots:
+			if s != null and is_instance_valid(s) and s.is_free():
+				var d: float = Vector2(s.global_position.x - build_pos.x, s.global_position.z - build_pos.z).length()
+				if d <= 0.85:
+					slot = s
+					break
+
+	if slot == null:
+		slot = _build_manager.create_dynamic_slot(build_pos)
+		_active_dynamic_slot = slot
 
 	# Command hero to walk and build
 	var cmd_id: StringName = StringName("build_%d" % tower_idx)
