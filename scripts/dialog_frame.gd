@@ -75,10 +75,12 @@ static func fit_rect(screen: Vector2, room_rect: Rect2, wanted: Vector2) -> Rect
 
 
 func _init() -> void:
+	top_level = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim = ColorRect.new()
 	dim.name = "Dim"
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	panel = PanelContainer.new()
 	panel.name = "Panel"
@@ -128,6 +130,7 @@ func _place() -> void:
 	_placing = true
 	var viewport := get_viewport()
 	var screen: Vector2 = viewport.get_visible_rect().size
+	top_level = true
 	position = Vector2.ZERO
 	size = screen
 	dim.position = Vector2.ZERO
