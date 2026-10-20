@@ -7,7 +7,7 @@
       "subtitle": "LEVEL_1_SUB",
       "biome": "meadow",
       "bounds": [-22, -15, 44, 30],
-      "start": {"gold": 90, "wood": 60, "lives": 20},
+      "start": {"gold": 15, "wood": 20, "lives": 20},
       "waves": {
         "count": 15,
         "first_delay": 30,
@@ -108,7 +108,7 @@
       "subtitle": "LEVEL_2_SUB",
       "biome": "meadow",
       "bounds": [-22, -15, 44, 30],
-      "start": {"gold": 90, "wood": 60, "lives": 15},
+      "start": {"gold": 15, "wood": 20, "lives": 15},
       "waves": {
         "count": 25,
         "first_delay": 30,

@@ -668,6 +668,7 @@ func _update_sound_label() -> void:
 ## Pause menu "Кузница": resume the game, then open the forge card (unless it
 ## is already the card on screen: forge_pressed toggles it).
 func _on_forge_menu_pressed() -> void:
+	hide_pause_menu()
 	continue_pressed.emit()
 	if not _button_ids.has(&"sword"):
 		forge_pressed.emit()

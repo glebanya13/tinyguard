@@ -199,7 +199,7 @@ func _ready() -> void:
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
-	_hud.forge_pressed.connect(cards.toggle_forge)
+	_hud.forge_pressed.connect(_on_forge_pressed)
 	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	if coop != null:
@@ -284,6 +284,15 @@ func _toggle_pause() -> void:
 			_hud.hide_pause_menu()
 		return
 	_commands.submit(GameCommand.set_pause(not _paused))
+
+
+func _on_forge_pressed() -> void:
+	if _paused:
+		_toggle_pause()
+	elif _coop_on() and _coop_menu_open:
+		_coop_menu_open = false
+	_hud.hide_pause_menu()
+	cards.toggle_forge()
 
 
 ## The pause command was applied: stop / resume the whole tree.

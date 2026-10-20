@@ -156,6 +156,13 @@ prev exit: SIGNALED/9 rss=540 MB pss=390 MB FOREGROUND (probable_low_memory)
   вылет (например, убить процесс командой `adb shell am crash com.bimbleguard.app`
   — это Java-исключение, попадёт в Crashlytics), открыть игру снова и ждать отчёт в консоли.
 
+## 5b. Частые ошибки авторизации и привязки почты (оверлей «last auth error»)
+
+Если при привязке почты, входе или регистрации произошла ошибка, строка оверлея диагностики (5 быстрых тапов по версии в настройках) показывает код вида `last auth error: link HTTP 400 OPERATION_NOT_ALLOWED (3 min ago)`.
+
+- **Код `OPERATION_NOT_ALLOWED` (`HTTP 400 OPERATION_NOT_ALLOWED`)**: возникает, если в Firebase Console выключен провайдер Email/Password (**Authentication -> Sign-in method**). Чтобы исправить, перейдите в Firebase Console проекта -> **Build -> Authentication -> Sign-in method** и включите провайдер **Email/Password**.
+- Полный перечень кодов и способов решения: см. таблицу в `docs/ACCOUNTS.md` (раздел «Как понять причину по коду (`detail`)»).
+
 ## 6. Автозащита от низкого FPS
 
 Если средний кадр дольше 30 мс (меньше ~33 FPS) в течение 2 секунд, `QualityGuard` ступенчато

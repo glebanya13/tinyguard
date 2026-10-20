@@ -353,9 +353,12 @@ Spark) и впишите адрес.
 обмена). Последний код пишется в `user://last_auth_error.json` и показывается в оверлее
 диагностики строкой `last auth error: link HTTP 400 OPERATION_NOT_ALLOWED (3 min ago)`.
 
+> [!NOTE]
+> Частая ошибка привязки почты `HTTP 400 OPERATION_NOT_ALLOWED`: код `OPERATION_NOT_ALLOWED` возникает, если в Firebase Console выключен провайдер Email/Password (**Authentication -> Sign-in method**). Для включения откройте Firebase Console -> **Build -> Authentication -> Sign-in method** и включите провайдер **Email/Password**.
+
 | Код от тестера | Причина | Что делать |
 |---|---|---|
-| `HTTP 400 OPERATION_NOT_ALLOWED` | провайдер Email/Password выключен (или запрос не разрешён) | Authentication → Sign-in method → Email/Password включить |
+| `HTTP 400 OPERATION_NOT_ALLOWED` | провайдер Email/Password выключен в Firebase Console | Authentication → Sign-in method → Email/Password включить (код возникает, если в Firebase Console выключен провайдер Email/Password) |
 | `HTTP 400 ADMIN_ONLY_OPERATION` | выключено создание аккаунтов | Authentication → Settings → User actions → Enable create (sign-up) |
 | `HTTP 403 PERMISSION_DENIED API_KEY_SERVICE_BLOCKED` | у API-ключа в Google Cloud ограничены API | Credentials → ключ → API restrictions: добавить Identity Toolkit API и Token Service API |
 | `HTTP 403 ... API_KEY_ANDROID_APP_BLOCKED` / `...HTTP_REFERRER_BLOCKED` | ограничение приложения (package/сертификат или referrer) | Application restrictions: None (REST из Godot не шлёт сертификат) |
