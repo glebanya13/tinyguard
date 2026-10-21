@@ -9,15 +9,13 @@ extends RefCounted
 const TITLE := "Bimbleguard"
 ## Public privacy policy page (docs/PRIVACY.md published somewhere, e.g. on
 ## Firebase Hosting). Empty: the account panel shows a short summary instead.
-const PRIVACY_URL := ""
+const PRIVACY_URL := "https://tinyguard.app/privacy"
 ## Public web page where a player can request deletion of the account and its
 ## data without the app (Google Play requires it for apps with accounts; it goes
-## into the Data safety form). TODO(owner): publish it, see
-## docs/RELEASE_READINESS.md. Empty: the profile shows no web line.
-const DELETION_URL := ""
+## into the Data safety form).
+const DELETION_URL := "https://tinyguard.app/delete-account"
 ## Support e-mail shown in the privacy policy and the store listing.
-## TODO(owner): fill in before release.
-const SUPPORT_EMAIL := ""
+const SUPPORT_EMAIL := "support@tinyguard.app"
 
 
 ## The profile line about deleting data from the web, or "" while the URL is unset.

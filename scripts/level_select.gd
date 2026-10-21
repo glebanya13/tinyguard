@@ -60,13 +60,11 @@ var _reminder: AccountReminder = null
 var _coop_button: Button = null
 var _daily: DailyPanel = null
 var _achievements: AchievementsPanel = null
-var _camp_panel: CampPanel = null
 var _calendar_panel: CalendarPanel = null
-var _camp_button: Button = null
-var _camp_dot: Control = null
 var _calendar_button: Button = null
 var _calendar_dot: Control = null
 var _gems: GemsHud = null
+var _last_back_press_msec: int = 0
 var _modes_panel: ModesPanel = null
 var _tab_bar: PanelContainer = null
 var _tab_row: HBoxContainer = null
@@ -153,8 +151,6 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _gems.is_panel_open():
 			_gems.close_panel()
-		elif _camp_panel and _camp_panel.visible:
-			_camp_panel.close()
 		elif _calendar_panel and _calendar_panel.visible:
 			_calendar_panel.close()
 		elif _daily.visible:
@@ -172,7 +168,12 @@ func _notification(what: int) -> void:
 		elif _account.visible:
 			_account.close()
 		else:
-			get_tree().quit()  # Android back on the map leaves the game
+			var now_ms: int = Time.get_ticks_msec()
+			if now_ms - _last_back_press_msec < 2000:
+				get_tree().quit()  # Android back on the map leaves the game
+			else:
+				_last_back_press_msec = now_ms
+				Toast.show_on(_ui_root, tr("MAP_CLOSE"), tr("BACK_AGAIN_TO_EXIT"))
 
 
 ## Shifts and zooms the island (frustum offsets and field of view) so that the centres of all
@@ -286,18 +287,8 @@ func _build_tabs() -> void:
 	_daily.online = Online
 	_ui_root.add_child(_daily)
 	_daily.start_requested.connect(_start_daily)
-	_camp_panel = CampPanel.new()
-	_ui_root.add_child(_camp_panel)
 	_calendar_panel = CalendarPanel.new()
 	_ui_root.add_child(_calendar_panel)
-	_camp_panel.collected.connect(func(_amt: int) -> void:
-		_gems.refresh()
-		_update_retention_dots()
-	)
-	_camp_panel.upgraded.connect(func(_lvl: int) -> void:
-		_gems.refresh()
-		_update_retention_dots()
-	)
 	_calendar_panel.reward_claimed.connect(func(_s: int, _c: int, _g: int) -> void:
 		_gems.refresh()
 		_update_retention_dots()
@@ -334,12 +325,8 @@ func _build_tabs() -> void:
 
 	var streak_panel: StreakPanel = _ui_root.get_node_or_null("StreakPanel") as StreakPanel
 	if streak_panel != null:
-		streak_panel.camp_requested.connect(_camp_panel.open)
 		streak_panel.calendar_requested.connect(_calendar_panel.open)
-		_camp_button = streak_panel.find_child("CampButton", true, false) as Button
 		_calendar_button = streak_panel.find_child("CalendarButton", true, false) as Button
-		if _camp_button != null:
-			_camp_dot = _dot(_camp_button)
 		if _calendar_button != null:
 			_calendar_dot = _dot(_calendar_button)
 
@@ -464,21 +451,12 @@ func _refresh_stars() -> void:
 
 func _update_retention_dots() -> void:
 	var p: Dictionary = PlayerProfile.local()
-	var now: int = int(Time.get_unix_time_from_system())
-	var pending: int = Camp.pending_coins(p.get("camp", {}), now)
 	var can_cal: bool = Calendar28.can_claim(
 		p.get("calendar", {}), Daily.today_key(), p.get("wallet", {})
 	)
 
 	if _rewards_dot != null:
-		_rewards_dot.visible = pending > 0 or can_cal
-	if _camp_dot != null:
-		_camp_dot.visible = pending > 0
-		if _camp_button != null:
-			if pending > 0:
-				_camp_button.text = tr("MAP_CAMP") + " (+%d)" % pending
-			else:
-				_camp_button.text = tr("MAP_CAMP")
+		_rewards_dot.visible = can_cal
 	if _calendar_dot != null:
 		_calendar_dot.visible = can_cal
 	if _treasury_dot != null:

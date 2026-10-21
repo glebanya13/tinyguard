@@ -22,6 +22,7 @@ signal workbench_pressed
 signal strategic_view_pressed
 ## End screen of the Record Run: open the records table on the map.
 signal records_pressed
+signal next_level_pressed
 signal joystick_changed(vector: Vector2)
 ## The thumb controls were re-placed (settings changed): the road compass follows.
 signal layout_changed
@@ -78,6 +79,7 @@ var _hint_text: String = ""
 var _banner_tween: Tween = null
 var _joystick_visible: bool = false
 var _card_hash: int = 0
+var _next_level_button: Button = null
 var _settings_button: Button = null
 var _records_button: Button = null
 var _settings_panel: SettingsPanel = null
@@ -144,6 +146,17 @@ func _ready() -> void:
 	_frame_end_screen()
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
 	_map_button.pressed.connect(_on_end_button_pressed.bind(map_pressed))
+	_next_level_button = Button.new()
+	_next_level_button.name = "NextLevelButton"
+	_next_level_button.custom_minimum_size = Vector2(0, 56)
+	_next_level_button.theme_type_variation = &"SuccessButton"
+	_next_level_button.text = tr("HUD_NEXT_LEVEL")
+	_next_level_button.pressed.connect(_on_end_button_pressed.bind(next_level_pressed))
+	var end_content: Node = _end_screen.find_child("Content", true, false)
+	if end_content != null:
+		end_content.add_child(_next_level_button)
+		end_content.move_child(_next_level_button, _map_button.get_index())
+	_next_level_button.hide()
 	_continue_button.pressed.connect(continue_pressed.emit)
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_build_settings()
@@ -408,6 +421,14 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 				. set_ease(Tween.EASE_OUT)
 			)
 	_stars.visible = victory and stars > 0
+	if _next_level_button != null:
+		var can_next: bool = (
+			victory
+			and stars > 0
+			and LevelCatalog.selected_id < LevelCatalog.MAX_LEVEL
+			and not record_mode
+		)
+		_next_level_button.visible = can_next
 	_pause_button.hide()
 	_speed_button.hide()
 	_forge_button.hide()
@@ -713,10 +734,19 @@ func _on_language_changed() -> void:
 	_settings_button.text = tr("HUD_SETTINGS")
 	if _encyclopedia_button:
 		_encyclopedia_button.text = tr("HUD_ENCYCLOPEDIA")
+	if _next_level_button != null:
+		_next_level_button.text = tr("HUD_NEXT_LEVEL")
 	_update_sound_label()
 	if _end_screen.visible:
 		_message_label.text = tr("HUD_PAUSE")
 	_card_hash = 0
+
+
+func set_hero_knocked_out(knocked_out: bool) -> void:
+	_attack_button.disabled = knocked_out
+	_spin_button.disabled = knocked_out
+	_attack_button.modulate = Color(0.5, 0.5, 0.5, 0.6) if knocked_out else Color.WHITE
+	_spin_button.modulate = Color(0.5, 0.5, 0.5, 0.6) if knocked_out else Color.WHITE
 
 
 func _on_sound_pressed() -> void:

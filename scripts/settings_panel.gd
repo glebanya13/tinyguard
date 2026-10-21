@@ -195,15 +195,6 @@ func _build_general() -> void:
 	_box.add_child(_crash_button)
 	_update_crash_text()
 
-	if GameInfo.PRIVACY_URL != "":
-		var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
-		privacy.name = "Link_privacy"
-		_box.add_child(privacy)
-	if GameInfo.DELETION_URL != "":
-		var deletion := _button(tr("SET_DELETION"), _open_link.bind(GameInfo.DELETION_URL), true, 0)
-		deletion.name = "Link_deletion"
-		_box.add_child(deletion)
-
 	var version := UiKit.caption(tr("SET_VERSION") % GameSettings.version())
 	version.name = "Version"
 	version.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -216,7 +207,7 @@ func _build_general() -> void:
 func _build_credits() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.name = "CreditsList"
-	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.custom_minimum_size = Vector2(0, 260)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_box.add_child(scroll)
 	var list := VBoxContainer.new()
@@ -231,6 +222,21 @@ func _build_credits() -> void:
 	var site := _button("game-icons.net", _open_link.bind(CREDITS_ICONS_URL), true, 0)
 	site.name = "Link_game_icons"
 	_box.add_child(site)
+
+	if GameInfo.PRIVACY_URL != "" or GameInfo.DELETION_URL != "":
+		var links := HBoxContainer.new()
+		links.add_theme_constant_override("separation", 8)
+		_box.add_child(links)
+		if GameInfo.PRIVACY_URL != "":
+			var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
+			privacy.name = "Link_privacy"
+			privacy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			links.add_child(privacy)
+		if GameInfo.DELETION_URL != "":
+			var deletion := _button(tr("SET_DELETION"), _open_link.bind(GameInfo.DELETION_URL), true, 0)
+			deletion.name = "Link_deletion"
+			deletion.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			links.add_child(deletion)
 
 
 ## Joystick and road compass: rows of big switches on the left, a live outline of the

@@ -22,9 +22,16 @@ signal spun(origin: Vector3)
 ## Emitted when a sword hit chops wood off a tree.
 signal wood_gathered(amount: int, at: Vector3)
 signal damaged(amount: float)
+signal knocked_out
+signal revived
 
 const GROUP := &"heroes"
 const HURT_SOUND: AudioStream = preload("res://assets/audio/hero_hurt.wav")
+const KNOCKOUT_DURATION: float = 8.0
+
+var is_knocked_out: bool = false
+var knockout_timer: float = 0.0
+var respawn_position: Vector3 = Vector3.ZERO
 
 ## Metres per second (without the "swift feet" perk, see walk_speed()).
 @export var speed: float = 3.2
@@ -164,6 +171,13 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_knocked_out:
+		knockout_timer = maxf(knockout_timer - delta, 0.0)
+		velocity = Vector3.ZERO
+		move_and_slide()
+		if knockout_timer <= 0.0:
+			_revive()
+		return
 	if _damage_flash_timer > 0.0:
 		_damage_flash_timer = maxf(_damage_flash_timer - delta, 0.0)
 		if _damage_flash_timer == 0.0:
@@ -217,6 +231,8 @@ func _physics_process(delta: float) -> void:
 
 
 func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
+	if is_knocked_out:
+		return
 	health = maxf(health - amount, 0.0)
 	_damage_flash_timer = 0.25
 	_set_flash_overlay(true)
@@ -229,6 +245,33 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	recoil_dir.y = 0.0
 	_recoil_velocity = recoil_dir.normalized() * 3.5
 	damaged.emit(amount)
+	if health <= 0.0:
+		_knockout()
+
+
+func _knockout() -> void:
+	is_knocked_out = true
+	knockout_timer = KNOCKOUT_DURATION
+	cancel_order(false)
+	stop_chasing()
+	_recoil_velocity = Vector3.ZERO
+	if respawn_position != Vector3.ZERO:
+		global_position = respawn_position
+	if _hurt_sound_player != null:
+		_hurt_sound_player.pitch_scale = 0.65
+		_hurt_sound_player.play()
+	if _puppet != null and _puppet.has_method(&"play_action"):
+		_puppet.play_action(&"hurt", KNOCKOUT_DURATION)
+	knocked_out.emit()
+
+
+func _revive() -> void:
+	is_knocked_out = false
+	knockout_timer = 0.0
+	health = max_health
+	if _puppet != null and _puppet.has_method(&"play_action"):
+		_puppet.play_action(&"walk", 0.1)
+	revived.emit()
 
 
 func is_flashing() -> bool:
@@ -248,6 +291,8 @@ func walk_speed() -> float:
 
 ## Sets an enemy target to pursue and attack until dead.
 func chase_enemy(enemy: Enemy) -> void:
+	if is_knocked_out:
+		return
 	target_enemy = enemy
 
 
@@ -262,6 +307,8 @@ func is_chasing() -> bool:
 
 ## Walk to `target` until within `reach` metres, then call `on_arrive`.
 func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable()) -> void:
+	if is_knocked_out:
+		return
 	cancel_order()  # a new order replaces the old one (listeners hear it end)
 	_has_order = true
 	_replanned = false
@@ -312,7 +359,7 @@ func try_attack() -> bool:
 
 ## Whirlwind: one turn of the sword that hits every enemy within spin_radius.
 func try_spin() -> bool:
-	if commands == null or not sim.running or spin_cooldown_left() > 0.0:
+	if commands == null or not can_spin() or not sim.running:
 		return false
 	if _gated(_spin_gate_tick):
 		return false
@@ -333,8 +380,16 @@ func ghost_goto(point: Vector3) -> void:
 
 
 func can_attack() -> bool:
+	if is_knocked_out:
+		return false
 	# Nothing swings before the battle clock runs (the level is still being built).
 	return sim != null and sim.running and sim.tick >= _attack_ready_tick
+
+
+func can_spin() -> bool:
+	if is_knocked_out:
+		return false
+	return spin_cooldown_left() <= 0.0
 
 
 ## Seconds until the whirlwind is ready again (0 = ready).

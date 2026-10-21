@@ -52,29 +52,13 @@ func _build() -> void:
 	hub_row.add_theme_constant_override("separation", 12)
 	hub_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var camp_btn := Button.new()
-	camp_btn.name = "CampButton"
-	camp_btn.custom_minimum_size = Vector2(0, 64)
-	camp_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	camp_btn.theme_type_variation = &"SecondaryButton"
-	camp_btn.focus_mode = Control.FOCUS_NONE
-	var p: Dictionary = PlayerProfile.local()
-	var now: int = int(Time.get_unix_time_from_system())
-	var pending: int = Camp.pending_coins(p.get("camp", {}), now)
-	camp_btn.text = tr("MAP_CAMP") + (" (+%d)" % pending if pending > 0 else "")
-	camp_btn.icon = preload("res://ui/icons/coin.png")
-	camp_btn.pressed.connect(func() -> void:
-		close()
-		camp_requested.emit()
-	)
-	hub_row.add_child(camp_btn)
-
 	var cal_btn := Button.new()
 	cal_btn.name = "CalendarButton"
 	cal_btn.custom_minimum_size = Vector2(0, 64)
 	cal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cal_btn.theme_type_variation = &"SecondaryButton"
 	cal_btn.focus_mode = Control.FOCUS_NONE
+	var p: Dictionary = PlayerProfile.local()
 	var can_cal: bool = Calendar28.can_claim(p.get("calendar", {}), day, p.get("wallet", {}))
 	cal_btn.text = tr("CALENDAR_BUTTON") + (" (!)" if can_cal else "")
 	cal_btn.icon = preload("res://ui/icons/hourglass.png")

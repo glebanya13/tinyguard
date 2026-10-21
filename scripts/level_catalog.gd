@@ -20,6 +20,7 @@ const SCREEN_UP := Vector2(-0.7071068, -0.7071068)
 const SCREEN_RIGHT := Vector2(0.7071068, -0.7071068)
 ## Number of difficulty levels above Normal (Hard, Nightmare).
 const MAX_DIFFICULTY := 2
+const MAX_LEVEL := 6
 ## Tests point this at a scratch file.
 static var save_path: String = "user://progress.cfg"
 

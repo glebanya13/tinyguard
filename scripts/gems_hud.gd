@@ -16,7 +16,6 @@ var visit: Dictionary = {}
 
 var _ui_root: Control = null
 var _chip_label: Label = null
-var _coin_chip_label: Label = null
 var _streak_button: Button = null
 var _panel: StreakPanel = null
 
@@ -58,31 +57,6 @@ func mount(
 	top_right.add_child(chip)
 	top_right.move_child(chip, 0)
 
-	var coin_chip := PanelContainer.new()
-	coin_chip.name = "CoinsChip"
-	coin_chip.theme_type_variation = &"HudPill"
-	coin_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_chip.custom_minimum_size = Vector2(0, 56)
-	coin_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var coin_row := HBoxContainer.new()
-	coin_row.add_theme_constant_override("separation", 6)
-	coin_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_chip.add_child(coin_row)
-	var coin_icon := TextureRect.new()
-	coin_icon.texture = COIN_ICON
-	coin_icon.custom_minimum_size = Vector2(40, 40)
-	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_row.add_child(coin_icon)
-	_coin_chip_label = Label.new()
-	_coin_chip_label.name = "Label"
-	_coin_chip_label.theme_type_variation = &"NumberLabel"
-	_coin_chip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_row.add_child(_coin_chip_label)
-	top_right.add_child(coin_chip)
-	top_right.move_child(coin_chip, 1)
-
 	shop_tab.pressed.connect(func() -> void: shop_requested.emit())
 	_streak_button = streak_tab
 	_panel = StreakPanel.new()
@@ -98,8 +72,6 @@ func mount(
 ## Updates the counter and the plaque (after a sync, a purchase, a battle).
 func refresh() -> void:
 	_chip_label.text = str(Economy.balance())
-	if _coin_chip_label != null:
-		_coin_chip_label.text = str(Camp.local().get("coins", 0))
 	var live: int = Streak.live_length(Streak.local(), Daily.today_key())
 	_streak_button.text = tr("STREAK_BUTTON") % live
 

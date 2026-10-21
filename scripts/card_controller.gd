@@ -505,9 +505,10 @@ func _auto_select_near_hero() -> void:
 			best = distance
 			nearest = slot
 	if current != null:
-		if _flat_distance(current) <= AUTO_RELEASE_REACH:
+		var d: float = _flat_distance(current)
+		if d <= AUTO_RELEASE_REACH:
 			_selected_near = true
-		elif (_auto_selected or _selected_near) and _flat_distance(current) > AUTO_RELEASE_REACH:
+		elif (moving and d > 5.5) or ((_auto_selected or _selected_near) and d > AUTO_RELEASE_REACH):
 			_auto_selected = false
 			_selected_near = false
 			_build_manager.clear_selection()
@@ -522,7 +523,8 @@ func _auto_select_near_hero() -> void:
 	if nearest != null and nearest != current:
 		_auto_select(nearest)
 	elif nearest == null and current != null:
-		if (_auto_selected or _selected_near) and _flat_distance(current) > AUTO_RELEASE_REACH:
+		var d: float = _flat_distance(current)
+		if (moving and d > 5.5) or ((_auto_selected or _selected_near) and d > AUTO_RELEASE_REACH):
 			_auto_selected = false
 			_selected_near = false
 			_build_manager.clear_selection()

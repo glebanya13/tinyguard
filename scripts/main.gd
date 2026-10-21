@@ -128,6 +128,8 @@ func _ready() -> void:
 		DailyRun.apply(_daily_key, _wave_manager.plan, _wave_manager, _build_manager)
 	_hero.sim = _sim
 	_hero.commands = _commands
+	if builder != null and builder.castle != null:
+		_hero.respawn_position = builder.castle.position + Vector3(0.0, 0.0, 2.5)
 	_commands.game_state = _game_state
 	_commands.build_manager = _build_manager
 	_commands.hero = _hero
@@ -204,6 +206,14 @@ func _ready() -> void:
 	_hud.restart_pressed.connect(_on_restart_pressed)
 	_hud.map_pressed.connect(_on_map_pressed)
 	_hud.records_pressed.connect(_on_records_pressed)
+	_hud.next_level_pressed.connect(_on_next_level_pressed)
+	_hero.knocked_out.connect(func() -> void:
+		_hud.show_banner(tr("HERO_KNOCKED_OUT"), tr("HERO_REVIVING_SUBTITLE"), false)
+		_hud.set_hero_knocked_out(true)
+	)
+	_hero.revived.connect(func() -> void:
+		_hud.set_hero_knocked_out(false)
+	)
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
@@ -751,6 +761,14 @@ func _on_map_pressed() -> void:
 	if _coop_on():
 		coop.leave()
 	_leave_to(LEVEL_SELECT_SCENE)
+
+
+func _on_next_level_pressed() -> void:
+	if _coop_on():
+		coop.leave()
+	BattleCheckpoint.clear_checkpoint()
+	LevelCatalog.selected_id = mini(LevelCatalog.selected_id + 1, LevelCatalog.MAX_LEVEL)
+	_leave_to("")
 
 
 ## Leaves the battle for `scene_path` ("" = start this level again). The change is queued
