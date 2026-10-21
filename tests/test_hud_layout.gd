@@ -232,6 +232,16 @@ func _live() -> void:
 	check(
 		button != null and button.custom_minimum_size.y >= 84.0, "option buttons are at least 84 px"
 	)
+	check(joy._is_over_ui(button.global_position + button.size * 0.5), "joystick detects touches over settings UI button")
+	check(not joy.is_in_zone(button.global_position + button.size * 0.5), "is_in_zone returns false over UI button")
+
+	var card: Control = hud.get_node("Root/CommandCard")
+	card.show()
+	card.size = Vector2(300, 150)
+	card.global_position = Vector2(100, 400)
+	check(joy._is_over_ui(Vector2(150, 450)), "joystick detects touches over CommandCard")
+	check(not joy.is_in_zone(Vector2(150, 450)), "is_in_zone returns false over CommandCard")
+	card.hide()
 	button.pressed.emit()
 	check(
 		fired[0] == 1 and GameSettings.joystick_size() == 2, "an option saves and announces itself"

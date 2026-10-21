@@ -78,6 +78,9 @@ func _run() -> void:
 	print("=== 8. Placement Mode Cancel & Cleanup ===")
 	await _test_placement_mode_cancel()
 
+	print("=== 9. Checkpoint Dynamic Tower Restoration ===")
+	await _test_checkpoint_dynamic_tower_restoration()
+
 	print("\nRESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
 
@@ -421,3 +424,110 @@ func _test_placement_mode_cancel() -> void:
 	check(not cards.placement_mode, "placement mode exited cleanly on cancel")
 	check(cards._placement_ghost == null, "preview ghost destroyed on cancel")
 	check(commands.slots.size() == initial_slots, "no slot created on cancel")
+
+
+func test_checkpoint_dynamic_tower_restoration() -> void:
+	await _test_checkpoint_dynamic_tower_restoration()
+
+
+func _test_checkpoint_dynamic_tower_restoration() -> void:
+	# Provide ample resources
+	gs.gold = 1000
+	gs.wood = 1000
+
+	# Clean up any leftover dynamic slots so we start with a clean level state
+	var pre_existing: Array[TowerSlot] = []
+	for s in commands.slots:
+		if s != null and is_instance_valid(s) and s.is_dynamic:
+			pre_existing.append(s)
+	for s in pre_existing:
+		if s.tower != null:
+			s.remove_tower()
+		bm.remove_dynamic_slot(s)
+	await frames(2)
+
+	var base_slot_count: int = commands.slots.size()
+
+	# 1. Sets up a dynamic slot via bm.create_dynamic_slot(Vector3(4.0, 0.05, 4.0))
+	var target_pos := Vector3(4.0, 0.05, 4.0)
+	var dyn_slot: TowerSlot = bm.create_dynamic_slot(target_pos)
+	check(dyn_slot != null, "dynamic slot created at (4.0, 0.05, 4.0)")
+	check(dyn_slot.is_dynamic, "slot is marked is_dynamic")
+	check(is_equal_approx(dyn_slot.global_position.x, 4.0), "dynamic slot X is 4.0")
+	check(is_equal_approx(dyn_slot.global_position.z, 4.0), "dynamic slot Z is 4.0")
+
+	# 2. Builds a tower on it (e.g. cannon or archer)
+	var cannon_data: TowerData = bm.tower_types[1]
+	var build_ok: bool = bm.build_on(dyn_slot, cannon_data)
+	check(build_ok, "built cannon tower on dynamic slot")
+	check(dyn_slot.tower != null, "dynamic slot contains built tower")
+	check(dyn_slot.tower.level == 0, "tower initial level is 0")
+
+	# 3. Upgrades it to level 1
+	var upgrade_ok: bool = bm.upgrade(dyn_slot)
+	check(upgrade_ok, "upgraded cannon tower on dynamic slot")
+	check(dyn_slot.tower.level == 1, "tower level is 1 after upgrade")
+
+	# 4. Calls _save_checkpoint() (or builds the checkpoint dictionary)
+	main._save_checkpoint()
+	var saved_data: Dictionary = BattleCheckpoint.load_checkpoint()
+	check(not saved_data.is_empty(), "checkpoint dictionary saved and loaded successfully")
+
+	var dynamic_found_in_save := false
+	for t in saved_data.get("towers", []):
+		if t.get("is_dynamic", false):
+			dynamic_found_in_save = true
+			check(t.get("level", 0) == 1, "saved dynamic tower level is 1")
+			check(t.get("type", "") == "cannon", "saved dynamic tower type is cannon")
+			var p: Array = t.get("pos", [])
+			check(p.size() >= 3, "saved dynamic tower has 3D position")
+			if p.size() >= 3:
+				check(is_equal_approx(float(p[0]), 4.0), "saved pos X is approx 4.0")
+				check(is_equal_approx(float(p[2]), 4.0), "saved pos Z is approx 4.0")
+			break
+	check(dynamic_found_in_save, "saved checkpoint contains dynamic tower data")
+
+	# 5. Clears dynamic slots to simulate level reload
+	var to_clear: Array[TowerSlot] = []
+	for s in commands.slots:
+		if s != null and is_instance_valid(s) and s.is_dynamic:
+			to_clear.append(s)
+	for s in to_clear:
+		if s.tower != null:
+			s.remove_tower()
+		bm.remove_dynamic_slot(s)
+	await frames(2)
+
+	check(commands.slots.size() == base_slot_count, "all dynamic slots cleared to simulate level reload")
+
+	# 6. Calls restore_from_checkpoint(saved_data)
+	main.restore_from_checkpoint(saved_data)
+	await frames(2)
+
+	# 7. Asserts that the dynamic slot and tower exist at the restored position with level 1!
+	var restored_dyn_slot: TowerSlot = null
+	for s in commands.slots:
+		if s != null and is_instance_valid(s) and s.is_dynamic:
+			restored_dyn_slot = s
+			break
+
+	check(restored_dyn_slot != null, "restored dynamic slot exists in commands.slots")
+	if restored_dyn_slot != null:
+		check(restored_dyn_slot.is_dynamic, "restored slot is_dynamic is true")
+		check(is_equal_approx(restored_dyn_slot.global_position.x, 4.0), "restored dynamic slot X is 4.0")
+		check(is_equal_approx(restored_dyn_slot.global_position.z, 4.0), "restored dynamic slot Z is 4.0")
+		check(restored_dyn_slot.tower != null, "restored dynamic slot has tower instance")
+		if restored_dyn_slot.tower != null:
+			check(restored_dyn_slot.tower.level == 1, "restored dynamic tower level is 1")
+			check(
+				restored_dyn_slot.tower.data != null and restored_dyn_slot.tower.data.resource_path.get_file().get_basename() == "cannon",
+				"restored dynamic tower data is cannon"
+			)
+			check(restored_dyn_slot.tower.sim == sim, "restored dynamic tower is attached to sim")
+
+		# Clean up restored dynamic slot
+		if restored_dyn_slot.tower != null:
+			restored_dyn_slot.remove_tower()
+		bm.remove_dynamic_slot(restored_dyn_slot)
+
+	BattleCheckpoint.clear_checkpoint()

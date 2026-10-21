@@ -811,7 +811,9 @@ func _save_checkpoint() -> void:
 				"slot_id": slot.slot_id,
 				"type": slot.tower.data.resource_path.get_file().get_basename(),
 				"level": slot.tower.level,
-				"priority": slot.tower.priority
+				"priority": slot.tower.priority,
+				"is_dynamic": slot.is_dynamic,
+				"pos": [slot.global_position.x, slot.global_position.y, slot.global_position.z]
 			})
 	var v_data := {
 		"lots_sold": villagers.lots_sold if villagers != null else 0,
@@ -866,29 +868,46 @@ func restore_from_checkpoint(data: Dictionary) -> void:
 
 	# Restore towers
 	for t in data.get("towers", []):
-		var slot_id: int = int(t.get("slot_id", -1))
-		if slot_id < 0 or slot_id >= _commands.slots.size():
-			continue
-		var slot: TowerSlot = _commands.slots[slot_id]
-		if not slot.is_free():
-			continue
 		var type_name: String = str(t.get("type", ""))
 		var target_data: TowerData = null
-		for d in _build_manager.tower_types:
-			if d != null and d.resource_path.get_file().get_basename() == type_name:
-				target_data = d
-				break
-		if target_data != null:
-			var tower: Tower = slot.place_tower(target_data.scene)
-			if tower != null:
-				if _sim != null:
-					tower.attach(_sim)
-				var tower_level: int = int(t.get("level", 0))
-				tower.apply_level(target_data, tower_level)
+		if _build_manager != null:
+			for d in _build_manager.tower_types:
+				if d != null and d.resource_path.get_file().get_basename() == type_name:
+					target_data = d
+					break
+		if target_data == null:
+			continue
+
+		var slot: TowerSlot = null
+		var is_dyn: bool = bool(t.get("is_dynamic", false))
+		if is_dyn:
+			if _build_manager != null:
+				var pos_arr: Array = t.get("pos", [])
+				if pos_arr.size() >= 3:
+					var slot_pos := Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2]))
+					slot = _build_manager.create_dynamic_slot(slot_pos)
+		else:
+			var slot_id: int = int(t.get("slot_id", -1))
+			if slot_id >= 0 and _commands != null and slot_id < _commands.slots.size():
+				slot = _commands.slots[slot_id]
+
+		if slot == null or not slot.is_free():
+			continue
+
+		var tower: Tower = slot.place_tower(target_data.scene)
+		if tower != null:
+			if _sim != null:
+				tower.attach(_sim)
+			var tower_level: int = int(t.get("level", 0))
+			tower.apply_level(target_data, tower_level)
+			if _build_manager != null:
 				tower.damage *= _build_manager.damage_multiplier
-				if t.has("priority"):
-					tower.priority = int(t["priority"])
+			if t.has("priority"):
+				tower.priority = int(t["priority"])
+			if walk_grid != null:
 				walk_grid.block(slot.global_position, TOWER_BLOCK_RADIUS)
+		elif is_dyn and _build_manager != null:
+			_build_manager.remove_dynamic_slot(slot)
 
 	# Restore villagers
 	var v_data: Dictionary = data.get("villagers", {})

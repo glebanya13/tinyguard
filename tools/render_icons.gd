@@ -32,6 +32,7 @@ const ICONS := {
 	"lock": ["res://assets/models/icon_lock.glb", 20.0, -12.0, []],
 	"star": ["res://assets/models/icon_star.glb", 12.0, -6.0, []],
 	"cancel": ["res://assets/models/icon_cancel.glb", 15.0, -8.0, []],
+	"slime_fast": ["res://assets/models/slime_fast.glb", 25.0, -12.0, []],
 	"slime_bat": ["res://assets/models/slime_bat.glb", 25.0, -12.0, []],
 	"slime_shield": ["res://assets/models/slime_shield.glb", 25.0, -12.0, []],
 	"slime_splitter": ["res://assets/models/slime_splitter.glb", 25.0, -12.0, []],

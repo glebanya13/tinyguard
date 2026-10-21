@@ -149,6 +149,17 @@ func _run() -> void:
 	check(sim.mercenaries.has(merc), "mercenary registered with Sim")
 	check(merc.is_alive(), "hired mercenary is alive")
 	check(merc.health == merc.max_health, "mercenary starts at max health (80)")
+	check(merc.patrol_center.distance_to(builder.castle.position) >= 4.0, "mercenary patrol_center is >= 4.0m from castle (dist=%.2f)" % merc.patrol_center.distance_to(builder.castle.position))
+
+	# Test castle collision avoidance
+	merc.patrol_center = builder.castle.position
+	merc._ensure_castle_clearance()
+	check(merc.patrol_center.distance_to(builder.castle.position) >= 4.0, "patrol_center pushed out to >= 4.0m from castle if set at castle (dist=%.2f)" % merc.patrol_center.distance_to(builder.castle.position))
+	merc.patrol_center = Vector3.ZERO
+	merc._ensure_castle_clearance()
+	check(merc.patrol_center.length() >= 4.0, "patrol_center pushed out to >= 4.0m from Vector3.ZERO (dist=%.2f)" % merc.patrol_center.length())
+	merc._patrol_step(0.1)
+	check(merc._patrol_target.distance_to(builder.castle.position) >= 4.0, "patrol_step keeps patrol target >= 4.0m from castle")
 
 	# Mercenary damage and flash
 	merc.take_damage(20.0, Vector3.FORWARD)

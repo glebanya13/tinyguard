@@ -25,10 +25,11 @@ const TOWER_RESOURCES: Array[String] = [
 ]
 
 const ENEMY_RESOURCES: Array[Dictionary] = [
-	{"path": "res://resources/enemies/slime_fast.tres", "icon": "res://ui/icons/speed.png", "feat": "ENCYCLOPEDIA_FEAT_SCOUT"},
+	{"path": "res://resources/enemies/slime_fast.tres", "icon": "res://ui/icons/slime_fast.png", "feat": "ENCYCLOPEDIA_FEAT_SCOUT"},
 	{"path": "res://resources/enemies/slime.tres", "icon": "res://ui/icons/slime.png", "feat": "ENCYCLOPEDIA_FEAT_FIGHTER"},
 	{"path": "res://resources/enemies/slime_bat.tres", "icon": "res://ui/icons/slime_bat.png", "feat": "ENCYCLOPEDIA_FEAT_FLYER"},
 	{"path": "res://resources/enemies/slime_shield.tres", "icon": "res://ui/icons/slime_shield.png", "feat": "ENCYCLOPEDIA_FEAT_SHIELD"},
+	{"path": "res://resources/enemies/slime_healer.tres", "icon": "res://ui/icons/slime_healer.png", "feat": "ENCYCLOPEDIA_FEAT_HEALER"},
 	{"path": "res://resources/enemies/slime_tank.tres", "icon": "res://ui/icons/slime.png", "feat": "ENCYCLOPEDIA_FEAT_TANK"},
 	{"path": "res://resources/enemies/stone_golem.tres", "icon": "res://ui/icons/stone_golem.png", "feat": "ENCYCLOPEDIA_FEAT_GOLEM"},
 	{"path": "res://resources/enemies/slime_king.tres", "icon": "res://ui/icons/boss.png", "feat": "ENCYCLOPEDIA_FEAT_BOSS"},
@@ -192,6 +193,7 @@ func _build_bestiary() -> void:
 		var icon_res: Texture2D = load(entry["icon"]) as Texture2D
 		if icon_res:
 			var icon_rect := TextureRect.new()
+			icon_rect.name = "Icon"
 			icon_rect.texture = icon_res
 			icon_rect.custom_minimum_size = Vector2(56, 56)
 			icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -340,6 +342,44 @@ func _build_village() -> void:
 	desc3.name = "Desc"
 	desc3.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col3.add_child(desc3)
+
+	# 4. Mercenaries
+	var card_merc := _card_box("Village_Mercenaries")
+	var row4 := HBoxContainer.new()
+	row4.add_theme_constant_override("separation", 14)
+	card_merc.add_child(row4)
+
+	var icon_sword: Texture2D = load("res://ui/icons/sword.png") as Texture2D
+	if icon_sword:
+		var sword_rect := TextureRect.new()
+		sword_rect.name = "Icon"
+		sword_rect.texture = icon_sword
+		sword_rect.custom_minimum_size = Vector2(56, 56)
+		sword_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row4.add_child(sword_rect)
+
+	var col4 := VBoxContainer.new()
+	col4.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col4.add_theme_constant_override("separation", 4)
+	row4.add_child(col4)
+
+	var name4 := _label(tr("ENCYCLOPEDIA_VILLAGE_MERC_TITLE"), 22, GOLD)
+	name4.name = "Name"
+	col4.add_child(name4)
+
+	var stats4_str: String = tr("ENCYCLOPEDIA_VILLAGE_MERC_STATS") % [
+		CampStructures.MercenaryCamp.HIRE_COST,
+		80,
+		16
+	]
+	var stats4 := _label(stats4_str, 16, HIGHLIGHT_COLOR)
+	stats4.name = "Stats"
+	col4.add_child(stats4)
+
+	var desc4 := _label(tr("ENCYCLOPEDIA_VILLAGE_MERC_DESC"), 15, SOFT_COLOR)
+	desc4.name = "Desc"
+	desc4.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col4.add_child(desc4)
 
 
 func _card_box(node_name: String) -> VBoxContainer:

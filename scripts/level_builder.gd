@@ -102,8 +102,10 @@ func build(
 	var path: Array = level["paths"][0]
 	var last_dir: Vector3 = (ground(path[-1]) - ground(path[-2])).normalized()
 	castle = CASTLE_SCENE.instantiate()
+	castle.name = "Castle"
 	castle.position = ground(level["castle"])
 	castle.rotation.y = atan2(-last_dir.x, -last_dir.z)
+	castle.add_to_group(&"castle")
 	_root.add_child(castle)
 	Cosmetics.apply(castle, Cosmetics.castle_flag())  # banner skin: colours only
 
@@ -123,7 +125,7 @@ func build(
 	mercenary_camp.position = camp_positions["mercenary"]
 	mercenary_camp.sim = _sim
 	mercenary_camp.hero = hero
-	mercenary_camp.gate_position = castle.position
+	mercenary_camp.gate_position = camp_positions["mercenary"] + Vector3(0.0, 0.0, 1.5)
 	_root.add_child(mercenary_camp)
 
 	for point: Array in level["slots"]:

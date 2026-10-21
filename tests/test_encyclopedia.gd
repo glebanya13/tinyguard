@@ -107,12 +107,21 @@ func _check_encyclopedia_panel() -> void:
 
 	# Check bestiary content
 	var scout_box := panel.find_child("Enemy_slime_fast", true, false)
+	var healer_box := panel.find_child("Enemy_slime_healer", true, false)
 	var boss_box := panel.find_child("Enemy_slime_king", true, false)
 	check(scout_box != null, "scout entry exists in Bestiary")
+	check(healer_box != null, "healer entry exists in Bestiary")
 	check(boss_box != null, "boss entry exists in Bestiary")
 	if scout_box:
 		var stats: Label = scout_box.find_child("Stats", true, false) as Label
 		check(stats != null and stats.text.contains("12"), "scout stats has HP 12")
+		var icon_rect: TextureRect = scout_box.find_child("Icon", true, false) as TextureRect
+		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/slime_fast.png", "scout icon is slime_fast.png")
+	if healer_box:
+		var stats: Label = healer_box.find_child("Stats", true, false) as Label
+		check(stats != null and stats.text.contains("28"), "healer stats has HP 28")
+		var icon_rect: TextureRect = healer_box.find_child("Icon", true, false) as TextureRect
+		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/slime_healer.png", "healer icon is slime_healer.png")
 
 	panel.set_tab(2)
 	check(panel.current_tab() == 2, "switched to Village (2)")
@@ -122,12 +131,19 @@ func _check_encyclopedia_panel() -> void:
 	var lumber_box := panel.find_child("Village_Lumberjacks", true, false)
 	var sell_box := panel.find_child("Village_Selling", true, false)
 	var buy_box := panel.find_child("Village_Buying", true, false)
+	var merc_box := panel.find_child("Village_Mercenaries", true, false)
 	check(lumber_box != null, "lumberjacks entry exists in Village tab")
 	check(sell_box != null, "selling wood entry exists in Village tab")
 	check(buy_box != null, "buying wood entry exists in Village tab")
+	check(merc_box != null, "mercenaries entry exists in Village tab")
 	if lumber_box:
 		var stats: Label = lumber_box.find_child("Stats", true, false) as Label
 		check(stats != null and stats.text.contains("25"), "lumberjack cost 25 gold in stats")
+	if merc_box:
+		var stats: Label = merc_box.find_child("Stats", true, false) as Label
+		check(stats != null and stats.text.contains("40") and stats.text.contains("80") and stats.text.contains("16"), "mercenary stats contains cost 40, HP 80, DMG 16")
+		var icon_rect: TextureRect = merc_box.find_child("Icon", true, false) as TextureRect
+		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/sword.png", "mercenary icon is sword.png")
 
 	panel.set_tab(0)
 	check(panel.current_tab() == 0, "switched back to Towers (0)")

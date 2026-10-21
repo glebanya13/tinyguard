@@ -49,8 +49,32 @@ func get_base_center() -> Vector2:
 	return global_position + size * 0.5
 
 
+func _is_over_ui(pos: Vector2) -> bool:
+	var hud_root: Control = get_parent() as Control
+	if hud_root == null:
+		return false
+	while hud_root.get_parent() is Control:
+		hud_root = hud_root.get_parent() as Control
+	return _control_hits_ui(hud_root, pos)
+
+
+func _control_hits_ui(c: Control, pos: Vector2) -> bool:
+	if c == self or not c.visible:
+		return false
+	if c.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		if c is BaseButton or c is PanelContainer or c is Panel or c is LineEdit or c is Tree or c is ItemList or c is Slider:
+			if c.get_global_rect().has_point(pos):
+				return true
+	for child in c.get_children():
+		if child is Control and _control_hits_ui(child, pos):
+			return true
+	return false
+
+
 func is_in_zone(pos: Vector2) -> bool:
-	if not is_inside_tree():
+	if not is_inside_tree() or (OS.has_feature("mobile") and not visible):
+		return false
+	if _is_over_ui(pos):
 		return false
 	if Rect2(global_position, size).has_point(pos):
 		return true
@@ -65,6 +89,8 @@ func is_in_zone(pos: Vector2) -> bool:
 
 func _input(event: InputEvent) -> void:
 	if not is_inside_tree():
+		return
+	if OS.has_feature("mobile") and not visible:
 		return
 	var touch := event as InputEventScreenTouch
 	if touch:
@@ -81,8 +107,6 @@ func _input(event: InputEvent) -> void:
 	if drag and drag.index == _touch_index:
 		_move_knob(drag.position - global_position)
 		get_viewport().set_input_as_handled()
-		return
-	if not visible:
 		return
 	var mb := event as InputEventMouseButton
 	if mb and mb.button_index == MOUSE_BUTTON_LEFT:

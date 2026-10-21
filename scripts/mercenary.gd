@@ -57,6 +57,7 @@ func _ready() -> void:
 	health = max_health
 	if patrol_center == Vector3.ZERO:
 		patrol_center = global_position
+	_ensure_castle_clearance()
 	_patrol_target = patrol_center
 
 	_flash_material = StandardMaterial3D.new()
@@ -259,7 +260,48 @@ func _set_flash_overlay(on: bool) -> void:
 			mesh.material_overlay = _flash_material if on else null
 
 
+func _get_castle_position() -> Vector3:
+	if not is_inside_tree():
+		return Vector3.ZERO
+	var c := get_node_or_null("../Castle") as Node3D
+	if c != null and is_instance_valid(c):
+		return c.global_position
+	if get_tree().current_scene != null:
+		var c_scene := get_tree().current_scene.find_child("Castle", true, false) as Node3D
+		if c_scene != null and is_instance_valid(c_scene):
+			return c_scene.global_position
+	var group_nodes := get_tree().get_nodes_in_group(&"castle")
+	if not group_nodes.is_empty():
+		var node := group_nodes[0] as Node3D
+		if node != null and is_instance_valid(node):
+			return node.global_position
+	return Vector3.ZERO
+
+
+func _push_away_from(point: Vector3, center: Vector3, min_dist: float = 3.5, safe_dist: float = 4.0) -> Vector3:
+	var offset: Vector3 = point - center
+	offset.y = 0.0
+	var dist: float = offset.length()
+	if dist < min_dist:
+		var dir := offset.normalized() if dist >= 0.01 else Vector3(0.0, 0.0, 1.0)
+		return center + dir * safe_dist
+	return point
+
+
+func _ensure_castle_clearance() -> void:
+	var castle_pos: Vector3 = _get_castle_position()
+	patrol_center = _push_away_from(patrol_center, castle_pos)
+	if castle_pos != Vector3.ZERO:
+		patrol_center = _push_away_from(patrol_center, Vector3.ZERO)
+
+
 func _patrol_step(delta: float) -> Vector3:
+	_ensure_castle_clearance()
+	var castle_pos: Vector3 = _get_castle_position()
+	_patrol_target = _push_away_from(_patrol_target, castle_pos)
+	if castle_pos != Vector3.ZERO:
+		_patrol_target = _push_away_from(_patrol_target, Vector3.ZERO)
+
 	_patrol_wait = maxf(_patrol_wait - delta, 0.0)
 	var to_target: Vector3 = _patrol_target - global_position
 	to_target.y = 0.0
@@ -267,7 +309,11 @@ func _patrol_step(delta: float) -> Vector3:
 		if _patrol_wait <= 0.0:
 			_patrol_angle += randf_range(1.2, 2.8)
 			var r: float = randf_range(0.6, patrol_radius)
-			_patrol_target = patrol_center + Vector3(cos(_patrol_angle) * r, 0.0, sin(_patrol_angle) * r)
+			var candidate: Vector3 = patrol_center + Vector3(cos(_patrol_angle) * r, 0.0, sin(_patrol_angle) * r)
+			candidate = _push_away_from(candidate, castle_pos)
+			if castle_pos != Vector3.ZERO:
+				candidate = _push_away_from(candidate, Vector3.ZERO)
+			_patrol_target = candidate
 			_patrol_wait = randf_range(1.0, 2.5)
 		return Vector3.ZERO
 	return to_target.normalized()
