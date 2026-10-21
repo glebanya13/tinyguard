@@ -28,6 +28,7 @@ const CLOUD_OK_ICON: Texture2D = preload("res://ui/icons/cloud_ok.png")
 const CLOUD_OFF_ICON: Texture2D = preload("res://ui/icons/cloud_off.png")
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
 const CALENDAR_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
+const ModesPanel := preload("res://scripts/modes_panel.gd")
 const GOLD := Color(1.0, 0.88, 0.45)
 ## Tint of the difficulty crown: Hard, Nightmare.
 const CROWN_COLORS: Array[Color] = [Color.WHITE, Color(1.0, 0.62, 0.25), Color(0.8, 0.45, 1.0)]
@@ -66,11 +67,13 @@ var _camp_dot: Control = null
 var _calendar_button: Button = null
 var _calendar_dot: Control = null
 var _gems: GemsHud = null
+var _modes_panel: ModesPanel = null
 var _tab_bar: PanelContainer = null
 var _tab_row: HBoxContainer = null
 var _treasury_button: Button = null
 var _treasury_dot: Control = null
 var _daily_dot: Control = null
+var _rewards_dot: Control = null
 ## Campaign difficulty picked for the next battle (0 Normal, 1 Hard, 2 Nightmare).
 var _difficulty: int = 0
 var _diff_buttons: Array[Button] = []
@@ -105,6 +108,8 @@ func _ready() -> void:
 	LevelCatalog.daily_key = ""
 	SafeArea.attach(_ui_root)
 	_frame_treasury()
+	_achievements = AchievementsPanel.new()
+	_ui_root.add_child(_achievements)
 	_build_sites()
 	_build_account_ui()
 	_build_card()
@@ -281,8 +286,6 @@ func _build_tabs() -> void:
 	_daily.online = Online
 	_ui_root.add_child(_daily)
 	_daily.start_requested.connect(_start_daily)
-	_achievements = AchievementsPanel.new()
-	_ui_root.add_child(_achievements)
 	_camp_panel = CampPanel.new()
 	_ui_root.add_child(_camp_panel)
 	_calendar_panel = CalendarPanel.new()
@@ -299,34 +302,46 @@ func _build_tabs() -> void:
 		_gems.refresh()
 		_update_retention_dots()
 	)
-	var shop_tab := _make_tab("ShopButton", tr("SHOP_BUTTON"), SHOP_ICON)
-	_camp_button = _make_tab("CampButton", tr("MAP_CAMP"), COIN_ICON)
-	_camp_button.pressed.connect(_camp_panel.open)
-	_camp_dot = _dot(_camp_button)
-	_calendar_button = _make_tab("CalendarButton", tr("CALENDAR_BUTTON"), CALENDAR_ICON)
-	_calendar_button.pressed.connect(_calendar_panel.open)
-	_calendar_dot = _dot(_calendar_button)
+	_modes_panel = ModesPanel.new()
+	_ui_root.add_child(_modes_panel)
+	_modes_panel.daily_selected.connect(func() -> void: _daily.open())
+	_modes_panel.coop_selected.connect(_open_coop)
+	_modes_panel.records_selected.connect(_open_records)
+
+	# 1. Rewards Tab (Streak, Quests, Camp, Calendar)
+	var streak_tab := _make_tab("StreakButton", "", FLAME_ICON)
+	_rewards_dot = _dot(streak_tab)
+
+	# 2. Talents / Treasury Tab
 	_treasury_button = _make_tab("TreasuryButton", tr("MAP_TREASURY"), CHEST_ICON)
 	_treasury_button.pressed.connect(_open_treasury)
 	_treasury_dot = _dot(_treasury_button)
-	var daily_tab := _make_tab("DailyButton", tr("DAILY_BUTTON"), DAILY_ICON)
-	daily_tab.pressed.connect(_daily.open)
-	_daily_dot = _dot(daily_tab)
+
+	# 3. Game Modes Tab (Daily Trial, Co-op, Leaderboards)
+	var modes_tab := _make_tab("DailyButton", tr("MODES_BUTTON"), DAILY_ICON)
+	modes_tab.pressed.connect(_modes_panel.open)
+	_daily_dot = _dot(modes_tab)
 	_daily_dot.visible = Daily.best_wave(Daily.today_key()) <= 0
-	var streak_tab := _make_tab("StreakButton", "", FLAME_ICON)
-	var ach_tab := _make_tab("AchievementsButton", tr("ACH_BUTTON"), ACHIEVEMENTS_ICON)
-	ach_tab.pressed.connect(_achievements.open)
-	if CoopRun.transport() != null:
-		_coop_button = _make_tab("CoopButton", tr("COOP_BUTTON"), FRIENDS_ICON)
-		_coop_button.pressed.connect(_open_coop)
-	if Online.is_configured():
-		var records_tab := _make_tab("RecordsButton", tr("MAP_RECORDS"), TROPHY_ICON)
-		records_tab.pressed.connect(_open_records)
+
+	# 4. Shop Tab
+	var shop_tab := _make_tab("ShopButton", tr("SHOP_BUTTON"), SHOP_ICON)
+
 	_gems = GemsHud.new()
 	_gems.name = "GemsHud"
 	add_child(_gems)
 	_gems.mount(_ui_root, $UI/Root/TopRight, shop_tab, streak_tab)
 	_gems.shop_requested.connect(func() -> void: get_tree().change_scene_to_file(SHOP_SCENE))
+
+	var streak_panel: StreakPanel = _ui_root.get_node_or_null("StreakPanel") as StreakPanel
+	if streak_panel != null:
+		streak_panel.camp_requested.connect(_camp_panel.open)
+		streak_panel.calendar_requested.connect(_calendar_panel.open)
+		_camp_button = streak_panel.find_child("CampButton", true, false) as Button
+		_calendar_button = streak_panel.find_child("CalendarButton", true, false) as Button
+		if _camp_button != null:
+			_camp_dot = _dot(_camp_button)
+		if _calendar_button != null:
+			_calendar_dot = _dot(_calendar_button)
 
 
 func _make_tab(node_name: String, text: String, icon: Texture2D) -> Button:
@@ -448,20 +463,26 @@ func _refresh_stars() -> void:
 
 
 func _update_retention_dots() -> void:
+	var p: Dictionary = PlayerProfile.local()
+	var now: int = int(Time.get_unix_time_from_system())
+	var pending: int = Camp.pending_coins(p.get("camp", {}), now)
+	var can_cal: bool = Calendar28.can_claim(
+		p.get("calendar", {}), Daily.today_key(), p.get("wallet", {})
+	)
+
+	if _rewards_dot != null:
+		_rewards_dot.visible = pending > 0 or can_cal
 	if _camp_dot != null:
-		var p: Dictionary = PlayerProfile.local()
-		var now: int = int(Time.get_unix_time_from_system())
-		var pending: int = Camp.pending_coins(p["camp"], now)
 		_camp_dot.visible = pending > 0
-		if pending > 0:
-			_camp_button.text = tr("MAP_CAMP") + "\n(+%d)" % pending
-		else:
-			_camp_button.text = tr("MAP_CAMP")
+		if _camp_button != null:
+			if pending > 0:
+				_camp_button.text = tr("MAP_CAMP") + " (+%d)" % pending
+			else:
+				_camp_button.text = tr("MAP_CAMP")
 	if _calendar_dot != null:
-		var p: Dictionary = PlayerProfile.local()
-		_calendar_dot.visible = Calendar28.can_claim(
-			p["calendar"], Daily.today_key(), p["wallet"]
-		)
+		_calendar_dot.visible = can_cal
+	if _treasury_dot != null:
+		_treasury_dot.visible = Perks.any_affordable()
 
 
 func _open_treasury() -> void:
@@ -658,6 +679,11 @@ func _icon_button(icon: Texture2D, tip: String) -> Button:
 
 ## Gear button next to the sound button and the settings dialog.
 func _build_settings_ui() -> void:
+	var ach_btn := _icon_button(ACHIEVEMENTS_ICON, tr("ACH_BUTTON"))
+	ach_btn.name = "AchievementsButton"
+	_sound_button.add_sibling(ach_btn)
+	ach_btn.pressed.connect(_achievements.open)
+
 	var book := _icon_button(preload("res://ui/icons/map.png"), tr("ENCYCLOPEDIA_TOOLTIP"))
 	book.name = "EncyclopediaButton"
 	_sound_button.add_sibling(book)

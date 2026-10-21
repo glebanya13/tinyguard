@@ -241,6 +241,7 @@ func _map_dialogs(tag: String, notch: Vector4) -> void:
 		{"name": "daily", "open": map._daily.open, "close": map._daily.close},
 		{"name": "achievements", "open": map._achievements.open, "close": map._achievements.close},
 		{"name": "streak", "open": map._gems.panel().open, "close": map._gems.panel().close},
+		{"name": "modes", "open": map._modes_panel.open, "close": map._modes_panel.close},
 		{"name": "settings", "open": map._settings.open, "close": map._settings.close},
 		{"name": "profile", "open": map._account.open, "close": map._account.close},
 	]

@@ -174,15 +174,17 @@ func _run() -> void:
 	)
 	await frames(30)
 	bm.select_slot(slot)
-	await tap_key(KEY_U)
 	await frames(5)
-	check(slot.tower.level == 1, "upgraded")
+	await tap_key(KEY_U)
+	await wait_until(func() -> bool: return slot.tower != null and slot.tower.level == 1, 120)
+	check(slot.tower != null and slot.tower.level == 1, "upgraded")
 
 	# Sell: 70% of 40+60 gold and 30+40 wood back.
 	var gold_before: int = gs.gold
 	bm.select_slot(slot)
+	await frames(5)
 	await tap_key(KEY_X)
-	await frames(3)
+	await wait_until(func() -> bool: return slot.is_free(), 120)
 	check(
 		slot.is_free() and gs.gold == gold_before + 70,
 		"sold for 70%% (+%d gold)" % (gs.gold - gold_before)

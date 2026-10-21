@@ -68,6 +68,8 @@ func _goto(path: String) -> void:
 
 
 func _button(scene: Node, text: String) -> Button:
+	if text == "Co-op" and scene.get("_modes_panel") != null and not scene._modes_panel.visible:
+		scene._modes_panel.open()
 	for node in scene.find_children("*", "Button", true, false):
 		if (node as Button).text == text and (node as Button).is_visible_in_tree():
 			return node as Button

@@ -5,6 +5,8 @@ extends Control
 ## progress and rewards. Built in code like DailyPanel; works offline.
 
 signal closed
+signal camp_requested
+signal calendar_requested
 
 const GEM_ICON: Texture2D = preload("res://ui/icons/gem.png")
 const GOLD := Color(0.98, 0.8, 0.4)
@@ -14,6 +16,7 @@ const BUTTON_HEIGHT := 84.0
 
 ## Overridable in tests.
 var day: String = ""
+var _frame: DialogFrame = null
 
 
 func _ready() -> void:
@@ -39,11 +42,49 @@ func _build() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	var frame := DialogFrame.attach(self, 900.0, 0.7)
-	var box := frame.body
+	_frame = DialogFrame.attach(self, 900.0, 0.7)
+	var box := _frame.body
 	box.add_theme_constant_override("separation", 10)
 
 	box.add_child(_label(tr("STREAK_TITLE"), 34, GOLD, true))
+	var hub_row := HBoxContainer.new()
+	hub_row.name = "RewardsHubRow"
+	hub_row.add_theme_constant_override("separation", 12)
+	hub_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var camp_btn := Button.new()
+	camp_btn.name = "CampButton"
+	camp_btn.custom_minimum_size = Vector2(0, 64)
+	camp_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	camp_btn.theme_type_variation = &"SecondaryButton"
+	camp_btn.focus_mode = Control.FOCUS_NONE
+	var p: Dictionary = PlayerProfile.local()
+	var now: int = int(Time.get_unix_time_from_system())
+	var pending: int = Camp.pending_coins(p.get("camp", {}), now)
+	camp_btn.text = tr("MAP_CAMP") + (" (+%d)" % pending if pending > 0 else "")
+	camp_btn.icon = preload("res://ui/icons/coin.png")
+	camp_btn.pressed.connect(func() -> void:
+		close()
+		camp_requested.emit()
+	)
+	hub_row.add_child(camp_btn)
+
+	var cal_btn := Button.new()
+	cal_btn.name = "CalendarButton"
+	cal_btn.custom_minimum_size = Vector2(0, 64)
+	cal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cal_btn.theme_type_variation = &"SecondaryButton"
+	cal_btn.focus_mode = Control.FOCUS_NONE
+	var can_cal: bool = Calendar28.can_claim(p.get("calendar", {}), day, p.get("wallet", {}))
+	cal_btn.text = tr("CALENDAR_BUTTON") + (" (!)" if can_cal else "")
+	cal_btn.icon = preload("res://ui/icons/hourglass.png")
+	cal_btn.pressed.connect(func() -> void:
+		close()
+		calendar_requested.emit()
+	)
+	hub_row.add_child(cal_btn)
+	box.add_child(hub_row)
+
 	var state: Dictionary = Streak.local()
 	var live: int = Streak.live_length(state, day)
 	var line := _label(tr("STREAK_LINE") % [live, int(state["best"])], 22, Color.WHITE, true)

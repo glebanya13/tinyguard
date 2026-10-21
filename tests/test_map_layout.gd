@@ -218,6 +218,7 @@ func _run() -> void:
 			LevelCatalog.erase_all()
 			for id in [1, 2, 3, 4, 5]:
 				LevelCatalog.complete(id, [3, 2, 3, 1, 2][id - 1])
+			Onboarding.dismiss_reminder()
 			for selected in [1, 5, 6]:
 				LevelCatalog.selected_id = selected
 				await _check_map("%s %dx%d level %d" % [lang, size.x, size.y, selected])
