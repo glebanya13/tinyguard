@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/mercenary.gd" id="1_merc"]
 [ext_resource type="PackedScene" path="res://assets/models/hero_knight.glb" id="2_model"]
