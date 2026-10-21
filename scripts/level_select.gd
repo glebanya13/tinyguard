@@ -495,6 +495,9 @@ func _fill_cards() -> void:
 		_cards.remove_child(child)
 		child.queue_free()
 	_free_label.text = tr("MAP_FREE_STARS") % Perks.free_stars()
+	var hint: Label = _treasury.find_child("Hint", true, false) as Label
+	if hint != null:
+		hint.text = tr("MAP_TREASURY_HINT") + "\n" + tr("PERKS_STARS_SOURCE_HINT")
 	for perk: PerkData in Perks.all():
 		_cards.add_child(_perk_card(perk))
 	# Four columns (two rows) when the screen is wide enough for them, else three.

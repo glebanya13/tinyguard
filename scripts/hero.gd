@@ -36,7 +36,7 @@ const HURT_SOUND: AudioStream = preload("res://assets/audio/hero_hurt.wav")
 @export_group("Attack")
 @export var attack_damage: float = 14.0
 ## Sword damage per forge level (index 0 = starting sword).
-@export var sword_damage_levels: Array[float] = [14.0, 22.0, 32.0, 45.0]
+@export var sword_damage_levels: Array[float] = [14.0, 20.0, 28.0, 38.0]
 ## Forge prices: [level 1 -> 2, 2 -> 3, 3 -> 4].
 @export var sword_upgrade_gold: Array[int] = [40, 90, 160]
 @export var sword_upgrade_wood: Array[int] = [30, 60, 100]
@@ -60,7 +60,7 @@ const HURT_SOUND: AudioStream = preload("res://assets/audio/hero_hurt.wav")
 @export_group("Whirlwind")
 ## Spin attack: hits every enemy around for attack damage x spin_damage_mult.
 @export var spin_radius: float = 2.2
-@export var spin_damage_mult: float = 1.6
+@export var spin_damage_mult: float = 1.8
 @export var spin_cooldown: float = 12.0
 ## Seconds one whirlwind turn takes.
 @export var spin_duration: float = 0.45

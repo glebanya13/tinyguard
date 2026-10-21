@@ -586,13 +586,17 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 	caption.text = spec.get("caption", "")
 	caption.visible = caption.text != ""
 	button.custom_minimum_size = CARD_CAPTION_SIZE if caption.visible else CARD_BUTTON_SIZE
+	var gold: int = int(spec.get("gold", 0))
+	var wood: int = int(spec.get("wood", 0))
+	if gold > 0 and wood > 0:
+		button.custom_minimum_size.x = 126.0
 	var icon_height: float = CARD_CAPTION_ICON_HEIGHT if caption.visible else CARD_ICON_HEIGHT
 	(button.find_child("Icon", true, false) as TextureRect).custom_minimum_size.y = icon_height
 	var cost: HBoxContainer = button.find_child("Cost", true, false)
 	for child in cost.get_children():
 		child.free()
 	var pill: Control = cost.get_parent()
-	pill.visible = spec.has("label") or spec.get("gold", 0) > 0 or spec.get("wood", 0) > 0
+	pill.visible = spec.has("label") or gold > 0 or wood > 0
 	if spec.has("label"):
 		pill.add_theme_stylebox_override("panel", PLAIN)
 	else:
@@ -605,12 +609,12 @@ func _fill_button(button: Button, spec: Dictionary) -> void:
 		return
 	# Income (selling) in green instead of a "+" sign: both numbers fit the button.
 	var color: Color = GAIN_COLOR if spec.get("gain", false) else COST_COLOR
-	if spec.get("gold", 0) > 0:
+	if gold > 0:
 		cost.add_child(_mini_icon(COIN_ICON))
-		cost.add_child(_cost_label(str(spec["gold"]), color))
-	if spec.get("wood", 0) > 0:
+		cost.add_child(_cost_label(str(gold), color))
+	if wood > 0:
 		cost.add_child(_mini_icon(WOOD_ICON))
-		cost.add_child(_cost_label(str(spec["wood"]), color))
+		cost.add_child(_cost_label(str(wood), color))
 
 
 func _mini_icon(texture: Texture2D, side: float = 18.0) -> TextureRect:

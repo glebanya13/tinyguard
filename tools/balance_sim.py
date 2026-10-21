@@ -42,12 +42,12 @@ DT = 0.1
 TOWER_BONUS = 1.0
 WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
 # Sword per forge level (scripts/hero.gd: sword_damage_levels, sword_upgrade_*); only the "skilled" player forges.
-SWORD_DAMAGE = [14.0, 22.0, 32.0, 45.0]
+SWORD_DAMAGE = [14.0, 20.0, 28.0, 38.0]
 SWORD_GOLD = [40, 90, 160]
 SWORD_WOOD = [30, 60, 100]
 HERO = {"damage_levels": SWORD_DAMAGE, "range_levels": [1.4] * 4, "interval_levels": [0.5] * 4,
         "splash_levels": [0.0] * 4, "slow_levels": [1.0] * 4}
-WHIRL_RADIUS, WHIRL_MULT, WHIRL_COOLDOWN = 2.2, 1.6, 12.0  # scripts/hero.gd
+WHIRL_RADIUS, WHIRL_MULT, WHIRL_COOLDOWN = 2.2, 1.8, 12.0  # scripts/hero.gd
 REPAIR_LIVES, REPAIR_WOOD = 2, 25  # scripts/game_state.gd
 # The villagers' wood economy (resources/villager_trade.tres, docs/ECONOMY_V2.md stage 1): on in
 # the campaign only, off in the Record Run and the daily challenge. `--no-wood-economy` plays
