@@ -609,7 +609,7 @@ func show_pause_menu() -> void:
 	_stars.hide()
 	_stats.hide()
 	_continue_button.show()
-	_forge_button.show()
+	_forge_button.hide()
 	_sound_button.hide()  # the sound switch lives in the settings dialog: keeps the menu short
 	_settings_button.show()
 	if _encyclopedia_button:
@@ -631,6 +631,8 @@ func hide_pause_menu() -> void:
 	if _workbench_button:
 		_workbench_button.show()
 	_joystick.visible = _joystick_visible
+	$Root/TopBar.show()
+	$Root/TopRight.show()
 
 
 func _show_menu(text: String, ribbon: StringName) -> void:
@@ -653,6 +655,8 @@ func _show_menu(text: String, ribbon: StringName) -> void:
 	if _start_battle_button:
 		_start_battle_button.hide()
 	_joystick.hide()
+	$Root/TopBar.hide()
+	$Root/TopRight.hide()
 	_end_screen.show()
 
 
@@ -838,10 +842,13 @@ func _build_settings() -> void:
 	_root.add_child(_settings_panel)
 	_settings_button.pressed.connect(func() -> void:
 		$Root/TopBar.hide()
+		$Root/TopRight.hide()
 		_settings_panel.open()
 	)
 	_settings_panel.closed.connect(func() -> void:
-		$Root/TopBar.show()
+		if not _end_screen.visible:
+			$Root/TopBar.show()
+			$Root/TopRight.show()
 		_update_sound_label()
 	)
 	_settings_panel.language_changed.connect(_on_language_changed)
@@ -864,10 +871,13 @@ func _build_encyclopedia() -> void:
 	_root.add_child(_encyclopedia_panel)
 	_encyclopedia_button.pressed.connect(func() -> void:
 		$Root/TopBar.hide()
+		$Root/TopRight.hide()
 		_encyclopedia_panel.open()
 	)
 	_encyclopedia_panel.closed.connect(func() -> void:
-		$Root/TopBar.show()
+		if not _end_screen.visible:
+			$Root/TopBar.show()
+			$Root/TopRight.show()
 	)
 
 

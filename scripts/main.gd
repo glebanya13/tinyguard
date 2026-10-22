@@ -391,6 +391,8 @@ func _on_pause_changed(on: bool) -> void:
 		_save_checkpoint()
 	else:
 		_hud.hide_pause_menu()
+		if _ready_phase and _hud != null:
+			_hud.show_start_battle_button()
 
 
 func _toggle_speed() -> void:

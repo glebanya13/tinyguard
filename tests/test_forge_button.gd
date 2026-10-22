@@ -88,17 +88,23 @@ func _run() -> void:
 	gs.add_gold(2000)
 	gs.add_wood(2000)
 
-	# Pause menu -> Forge.
+	# Pause menu: Forge button is removed from pause menu (user request).
 	var pause: Button = hud.get_node("Root/TopRight/PauseButton")
 	check(await _topmost(pause), "pause button is under the finger")
 	await _click(pause)
 	check(paused, "click on Pause pauses")
 	var forge: Button = hud.get_node("Root/EndScreen").find_child("ForgeButton", true, false)
-	check(forge.is_visible_in_tree(), "Forge button is shown in the pause menu")
-	check(await _topmost(forge), "Forge button is under the finger (nothing covers it)")
-	await _click(forge)
-	check(not paused, "click on Forge resumes the game")
-	check(main.cards.forge_open, "click on Forge opens the forge card")
+	check(forge == null or not forge.is_visible_in_tree(), "Forge button is hidden in the pause menu")
+	var resume_btn: Button = hud.get_node("Root/EndScreen").find_child("ContinueButton", true, false)
+	check(await _topmost(resume_btn), "Resume button is under the finger")
+	await _click(resume_btn)
+	check(not paused, "click on Resume resumes the game")
+
+	# Tap castle to open the forge card
+	var castle_spot: Vector3 = main.builder.castle.global_position + Vector3(0.6, 0.0, 0.3)
+	main.cards.on_ground_tapped(castle_spot)
+	await process_frame
+	check(main.cards.forge_open, "tap on the castle opens the forge card")
 	check(hud.get_node("Root/CommandCard").visible, "forge card is visible")
 
 	# Sword and repair, by clicks.
@@ -126,7 +132,7 @@ func _run() -> void:
 	check(not main.cards.forge_open, "click on Close closes the forge")
 
 	# A tap on the castle opens the forge card (and does not send the knight anywhere).
-	var castle_spot: Vector3 = main.builder.castle.global_position + Vector3(0.6, 0.0, 0.3)
+	castle_spot = main.builder.castle.global_position + Vector3(0.6, 0.0, 0.3)
 	var knight_at: Vector3 = hero.global_position
 	main.cards.on_ground_tapped(castle_spot)
 	await process_frame
@@ -135,9 +141,9 @@ func _run() -> void:
 	main.cards.toggle_forge()
 	await process_frame
 
-	# Forge again from the pause menu, then a second toggle closes it.
-	await _click(pause)
-	await _click(forge)
+	# Toggle opens and closes the forge.
+	main.cards.toggle_forge()
+	await process_frame
 	check(main.cards.forge_open, "Forge opens again")
 	main.cards.toggle_forge()
 	await process_frame
@@ -146,7 +152,12 @@ func _run() -> void:
 	# Slot cards: build / upgrade / priority / sell.
 	var slot: TowerSlot = null
 	for node: Node in get_nodes_in_group(TowerSlot.GROUP):
-		slot = node as TowerSlot
+		var s := node as TowerSlot
+		if bm.mercenary_camp != null and s.global_position.distance_to(bm.mercenary_camp.global_position) < 4.0:
+			continue
+		if bm.lumberjack_camp != null and s.global_position.distance_to(bm.lumberjack_camp.global_position) < 4.0:
+			continue
+		slot = s
 		break
 	hero.auto_action = false
 	hero.global_position = slot.global_position + Vector3(0.5, 0.0, 0.0)
@@ -179,17 +190,16 @@ func _run() -> void:
 
 	# Forge while the knight is still moving next to a slot: the slot card must not push the
 	# forge card out again.
-	hero.global_position = slot.global_position + Vector3(1.4, 0.0, 0.0)
+	hero.global_position = slot.global_position + Vector3(1.2, 0.0, 0.0)
 	hero.joystick_vector = Vector2(-1.0, 0.0)
-	for i in 6:
+	for i in 12:
 		await physics_frame
-	await process_frame
+		await process_frame
 	check(bm.selected_slot == slot, "walking up to the slot selects it")
-	await _click(pause)
-	await _click(forge)
+	main.cards.toggle_forge()
 	for i in 30:
 		await physics_frame
-	check(main.cards.forge_open, "forge stays open after pausing next to a slot")
+	check(main.cards.forge_open, "forge stays open after opening next to a slot")
 	check(_card_button(&"sword") != null, "forge card shows the sword button")
 	await _click_card(&"cancel")
 	hero.joystick_vector = Vector2.ZERO

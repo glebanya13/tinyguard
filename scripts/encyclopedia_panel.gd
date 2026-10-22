@@ -134,6 +134,7 @@ func _build_towers() -> void:
 			var icon_rect := TextureRect.new()
 			icon_rect.texture = data.icon
 			icon_rect.custom_minimum_size = Vector2(56, 56)
+			icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			row.add_child(icon_rect)
 
@@ -196,6 +197,7 @@ func _build_bestiary() -> void:
 			icon_rect.name = "Icon"
 			icon_rect.texture = icon_res
 			icon_rect.custom_minimum_size = Vector2(56, 56)
+			icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			row.add_child(icon_rect)
 
@@ -238,6 +240,7 @@ func _build_village() -> void:
 		var axe_rect := TextureRect.new()
 		axe_rect.texture = icon_axe
 		axe_rect.custom_minimum_size = Vector2(56, 56)
+		axe_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		axe_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		row1.add_child(axe_rect)
 
@@ -276,6 +279,7 @@ func _build_village() -> void:
 		var coin_rect := TextureRect.new()
 		coin_rect.texture = icon_coin
 		coin_rect.custom_minimum_size = Vector2(56, 56)
+		coin_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		coin_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		row2.add_child(coin_rect)
 
@@ -315,6 +319,7 @@ func _build_village() -> void:
 		var wood_rect := TextureRect.new()
 		wood_rect.texture = icon_wood
 		wood_rect.custom_minimum_size = Vector2(56, 56)
+		wood_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		wood_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		row3.add_child(wood_rect)
 
@@ -355,6 +360,7 @@ func _build_village() -> void:
 		sword_rect.name = "Icon"
 		sword_rect.texture = icon_sword
 		sword_rect.custom_minimum_size = Vector2(56, 56)
+		sword_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		sword_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		row4.add_child(sword_rect)
 

@@ -117,6 +117,8 @@ func _check_encyclopedia_panel() -> void:
 		check(stats != null and stats.text.contains("12"), "scout stats has HP 12")
 		var icon_rect: TextureRect = scout_box.find_child("Icon", true, false) as TextureRect
 		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/slime_fast.png", "scout icon is slime_fast.png")
+		check(icon_rect != null and icon_rect.expand_mode == TextureRect.EXPAND_IGNORE_SIZE, "scout icon has EXPAND_IGNORE_SIZE")
+		check(icon_rect != null and icon_rect.custom_minimum_size.x <= 64.0, "scout icon size is compact (<= 64px)")
 	if healer_box:
 		var stats: Label = healer_box.find_child("Stats", true, false) as Label
 		check(stats != null and stats.text.contains("28"), "healer stats has HP 28")
