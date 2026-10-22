@@ -36,8 +36,11 @@ func _ready() -> void:
 	_edit.text_changed.connect(_on_text_changed)
 	_edit.text_submitted.connect(_on_submitted)
 	_go.pressed.connect(_on_go_pressed)
+	_build_dice_button()
 	var profile: Dictionary = PlayerProfile.local()
 	_edit.text = str(profile["nickname"])
+	if _edit.text.strip_edges() == "":
+		_edit.text = NicknameRules.generate_random_name()
 	_on_text_changed(_edit.text)
 	if bool(profile["nicknameConflict"]):
 		_show(tr("NICK_TAKEN_NAMED") % profile["nickname"], ERROR_COLOR)
@@ -45,6 +48,32 @@ func _ready() -> void:
 	_build_account_entry()
 	if not OS.has_feature("mobile"):
 		_edit.grab_focus.call_deferred()
+
+
+func _build_dice_button() -> void:
+	var edit_row := HBoxContainer.new()
+	edit_row.name = "EditRow"
+	edit_row.add_theme_constant_override("separation", 8)
+	var parent: Node = _edit.get_parent()
+	var idx: int = _edit.get_index()
+	parent.remove_child(_edit)
+	parent.add_child(edit_row)
+	parent.move_child(edit_row, idx)
+	_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edit_row.add_child(_edit)
+	var dice := Button.new()
+	dice.name = "DiceButton"
+	dice.text = "🎲"
+	dice.custom_minimum_size = Vector2(80, 80)
+	dice.add_theme_font_size_override("font_size", 34)
+	dice.focus_mode = Control.FOCUS_NONE
+	dice.pressed.connect(_on_dice_pressed)
+	edit_row.add_child(dice)
+
+
+func _on_dice_pressed() -> void:
+	_edit.text = NicknameRules.generate_random_name()
+	_on_text_changed(_edit.text)
 
 
 func _process(_delta: float) -> void:

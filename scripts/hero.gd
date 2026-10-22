@@ -106,6 +106,7 @@ var wood_bonus: int = 0
 var speed_bonus: float = 0.0
 
 var _target_enemy: Enemy = null
+var _knockout_label: Label3D = null
 
 ## Enemy the hero is pursuing and attacking.
 var target_enemy: Enemy:
@@ -168,11 +169,23 @@ func _ready() -> void:
 	# Cosmetic skin (the partner's for the ghost): colours only, outside the simulation.
 	Cosmetics.apply(_model, skin_id if is_ghost else Cosmetics.equipped(Cosmetics.HERO))
 	add_to_group(GROUP)
+	_knockout_label = Label3D.new()
+	_knockout_label.name = "KnockoutLabel"
+	_knockout_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_knockout_label.font_size = 46
+	_knockout_label.outline_size = 8
+	_knockout_label.modulate = Color(1.0, 0.85, 0.3)
+	_knockout_label.outline_modulate = Color(0.1, 0.05, 0.0)
+	_knockout_label.position = Vector3(0.0, 2.1, 0.0)
+	_knockout_label.visible = false
+	add_child(_knockout_label)
 
 
 func _physics_process(delta: float) -> void:
 	if is_knocked_out:
 		knockout_timer = maxf(knockout_timer - delta, 0.0)
+		if _knockout_label != null:
+			_knockout_label.text = "💫 %d" % ceili(knockout_timer)
 		velocity = Vector3.ZERO
 		move_and_slide()
 		if knockout_timer <= 0.0:
@@ -257,6 +270,9 @@ func _knockout() -> void:
 	_recoil_velocity = Vector3.ZERO
 	if respawn_position != Vector3.ZERO:
 		global_position = respawn_position
+	if _knockout_label != null:
+		_knockout_label.text = "💫 %d" % ceili(knockout_timer)
+		_knockout_label.visible = true
 	if _hurt_sound_player != null:
 		_hurt_sound_player.pitch_scale = 0.65
 		_hurt_sound_player.play()
@@ -269,6 +285,8 @@ func _revive() -> void:
 	is_knocked_out = false
 	knockout_timer = 0.0
 	health = max_health
+	if _knockout_label != null:
+		_knockout_label.visible = false
 	if _puppet != null and _puppet.has_method(&"play_action"):
 		_puppet.play_action(&"walk", 0.1)
 	revived.emit()

@@ -207,6 +207,7 @@ func _ready() -> void:
 	_hud.map_pressed.connect(_on_map_pressed)
 	_hud.records_pressed.connect(_on_records_pressed)
 	_hud.next_level_pressed.connect(_on_next_level_pressed)
+	_hud.call_wave_pressed.connect(_on_call_wave_pressed)
 	_hero.knocked_out.connect(func() -> void:
 		_hud.show_banner(tr("HERO_KNOCKED_OUT"), tr("HERO_REVIVING_SUBTITLE"), false)
 		_hud.set_hero_knocked_out(true)
@@ -305,6 +306,15 @@ func _process(delta: float) -> void:
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 	guide.update_arrow(_focus, _build_manager.selected_slot == null and not cards.forge_open)
 	_update_threat_detection()
+	if not LevelCatalog.tutorial and _wave_manager != null and _wave_manager.has_next_wave():
+		var time_left: float = _wave_manager.time_to_next_wave()
+		if time_left > 0.0:
+			var bonus: int = maxi(5, int(time_left * 0.3) + 5)
+			_hud.set_call_wave_info(time_left, bonus)
+		else:
+			_hud.set_call_wave_info(-1.0, 0)
+	else:
+		_hud.set_call_wave_info(-1.0, 0)
 
 
 func _update_threat_detection() -> void:
@@ -736,9 +746,51 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 		next = tr("WAVE_NEXT_IN") % LevelCatalog.seconds_text(_wave_manager.plan.wave_duration)
 	if _record and not _wave_manager.plan.surprise_key(wave).is_empty():
 		next = tr(_wave_manager.plan.surprise_key(wave))  # "Swarm!", "Armoured!" ...
+	var threat_tag: String = ""
+	if boss:
+		threat_tag = tr("WAVE_TAG_BOSS")
+	elif _wave_manager != null and _wave_manager.plan != null:
+		var has_flying := false
+		var has_armor := false
+		var has_healer := false
+		var fast_count := 0
+		var spawns: Array[Dictionary] = _wave_manager.plan.spawns(wave)
+		for s in spawns:
+			var d: EnemyData = s.get("data") as EnemyData
+			if d != null:
+				if d.flying:
+					has_flying = true
+				if d.armor > 0.0:
+					has_armor = true
+				if d.heal_fraction > 0.0:
+					has_healer = true
+				if d.speed >= 1.8:
+					fast_count += 1
+		if has_flying:
+			threat_tag = tr("WAVE_TAG_AIR")
+		elif has_armor:
+			threat_tag = tr("WAVE_TAG_ARMORED")
+		elif has_healer:
+			threat_tag = tr("WAVE_TAG_HEALER")
+		elif fast_count >= 5:
+			threat_tag = tr("WAVE_TAG_SWARM")
+	if threat_tag != "":
+		next = threat_tag + ("\n" + next if next != "" else "")
 	if _wave_direction != "":
 		next = _wave_direction + ("\n" + next if next != "" else "")  # "From the north!"
 	_hud.show_banner(title, next, boss)
+
+
+func _on_call_wave_pressed() -> void:
+	if _wave_manager == null or not _wave_manager.has_next_wave():
+		return
+	var time_left: float = _wave_manager.time_to_next_wave()
+	if time_left <= 0.0:
+		return
+	var bonus: int = maxi(5, int(time_left * 0.3) + 5)
+	_game_state.add_gold(bonus)
+	_hud.popup("+%d" % bonus, _hud.get_call_wave_pos(), Color(0.98, 0.8, 0.4), preload("res://ui/icons/coin.png"))
+	_wave_manager.start_next_wave()
 
 
 ## All level state lives in this scene's nodes, so reloading it restores the

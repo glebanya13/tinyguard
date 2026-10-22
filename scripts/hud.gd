@@ -23,6 +23,7 @@ signal strategic_view_pressed
 ## End screen of the Record Run: open the records table on the map.
 signal records_pressed
 signal next_level_pressed
+signal call_wave_pressed
 signal joystick_changed(vector: Vector2)
 ## The thumb controls were re-placed (settings changed): the road compass follows.
 signal layout_changed
@@ -130,6 +131,7 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _pause_button: Button = $Root/TopRight/PauseButton
 @onready var _restart_button: Button = $Root/EndScreen/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/Content/MapButton
+var _call_wave_button: Button = null
 
 
 func _ready() -> void:
@@ -163,6 +165,16 @@ func _ready() -> void:
 	_build_encyclopedia()
 	_continue_button.shortcut = _shortcut(&"pause")
 	_pause_button.pressed.connect(pause_pressed.emit)
+	_call_wave_button = Button.new()
+	_call_wave_button.name = "CallWaveButton"
+	_call_wave_button.theme_type_variation = &"SecondaryButton"
+	_call_wave_button.icon = preload("res://ui/icons/play.png")
+	_call_wave_button.expand_icon = true
+	_call_wave_button.custom_minimum_size = Vector2(170, 48)
+	_call_wave_button.focus_mode = Control.FOCUS_NONE
+	_call_wave_button.pressed.connect(func() -> void: call_wave_pressed.emit())
+	_call_wave_button.visible = false
+	$Root/TopBar.add_child(_call_wave_button)
 	_speed_button.pressed.connect(speed_pressed.emit)
 	_forge_button.pressed.connect(_on_forge_menu_pressed)
 	_pause_button.shortcut = _shortcut(&"pause")
@@ -219,6 +231,22 @@ func set_wave(wave: int, total: int) -> void:
 		)
 	else:
 		_wave_label.text = tr("HUD_SIEGE_WAVE") % wave
+
+
+func set_call_wave_info(seconds_left: float, bonus_gold: int) -> void:
+	if _call_wave_button == null:
+		return
+	if seconds_left <= 0.0 or _end_screen.visible:
+		_call_wave_button.visible = false
+		return
+	_call_wave_button.visible = true
+	_call_wave_button.text = tr("HUD_CALL_WAVE") % [ceili(seconds_left), bonus_gold]
+
+
+func get_call_wave_pos() -> Vector2:
+	if _call_wave_button != null and is_instance_valid(_call_wave_button) and _call_wave_button.is_visible_in_tree():
+		return _call_wave_button.global_position + _call_wave_button.size * 0.5
+	return Vector2(300.0, 40.0)
 
 
 ## The end screen of the Record Run: "Once more" instead of "Play again" and, when the
