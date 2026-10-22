@@ -271,14 +271,15 @@ func _build_tabs() -> void:
 	_tab_bar = PanelContainer.new()
 	_tab_bar.name = "TabBar"
 	_tab_bar.theme_type_variation = &"TabBarPanel"
-	_tab_bar.anchor_left = 0.0
-	_tab_bar.anchor_right = 1.0
+	_tab_bar.anchor_left = 0.5
+	_tab_bar.anchor_right = 0.5
 	_tab_bar.anchor_top = 1.0
 	_tab_bar.anchor_bottom = 1.0
-	_tab_bar.offset_left = MARGIN
-	_tab_bar.offset_right = -MARGIN
+	_tab_bar.offset_left = -260.0
+	_tab_bar.offset_right = 260.0
 	_tab_bar.offset_top = -(TAB_BAR_HEIGHT + 8.0)
 	_tab_bar.offset_bottom = -8.0
+	_tab_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_tab_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_ui_root.add_child(_tab_bar)
 	_ui_root.move_child(_tab_bar, 0)  # below the dialogs
@@ -354,12 +355,20 @@ func _dot(tab: Button, badge_text: String = "") -> Control:
 	var dot := Panel.new()
 	dot.name = "Dot"
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dot.anchor_left = 1.0
-	dot.anchor_right = 1.0
-	dot.offset_left = -36.0
-	dot.offset_right = -12.0
-	dot.offset_top = 6.0
-	dot.offset_bottom = 30.0
+	if tab.theme_type_variation == &"TabButton":
+		dot.anchor_left = 0.5
+		dot.anchor_right = 0.5
+		dot.offset_left = 10.0
+		dot.offset_right = 34.0
+		dot.offset_top = 4.0
+		dot.offset_bottom = 28.0
+	else:
+		dot.anchor_left = 1.0
+		dot.anchor_right = 1.0
+		dot.offset_left = -36.0
+		dot.offset_right = -12.0
+		dot.offset_top = 6.0
+		dot.offset_bottom = 30.0
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(1.0, 0.3, 0.28)
 	style.set_corner_radius_all(12)

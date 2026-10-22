@@ -180,7 +180,7 @@ MAP_NO_RECORDS,Рекордов пока нет. Будь первым!,No recor
 MAP_RECORD_ROW,%d. %s — %d волн,%d. %s — %d waves,%d。 %s — %d 波浪,%d. Onde %s — %d.,%d. %s — %d ondas,%d. %s — %d 파도,%d. %s – %d Wellen,%d. Fale %s — %d.,%d. Ondas %s - %d,%d. %s — %d dalgaları,%d. %s — %d ondes,%d。 %s - %d 波
 MAP_PROFILE,Профиль,Profile,公司简介,Profilo,Perfil,프로필,Profil,Profil,Perfil,Profil,Profil,プロフィール
 MAP_NAME_CONFLICT,Имя занято — выбери другое в Профиле,"Name is taken, pick another in Profile",姓名已被占用，请在个人资料中选择另一个姓名,"Il nome è già preso, scegline un altro nel Profilo","El nombre está tomado, elige otro en el perfil.",이미 사용 중인 이름입니다. 프로필에서 다른 이름을 선택하세요.,Der Name ist vergeben. Wählen Sie im Profil einen anderen aus,"Imię jest zajęte, wybierz inne w Profilu","O nome já está em uso, escolha outro no perfil","İsim alınmış, Profilden başka birini seçin","Le nom est pris, choisissez-en un autre dans le profil",名前が使用されています。プロフィールで別の名前を選択してください
-MAP_TREASURY,Казна,Treasury,财政部,Tesoro,Hacienda,재무부,Finanzministerium,Skarbiec,Tesouro,Hazine,Trésorerie,財務省
+MAP_TREASURY,Казна,Treasury,宝库,Tesoro,Hacienda,금고,Schatzkammer,Skarbiec,Tesouro,Hazine,Trésorerie,宝物庫
 MAP_RECORDS,Рекорды,Records,记录,Record,Registros,기록,Aufzeichnungen,Rekordy,Registros,Kayıtlar,Enregistrements,記録
 MAP_PLAY,Играть,Play,玩,Gioca,Jugar,플레이,Spielen,Zagraj,Jogar,Oyna,Jouer,遊ぶ
 MAP_TREASURY_TITLE,Королевская казна,Royal treasury,皇家金库,Tesoro reale,tesoro real,왕실 재무부,Königliche Schatzkammer,Skarbiec królewski,Tesouro real,Kraliyet hazinesi,Trésor royal,王室の宝庫
@@ -228,7 +228,7 @@ PERK_SWIFT_NAME,Быстрые ноги,Swift feet,敏捷的脚步,Piedi veloci,
 PERK_SWIFT_DESC,Скорость героя: %s,Hero speed: %s,英雄速度：%s,Velocità dell'eroe: %s,Velocidad del héroe: %s,영웅 속도: %s,Heldengeschwindigkeit: %s,Szybkość bohatera: %s,Velocidade do herói: %s,Kahraman hızı: %s,Vitesse du héros : %s,ヒーロースピード：%s
 PERK_SWORD_NAME,Закалка,Tempering,回火,Temperamento,Templado,템퍼링,Temperieren,Hartowanie,Temperamento,Temperleme,Trempe,テンパリング
 PERK_SWORD_DESC,Урон меча: %s,Sword damage: %s,剑伤害：%s,Danno della spada: %s,Daño de espada: %s,검 피해량: %s,Schwertschaden: %s,Obrażenia miecza: %s,Dano de espada: %s,Kılıç hasarı: %s,Dégâts de l'épée : %s,剣ダメージ：%s
-PERK_GOLD_START_NAME,Казна,Treasury,财政部,Tesoro,Hacienda,재무부,Finanzministerium,Skarbiec,Tesouro,Hazine,Trésorerie,財務省
+PERK_GOLD_START_NAME,Казна,Treasury,宝库,Tesoro,Hacienda,금고,Schatzkammer,Skarbiec,Tesouro,Hazine,Trésorerie,宝物庫
 PERK_GOLD_START_DESC,Стартовое золото: %s,Starting gold: %s,起始金币：%s,Oro iniziale: %s,Oro inicial: %s,시작 골드: %s,Startgold: %s,Początkowe złoto: %s,Ouro inicial: %s,Altın başlangıç: %s,Or de départ : %s,開始ゴールド: %s
 PERK_WOOD_START_NAME,Лесопилка,Sawmill,锯木厂,Segheria,aserradero,제재소,Sägewerk,Tartak,Serraria,Kereste fabrikası,Scierie,製材所
 PERK_WOOD_START_DESC,Стартовое дерево: %s,Starting wood: %s,起始木材：%s,Legno iniziale: %s,Madera inicial: %s,시작 목재: %s,Startholz: %s,Drewno początkowe: %s,Madeira inicial: %s,Ahşabın başlatılması: %s,Bois de départ : %s,開始木材: %s
