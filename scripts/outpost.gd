@@ -25,7 +25,8 @@ func add_thicket_tree(tree: WoodTree) -> void:
 	tree.is_thicket = true
 	tree.outpost = self
 	tree.outpost_id = lane
-	tree.wood_per_hit = 0
+	tree.wood_per_hit = 1
+	tree.hits = 3
 	tree.regrow_time = THICKET_REGROW_TIME
 	thicket_trees.append(tree)
 	total_trees = thicket_trees.size()

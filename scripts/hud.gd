@@ -153,8 +153,8 @@ func _ready() -> void:
 	_threat_vignette.color = Color(0.85, 0.08, 0.08, 0.0)
 	_threat_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_threat_vignette.visible = false
-	_root.add_child(_threat_vignette)
-	_root.move_child(_threat_vignette, 0)
+	add_child(_threat_vignette)
+	move_child(_threat_vignette, 0)
 	_end_screen.z_index = 10  # above the chips, which are layered by kind
 	_frame_end_screen()
 	_restart_button.pressed.connect(_on_end_button_pressed.bind(restart_pressed))
@@ -752,8 +752,14 @@ func _build_settings() -> void:
 	_settings_panel = SettingsPanel.new()
 	_settings_panel.z_index = 10  # above the chips, which are layered by kind
 	_root.add_child(_settings_panel)
-	_settings_button.pressed.connect(_settings_panel.open)
-	_settings_panel.closed.connect(_update_sound_label)
+	_settings_button.pressed.connect(func() -> void:
+		$Root/TopBar.hide()
+		_settings_panel.open()
+	)
+	_settings_panel.closed.connect(func() -> void:
+		$Root/TopBar.show()
+		_update_sound_label()
+	)
 	_settings_panel.language_changed.connect(_on_language_changed)
 	_settings_panel.layout_changed.connect(apply_layout)
 
@@ -772,7 +778,13 @@ func _build_encyclopedia() -> void:
 	_encyclopedia_panel = EncyclopediaPanel.new()
 	_encyclopedia_panel.z_index = 10
 	_root.add_child(_encyclopedia_panel)
-	_encyclopedia_button.pressed.connect(_encyclopedia_panel.open)
+	_encyclopedia_button.pressed.connect(func() -> void:
+		$Root/TopBar.hide()
+		_encyclopedia_panel.open()
+	)
+	_encyclopedia_panel.closed.connect(func() -> void:
+		$Root/TopBar.show()
+	)
 
 
 func _on_language_changed() -> void:

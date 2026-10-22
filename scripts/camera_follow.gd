@@ -24,8 +24,9 @@ var _offset: Vector3
 var _touches: Dictionary = {}
 var _pinched: bool = false
 var _pinch_distance: float = 0.0
-var _normal_size: float = 10.0
-var _target_size: float = 10.0
+var _default_size: float = 18.0
+var _normal_size: float = 18.0
+var _target_size: float = 18.0
 var _flyover_waypoints: Array[Vector3] = []
 var _flyover_progress: float = 0.0
 var _flyover_duration: float = 6.0
@@ -34,6 +35,7 @@ var _flyover_duration: float = 6.0
 func _ready() -> void:
 	# Keep the editor-placed angle: the camera looks at the origin.
 	_offset = global_position
+	_default_size = size
 	_normal_size = size
 	_target_size = size
 	if target:
@@ -51,10 +53,15 @@ func set_strategic_view(on: bool) -> void:
 		stop_flyover()
 	strategic_view = on
 	if strategic_view:
-		_normal_size = size
-		_target_size = clampf(_normal_size * strategic_zoom_factor, min_size, max_size)
+		_target_size = clampf(_default_size * strategic_zoom_factor, min_size, max_size)
 	else:
-		_target_size = clampf(_normal_size, min_size, max_size)
+		_target_size = clampf(_default_size, min_size, max_size)
+
+
+## Resets camera zoom back to the default tactical zoom.
+func reset_zoom() -> void:
+	strategic_view = false
+	_target_size = _default_size
 
 
 func is_strategic_view() -> bool:

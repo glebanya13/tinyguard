@@ -934,7 +934,7 @@ func restore_from_checkpoint(data: Dictionary) -> void:
 	if data.has("sword_level"):
 		var sword_lvl: int = int(data["sword_level"])
 		_hero.sword_level = clampi(sword_lvl, 0, _hero.sword_damage_levels.size() - 1)
-		_hero.attack_damage = _hero.sword_damage_levels[_hero.sword_level] * _hero.damage_multiplier
+		_hero.attack_damage = _hero.sword_damage_levels[_hero.sword_level]
 
 	# Restore towers
 	for t in data.get("towers", []):
@@ -1001,10 +1001,17 @@ func restore_from_checkpoint(data: Dictionary) -> void:
 
 	# Restore wave progress
 	var wave: int = int(data.get("wave", 0))
+	if not _endless and _wave_manager.plan != null and wave >= _wave_manager.plan.wave_count:
+		BattleCheckpoint.clear_checkpoint()
+		_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
+		return
 	_wave_manager.current_wave = wave
 	battle_end.waves_cleared = wave
 	_hud.set_wave(wave, 0 if _endless else _wave_manager.get_total_waves())
-	_wave_manager.schedule_next_wave(5.0)
-	_hud.show_banner(tr("CHECKPOINT_CONTINUE") % wave, tr("WAVE_NEXT_IN") % "5s")
+	if _wave_manager.has_next_wave():
+		_wave_manager.schedule_next_wave(5.0)
+		_hud.show_banner(tr("CHECKPOINT_CONTINUE") % wave, tr("WAVE_NEXT_IN") % "5s")
+	else:
+		BattleCheckpoint.clear_checkpoint()
 	cards.refresh()
 

@@ -152,10 +152,37 @@ func setup(
 	build_manager.placement_moved.connect(on_placement_moved)
 
 
-## Per frame: select the slot the walking hero reaches, open / close the trade card.
+## Per frame: select the slot the walking hero reaches, open / close the trade card and camps.
 func update() -> void:
 	_auto_select_near_hero()
 	_update_trade()
+	_update_camp_proximity()
+
+
+func _update_camp_proximity() -> void:
+	if _build_manager == null or _hero == null or pending_command != &"" or forge_open or workbench_open or placement.placement_mode:
+		return
+	var camp_selected: Node3D = _build_manager.selected_camp
+	var nearest_camp: Node3D = null
+	var min_camp_dist: float = 2.8
+	if _build_manager.lumberjack_camp != null:
+		var d_lj: float = _flat_distance(_build_manager.lumberjack_camp)
+		if d_lj <= min_camp_dist:
+			nearest_camp = _build_manager.lumberjack_camp
+			min_camp_dist = d_lj
+	if _build_manager.mercenary_camp != null:
+		var d_mc: float = _flat_distance(_build_manager.mercenary_camp)
+		if d_mc <= min_camp_dist:
+			nearest_camp = _build_manager.mercenary_camp
+			min_camp_dist = d_mc
+
+	if nearest_camp != null:
+		if camp_selected != nearest_camp and _build_manager.selected_slot == null:
+			_build_manager.select_camp(nearest_camp)
+	elif camp_selected != null:
+		var d_curr: float = _flat_distance(camp_selected)
+		if d_curr > 3.8:
+			_build_manager.clear_selection()
 
 
 ## Command card action: the hero walks to the selected slot and acts there.

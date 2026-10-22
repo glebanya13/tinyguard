@@ -113,7 +113,7 @@ func _ready() -> void:
 	_build_card()
 	_build_tabs()
 	_play_button.pressed.connect(_start.bind(false))
-	_endless_button.pressed.connect(_start.bind(true))
+	_endless_button.pressed.connect(_on_endless_pressed)
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_treasury.find_child("CloseButton", true, false).pressed.connect(func() -> void:
 		_treasury.hide()
@@ -424,19 +424,7 @@ func _select(id: int) -> void:
 		_crown_icon.tooltip_text = tr("MAP_CROWN") % tr(str(Balance.difficulty(crown)["name"]))
 	var record: int = LevelCatalog.endless_record(id)
 	_record_label.text = (tr("MAP_RECORD_BEST") % record if record > 0 else tr("MAP_RECORD_NONE"))
-	if BattleCheckpoint.has_checkpoint(id):
-		var cp: Dictionary = BattleCheckpoint.load_checkpoint()
-		var cp_endless: bool = bool(cp.get("endless", false))
-		var wave: int = int(cp.get("wave", 1))
-		if cp_endless:
-			_play_button.text = tr("MAP_PLAY")
-			_endless_button.text = tr("CHECKPOINT_CONTINUE") % wave
-		else:
-			_play_button.text = tr("CHECKPOINT_CONTINUE") % wave
-			_endless_button.text = tr("MAP_RECORD_RUN")
-	else:
-		_play_button.text = tr("MAP_PLAY")
-		_endless_button.text = tr("MAP_RECORD_RUN")
+	_refresh_checkpoint_buttons(id)
 	if not LevelCatalog.is_difficulty_open(id, _difficulty):
 		_difficulty = 0
 	_refresh_difficulty(id)
@@ -752,6 +740,36 @@ func _build_card() -> void:
 		_diff_buttons.append(button)
 
 
+func _refresh_checkpoint_buttons(id: int) -> void:
+	if BattleCheckpoint.has_checkpoint(id):
+		var cp: Dictionary = BattleCheckpoint.load_checkpoint()
+		var cp_endless: bool = bool(cp.get("endless", false))
+		var cp_diff: int = int(cp.get("difficulty", 0))
+		var wave: int = int(cp.get("wave", 1))
+		if not cp_endless and _difficulty != cp_diff:
+			_play_button.text = tr("MAP_PLAY")
+			_endless_button.text = tr("MAP_RECORD_RUN")
+		elif cp_endless:
+			_play_button.text = tr("MAP_PLAY")
+			_endless_button.text = tr("CHECKPOINT_CONTINUE") % wave
+		else:
+			_play_button.text = tr("CHECKPOINT_CONTINUE") % wave
+			_endless_button.text = tr("HUD_RESTART")
+	else:
+		_play_button.text = tr("MAP_PLAY")
+		_endless_button.text = tr("MAP_RECORD_RUN")
+
+
+func _on_endless_pressed() -> void:
+	if _endless_button.text == tr("HUD_RESTART"):
+		# Player explicitly chose to restart the campaign level from wave 1
+		BattleCheckpoint.clear_checkpoint()
+		LevelCatalog.resume_checkpoint = false
+		_start(false)
+	else:
+		_start(true)
+
+
 func _start(endless: bool) -> void:
 	LevelCatalog.selected_id = _selected
 	LevelCatalog.endless = endless
@@ -759,7 +777,16 @@ func _start(endless: bool) -> void:
 	var cp: Dictionary = (
 		BattleCheckpoint.load_checkpoint() if BattleCheckpoint.has_checkpoint(_selected) else {}
 	)
-	LevelCatalog.resume_checkpoint = not cp.is_empty() and bool(cp.get("endless", false)) == endless
+	var cp_endless: bool = bool(cp.get("endless", false))
+	var cp_diff: int = int(cp.get("difficulty", 0))
+	var has_valid_cp: bool = (
+		not cp.is_empty()
+		and cp_endless == endless
+		and (endless or cp_diff == _difficulty)
+	)
+	LevelCatalog.resume_checkpoint = has_valid_cp
+	if not has_valid_cp and not cp.is_empty() and cp_endless == endless:
+		BattleCheckpoint.clear_checkpoint()
 	_play_button.disabled = true
 	_endless_button.disabled = true
 	get_tree().change_scene_to_file(GAME_SCENE)
@@ -802,6 +829,7 @@ static func _times(value: float) -> String:
 func _on_difficulty_pressed(index: int) -> void:
 	_difficulty = index
 	_refresh_difficulty(_selected)
+	_refresh_checkpoint_buttons(_selected)
 
 
 ## The crown icon, tinted by the difficulty (1 Hard, 2 Nightmare).

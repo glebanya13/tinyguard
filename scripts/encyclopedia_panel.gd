@@ -385,10 +385,12 @@ func _build_village() -> void:
 func _card_box(node_name: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
 	panel.name = node_name
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_box.add_child(panel)
 
 	var inner := VBoxContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_PASS
 	inner.add_theme_constant_override("separation", 6)
 	panel.add_child(inner)
 	return inner

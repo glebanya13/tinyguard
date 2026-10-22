@@ -52,7 +52,9 @@ func remove(enemy: Enemy) -> void:
 	var members: Array[Enemy] = kind["members"]
 	var i: int = members.find(enemy)
 	if i >= 0:
-		members[i] = members[members.size() - 1]  # swap-remove keeps the list packed
+		var moved_enemy: Enemy = members[members.size() - 1]
+		members[i] = moved_enemy
+		moved_enemy.crowd_slot = -1  # reset cached slot so its color is rewritten for slot i
 		members.pop_back()
 
 
@@ -106,7 +108,8 @@ func _tint(enemy: Enemy, slot: int, mms: Array, delta: float) -> void:
 	var f: float = enemy.hit_flash
 	var color := Color(1.0 + FLASH_GAIN.x * f, 1.0 + FLASH_GAIN.y * f, 1.0 + FLASH_GAIN.z * f)
 	for mm: MultiMesh in mms:
-		mm.set_instance_color(slot, color)
+		if mm.use_colors:
+			mm.set_instance_color(slot, color)
 
 
 ## Visible enemy draw calls (for tests and profiling).
@@ -180,6 +183,8 @@ func _new_multimesh(mesh: Mesh) -> MultiMesh:
 	instance.multimesh = mm
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if mm.use_colors:
+		for idx in mm.instance_count:
+			mm.set_instance_color(idx, Color.WHITE)
 		instance.material_override = _tintable(mesh)
 	add_child(instance)
 	return mm
@@ -199,6 +204,10 @@ func _tintable(mesh: Mesh) -> Material:
 ## transforms, but they are all rewritten every frame anyway.
 func _ensure_capacity(mm: MultiMesh, needed: int) -> void:
 	if needed > mm.instance_count:
+		var old_count: int = mm.instance_count
 		var visible: int = mm.visible_instance_count
 		mm.instance_count = maxi(needed, mm.instance_count * 2)
 		mm.visible_instance_count = visible
+		if mm.use_colors:
+			for idx in range(old_count, mm.instance_count):
+				mm.set_instance_color(idx, Color.WHITE)

@@ -209,8 +209,11 @@ def build_cannon_turret():
                                  (0.07, 0.27)], "iron", steps=14)
     barrel.rotation_euler = (math.radians(-90 + 10), 0, 0)  # points -Y, tilted up
     tg.apply_all_transforms(barrel)
-    bands = [tg.torus(f"band{i}", 0.08, 0.012, (0, -y, 0.012 * i), "gold", seg=16, minor_seg=5,
-                      rot=(90 - 10, 0, 0)) for i, y in enumerate((0.0, 0.2))]
+    bands = [
+        tg.torus("band0", 0.080, 0.010, (0, 0.003, 0.001), "gold", seg=16, minor_seg=5, rot=(80, 0, 0)),
+        tg.torus("band1", 0.072, 0.009, (0, -0.114, 0.022), "gold", seg=16, minor_seg=5, rot=(80, 0, 0)),
+        tg.torus("band2", 0.068, 0.009, (0, -0.211, 0.0395), "gold", seg=16, minor_seg=5, rot=(80, 0, 0)),
+    ]
     breech = tg.sphere("breech", (0.15, 0.15, 0.15), (0, 0.12, -0.02), "iron_dark", seg=12, rings=6)
     muzzle = tg.torus("muzzle", 0.072, 0.018, (0, -0.27, 0.05), "iron_dark", seg=16, minor_seg=5, rot=(80, 0, 0))
     gun = tg.join([barrel, *bands, breech, muzzle], "Gun")
