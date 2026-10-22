@@ -9,9 +9,9 @@ extends RefCounted
 
 const PAD := 12.0
 ## Roads are simplified to this tolerance (metres) before they are drawn.
-const SIMPLIFY_METRES := 3.4
+const SIMPLIFY_METRES := 1.0
 ## Corner cutting rounds after the simplification (each round doubles the segments).
-const ROUNDS := 1
+const ROUNDS := 2
 const LABEL_SIZE := 18
 ## Side of a badge of the atlas (pixels); the dot is the left cell, the castle the right one.
 const CELL := 64

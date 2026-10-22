@@ -133,6 +133,9 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _restart_button: Button = $Root/EndScreen/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/Content/MapButton
 var _call_wave_button: Button = null
+var _wave_timer_pill: PanelContainer = null
+var _wave_timer_label: Label = null
+var _start_battle_button: Button = null
 var _star_audio: AudioStreamPlayer = null
 
 
@@ -186,6 +189,32 @@ func _ready() -> void:
 	_call_wave_button.pressed.connect(func() -> void: call_wave_pressed.emit())
 	_call_wave_button.visible = false
 	$Root/TopBar.add_child(_call_wave_button)
+
+	_wave_timer_pill = PanelContainer.new()
+	_wave_timer_pill.name = "WaveTimerPill"
+	_wave_timer_pill.theme_type_variation = &"HudChip"
+	_wave_timer_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var timer_row := HBoxContainer.new()
+	timer_row.name = "Row"
+	timer_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	timer_row.add_theme_constant_override("separation", 6)
+	_wave_timer_pill.add_child(timer_row)
+	var timer_icon := TextureRect.new()
+	timer_icon.name = "Icon"
+	timer_icon.custom_minimum_size = Vector2(40, 40)
+	timer_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	timer_icon.texture = preload("res://ui/icons/hourglass.png")
+	timer_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	timer_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	timer_row.add_child(timer_icon)
+	_wave_timer_label = Label.new()
+	_wave_timer_label.name = "WaveTimerLabel"
+	_wave_timer_label.theme_type_variation = &"NumberLabel"
+	_wave_timer_label.text = "0:00"
+	timer_row.add_child(_wave_timer_label)
+	_wave_timer_pill.visible = false
+	$Root/TopBar.add_child(_wave_timer_pill)
+	$Root/TopBar.move_child(_wave_timer_pill, $Root/TopBar/WavePill.get_index() + 1)
 	_speed_button.pressed.connect(speed_pressed.emit)
 	_forge_button.pressed.connect(_on_forge_menu_pressed)
 	_pause_button.shortcut = _shortcut(&"pause")
@@ -197,6 +226,7 @@ func _ready() -> void:
 	_attack_button.pressed.connect(attack_pressed.emit)
 	_spin_button.pressed.connect(spin_pressed.emit)
 	_workbench_button.pressed.connect(workbench_pressed.emit)
+	_build_start_battle_button()
 	_spin_icon.pivot_offset = _spin_icon.size / 2.0
 	if not _touch:
 		_attack_button.tooltip_text = tr("HUD_ATTACK_TIP")
@@ -249,15 +279,63 @@ func set_call_wave_info(seconds_left: float, bonus_gold: int) -> void:
 		return
 	if seconds_left <= 0.0 or _end_screen.visible:
 		_call_wave_button.visible = false
+		if _wave_timer_pill != null:
+			_wave_timer_pill.visible = false
 		return
 	_call_wave_button.visible = true
 	_call_wave_button.text = tr("HUD_CALL_WAVE") % [ceili(seconds_left), bonus_gold]
+	if _wave_timer_pill != null:
+		_wave_timer_pill.visible = true
+		var secs: int = ceili(seconds_left)
+		var m: int = secs / 60
+		var s: int = secs % 60
+		_wave_timer_label.text = "%d:%02d" % [m, s]
+		if seconds_left <= 5.0:
+			_wave_timer_label.modulate = Color(1.0, 0.45, 0.35)
+		else:
+			_wave_timer_label.modulate = Color.WHITE
 
 
 func get_call_wave_pos() -> Vector2:
 	if _call_wave_button != null and is_instance_valid(_call_wave_button) and _call_wave_button.is_visible_in_tree():
 		return _call_wave_button.global_position + _call_wave_button.size * 0.5
 	return Vector2(300.0, 40.0)
+
+
+func _build_start_battle_button() -> void:
+	_start_battle_button = Button.new()
+	_start_battle_button.name = "StartBattleButton"
+	_start_battle_button.theme_type_variation = &"PrimaryButton"
+	_start_battle_button.icon = preload("res://ui/icons/play.png")
+	_start_battle_button.expand_icon = true
+	_start_battle_button.custom_minimum_size = Vector2(240, 64)
+	_start_battle_button.anchor_left = 0.5
+	_start_battle_button.anchor_right = 0.5
+	_start_battle_button.anchor_top = 0.80
+	_start_battle_button.anchor_bottom = 0.80
+	_start_battle_button.offset_left = -120.0
+	_start_battle_button.offset_right = 120.0
+	_start_battle_button.offset_top = -32.0
+	_start_battle_button.offset_bottom = 32.0
+	_start_battle_button.focus_mode = Control.FOCUS_NONE
+	_start_battle_button.text = tr("HUD_START_BATTLE")
+	_start_battle_button.pressed.connect(func() -> void:
+		call_wave_pressed.emit()
+		hide_start_battle_button()
+	)
+	_start_battle_button.visible = false
+	$Root.add_child(_start_battle_button)
+
+
+func show_start_battle_button() -> void:
+	if _start_battle_button != null:
+		_start_battle_button.visible = true
+		_start_battle_button.modulate.a = 1.0
+
+
+func hide_start_battle_button() -> void:
+	if _start_battle_button != null:
+		_start_battle_button.visible = false
 
 
 ## The end screen of the Record Run: "Once more" instead of "Play again" and, when the
@@ -568,6 +646,12 @@ func _show_menu(text: String, ribbon: StringName) -> void:
 	_spin_button.hide()
 	if _workbench_button:
 		_workbench_button.hide()
+	if _call_wave_button:
+		_call_wave_button.hide()
+	if _wave_timer_pill:
+		_wave_timer_pill.hide()
+	if _start_battle_button:
+		_start_battle_button.hide()
 	_joystick.hide()
 	_end_screen.show()
 

@@ -71,6 +71,7 @@ var _fx: Fx = null
 var _leaving: bool = false
 ## "С севера!" for the wave that is starting.
 var _wave_direction: String = ""
+var _ready_phase: bool = false
 
 @onready var _level_root: Node3D = $Level
 @onready var _enemy_path: Path3D = $Level/EnemyPath
@@ -258,13 +259,22 @@ func _ready() -> void:
 	cards.refresh()
 	_start_fx()
 	_start_diagnostics()
-	_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 	_start_tracker()
 	if _endless and _daily_key == "":
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
-	_hud.show_banner(
-		tr("WAVE_FIRST_IN") % LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
-	)
+	if not LevelCatalog.tutorial and not (LevelCatalog.resume_checkpoint and BattleCheckpoint.has_checkpoint(level["id"])):
+		_ready_phase = true
+		_hud.show_banner(
+			tr("HUD_INSPECT_MAP_TITLE"),
+			tr("HUD_INSPECT_MAP_SUB"),
+			false
+		)
+		_hud.show_start_battle_button()
+	else:
+		_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
+		_hud.show_banner(
+			tr("WAVE_FIRST_IN") % LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
+		)
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
 	if not LevelCatalog.tutorial and _camera != null and _camera.has_method("start_flyover"):
@@ -306,7 +316,9 @@ func _process(delta: float) -> void:
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 	guide.update_arrow(_focus, _build_manager.selected_slot == null and not cards.forge_open)
 	_update_threat_detection()
-	if not LevelCatalog.tutorial and _wave_manager != null and _wave_manager.has_next_wave():
+	if _ready_phase:
+		_hud.set_call_wave_info(-1.0, 0)
+	elif not LevelCatalog.tutorial and _wave_manager != null and _wave_manager.has_next_wave():
 		var time_left: float = _wave_manager.time_to_next_wave()
 		if time_left > 0.0:
 			var bonus: int = maxi(5, int(time_left * 0.3) + 5)
@@ -729,6 +741,9 @@ func _on_strategic_view_toggle() -> void:
 
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
+	_ready_phase = false
+	if _hud != null:
+		_hud.hide_start_battle_button()
 	if _camera != null and _camera.has_method("stop_flyover"):
 		_camera.stop_flyover()
 	if wave % CRASH_LOG_WAVE_STEP == 0:
@@ -782,6 +797,14 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 
 
 func _on_call_wave_pressed() -> void:
+	if _ready_phase:
+		_ready_phase = false
+		if _hud != null:
+			_hud.hide_start_battle_button()
+		if _camera != null and _camera.has_method("stop_flyover"):
+			_camera.stop_flyover()
+		_wave_manager.start_next_wave()
+		return
 	if _wave_manager == null or not _wave_manager.has_next_wave():
 		return
 	var time_left: float = _wave_manager.time_to_next_wave()

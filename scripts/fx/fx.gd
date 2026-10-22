@@ -308,25 +308,26 @@ func _on_victory() -> void:
 
 
 func _on_hero_swung(origin: Vector3, yaw: float) -> void:
-	if not full():
+	if not enabled():
 		return
-	var count: int = 6
+	var count: int = 8 if full() else 5
 	for i in count:
-		var a: float = yaw + lerpf(-0.9, 0.9, float(i) / (count - 1))
+		var a: float = yaw + lerpf(-1.1, 1.1, float(i) / (count - 1))
 		var out := Vector3(sin(a), 0.0, cos(a))
-		var at: Vector3 = origin + out * 0.9 + Vector3.UP * 0.8
-		_emit_dot(at, out * 2.4, 0.22, 0.34, 0.06, Color(1, 1, 0.9, 0.9), Color(_spark, 0.0))
+		var at: Vector3 = origin + out * 1.05 + Vector3.UP * 0.75
+		_emit_dot(at, out * 2.8, 0.25, 0.35, 0.08, Color(1, 1, 0.95, 0.95), Color(_spark, 0.0))
 
 
 func _on_hero_spun(origin: Vector3) -> void:
-	if not full():
+	if not enabled():
 		return
 	_ring(origin + Vector3.UP * 0.05, 0.6, 4.6, Color(1.0, 0.95, 0.75, 0.85), 0.4)
-	for i in 10:
-		var a: float = TAU * float(i) / 10.0
+	var count: int = 14 if full() else 8
+	for i in count:
+		var a: float = TAU * float(i) / float(count)
 		var out := Vector3(sin(a), 0.0, cos(a))
 		_emit_dot(
-			origin + out * 0.8 + Vector3.UP * 0.8, out * 3.0, 0.3, 0.3, 0.05, _spark, TRANSPARENT
+			origin + out * 0.9 + Vector3.UP * 0.7, out * 3.4, 0.35, 0.35, 0.07, _spark, TRANSPARENT
 		)
 
 
