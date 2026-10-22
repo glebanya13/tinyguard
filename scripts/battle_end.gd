@@ -152,9 +152,28 @@ func on_defeated() -> void:
 	if _endless:
 		_end_record_run()
 		return
+	var tip_text: String = _pick_defeat_tip()
+	end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tip_text + "\n")
+
+
+## Chooses the most helpful hint based on what the player had or lacked during the loss.
+func _pick_defeat_tip() -> String:
+	# 1. Player had enough wood to repair castle walls but didn't:
+	if _game_state != null and _game_state.wood >= _game_state.repair_wood and _game_state.repair_wood > 0:
+		return tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood]
+	# 2. Very few towers built:
+	if int(stats.get("towers", 0)) < 3:
+		return tr("TIP_LOOP")
+	# 3. Very low kills / hero sword underutilized:
+	if int(stats.get("kills", 0)) < 10:
+		return tr("TIP_SWORD")
+	# 4. In higher levels (level 2+), remind about Frost/slow synergy:
+	var lvl_id: int = int(_level.get("id", 1))
+	if lvl_id >= 2:
+		return tr("TIP_FROST")
+	# Fallback to random tip:
 	var tips: Array[String] = DEFEAT_TIPS.duplicate()
-	tips.append(tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood])
-	end_game(tr("END_DEFEAT"), false, 0, tr("END_TIP") % tr(tips.pick_random()) + "\n")
+	return tr(tips.pick_random())
 
 
 ## Record Run over: the wave reached, the record (saved and sent online as before), how far

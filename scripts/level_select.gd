@@ -115,7 +115,10 @@ func _ready() -> void:
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_start.bind(true))
 	_sound_button.pressed.connect(_on_sound_pressed)
-	_treasury.find_child("CloseButton", true, false).pressed.connect(_treasury.hide)
+	_treasury.find_child("CloseButton", true, false).pressed.connect(func() -> void:
+		_treasury.hide()
+		_refresh_stars()
+	)
 	_treasury.find_child("ResetButton", true, false).pressed.connect(_on_reset_pressed)
 	_update_sound_icon()
 	_refresh_stars()
@@ -306,7 +309,7 @@ func _build_tabs() -> void:
 	# 2. Talents / Treasury Tab
 	_treasury_button = _make_tab("TreasuryButton", tr("MAP_TREASURY"), CHEST_ICON)
 	_treasury_button.pressed.connect(_open_treasury)
-	_treasury_dot = _dot(_treasury_button)
+	_treasury_dot = _dot(_treasury_button, "!")
 
 	# 3. Game Modes Tab (Daily Trial, Co-op, Leaderboards)
 	var modes_tab := _make_tab("DailyButton", tr("MODES_BUTTON"), DAILY_ICON)
@@ -347,22 +350,31 @@ func _make_tab(node_name: String, text: String, icon: Texture2D) -> Button:
 
 
 ## Red notification dot in the top right corner of a tab (hidden until it is needed).
-func _dot(tab: Button) -> Control:
+func _dot(tab: Button, badge_text: String = "") -> Control:
 	var dot := Panel.new()
 	dot.name = "Dot"
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dot.anchor_left = 1.0
 	dot.anchor_right = 1.0
-	dot.offset_left = -40.0
-	dot.offset_right = -20.0
-	dot.offset_top = 8.0
-	dot.offset_bottom = 28.0
+	dot.offset_left = -36.0
+	dot.offset_right = -12.0
+	dot.offset_top = 6.0
+	dot.offset_bottom = 30.0
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(1.0, 0.3, 0.28)
-	style.set_corner_radius_all(10)
-	style.set_border_width_all(3)
+	style.set_corner_radius_all(12)
+	style.set_border_width_all(2)
 	style.border_color = Color(1.0, 0.97, 0.88)
 	dot.add_theme_stylebox_override("panel", style)
+	if badge_text != "":
+		var lbl := Label.new()
+		lbl.text = badge_text
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lbl.add_theme_font_size_override("font_size", 16)
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.97, 0.88))
+		dot.add_child(lbl)
 	dot.visible = false
 	tab.add_child(dot)
 	return dot

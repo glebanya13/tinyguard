@@ -223,10 +223,15 @@ func _build_credits() -> void:
 	site.name = "Link_game_icons"
 	_box.add_child(site)
 
-	if GameInfo.PRIVACY_URL != "" or GameInfo.DELETION_URL != "":
+	if GameInfo.PRIVACY_URL != "" or GameInfo.DELETION_URL != "" or GameInfo.FEEDBACK_URL != "":
 		var links := HBoxContainer.new()
 		links.add_theme_constant_override("separation", 8)
 		_box.add_child(links)
+		if GameInfo.FEEDBACK_URL != "":
+			var feedback := _button(tr("FEEDBACK_BUTTON"), _open_link.bind(GameInfo.FEEDBACK_URL), true, 0)
+			feedback.name = "Link_feedback"
+			feedback.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			links.add_child(feedback)
 		if GameInfo.PRIVACY_URL != "":
 			var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
 			privacy.name = "Link_privacy"

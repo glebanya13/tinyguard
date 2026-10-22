@@ -46,6 +46,7 @@ const CARD_CAPTION_ICON_HEIGHT := 60.0
 const CARD_CAPTION_FONT := 17
 const PLAIN := preload("res://ui/plain_style.tres")
 const STAR_ICON: Texture2D = preload("res://ui/icons/star.png")
+const STAR_SOUND: AudioStream = preload("res://assets/audio/upgrade.wav")
 const SOUND_ON_ICON: Texture2D = preload("res://ui/icons/sound_on.png")
 const SOUND_OFF_ICON: Texture2D = preload("res://ui/icons/sound_off.png")
 const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
@@ -132,10 +133,20 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _restart_button: Button = $Root/EndScreen/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/Content/MapButton
 var _call_wave_button: Button = null
+var _star_audio: AudioStreamPlayer = null
 
 
 func _ready() -> void:
 	_drop_outlines()
+	if _spin_label != null:
+		_spin_label.add_theme_constant_override("outline_size", 8)
+		_spin_label.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.02))
+	_star_audio = AudioStreamPlayer.new()
+	_star_audio.name = "StarAudio"
+	_star_audio.stream = STAR_SOUND
+	_star_audio.volume_db = -2.0
+	_star_audio.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_star_audio)
 	_threat_vignette = ColorRect.new()
 	_threat_vignette.name = "ThreatVignette"
 	_threat_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -440,8 +451,14 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 		if i < stars:
 			star.pivot_offset = Vector2(32, 32)
 			star.scale = Vector2.ZERO
+			var delay: float = 0.3 + 0.25 * i
 			var tween := star.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-			tween.tween_interval(0.3 + 0.25 * i)
+			tween.tween_interval(delay)
+			tween.tween_callback(func() -> void:
+				if LevelCatalog.sound_on() and _star_audio != null:
+					_star_audio.pitch_scale = 1.0 + 0.25 * i
+					_star_audio.play()
+			)
 			(
 				tween
 				. tween_property(star, "scale", Vector2.ONE, 0.35)

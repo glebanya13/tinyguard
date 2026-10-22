@@ -16,6 +16,8 @@ const PRIVACY_URL := "https://tinyguard.app/privacy"
 const DELETION_URL := "https://tinyguard.app/delete-account"
 ## Support e-mail shown in the privacy policy and the store listing.
 const SUPPORT_EMAIL := "support@tinyguard.app"
+## Feedback form URL for external playtesters.
+const FEEDBACK_URL := "https://tinyguard.app/feedback"
 
 
 ## The profile line about deleting data from the web, or "" while the URL is unset.
