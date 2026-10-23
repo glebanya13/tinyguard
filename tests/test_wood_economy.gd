@@ -12,7 +12,7 @@ const LEGACY_JOURNAL := (
 	'{"header":{"sim_version":1,"tick_rate":30,"level":1,"endless":false,"seed":12345,'
 	+ '"perks":{}},"commands":[[0,0,0,0,0],[30,0,0,1,1],[60,0,10,0,2],[200,0,0,2,2]]}'
 )
-const LEGACY_HASH := -3468069466603712493
+const LEGACY_HASH := -6096603859702174249
 ## 3 since 2026-10-23: the towers cost less wood, so one more build of the journal goes through.
 const LEGACY_TOWERS := 3
 

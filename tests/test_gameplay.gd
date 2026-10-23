@@ -207,8 +207,15 @@ func _run() -> void:
 	main.cards.on_command_pressed(&"cancel")
 
 	# Bosses in the plan.
-	check(wm.plan.is_boss_wave(10) and wm.plan.spawns(10)[-1]["data"].is_boss, "boss on wave 10")
-	check(not wm.plan.is_boss_wave(9), "no boss on wave 9")
+	# The first boss wave comes from the level's boss_every (6, 8 or 10 waves).
+	var boss_wave: int = 1
+	while boss_wave < wm.plan.wave_count and not wm.plan.is_boss_wave(boss_wave):
+		boss_wave += 1
+	check(
+		boss_wave >= 6 and wm.plan.spawns(boss_wave)[-1]["data"].is_boss,
+		"boss on wave %d" % boss_wave
+	)
+	check(not wm.plan.is_boss_wave(boss_wave - 1), "no boss on wave %d" % (boss_wave - 1))
 
 	# Hero hits an enemy.
 	wm.start_next_wave()

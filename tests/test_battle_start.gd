@@ -203,8 +203,12 @@ func _test_checkpoint_resume() -> void:
 	var hud: Hud = main.get_node("HUD")
 	_ok(wm.current_wave == saved_wave, "resumed at wave %d" % saved_wave)
 	_ok(
-		Vector2(hero.global_position.x, hero.global_position.z).distance_to(Vector2(spot.x, spot.z))
-		< 0.05,
+		(
+			Vector2(hero.global_position.x, hero.global_position.z).distance_to(
+				Vector2(spot.x, spot.z)
+			)
+			< 0.05
+		),
 		"the knight stands where he was"
 	)
 	_ok(not sim.running and hero.controls_locked, "resume: the map inspection first")
