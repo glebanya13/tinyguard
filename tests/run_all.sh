@@ -129,6 +129,11 @@ run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_camps_
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_strategic_view.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_battle_start.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_checkpoint.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_encyclopedia.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hero_fixes.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_retention.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_threat_alarm.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_coop_smoothing_and_area.gd
 run "$GODOT" --headless --path . --script res://tests/test_i18n.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_fx.gd
 run "$GODOT" --headless --path . --script res://tests/test_quality_guard.gd

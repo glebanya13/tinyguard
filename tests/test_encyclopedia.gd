@@ -53,7 +53,9 @@ func _check_enemy_hp_bar() -> void:
 		check(qmesh.size.y >= 0.14, "HP bar mesh height is thicker (%.2f >= 0.14)" % qmesh.size.y)
 	if bar_bg and bar_bg.mesh is QuadMesh:
 		var bg_mesh := bar_bg.mesh as QuadMesh
-		check(bg_mesh.size.y >= 0.16, "HP bar bg mesh height is thick (%.2f >= 0.16)" % bg_mesh.size.y)
+		check(
+			bg_mesh.size.y >= 0.16, "HP bar bg mesh height is thick (%.2f >= 0.16)" % bg_mesh.size.y
+		)
 
 	# Dynamic color: > 50% HP -> Green
 	enemy.take_damage(2.0)  # HP = 20 / 22 (> 90%)
@@ -116,14 +118,34 @@ func _check_encyclopedia_panel() -> void:
 		var stats: Label = scout_box.find_child("Stats", true, false) as Label
 		check(stats != null and stats.text.contains("12"), "scout stats has HP 12")
 		var icon_rect: TextureRect = scout_box.find_child("Icon", true, false) as TextureRect
-		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/slime_fast.png", "scout icon is slime_fast.png")
-		check(icon_rect != null and icon_rect.expand_mode == TextureRect.EXPAND_IGNORE_SIZE, "scout icon has EXPAND_IGNORE_SIZE")
-		check(icon_rect != null and icon_rect.custom_minimum_size.x <= 64.0, "scout icon size is compact (<= 64px)")
+		check(
+			(
+				icon_rect != null
+				and icon_rect.texture != null
+				and icon_rect.texture.resource_path == "res://ui/icons/slime_fast.png"
+			),
+			"scout icon is slime_fast.png"
+		)
+		check(
+			icon_rect != null and icon_rect.expand_mode == TextureRect.EXPAND_IGNORE_SIZE,
+			"scout icon has EXPAND_IGNORE_SIZE"
+		)
+		check(
+			icon_rect != null and icon_rect.custom_minimum_size.x <= 64.0,
+			"scout icon size is compact (<= 64px)"
+		)
 	if healer_box:
 		var stats: Label = healer_box.find_child("Stats", true, false) as Label
 		check(stats != null and stats.text.contains("28"), "healer stats has HP 28")
 		var icon_rect: TextureRect = healer_box.find_child("Icon", true, false) as TextureRect
-		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/slime_healer.png", "healer icon is slime_healer.png")
+		check(
+			(
+				icon_rect != null
+				and icon_rect.texture != null
+				and icon_rect.texture.resource_path == "res://ui/icons/slime_healer.png"
+			),
+			"healer icon is slime_healer.png"
+		)
 
 	panel.set_tab(2)
 	check(panel.current_tab() == 2, "switched to Village (2)")
@@ -140,12 +162,35 @@ func _check_encyclopedia_panel() -> void:
 	check(merc_box != null, "mercenaries entry exists in Village tab")
 	if lumber_box:
 		var stats: Label = lumber_box.find_child("Stats", true, false) as Label
-		check(stats != null and stats.text.contains("25"), "lumberjack cost 25 gold in stats")
+		check(
+			(
+				stats != null
+				and stats.text.contains(
+					str(int(load("res://resources/villager_trade.tres").hire_gold))
+				)
+			),
+			"lumberjack cost (from villager_trade.tres) in stats"
+		)
 	if merc_box:
 		var stats: Label = merc_box.find_child("Stats", true, false) as Label
-		check(stats != null and stats.text.contains("40") and stats.text.contains("80") and stats.text.contains("16"), "mercenary stats contains cost 40, HP 80, DMG 16")
+		check(
+			(
+				stats != null
+				and stats.text.contains("40")
+				and stats.text.contains("80")
+				and stats.text.contains("16")
+			),
+			"mercenary stats contains cost 40, HP 80, DMG 16"
+		)
 		var icon_rect: TextureRect = merc_box.find_child("Icon", true, false) as TextureRect
-		check(icon_rect != null and icon_rect.texture != null and icon_rect.texture.resource_path == "res://ui/icons/sword.png", "mercenary icon is sword.png")
+		check(
+			(
+				icon_rect != null
+				and icon_rect.texture != null
+				and icon_rect.texture.resource_path == "res://ui/icons/sword.png"
+			),
+			"mercenary icon is sword.png"
+		)
 
 	panel.set_tab(0)
 	check(panel.current_tab() == 0, "switched back to Towers (0)")
@@ -155,7 +200,15 @@ func _check_encyclopedia_panel() -> void:
 	check(cannon_box != null, "cannon tower entry exists in Towers tab")
 	if archer_box:
 		var stats: Label = archer_box.find_child("Stats", true, false) as Label
-		check(stats != null and stats.text.contains("9"), "archer base damage 9 in stats")
+		check(
+			(
+				stats != null
+				and stats.text.contains(
+					str(int(load("res://resources/towers/archer.tres").damage_levels[0]))
+				)
+			),
+			"archer base damage (from archer.tres) in stats"
+		)
 
 	panel.queue_free()
 
@@ -219,7 +272,10 @@ func _check_upgrade_range_ring() -> void:
 	dummy_root.add_child(slot)
 	build_mgr.select_slot(slot)
 	check(range_ring.visible, "empty slot: range_ring visible")
-	check(is_equal_approx(range_ring.scale.x, archer_data.range_levels[0]), "empty slot: shows level 1 radius (4.3)")
+	check(
+		is_equal_approx(range_ring.scale.x, archer_data.range_levels[0]),
+		"empty slot: shows level 1 radius (4.3)"
+	)
 	check(not upgrade_ring.visible, "empty slot: upgrade_ring hidden")
 
 	# 3. Tower at level 0: upgrade_ring shows level 1 range
@@ -230,9 +286,14 @@ func _check_upgrade_range_ring() -> void:
 
 	controller.refresh()
 	check(range_ring.visible, "tower lvl 0: range_ring visible")
-	check(is_equal_approx(range_ring.scale.x, archer_data.range_levels[0]), "range_ring scale is 4.3")
+	check(
+		is_equal_approx(range_ring.scale.x, archer_data.range_levels[0]), "range_ring scale is 4.3"
+	)
 	check(upgrade_ring.visible, "tower lvl 0: upgrade_ring visible")
-	check(is_equal_approx(upgrade_ring.scale.x, archer_data.range_levels[1]), "upgrade_ring scale is 4.7 (next level)")
+	check(
+		is_equal_approx(upgrade_ring.scale.x, archer_data.range_levels[1]),
+		"upgrade_ring scale is 4.7 (next level)"
+	)
 
 	# 4. Tower at max level (level 2): upgrade_ring hidden
 	tower.apply_level(archer_data, archer_data.max_level())
