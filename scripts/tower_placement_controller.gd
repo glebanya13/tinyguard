@@ -11,6 +11,11 @@ signal placement_updated(position: Vector3, valid: bool, message: String)
 signal placement_confirmed(slot: TowerSlot, tower_index: int)
 signal placement_cancelled
 
+const GHOST_VALID_TINT := Color(0.4, 1.0, 0.5, 0.6)
+const GHOST_INVALID_TINT := Color(1.0, 0.3, 0.3, 0.6)
+## Name of the tower model node under the ghost (the rings are its siblings).
+const GHOST_MODEL := "GhostTower"
+
 var placement_mode: bool = false
 var placement_tower_index: int = -1
 var placement_position: Vector3 = Vector3.ZERO
@@ -29,6 +34,10 @@ var _game_state: GameState = null
 var _sim: Sim = null
 var _range_ring: MeshInstance3D = null
 var _invalid_preview_tween: Tween = null
+## Ghost tints, owned by this controller and never shared with a real tower: the ghost's
+## meshes swap between them (a material is never recoloured in place).
+var _ghost_valid_material: StandardMaterial3D = _ghost_material(GHOST_VALID_TINT)
+var _ghost_invalid_material: StandardMaterial3D = _ghost_material(GHOST_INVALID_TINT)
 
 
 func setup(
@@ -244,11 +253,11 @@ func _create_placement_ghost(data: TowerData) -> Node3D:
 	# Tower visual model
 	if data.scene != null:
 		var model_root: Node = data.scene.instantiate()
+		model_root.name = GHOST_MODEL
 		model_root.process_mode = Node.PROCESS_MODE_DISABLED
 		for child in model_root.get_children():
 			if child is AudioStreamPlayer or child is AudioStreamPlayer3D or child is CollisionShape3D:
 				child.queue_free()
-		_make_meshes_translucent(model_root, Color(0.7, 0.9, 1.0, 0.6))
 		new_ghost.add_child(model_root)
 
 	# Footprint ring (0.65m outer radius, 0.52m inner radius)
@@ -295,19 +304,34 @@ func _create_placement_ghost(data: TowerData) -> Node3D:
 		parent = _build_manager.get_tree().current_scene
 	if parent != null:
 		parent.add_child(new_ghost)
+	# Only now: entering the tree runs the model's _ready, and tower_model.gd wears the
+	# tower skin there (Cosmetics.apply_worn sets material_override to the skin material
+	# cached for ALL towers, or to null). Tinting before that was undone by it, and
+	# recolouring that override in place painted every tower green / red for the rest of
+	# the session. The ghost gets its own materials on top of whatever _ready put there.
+	_set_ghost_material(new_ghost, _ghost_valid_material)
 	return new_ghost
 
 
-func _make_meshes_translucent(node: Node, tint: Color) -> void:
-	if node is MeshInstance3D:
-		var mi := node as MeshInstance3D
-		var mat := StandardMaterial3D.new()
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.albedo_color = tint
-		mi.material_override = mat
-	for child in node.get_children():
-		_make_meshes_translucent(child, tint)
+static func _ghost_material(tint: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = tint
+	return mat
+
+
+## Puts `material` on every mesh of the ghost's tower model and hides its labels
+## (the level badge). Only the ghost's own nodes are touched, no material is edited.
+func _set_ghost_material(ghost_root: Node, material: Material) -> void:
+	var model: Node = ghost_root.get_node_or_null(GHOST_MODEL)
+	if model == null:
+		return
+	for node: Node in model.find_children("*", "GeometryInstance3D", true, false):
+		if node is MeshInstance3D:
+			(node as MeshInstance3D).material_override = material
+		elif node is Label3D:
+			(node as Label3D).visible = false
 
 
 func _update_ghost_appearance(valid: bool) -> void:
@@ -320,17 +344,7 @@ func _update_ghost_appearance(valid: bool) -> void:
 	var range_c: MeshInstance3D = ghost.get_node_or_null("RangeCircle") as MeshInstance3D
 	if range_c != null:
 		range_c.visible = valid
-	var tint := Color(0.4, 1.0, 0.5, 0.6) if valid else Color(1.0, 0.3, 0.3, 0.6)
-	_tint_ghost_meshes(ghost, tint)
-
-
-func _tint_ghost_meshes(node: Node, tint: Color) -> void:
-	if node is MeshInstance3D and node.name != "FootprintRing" and node.name != "RangeCircle":
-		var mi := node as MeshInstance3D
-		if mi.material_override is StandardMaterial3D:
-			(mi.material_override as StandardMaterial3D).albedo_color = tint
-	for child in node.get_children():
-		_tint_ghost_meshes(child, tint)
+	_set_ghost_material(ghost, _ghost_valid_material if valid else _ghost_invalid_material)
 
 
 func _create_placement_ring() -> MeshInstance3D:

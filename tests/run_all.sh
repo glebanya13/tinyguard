@@ -124,6 +124,7 @@ run "$GODOT" --headless --path . --script res://tests/test_waves.gd
 run "$GODOT" --headless --path . --script res://tests/test_difficulty.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_units.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_warcraft_placement.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_placement_ghost.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_camps_and_sfx.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_strategic_view.gd
 run "$GODOT" --headless --path . --script res://tests/test_i18n.gd

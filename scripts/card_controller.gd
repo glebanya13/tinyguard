@@ -18,8 +18,11 @@ const ENEMY_TAP_REACH := 1.8
 const TREE_TAP_REACH := 1.0
 ## A tap this close to a villager sends the hero to trade with it.
 const VILLAGER_TAP_REACH := 1.0
-## A tap this close to the castle opens the forge card (castle upgrades live there).
-const CASTLE_TAP_REACH := 2.4
+## A tap this close to the castle opens the forge card (castle upgrades live there). The
+## castle is about 2.4 x 2.6 m, its roofs (2 m high) project ~1.6 m behind it on the
+## ground. 2.4 m reached well past the walls, so taps meant for the ground, enemies and
+## trees around it opened the forge "out of nowhere".
+const CASTLE_TAP_REACH := 1.9
 ## The trade card stays open until the hero is this much further than the trade reach.
 const TRADE_KEEP_SLACK := 0.6
 
@@ -437,14 +440,6 @@ func on_ground_tapped(point: Vector3) -> void:
 		_trade_walking = true
 		_set_trade(villager)
 		return
-	# A tap on the castle: its card (the forge with the castle upgrade), the knight stays.
-	var to_castle: Vector3 = castle_position - point
-	to_castle.y = 0.0
-	if castle_position.is_finite() and to_castle.length() < CASTLE_TAP_REACH:
-		_cleanup_unbuilt_dynamic_slot()
-		if not forge_open:
-			toggle_forge()
-		return
 	# A tap on or near camp structures:
 	if _build_manager != null:
 		var camp_lj: Node3D = _build_manager.lumberjack_camp
@@ -491,11 +486,26 @@ func on_ground_tapped(point: Vector3) -> void:
 		_cleanup_unbuilt_dynamic_slot()
 		_hero.move_to(best.global_position, _hero.chop_range * 0.8)
 		return
+	# A tap on the castle: its card (the forge with the castle upgrade), the knight stays.
+	# Checked after enemies and trees: the creeps end their path at the castle, and a tap
+	# on one of them (or on a tree by the walls) must not pop the forge card up instead.
+	if is_castle_tap(point):
+		_cleanup_unbuilt_dynamic_slot()
+		if not forge_open:
+			toggle_forge()
+		return
 
 	# Empty ground tap: Warcraft-style free placement!
 	var handled: bool = placement.handle_ground_tap(point)
 	if not handled and GameSettings.is_tap_to_move():
 		_hero.move_to(point, 0.15)
+
+
+## True when a ground tap at `point` lands on the castle itself.
+func is_castle_tap(point: Vector3) -> bool:
+	var to_castle: Vector3 = castle_position - point
+	to_castle.y = 0.0
+	return castle_position.is_finite() and to_castle.length() < CASTLE_TAP_REACH
 
 
 func _execute(id: StringName, slot: TowerSlot) -> void:
