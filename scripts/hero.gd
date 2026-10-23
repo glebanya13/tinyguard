@@ -32,6 +32,13 @@ const KNOCKOUT_DURATION: float = 8.0
 var is_knocked_out: bool = false
 var knockout_timer: float = 0.0
 var respawn_position: Vector3 = Vector3.ZERO
+## Map inspection before the battle: the knight stands still, takes no orders and no input.
+var controls_locked: bool = false:
+	set(value):
+		controls_locked = value
+		if value:
+			joystick_vector = Vector2.ZERO
+			cancel_order()  # drops the chased enemy too
 
 ## Metres per second (without the "swift feet" perk, see walk_speed()).
 @export var speed: float = 3.2
@@ -201,6 +208,12 @@ func _physics_process(delta: float) -> void:
 	if is_ghost:
 		_glide(delta)
 		return
+	if controls_locked:
+		velocity = _recoil_velocity
+		move_and_slide()
+		position.y = 0.0
+		_animate(Vector3.ZERO, delta)
+		return
 	if Input.is_action_just_pressed(&"attack"):
 		try_attack()
 	if Input.is_action_just_pressed(&"spin"):
@@ -309,7 +322,7 @@ func walk_speed() -> float:
 
 ## Sets an enemy target to pursue and attack until dead.
 func chase_enemy(enemy: Enemy) -> void:
-	if is_knocked_out:
+	if is_knocked_out or controls_locked:
 		return
 	target_enemy = enemy
 
@@ -325,7 +338,7 @@ func is_chasing() -> bool:
 
 ## Walk to `target` until within `reach` metres, then call `on_arrive`.
 func move_to(target: Vector3, reach: float = 0.1, on_arrive: Callable = Callable()) -> void:
-	if is_knocked_out:
+	if is_knocked_out or controls_locked:
 		return
 	cancel_order()  # a new order replaces the old one (listeners hear it end)
 	_has_order = true
@@ -398,14 +411,14 @@ func ghost_goto(point: Vector3) -> void:
 
 
 func can_attack() -> bool:
-	if is_knocked_out:
+	if is_knocked_out or controls_locked:
 		return false
 	# Nothing swings before the battle clock runs (the level is still being built).
 	return sim != null and sim.running and sim.tick >= _attack_ready_tick
 
 
 func can_spin() -> bool:
-	if is_knocked_out:
+	if is_knocked_out or controls_locked:
 		return false
 	return spin_cooldown_left() <= 0.0
 

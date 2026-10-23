@@ -391,6 +391,8 @@ func _dot(tab: Button, badge_text: String = "") -> Control:
 
 func _start_daily(day: String) -> void:
 	DailyRun.select(day)
+	LevelCatalog.resume_checkpoint = false  # the daily challenge never resumes a checkpoint
+	LevelCatalog.inspect_map = true
 	get_tree().change_scene_to_file(GAME_SCENE)
 
 
@@ -796,6 +798,7 @@ func _start(endless: bool) -> void:
 	LevelCatalog.resume_checkpoint = has_valid_cp
 	if not has_valid_cp and not cp.is_empty() and cp_endless == endless:
 		BattleCheckpoint.clear_checkpoint()
+	LevelCatalog.inspect_map = true
 	_play_button.disabled = true
 	_endless_button.disabled = true
 	get_tree().change_scene_to_file(GAME_SCENE)

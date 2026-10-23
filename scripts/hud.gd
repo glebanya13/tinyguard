@@ -23,7 +23,10 @@ signal strategic_view_pressed
 ## End screen of the Record Run: open the records table on the map.
 signal records_pressed
 signal next_level_pressed
+## Early call of the next wave (only while the field is clear, see main.gd).
 signal call_wave_pressed
+## "To battle!" of the map inspection: starts the battle once.
+signal start_battle_pressed
 signal joystick_changed(vector: Vector2)
 ## The thumb controls were re-placed (settings changed): the road compass follows.
 signal layout_changed
@@ -136,6 +139,9 @@ var _call_wave_button: Button = null
 var _wave_timer_pill: PanelContainer = null
 var _wave_timer_label: Label = null
 var _start_battle_button: Button = null
+## Map inspection before the battle: the knight's controls are hidden.
+var _inspecting: bool = false
+var _joystick_before_inspection: bool = true
 var _star_audio: AudioStreamPlayer = null
 
 
@@ -274,7 +280,9 @@ func set_wave(wave: int, total: int) -> void:
 		_wave_label.text = tr("HUD_SIEGE_WAVE") % wave
 
 
-func set_call_wave_info(seconds_left: float, bonus_gold: int) -> void:
+## The wave clock: `seconds_left` until the next wave (<= 0 hides the timer); the early call
+## button is shown only when `can_call` (the field is clear).
+func set_call_wave_info(seconds_left: float, bonus_gold: int, can_call: bool = true) -> void:
 	if _call_wave_button == null:
 		return
 	if seconds_left <= 0.0 or _end_screen.visible:
@@ -282,7 +290,7 @@ func set_call_wave_info(seconds_left: float, bonus_gold: int) -> void:
 		if _wave_timer_pill != null:
 			_wave_timer_pill.visible = false
 		return
-	_call_wave_button.visible = true
+	_call_wave_button.visible = can_call
 	_call_wave_button.text = tr("HUD_CALL_WAVE") % [ceili(seconds_left), bonus_gold]
 	if _wave_timer_pill != null:
 		_wave_timer_pill.visible = true
@@ -320,8 +328,8 @@ func _build_start_battle_button() -> void:
 	_start_battle_button.focus_mode = Control.FOCUS_NONE
 	_start_battle_button.text = tr("HUD_START_BATTLE")
 	_start_battle_button.pressed.connect(func() -> void:
-		call_wave_pressed.emit()
 		hide_start_battle_button()
+		start_battle_pressed.emit()
 	)
 	_start_battle_button.visible = false
 	$Root.add_child(_start_battle_button)
@@ -331,6 +339,30 @@ func show_start_battle_button() -> void:
 	if _start_battle_button != null:
 		_start_battle_button.visible = true
 		_start_battle_button.modulate.a = 1.0
+
+
+## Map inspection on: the joystick and the sword buttons are hidden (the knight waits);
+## off: they come back as they were.
+func set_inspection(on: bool) -> void:
+	if on == _inspecting:
+		return
+	_inspecting = on
+	if on:
+		_joystick_before_inspection = _joystick.visible
+		_joystick_visible = _joystick.visible
+	else:
+		_joystick_visible = _joystick_before_inspection
+	_apply_inspection()
+
+
+func _apply_inspection() -> void:
+	if _end_screen.visible:
+		return  # the menu shows them again on close
+	_attack_button.visible = not _inspecting
+	_spin_button.visible = not _inspecting
+	if _workbench_button:
+		_workbench_button.visible = not _inspecting
+	_joystick.visible = _joystick_visible and not _inspecting
 
 
 func hide_start_battle_button() -> void:
@@ -631,12 +663,13 @@ func hide_pause_menu() -> void:
 	if _workbench_button:
 		_workbench_button.show()
 	_joystick.visible = _joystick_visible
+	_apply_inspection()
 	$Root/TopBar.show()
 	$Root/TopRight.show()
 
 
 func _show_menu(text: String, ribbon: StringName) -> void:
-	if not _end_screen.visible:
+	if not _end_screen.visible and not _inspecting:
 		_joystick_visible = _joystick.visible
 	_message_label.text = text
 	_message_label.theme_type_variation = ribbon

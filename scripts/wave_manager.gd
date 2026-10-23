@@ -107,6 +107,15 @@ func is_wave_active() -> bool:
 	return not _remaining.is_empty()
 
 
+## Highest wave N such that waves 1..N have no enemy left on the map or still to come
+## (a battle checkpoint resumes after it: a wave still running is played again).
+func cleared_through() -> int:
+	var n: int = current_wave
+	for wave: int in _remaining:
+		n = mini(n, wave - 1)
+	return n
+
+
 func has_next_wave() -> bool:
 	return not _stopped and current_wave < plan.wave_count
 
