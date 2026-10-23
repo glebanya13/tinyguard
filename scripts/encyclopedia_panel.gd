@@ -373,10 +373,13 @@ func _build_village() -> void:
 	name4.name = "Name"
 	col4.add_child(name4)
 
+	var merc_cfg: MercenaryConfig = Mercenary.CONFIG
 	var stats4_str: String = tr("ENCYCLOPEDIA_VILLAGE_MERC_STATS") % [
-		CampStructures.MercenaryCamp.HIRE_COST,
-		80,
-		16
+		merc_cfg.hire_gold,
+		merc_cfg.hire_gold_step,
+		merc_cfg.max_alive,
+		roundi(merc_cfg.max_health),
+		roundi(merc_cfg.attack_damage)
 	]
 	var stats4 := _label(stats4_str, 16, HIGHLIGHT_COLOR)
 	stats4.name = "Stats"

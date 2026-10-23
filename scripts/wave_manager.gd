@@ -230,6 +230,9 @@ func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
 		enemy.reward = roundi(enemy.reward * float(entry["reward_mult"]))
 	if reward_scale != 1.0:
 		enemy.reward = roundi(enemy.reward * reward_scale)
+	var taper: float = plan.reward_taper(wave) if plan != null else 1.0
+	if taper < 1.0:
+		enemy.reward = maxi(roundi(enemy.reward * taper), 1)
 	enemy.wave = wave
 	enemy.crowd = crowd
 	enemy.sim = sim

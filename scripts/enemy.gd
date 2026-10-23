@@ -15,6 +15,8 @@ signal damaged(amount: float)
 signal split(data: EnemyData, health_mult: float, progress: float, wave: int)
 
 const GROUP := &"enemies"
+## Damage type that ignores `EnemyData.armor` (lightning: the shock goes through plates).
+const ARMOR_PIERCING := &"shock"
 const LOOPING_MODEL := preload("res://scripts/looping_model.gd")
 ## Progress ratio treated as "arrived" (avoids float equality at the end).
 const ARRIVAL_RATIO := 0.999
@@ -157,13 +159,14 @@ func sim_step() -> void:
 		reached_base.emit(base_damage)
 
 
-## `kind` is the damage type of the hit (&"arrow" for archers, &"" otherwise).
+## `kind` is the damage type of the hit (&"arrow" for archers, &"shock" for lightning,
+## &"" otherwise).
 func take_damage(amount: float, kind: StringName = &"") -> void:
 	if _is_dead:
 		return
 	if kind == &"arrow" and data:
 		amount *= data.arrow_damage_mult
-	if data and data.armor > 0.0:
+	if data and data.armor > 0.0 and kind != ARMOR_PIERCING:
 		amount = maxf(amount - data.armor, 1.0)
 	health = maxf(health - amount, 0.0)
 	hit_flash = 1.0

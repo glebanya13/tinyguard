@@ -16,6 +16,10 @@ const THICKET_REGROW_TIME := 150.0
 
 @export var lane: int = 0
 @export var total_trees: int = 24
+## Wood per hit and hits of a thicket tree: less than a field tree (12), since felling it also
+## weakens the outpost; but every tree that can be chopped gives wood.
+@export var thicket_wood_per_hit: int = 2
+@export var thicket_hits: int = 3
 
 var sim: Sim = null
 var thicket_trees: Array[WoodTree] = []
@@ -25,8 +29,8 @@ func add_thicket_tree(tree: WoodTree) -> void:
 	tree.is_thicket = true
 	tree.outpost = self
 	tree.outpost_id = lane
-	tree.wood_per_hit = 1
-	tree.hits = 3
+	tree.wood_per_hit = thicket_wood_per_hit
+	tree.hits = thicket_hits
 	tree.regrow_time = THICKET_REGROW_TIME
 	thicket_trees.append(tree)
 	total_trees = thicket_trees.size()

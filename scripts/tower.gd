@@ -24,8 +24,6 @@ signal level_changed(level: int)
 @export var retarget_interval: float = 0.15
 ## Bolt effect for chain towers.
 @export var chain_fx: PackedScene
-## Chain lightning: share of the damage kept by every next jump.
-@export var chain_falloff: float = 0.8
 
 ## Stable id (set by Sim.add_tower).
 var id: int = 0
@@ -39,6 +37,8 @@ var slow_factor: float = 1.0
 var slow_duration: float = 0.0
 var chain_targets: int = 0
 var chain_range: float = 0.0
+## Chain lightning: share of the damage kept by every next jump (TowerData.chain_falloff).
+var chain_falloff: float = 0.8
 var damage_kind: StringName = &""
 var hits_air: bool = true
 var chilled_bonus: float = 1.0
@@ -89,6 +89,7 @@ func apply_level(tower_data: TowerData, new_level: int) -> void:
 	slow_duration = data.slow_duration
 	chain_targets = data.chain_levels[level]
 	chain_range = data.chain_range
+	chain_falloff = data.chain_falloff
 	damage_kind = data.damage_kind
 	hits_air = data.hits_air
 	chilled_bonus = data.chilled_bonus

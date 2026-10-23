@@ -146,7 +146,8 @@ func chop(from: Vector3) -> int:
 		felled.emit(self)
 		if outpost != null:
 			outpost.on_tree_felled(self)
-	return 0 if is_thicket else wood_per_hit
+	# Everything that can be chopped gives wood (thicket trees too, at their own rate).
+	return wood_per_hit
 
 
 ## Integers describing the simulated state (for Sim.state_hash).

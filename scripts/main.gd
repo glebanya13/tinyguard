@@ -234,7 +234,9 @@ func _ready() -> void:
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
 	villagers.seed_value = _sim.seed_value
-	villagers.wood_economy = not _endless  # the Record Run and the daily challenge: sell only
+	# Buying wood and lumberjacks: off only in the Record Run (one all-time table); the daily
+	# challenge has them (one seed and the same rules for everyone that day).
+	villagers.wood_economy = not _record
 	villagers.wood_sold.connect(_on_wood_sold)
 	villagers.wood_bought.connect(_on_wood_bought)
 	villagers.lumberjack_chopped.connect(_on_lumberjack_chopped)
@@ -456,7 +458,7 @@ func _on_replay_begun(header: Dictionary) -> void:
 	_difficulty = clampi(int(header.get("difficulty", 0)), 0, Balance.difficulty_count() - 1)
 	_apply_perks(header.get("perks", {}))
 	_apply_difficulty()
-	villagers.wood_economy = not bool(header.get("endless", false))
+	villagers.wood_economy = not bool(header.get("endless", false)) or header.has("daily")
 	if int(header.get("sim_version", 0)) < 3:
 		villagers.restock_enabled = false
 		# Legacy sim_version < 3 journals were recorded with original 90 gold / 60 wood for level 1 and 2.

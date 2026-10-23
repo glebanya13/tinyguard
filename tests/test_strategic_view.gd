@@ -123,20 +123,20 @@ func _run() -> void:
 	check(villagers.lots_bought == 2, "lots_bought is 2")
 	check(villagers.buy_lots_left() == trade.buy_max_lots - 2, "buy_lots_left decreased by 2 (%d)" % villagers.buy_lots_left())
 
-	# Run simulation for 1799 ticks (just before 60 seconds at 30 ticks/s)
-	for i in Villagers.RESTOCK_INTERVAL_TICKS - 1:
+	# Run the simulation to one tick before the restock interval
+	for i in Sim.ticks(villagers.trade.buy_restock_seconds) - 1:
 		villagers.sim_step()
-	check(villagers.lots_bought == 2, "no restock before 60 seconds (1799 ticks)")
+	check(villagers.lots_bought == 2, "no restock before buy_restock_seconds")
 
-	# Step 1800th tick -> restocks 1 lot!
+	# The last tick of the interval restocks 1 lot
 	villagers.sim_step()
-	check(villagers.lots_bought == 1, "restocked 1 lot at 60s: lots_bought is now 1")
+	check(villagers.lots_bought == 1, "restocked 1 lot after buy_restock_seconds: lots_bought is now 1")
 	check(villagers.buy_lots_left() == trade.buy_max_lots - 1, "buy_lots_left replenished by +1 (%d)" % villagers.buy_lots_left())
 
-	# Another 60 seconds (1800 ticks) -> restocks second lot!
-	for i in Villagers.RESTOCK_INTERVAL_TICKS:
+	# One more interval restocks the second lot
+	for i in Sim.ticks(villagers.trade.buy_restock_seconds):
 		villagers.sim_step()
-	check(villagers.lots_bought == 0, "restocked second lot at 120s: lots_bought is now 0")
+	check(villagers.lots_bought == 0, "restocked the second lot one more interval later: lots_bought is now 0")
 	check(villagers.buy_lots_left() == trade.buy_max_lots, "buy_lots_left is back to maximum capacity (%d)" % villagers.buy_lots_left())
 
 	# Manual restock method test

@@ -134,10 +134,12 @@ func _run() -> void:
 	gs.wood_changed.emit(0)
 	hero.global_position = tree.global_position + Vector3(1.0, 0, 0)
 	await wait_until(func() -> bool: return gs.wood > 0, 120)
-	check(gs.wood == 3, "auto chop gives wood: %d" % gs.wood)
+	# 3 from the tree (a thicket tree in the same swing cone may add its own wood).
+	check(gs.wood >= 3, "auto chop gives wood: %d" % gs.wood)
 	await wait_until(func() -> bool: return not tree.is_choppable(), 400)
 	await frames(30)
-	check(gs.wood == 12 and not tree.is_choppable(), "tree exhausted after 12 wood (%d)" % gs.wood)
+	# At least the tree's 12 wood: a thicket tree in the same swing cone gives wood too.
+	check(gs.wood >= 12 and not tree.is_choppable(), "tree exhausted after 12 wood (%d)" % gs.wood)
 	check(hero.get_focus_target() != tree, "fallen tree is not a target")
 	# Tap on another tree: hero walks there and chops.
 	var far: WoodTree = null
@@ -168,9 +170,10 @@ func _run() -> void:
 	check(
 		not slot.is_free() and slot.tower.data.display_name == "TOWER_CANNON_NAME", "cannon built"
 	)
+	var cannon: TowerData = slot.tower.data
 	check(
-		gs.gold == gold_start + 160 and gs.wood >= 170,
-		"paid 40 gold + 30 wood (%d/%d)" % [gs.gold, gs.wood]
+		gs.gold == gold_start + 200 - cannon.cost_gold and gs.wood >= 200 - cannon.cost_wood,
+		"paid %d gold + %d wood (%d/%d)" % [cannon.cost_gold, cannon.cost_wood, gs.gold, gs.wood]
 	)
 	await frames(30)
 	bm.select_slot(slot)
@@ -179,14 +182,15 @@ func _run() -> void:
 	await wait_until(func() -> bool: return slot.tower != null and slot.tower.level == 1, 120)
 	check(slot.tower != null and slot.tower.level == 1, "upgraded")
 
-	# Sell: 70% of 40+60 gold and 30+40 wood back.
+	# Sell: 70% of the build + first upgrade gold back.
 	var gold_before: int = gs.gold
+	var refund: int = cannon.sell_value(1).x
 	bm.select_slot(slot)
 	await frames(5)
 	await tap_key(KEY_X)
 	await wait_until(func() -> bool: return slot.is_free(), 120)
 	check(
-		slot.is_free() and gs.gold == gold_before + 70,
+		slot.is_free() and gs.gold == gold_before + refund,
 		"sold for 70%% (+%d gold)" % (gs.gold - gold_before)
 	)
 	# Forge: sword upgrade and castle repair.

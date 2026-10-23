@@ -1,8 +1,9 @@
 {
-	"_comment": "Balance as data. waves: line-up table (mix = [level key, enemy, every Nth slot, offset]). difficulty: campaign multipliers of health, enemy count, kill gold and castle lives (index 0 = Normal, the base the levels are tuned for). record: the Record Run (free mode, every wave harder): health grows by hp_growth per wave (capped at hp_cap), the enemy count by count_growth (capped at count_cap); the spawn window stretches to the whole wave_duration between waves window_ramp.from and .to; mix rows = [first wave, enemy, every Nth slot, offset, every Nth slot from late_from on]; boss schedule = [[first wave, every Nth wave], ...] (the latest row that has started is in force); surprise waves (first at `from`, then every `every` waves) are one enemy kind from every side, count and hp are multipliers of the ordinary wave.",
+	"_comment": "Balance as data. waves: line-up table (mix = [level key, enemy, every Nth slot, offset]); reward_taper: kill gold of an enemy of wave w is multiplied by max(floor, 1 - per_wave * (w - from)) after wave `from` (every mode), so the gold of long battles grows slower than the crowd. difficulty: campaign multipliers of health, enemy count, kill gold and castle lives (index 0 = Normal, the base the levels are tuned for). record: the Record Run (free mode, every wave harder): health grows by hp_growth per wave (capped at hp_cap), the enemy count by count_growth (capped at count_cap); the spawn window stretches to the whole wave_duration between waves window_ramp.from and .to; mix rows = [first wave, enemy, every Nth slot, offset, every Nth slot from late_from on]; boss schedule = [[first wave, every Nth wave], ...] (the latest row that has started is in force); surprise waves (first at `from`, then every `every` waves) are one enemy kind from every side, count and hp are multipliers of the ordinary wave.",
 	"waves": {
 		"boss_growth_exponent": 0.75,
 		"boss_per_waves": 30,
+		"reward_taper": {"from": 10, "per_wave": 0.02, "floor": 0.5},
 		"mix": [
 			["golem_from", "stone_golem", 9, 8],
 			["tank_from", "slime_tank", 4, 3],

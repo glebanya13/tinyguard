@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MercenaryConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/mercenary_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+hire_gold = 40
+hire_gold_step = 20
+max_alive = 3
+max_health = 80.0
+attack_damage = 16.0
+contact_radius = 0.9
+contact_dps = 6.0
+contact_growth_per_wave = 0.04

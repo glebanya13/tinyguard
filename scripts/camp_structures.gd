@@ -374,9 +374,13 @@ class LumberjackCamp extends Node3D:
 # Mercenary Camp
 # ==============================================================================
 class MercenaryCamp extends Node3D:
-	const HIRE_COST: int = 40
 	signal mercenary_hired(mercenary: Mercenary)
 	signal camp_tapped
+
+	## Prices, the limit of living knights and their stats (resources/mercenary.tres).
+	var config: MercenaryConfig = Mercenary.CONFIG
+	## Hires this battle (the dead count too): every hire makes the next one dearer.
+	var hired_total: int = 0
 
 	var game_state: GameState = null
 	var sim: Sim = null
@@ -1216,12 +1220,32 @@ class MercenaryCamp extends Node3D:
 		visor.position = Vector3(0.0, 1.25, 0.07)
 		armor_stand.add_child(visor)
 
-	## Hires a mercenary for 40 gold and registers it with the simulation.
+	## Gold of the next hire (grows with every hire of the battle).
+	func hire_cost() -> int:
+		return config.hire_cost(hired_total)
+
+	## Mercenaries alive now (the dead leave `mercenaries` when they fall).
+	func alive_count() -> int:
+		var n: int = 0
+		for m: Mercenary in mercenaries:
+			if is_instance_valid(m) and m.is_alive():
+				n += 1
+		return n
+
+	## True while one more knight may be hired (below `config.max_alive`).
+	func can_hire_more() -> bool:
+		return alive_count() < config.max_alive
+
+	## Hires a mercenary for hire_cost() gold and registers it with the simulation.
+	## Null: the limit of living mercenaries is reached or the gold is short.
 	func hire_mercenary(gs: GameState = null, s: Sim = null) -> Mercenary:
 		var target_gs := gs if gs != null else game_state
 		var target_sim := s if s != null else sim
-		if target_gs != null and not target_gs.spend(Vector2i(HIRE_COST, 0)):
+		if not can_hire_more():
 			return null
+		if target_gs != null and not target_gs.spend(Vector2i(hire_cost(), 0)):
+			return null
+		hired_total += 1
 
 		var merc: Mercenary = null
 		if ResourceLoader.exists(MERCENARY_SCENE):
@@ -1234,6 +1258,8 @@ class MercenaryCamp extends Node3D:
 		merc.position = spawn_pos
 		merc.patrol_center = gate_position if gate_position != Vector3.ZERO else spawn_pos
 		merc.hero = hero
+		merc.config = config
+		merc.died.connect(_on_mercenary_died.bind(merc))
 		add_sibling(merc)
 		mercenaries.append(merc)
 
@@ -1242,3 +1268,6 @@ class MercenaryCamp extends Node3D:
 
 		mercenary_hired.emit(merc)
 		return merc
+
+	func _on_mercenary_died(merc: Mercenary) -> void:
+		mercenaries.erase(merc)

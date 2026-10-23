@@ -40,6 +40,11 @@ func _initialize() -> void:
 	)
 	_level = int(OS.get_environment("LEVEL")) if OS.get_environment("LEVEL") != "" else 1
 	LevelCatalog.selected_id = _level
+	# The bot hires a lumberjack at once: the start gold must cover the hire (level 1 starts poor).
+	for lv: Dictionary in LevelCatalog.levels():
+		if int(lv["id"]) == _level:
+			var start: Dictionary = lv["start"]
+			start["gold"] = maxi(int(start["gold"]), 90)
 	_run.call_deferred()
 
 

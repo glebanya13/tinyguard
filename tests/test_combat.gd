@@ -78,7 +78,7 @@ func _run() -> void:
 	await process_frame
 
 	var group: Array[Enemy] = []
-	for k in 4:
+	for k in 7:  # more than a level-1 bolt can reach: the jump limit counts
 		group.append(spawn("res://resources/enemies/slime.tres", 10.0 + k * 1.2))
 	await process_frame
 	var bolt := build(3, group[0].global_position)
@@ -91,7 +91,10 @@ func _run() -> void:
 	for k in group.size():
 		if group[k].health < before[k]:
 			hit += 1
-	check(hit == 3, "lightning level 1 hits target + 2 jumps (%d)" % hit)
+	check(
+		hit == bolt.chain_targets + 1,
+		"lightning level 1 hits target + %d jumps (%d)" % [bolt.chain_targets, hit]
+	)
 	await process_frame
 	check(get_nodes_in_group(Enemy.GROUP).size() >= 4, "enemies alive after test")
 	# Waves run on a 30 s clock and overlap.
@@ -130,6 +133,14 @@ func _run() -> void:
 	hp_golem = golem.health
 	golem.take_damage(2.0)
 	check(is_equal_approx(hp_golem - golem.health, 1.0), "at least 1 damage gets through")
+	hp_golem = golem.health
+	golem.take_damage(10.0, Enemy.ARMOR_PIERCING)
+	check(is_equal_approx(hp_golem - golem.health, 10.0), "lightning (shock) ignores armour")
+	check(
+		(load("res://resources/towers/lightning.tres") as TowerData).damage_kind
+		== Enemy.ARMOR_PIERCING,
+		"the lightning tower deals shock damage"
+	)
 
 	# Target priority: first = closest to the castle, last, strongest, nearest to the tower.
 	for node: Node in get_nodes_in_group(Enemy.GROUP):
