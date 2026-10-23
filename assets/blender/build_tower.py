@@ -7,6 +7,7 @@ arrow.glb: points +Y (Godot -Z) so Node3D.look_at() aims it.
 import math
 import random
 
+import bmesh
 import bpy
 from mathutils import Vector
 
@@ -17,8 +18,9 @@ TOP = 0.88  # height of the parapet floor
 
 def build_base(rng: random.Random):
     parts = []
-    body = tg.lathe("keep", [(0.41, 0.0), (0.39, 0.07), (0.345, 0.2), (0.325, 0.62), (0.335, 0.74),
-                             (0.37, 0.8), (0.37, 0.8)], "stone", steps=14)
+    # Battered foot curving into a slightly tapering shaft, flared under the parapet.
+    body = tg.lathe("keep", [(0.41, 0.0), (0.398, 0.05), (0.37, 0.12), (0.348, 0.22), (0.334, 0.42),
+                             (0.326, 0.62), (0.334, 0.71), (0.352, 0.765), (0.37, 0.8)], "stone", steps=16)
     tg.shade(body, 30)
     parts.append(body)
     # Hand-placed look: stones protruding from the wall.
@@ -45,7 +47,7 @@ def build_base(rng: random.Random):
         win = tg.box(f"window{a}", (0.04, 0.05, 0.12), (0.33 * math.cos(rad), 0.33 * math.sin(rad), 0.52), "window",
                      bevel=0.01, bevel_seg=1, rot=(0, 0, a))
         parts.append(win)
-    plinth = tg.cylinder("plinth", 0.44, 0.415, 0.07, (0, 0, 0.0), "stone_dark", verts=14)
+    plinth = tg.cylinder("plinth", 0.44, 0.415, 0.07, (0, 0, 0.0), "stone_dark", verts=16)
     tg.shade(plinth, 30)
     parts.append(plinth)
     # Royal banner on the front wall under the parapet.
@@ -65,8 +67,13 @@ def build_base(rng: random.Random):
         parts.append(merlon)
     for i in range(8):
         a = 2 * math.pi * i / 8
-        corbel = tg.box(f"corbel{i}", (0.07, 0.07, 0.06), (0.36 * math.cos(a), 0.36 * math.sin(a), 0.77),
-                        "stone_dark", bevel=0.01, bevel_seg=1, rot=(0, 0, math.degrees(a)))
+        # Wedge corbel: narrow at the wall below, full width under the ledge.
+        corbel = tg.cylinder(f"corbel{i}", 0.022, 0.05, 0.07, (0, 0, 0.735), "stone_dark", verts=4,
+                             rot=(0, 0, 45), smooth=False)
+        tg.deform(corbel, lambda c: Vector((c.x, c.y * 0.8, c.z)))
+        corbel.rotation_euler = (0, 0, a)
+        corbel.location = (0.35 * math.cos(a), 0.35 * math.sin(a), 0)
+        tg.apply_all_transforms(corbel)
         parts.append(corbel)
     return tg.join(parts, "Base")
 
@@ -90,7 +97,7 @@ def build_turret():
     tg.deform(limb, lambda c: Vector((c.x, c.y + 0.55 * c.x * c.x, c.z * (1 - 1.2 * abs(c.x)))))
     tg.add_subsurf(limb, 1)
     tg.shade(limb, 60)
-    tips = [tg.sphere(f"tip{s}", (0.04, 0.04, 0.04), (0.25 * s, 0.035, 0), "gold", seg=10, rings=6) for s in (-1, 1)]
+    tips = [tg.sphere(f"tip{s}", (0.04, 0.04, 0.04), (0.25 * s, 0.035, 0), "gold", seg=8, rings=5) for s in (-1, 1)]
     string = tg.box("string", (0.5, 0.008, 0.008), (0, 0.04, 0), "string")
     band = tg.box("bow_band", (0.06, 0.05, 0.045), (0, 0.0, 0), "gold", bevel=0.01, bevel_seg=1)
     bow = tg.join([limb, *tips, string, band], "Bow")
@@ -193,12 +200,35 @@ def build_slot_ring(rng):
     return tg.join(parts, "SlotRing")
 
 
+def carriage_cheek(name: str, x: float):
+    """Side plank of a cannon carriage with the classic stepped top: high at the front
+    (trunnions, -Y) and stepping down towards the back, instead of a plain bevelled box."""
+    # (y, z above TOP), outline of the plank
+    prof = [(0.13, 0.04), (0.13, 0.12), (0.06, 0.12), (0.03, 0.17), (-0.05, 0.17), (-0.08, 0.21),
+            (-0.13, 0.21), (-0.13, 0.04)]
+    t = 0.02
+    verts = [(x - t, y, TOP + z) for y, z in prof] + [(x + t, y, TOP + z) for y, z in prof]
+    n = len(prof)
+    faces = [tuple(range(n)), tuple(range(2 * n - 1, n - 1, -1))]
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, n + i, n + j, j))
+    cheek = tg.from_pydata(name, verts, faces, "wood", smooth=False)
+    bm = bmesh.new()
+    bm.from_mesh(cheek.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(cheek.data)
+    bm.free()
+    tg.add_bevel(cheek, 0.008, 1)
+    tg.shade(cheek, 35)
+    return cheek
+
+
 def build_cannon_turret():
     """Iron cannon on a wooden carriage. Turret yaws; Gun recoils."""
     swivel = tg.cylinder("swivel", 0.15, 0.14, 0.06, (0, 0, TOP), "wood_dark", verts=14)
-    ring = tg.torus("swivel_ring", 0.145, 0.014, (0, 0, TOP + 0.03), "gold", seg=18, minor_seg=6)
-    cheeks = [tg.box(f"cheek{s}", (0.04, 0.26, 0.16), (0.11 * s, 0.0, TOP + 0.13), "wood", bevel=0.015, bevel_seg=1)
-              for s in (-1, 1)]
+    ring = tg.torus("swivel_ring", 0.145, 0.014, (0, 0, TOP + 0.03), "gold", seg=16, minor_seg=4)
+    cheeks = [carriage_cheek(f"cheek{s}", 0.11 * s) for s in (-1, 1)]
     wheels = [tg.cylinder(f"wheel{s}", 0.075, 0.075, 0.035, (0.15 * s, 0.05, TOP + 0.08), "wood_dark", verts=12,
                           rot=(0, 90, 0)) for s in (-1, 1)]
     hubs = [tg.sphere(f"hub{s}", (0.04, 0.04, 0.04), (0.17 * s, 0.05, TOP + 0.08), "gold", seg=8, rings=4)
@@ -206,16 +236,16 @@ def build_cannon_turret():
     turret = tg.join([swivel, ring, *cheeks, *wheels, *hubs], "Turret")
     tg.pivot(turret, (0, 0, TOP))
     barrel = tg.lathe("barrel", [(0.085, -0.12), (0.095, -0.08), (0.075, 0.0), (0.065, 0.2), (0.075, 0.24),
-                                 (0.07, 0.27)], "iron", steps=14)
+                                 (0.07, 0.27)], "iron", steps=12)
     barrel.rotation_euler = (math.radians(-90 + 10), 0, 0)  # points -Y, tilted up
     tg.apply_all_transforms(barrel)
     bands = [
-        tg.torus("band0", 0.080, 0.010, (0, 0.003, 0.001), "gold", seg=16, minor_seg=5, rot=(80, 0, 0)),
-        tg.torus("band1", 0.072, 0.009, (0, -0.114, 0.022), "gold", seg=16, minor_seg=5, rot=(80, 0, 0)),
-        tg.torus("band2", 0.068, 0.009, (0, -0.211, 0.0395), "gold", seg=16, minor_seg=5, rot=(80, 0, 0)),
+        tg.torus("band0", 0.080, 0.010, (0, 0.003, 0.001), "gold", seg=12, minor_seg=4, rot=(80, 0, 0)),
+        tg.torus("band1", 0.072, 0.009, (0, -0.114, 0.022), "gold", seg=12, minor_seg=4, rot=(80, 0, 0)),
+        tg.torus("band2", 0.068, 0.009, (0, -0.211, 0.0395), "gold", seg=12, minor_seg=4, rot=(80, 0, 0)),
     ]
-    breech = tg.sphere("breech", (0.15, 0.15, 0.15), (0, 0.12, -0.02), "iron_dark", seg=12, rings=6)
-    muzzle = tg.torus("muzzle", 0.072, 0.018, (0, -0.27, 0.05), "iron_dark", seg=16, minor_seg=5, rot=(80, 0, 0))
+    breech = tg.sphere("breech", (0.15, 0.15, 0.15), (0, 0.12, -0.02), "iron_dark", seg=10, rings=6)
+    muzzle = tg.torus("muzzle", 0.072, 0.018, (0, -0.27, 0.05), "iron_dark", seg=14, minor_seg=4, rot=(80, 0, 0))
     gun = tg.join([barrel, *bands, breech, muzzle], "Gun")
     gun.location = (0, 0, TOP + 0.2)
     tg.apply_all_transforms(gun)
@@ -223,36 +253,56 @@ def build_cannon_turret():
     return turret, gun
 
 
+def crystal_prism(name, r, h_top, h_mid, h_bot, loc, mat, sides=6, twist=0.0):
+    """Faceted ice crystal: a short prism between two pyramids (flat shaded facets)."""
+    verts = [(0, 0, h_top + h_mid), (0, 0, -h_bot)]
+    for z, k in ((h_mid, 0.0), (0.0, twist)):
+        for i in range(sides):
+            a = 2 * math.pi * i / sides + k
+            verts.append((r * math.cos(a), r * math.sin(a), z))
+    faces = []
+    for i in range(sides):
+        j = (i + 1) % sides
+        faces.append((0, 2 + i, 2 + j))
+        faces.append((2 + i, 2 + sides + i, 2 + sides + j, 2 + j))
+        faces.append((1, 2 + sides + j, 2 + sides + i))
+    verts = [(x + loc[0], y + loc[1], z + loc[2]) for x, y, z in verts]
+    obj = tg.from_pydata(name, verts, faces, mat, smooth=False)
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    return obj
+
+
 def build_frost_turret():
-    """Stone pedestal holding a floating ice crystal. Crystal pulses on attack."""
-    pedestal = tg.lathe("pedestal", [(0.2, TOP), (0.16, TOP + 0.05), (0.1, TOP + 0.12), (0.14, TOP + 0.2),
-                                     (0.17, TOP + 0.22)], "stone_light", steps=12)
-    prongs = []
+    """Stone goblet with a gold rim and four curved gold claws holding a floating ice
+    crystal. Crystal (with its orbiting shards) pulses on attack."""
+    pedestal = tg.lathe("pedestal", [(0.21, TOP), (0.2, TOP + 0.03), (0.15, TOP + 0.06), (0.095, TOP + 0.1),
+                                     (0.09, TOP + 0.13), (0.12, TOP + 0.17), (0.165, TOP + 0.2),
+                                     (0.18, TOP + 0.225), (0.15, TOP + 0.235)], "stone_light", steps=16)
+    tg.shade(pedestal, 50)
+    rim = tg.torus("rim", 0.172, 0.014, (0, 0, TOP + 0.222), "gold", seg=16, minor_seg=4)
+    collar = tg.torus("collar", 0.096, 0.012, (0, 0, TOP + 0.115), "gold", seg=12, minor_seg=4)
+    claws = []
     for i in range(4):
         a = math.pi / 2 * i + math.pi / 4
-        pr = tg.cylinder(f"prong{i}", 0.03, 0.012, 0.22, (0.15 * math.cos(a), 0.15 * math.sin(a), TOP + 0.2),
-                         "gold", verts=6, rot=(math.degrees(-0.4 * math.sin(a)), math.degrees(0.4 * math.cos(a)), 0))
-        prongs.append(pr)
-    turret = tg.join([pedestal, *prongs], "Turret")
+        ca, sa = math.cos(a), math.sin(a)
+        path = tg.bezier((0.15 * ca, 0.15 * sa, TOP + 0.21), (0.22 * ca, 0.22 * sa, TOP + 0.3),
+                         (0.2 * ca, 0.2 * sa, TOP + 0.42), (0.12 * ca, 0.12 * sa, TOP + 0.47), 7)
+        claw = tg.sweep(f"claw{i}", path, lambda t: 0.022 * (1 - 0.75 * t), lambda t: 0.016 * (1 - 0.7 * t),
+                        "gold", ring=5, side=(-sa, ca, 0))
+        tg.shade(claw, 60)
+        claws.append(claw)
+    turret = tg.join([pedestal, rim, collar, *claws], "Turret")
     tg.pivot(turret, (0, 0, TOP))
-    # Crystal: two hexagonal pyramids, plus small shards around.
-    def bipyramid(name, r, h_top, h_bot, loc, mat):
-        verts = [(0, 0, h_top), (0, 0, -h_bot)]
-        for i in range(6):
-            a = math.pi / 3 * i
-            verts.append((r * math.cos(a), r * math.sin(a), 0))
-        faces = []
-        for i in range(6):
-            j = (i + 1) % 6
-            faces.append((0, 2 + i, 2 + j))
-            faces.append((1, 2 + j, 2 + i))
-        obj = tg.from_pydata(name, [(x + loc[0], y + loc[1], z + loc[2]) for x, y, z in verts], faces, mat, smooth=False)
-        return obj
-    core = bipyramid("core", 0.13, 0.32, 0.16, (0, 0, TOP + 0.45), "ice")
-    inner = bipyramid("inner", 0.07, 0.2, 0.1, (0, -0.02, TOP + 0.47), "ice_light")
-    shards = [bipyramid(f"shard{i}", 0.04, 0.1, 0.05,
-                        (0.21 * math.cos(a), 0.21 * math.sin(a), TOP + 0.38 + 0.05 * (i % 2)), "ice_dark")
-              for i, a in enumerate([0.3, 2.4, 4.4])]
+    core = crystal_prism("core", 0.11, 0.2, 0.16, 0.16, (0, 0, TOP + 0.4), "ice", twist=0.12)
+    inner = crystal_prism("inner", 0.06, 0.12, 0.1, 0.08, (0.0, -0.045, TOP + 0.44), "ice_light")
+    shards = [crystal_prism(f"shard{i}", 0.03, 0.06, 0.04, 0.04,
+                            (0.24 * math.cos(a), 0.24 * math.sin(a), TOP + 0.38 + 0.06 * (i % 2)), "ice_dark",
+                            sides=4)
+              for i, a in enumerate([0.3, 1.9, 3.5, 5.0])]
     crystal = tg.join([core, inner, *shards], "Crystal")
     tg.pivot(crystal, (0, 0, TOP + 0.45))
     return turret, crystal
@@ -262,7 +312,7 @@ def build_lightning_turret():
     """Iron mast wound with gold coils; a glowing orb floats on top and flares on attack."""
     mast = tg.cylinder("mast", 0.07, 0.05, 0.42, (0, 0, TOP), "iron", verts=10)
     plate = tg.cylinder("plate", 0.22, 0.18, 0.06, (0, 0, TOP), "iron_dark", verts=14)
-    coils = [tg.torus(f"coil{i}", 0.1 - 0.012 * i, 0.022, (0, 0, TOP + 0.1 + 0.1 * i), "gold", seg=16, minor_seg=6)
+    coils = [tg.torus(f"coil{i}", 0.1 - 0.012 * i, 0.022, (0, 0, TOP + 0.1 + 0.1 * i), "gold", seg=14, minor_seg=4)
              for i in range(3)]
     rods = [tg.cylinder(f"rod{i}", 0.018, 0.01, 0.2, (0.16 * math.cos(a), 0.16 * math.sin(a), TOP + 0.05), "steel",
                         verts=6, rot=(math.degrees(-0.5 * math.sin(a)), math.degrees(0.5 * math.cos(a)), 0))
@@ -278,7 +328,7 @@ def build_lightning_turret():
 
 
 def build_cannonball():
-    ball = tg.sphere("ball", (0.16, 0.16, 0.16), (0, 0, 0), "iron_dark", seg=12, rings=6)
+    ball = tg.sphere("ball", (0.16, 0.16, 0.16), (0, 0, 0), "iron_dark", seg=10, rings=6)
     shine = tg.sphere("shine", (0.05, 0.03, 0.04), (-0.04, -0.06, 0.04), "steel", seg=6, rings=3)
     return tg.join([ball, shine], "Ball")
 

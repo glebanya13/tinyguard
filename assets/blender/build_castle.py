@@ -35,7 +35,9 @@ def round_tower(name, x, y, rng, s=1.0):
 
 def _round_tower(name, rng):
     parts = []
-    body = tg.lathe(name, [(0.34, 0.0), (0.32, 0.1), (0.3, 1.2), (0.33, 1.27), (0.33, 1.32)], "stone", steps=14)
+    # Battered foot, slight entasis and a corbelled flare under the roof.
+    body = tg.lathe(name, [(0.35, 0.0), (0.335, 0.06), (0.312, 0.16), (0.302, 0.6), (0.3, 1.14),
+                           (0.312, 1.21), (0.33, 1.26), (0.335, 1.32)], "stone", steps=16)
     tg.shade(body, 30)
     parts.append(body)
     for i in range(6):
@@ -48,11 +50,11 @@ def _round_tower(name, rng):
         rad = math.radians(a)
         parts.append(tg.box(f"{name}_win{a}", (0.05, 0.05, 0.13), (0.3 * math.cos(rad), 0.3 * math.sin(rad), 0.85),
                             "window", bevel=0.012, bevel_seg=1, rot=(0, 0, a + 90)))
-    ring = tg.torus(f"{name}_ring", 0.33, 0.025, (0, 0, 1.3), "stone_light", seg=20, minor_seg=6)
+    ring = tg.torus(f"{name}_ring", 0.33, 0.025, (0, 0, 1.3), "stone_light", seg=18, minor_seg=4)
     roof = tg.lathe(f"{name}_roof", [(0.42, 1.3), (0.385, 1.36), (0.33, 1.46), (0.25, 1.6), (0.15, 1.77),
                                      (0.06, 1.92), (0.015, 1.98)], "roof", steps=16)
     tg.shade(roof, 60)
-    trim = tg.torus(f"{name}_trim", 0.41, 0.022, (0, 0, 1.31), "gold", seg=24, minor_seg=6)
+    trim = tg.torus(f"{name}_trim", 0.41, 0.022, (0, 0, 1.31), "gold", seg=20, minor_seg=4)
     finial = tg.sphere(f"{name}_fin", (0.07, 0.07, 0.07), (0, 0, 2.0), "gold", seg=10, rings=6)
     spike = tg.cylinder(f"{name}_spike", 0.012, 0.0, 0.12, (0, 0, 2.03), "gold", verts=6)
     flag = tg.from_pydata(f"{name}_flag", [(0.0, 0, 2.06), (0.24, -0.02, 2.02), (0.0, 0, 1.94)], [(0, 1, 2)], "cape")
@@ -108,7 +110,15 @@ def build_castle(rng, collider=True):
             parts.append(tg.box(f"side_st{sx}{i}", (0.04, rng.uniform(0.1, 0.16), rng.uniform(0.05, 0.08)),
                                 (0.86 * sx, y, z), rng.choice(["stone_light", "stone_dark"]), bevel=0.012,
                                 bevel_seg=1))
-    roof = tg.cylinder("keep_roof", 0.78, 0.0, 0.72, (0, 0.35, 1.25), "roof", verts=4, rot=(0, 0, 45), smooth=False)
+    # Hip roof with a bell curve and flared eaves (four flat-shaded sides with curved rows)
+    # instead of a straight pyramid.
+    roof = tg.lathe("keep_roof", [(0.84, 1.22), (0.8, 1.27), (0.66, 1.39), (0.48, 1.55), (0.3, 1.72),
+                                  (0.14, 1.87), (0.0, 1.97)], "roof", steps=4)
+    roof.rotation_euler = (0, 0, math.radians(45))
+    roof.scale = (1.0, 0.94, 1.0)
+    roof.location = (0, 0.35, 0)
+    tg.apply_all_transforms(roof)
+    tg.shade(roof, 40)
     roof_band = tg.box("keep_roof_band", (1.08, 0.98, 0.06), (0, 0.35, 1.26), "roof_dark", bevel=0.02, bevel_seg=1)
     keep_fin = tg.sphere("keep_fin", (0.1, 0.1, 0.1), (0, 0.35, 1.99), "gold", seg=12, rings=6)
     keep_spike = tg.cylinder("keep_spike", 0.015, 0.0, 0.16, (0, 0.35, 2.03), "gold", verts=6)
