@@ -130,7 +130,10 @@ func _run() -> void:
 	check(has_talk, "talk_villager button present on slot card when villager is near")
 	_bm.select_slot(a)
 	current_scene.cards.on_command_pressed(&"talk_villager")
-	check(_bm.selected_slot == null and current_scene.cards.trade_with == v, "talk_villager opens trade")
+	check(
+		_bm.selected_slot == null and current_scene.cards.trade_with == v,
+		"talk_villager opens trade"
+	)
 	current_scene.cards.on_command_pressed(&"cancel")
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))

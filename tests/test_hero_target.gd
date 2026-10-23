@@ -118,7 +118,9 @@ func _run() -> void:
 	_hero.try_attack()
 	for i in 40:
 		await physics_frame
-	check(enemy.health < hp, "manual attack still damages enemy (%.1f -> %.1f)" % [hp, enemy.health])
+	check(
+		enemy.health < hp, "manual attack still damages enemy (%.1f -> %.1f)" % [hp, enemy.health]
+	)
 	GameSettings.set_auto_attack(true)
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))

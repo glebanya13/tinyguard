@@ -374,8 +374,11 @@ static func outpost_thickets(level: Dictionary, lane: int) -> Array[Vector2]:
 			for rt: PackedVector2Array in all_routes:
 				for s_idx in rt.size() - 1:
 					if (
-						Geometry2D.get_closest_point_to_segment(pt, rt[s_idx], rt[s_idx + 1])
-						. distance_to(pt)
+						(
+							Geometry2D
+							. get_closest_point_to_segment(pt, rt[s_idx], rt[s_idx + 1])
+							. distance_to(pt)
+						)
 						< 1.3
 					):
 						too_close_to_road = true

@@ -110,7 +110,9 @@ func build(
 	Cosmetics.apply(castle, Cosmetics.castle_flag())  # banner skin: colours only
 
 	# Camp structures: lumberjack camp near trees/village, mercenary camp on defense perimeter
-	var camp_positions: Dictionary = find_camp_positions(level, castle.position, decor_node, outposts)
+	var camp_positions: Dictionary = find_camp_positions(
+		level, castle.position, decor_node, outposts
+	)
 
 	if decor_node != null:
 		_plant_trees(decor_node, outposts)
@@ -186,10 +188,7 @@ func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
 ## ensuring both are 6-10m from the castle, at least 3.5m away from any tower slot,
 ## at least 2.5m away from all enemy paths, and prioritizing distance from trees (dt >= 2.0m).
 static func find_camp_positions(
-	level: Dictionary,
-	castle_pos: Vector3,
-	decor: Node3D = null,
-	active_outposts: Array = []
+	level: Dictionary, castle_pos: Vector3, decor: Node3D = null, active_outposts: Array = []
 ) -> Dictionary:
 	var slots: Array = level.get("slots", [])
 	var paths: Array = level.get("paths", [])
@@ -236,14 +235,9 @@ static func find_camp_positions(
 						dt = minf(dt, p2.distance_to(t_pos))
 					if dt < min_dt:
 						continue
-				candidates.append({
-					"pos": Vector3(x, 0.0, z),
-					"p2": p2,
-					"r": r,
-					"ds": ds,
-					"dp": dp,
-					"dt": dt
-				})
+				candidates.append(
+					{"pos": Vector3(x, 0.0, z), "p2": p2, "r": r, "ds": ds, "dp": dp, "dt": dt}
+				)
 
 		var best_pair_score: float = -1e9
 		var best_lj: Vector3 = Vector3.ZERO
@@ -255,7 +249,15 @@ static func find_camp_positions(
 				var sep: float = c1["p2"].distance_to(c2["p2"])
 				if sep < 5.0:
 					continue
-				var score: float = sep + c1["ds"] + c1["dp"] + c2["ds"] + c2["dp"] + c1["dt"] * 0.5 + c2["dt"] * 0.5
+				var score: float = (
+					sep
+					+ c1["ds"]
+					+ c1["dp"]
+					+ c2["ds"]
+					+ c2["dp"]
+					+ c1["dt"] * 0.5
+					+ c2["dt"] * 0.5
+				)
 				if score > best_pair_score:
 					best_pair_score = score
 					best_lj = c1["pos"]
@@ -263,10 +265,7 @@ static func find_camp_positions(
 					found_pair = true
 
 		if found_pair:
-			return {
-				"lumberjack": best_lj,
-				"mercenary": best_merc
-			}
+			return {"lumberjack": best_lj, "mercenary": best_merc}
 
 	return {
 		"lumberjack": castle_pos + Vector3(7.0, 0.0, -4.0),

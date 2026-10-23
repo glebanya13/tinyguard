@@ -364,7 +364,9 @@ func _test_modes() -> void:
 	)
 	for spec: Dictionary in daily_card["buttons"]:
 		daily_ids.append(String(spec["id"]))
-	check("buy_lot" in daily_ids and "hire" in daily_ids, "daily: card has buy/hire %s" % daily_ids)
+	check(
+		"buy_lot" in daily_ids and "hire" in daily_ids, "daily: card has buy/hire %s" % [daily_ids]
+	)
 	for mode in ["record"]:
 		LevelCatalog.endless = mode == "record"
 		LevelCatalog.daily_key = "2026-10-17" if mode == "daily" else ""

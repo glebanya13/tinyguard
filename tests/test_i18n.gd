@@ -40,9 +40,14 @@ func _read_csv() -> Dictionary:
 	var out: Dictionary = {}
 	var file := FileAccess.open(CSV_PATH, FileAccess.READ)
 	var header: PackedStringArray = file.get_csv_line()
-	check(header.size() == 13 and header[0] == "keys", "csv header has 13 columns starting with keys")
+	check(
+		header.size() == 13 and header[0] == "keys", "csv header has 13 columns starting with keys"
+	)
 	for i in range(1, header.size()):
-		check(header[i] == EXPECTED_LANGUAGES[i - 1], "header column %d is %s" % [i, EXPECTED_LANGUAGES[i - 1]])
+		check(
+			header[i] == EXPECTED_LANGUAGES[i - 1],
+			"header column %d is %s" % [i, EXPECTED_LANGUAGES[i - 1]]
+		)
 	while not file.eof_reached():
 		var line: PackedStringArray = file.get_csv_line()
 		if line.size() < 13:
@@ -192,7 +197,10 @@ func _check_locale_choice() -> void:
 	check(GameSettings.resolve_locale("auto", "de") == "de", "auto + de system = de")
 	check(GameSettings.resolve_locale("auto", "zh") == "zh", "auto + zh system = zh")
 	check(GameSettings.resolve_locale("auto", "en") == "en", "auto + en system = en")
-	check(GameSettings.resolve_locale("auto", "klingon") == "en", "auto + unknown system = fallback en")
+	check(
+		GameSettings.resolve_locale("auto", "klingon") == "en",
+		"auto + unknown system = fallback en"
+	)
 	check(GameSettings.resolve_locale("en", "ru") == "en", "forced en")
 	check(GameSettings.resolve_locale("ru", "de") == "ru", "forced ru")
 	check(GameSettings.resolve_locale("ja", "en") == "ja", "forced ja")

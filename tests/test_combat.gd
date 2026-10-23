@@ -137,8 +137,10 @@ func _run() -> void:
 	golem.take_damage(10.0, Enemy.ARMOR_PIERCING)
 	check(is_equal_approx(hp_golem - golem.health, 10.0), "lightning (shock) ignores armour")
 	check(
-		(load("res://resources/towers/lightning.tres") as TowerData).damage_kind
-		== Enemy.ARMOR_PIERCING,
+		(
+			(load("res://resources/towers/lightning.tres") as TowerData).damage_kind
+			== Enemy.ARMOR_PIERCING
+		),
 		"the lightning tower deals shock damage"
 	)
 

@@ -77,7 +77,8 @@ static func pending_coins(state: Dictionary, now: int) -> int:
 	return (effective_sec * rate) / 3600
 
 
-## Collects pending coins into state["coins"]. Monotonic: will never award coins if now < last_collect.
+## Collects pending coins into state["coins"]. Monotonic: never awards coins
+## if now < last_collect.
 ## Returns {"collected": amount, "coins": balance, "state": state}.
 static func collect(state: Dictionary, now: int) -> Dictionary:
 	var last: int = int(state.get("last_collect", 0))

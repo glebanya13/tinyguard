@@ -1,3 +1,4 @@
+# gdlint:disable=max-file-lines
 extends Node3D
 ## Root of a level: wires the game systems together through their signals. The work
 ## is split by responsibility: LevelBuilder (terrain, paths, slots, trees),
@@ -87,7 +88,8 @@ var _inspecting: bool = false
 @onready var _hero: Hero = $Level/Hero
 @onready var _target_ring: MeshInstance3D = $TargetRing
 @onready var _range_ring: MeshInstance3D = $RangeRing
-@onready var _upgrade_range_ring: MeshInstance3D = get_node_or_null("UpgradeRangeRing") as MeshInstance3D
+@onready
+var _upgrade_range_ring: MeshInstance3D = get_node_or_null("UpgradeRangeRing") as MeshInstance3D
 @onready var _guide_arrow: MeshInstance3D = $GuideArrow
 @onready var _ring_material: StandardMaterial3D = _target_ring.mesh.surface_get_material(0)
 @onready var _wave_boom: AudioStreamPlayer = $Sfx/WaveBoom
@@ -214,22 +216,19 @@ func _ready() -> void:
 	_hud.next_level_pressed.connect(_on_next_level_pressed)
 	_hud.call_wave_pressed.connect(_on_call_wave_pressed)
 	_hud.start_battle_pressed.connect(_begin_battle)
-	_hero.knocked_out.connect(func() -> void:
-		_hud.show_banner(tr("HERO_KNOCKED_OUT"), tr("HERO_REVIVING_SUBTITLE"), false)
-		_hud.set_hero_knocked_out(true)
+	_hero.knocked_out.connect(
+		func() -> void:
+			_hud.show_banner(tr("HERO_KNOCKED_OUT"), tr("HERO_REVIVING_SUBTITLE"), false)
+			_hud.set_hero_knocked_out(true)
 	)
-	_hero.revived.connect(func() -> void:
-		_hud.set_hero_knocked_out(false)
-	)
+	_hero.revived.connect(func() -> void: _hud.set_hero_knocked_out(false))
 	_hud.pause_pressed.connect(_toggle_pause)
 	_hud.continue_pressed.connect(_toggle_pause)
 	_hud.speed_pressed.connect(_toggle_speed)
 	_hud.forge_pressed.connect(_on_forge_pressed)
 	_hud.workbench_pressed.connect(_on_workbench_pressed)
 	_hud.strategic_view_pressed.connect(_on_strategic_view_toggle)
-	_hud.joystick_changed.connect(
-		func(v: Vector2) -> void: _hero.joystick_vector = v
-	)
+	_hud.joystick_changed.connect(func(v: Vector2) -> void: _hero.joystick_vector = v)
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	if coop != null:
 		coop.ghost.wood_gathered.connect(_on_wood_gathered)
@@ -957,14 +956,16 @@ func _save_checkpoint() -> void:
 	var tower_list: Array = []
 	for slot in _commands.slots:
 		if slot != null and slot.tower != null and slot.tower.data != null:
-			tower_list.append({
-				"slot_id": slot.slot_id,
-				"type": slot.tower.data.resource_path.get_file().get_basename(),
-				"level": slot.tower.level,
-				"priority": slot.tower.priority,
-				"is_dynamic": slot.is_dynamic,
-				"pos": [slot.global_position.x, slot.global_position.y, slot.global_position.z]
-			})
+			tower_list.append(
+				{
+					"slot_id": slot.slot_id,
+					"type": slot.tower.data.resource_path.get_file().get_basename(),
+					"level": slot.tower.level,
+					"priority": slot.tower.priority,
+					"is_dynamic": slot.is_dynamic,
+					"pos": [slot.global_position.x, slot.global_position.y, slot.global_position.z]
+				}
+			)
 	var v_data := {
 		"lots_sold": villagers.lots_sold if villagers != null else 0,
 		"lots_bought": villagers.lots_bought if villagers != null else 0,
@@ -1119,4 +1120,3 @@ func _restore_hero_position(saved: Array) -> void:
 	_hero.global_position = at
 	_commands.set_hero_limits(at, map)  # his next swing is checked from here
 	_camera.snap()
-

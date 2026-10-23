@@ -187,8 +187,7 @@ static func on_app_open() -> Dictionary:
 	out["streak"] = visit
 	out["gems"] = paid
 	out["camp"] = {
-		"coins": int(p["camp"].get("coins", 0)),
-		"pending": Camp.pending_coins(p["camp"], now)
+		"coins": int(p["camp"].get("coins", 0)), "pending": Camp.pending_coins(p["camp"], now)
 	}
 	out["calendar"] = {
 		"can_claim": Calendar28.can_claim(p["calendar"], today, p["wallet"]),

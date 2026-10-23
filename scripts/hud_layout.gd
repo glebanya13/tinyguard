@@ -35,9 +35,11 @@ const ATTACK_SIZE := 132.0
 const SPIN_SIZE := 92.0
 
 
-## Rects ("joystick", "map", "pin", "strat", "attack", "spin", "top_right", "top_left") for a HUD root
+## Rects ("joystick", "map", "pin", "strat", "attack", "spin", "top_right", "top_left")
+## for a HUD root
 ## of `size` and the given settings (indices as in GameSettings).
-## When map_visible is true and map_mode != MAP_HIDE, map is present and pin/strat are stacked vertically.
+## When map_visible is true and map_mode != MAP_HIDE, map is present and pin/strat
+## are stacked vertically.
 ## When map is hidden/not visible, pin (Compass) and strat (Strategic View) sit side-by-side
 ## directly under the Speed and Pause buttons (top_right).
 static func rects(
@@ -90,7 +92,10 @@ static func rects(
 		else:
 			pin = Rect2(top_right.position.x, top_right.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y)
 			strat = Rect2(
-				top_right.position.x + PIN_SIZE.x + GAP, top_right.end.y + GAP, PIN_SIZE.x, PIN_SIZE.y
+				top_right.position.x + PIN_SIZE.x + GAP,
+				top_right.end.y + GAP,
+				PIN_SIZE.x,
+				PIN_SIZE.y
 			)
 		out["pin"] = pin
 		out["strat"] = strat
@@ -102,9 +107,7 @@ static func rects(
 		bottom = size.y - spin.position.y + GAP + JOY_LIFT[joy_pos]
 		x = size.x - 24.0 - side
 	else:
-		bottom = (
-			map_h + GAP + JOY_LIFT[joy_pos] if map_h > 0.0 else JOY_FREE_BOTTOM[joy_pos]
-		)
+		bottom = (map_h + GAP + JOY_LIFT[joy_pos] if map_h > 0.0 else JOY_FREE_BOTTOM[joy_pos])
 		x = 24.0
 	# A high lift stops under the top bars (the lift gives way, never the gap below).
 	var top: float = maxf(size.y - bottom - side, 108.0 if joy_side == SIDE_RIGHT else 72.0)

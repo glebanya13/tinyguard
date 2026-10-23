@@ -1,3 +1,4 @@
+# gdlint:disable=max-returns
 class_name CardController
 extends RefCounted
 ## The hero's command card in play: what the HUD card shows (build / upgrade / forge /
@@ -8,24 +9,30 @@ extends RefCounted
 ## Walking this close to a slot selects it automatically (a little more than BUILD_REACH:
 ## stopping where the knight can build must pick that slot).
 const AUTO_SELECT_REACH := 1.6
+
 ## An automatically picked slot is let go when the knight is this far from it.
 const AUTO_RELEASE_REACH := 2.6
+
 ## The hero builds when this close to a slot centre (metres).
 const BUILD_REACH := 1.25
+
 ## A tap this close to an enemy sends the hero to chase it.
 const ENEMY_TAP_REACH := 1.8
+
 ## A tap this close to a tree sends the hero to chop it.
 const TREE_TAP_REACH := 1.0
+
 ## A tap this close to a villager sends the hero to trade with it.
 const VILLAGER_TAP_REACH := 1.0
+
 ## A tap this close to the castle opens the forge card (castle upgrades live there). The
 ## castle is about 2.4 x 2.6 m, its roofs (2 m high) project ~1.6 m behind it on the
 ## ground. 2.4 m reached well past the walls, so taps meant for the ground, enemies and
 ## trees around it opened the forge "out of nowhere".
 const CASTLE_TAP_REACH := 1.9
+
 ## The trade card stays open until the hero is this much further than the trade reach.
 const TRADE_KEEP_SLACK := 0.6
-
 const TowerPlacementController := preload("res://scripts/tower_placement_controller.gd")
 
 var forge_open: bool = false
@@ -36,52 +43,29 @@ var placement := TowerPlacementController.new()
 
 ## Backwards-compatibility property accessors
 var placement_mode: bool:
-	get: return placement.placement_mode if placement != null else false
+	get:
+		return placement.placement_mode if placement != null else false
 	set(v):
 		if placement != null:
 			placement.placement_mode = v
-
 var placement_tower_index: int:
-	get: return placement.placement_tower_index if placement != null else -1
+	get:
+		return placement.placement_tower_index if placement != null else -1
 	set(v):
 		if placement != null:
 			placement.placement_tower_index = v
-
 var placement_position: Vector3:
-	get: return placement.placement_position if placement != null else Vector3.ZERO
+	get:
+		return placement.placement_position if placement != null else Vector3.ZERO
 	set(v):
 		if placement != null:
 			placement.placement_position = v
-
 var placement_valid: bool:
-	get: return placement.placement_valid if placement != null else false
+	get:
+		return placement.placement_valid if placement != null else false
 	set(v):
 		if placement != null:
 			placement.placement_valid = v
-
-var _placement_validation_message: String:
-	get: return placement.validation_message if placement != null else ""
-	set(v):
-		if placement != null:
-			placement.validation_message = v
-
-var _placement_ghost: Node3D:
-	get: return placement.ghost if placement != null else null
-	set(v):
-		if placement != null:
-			placement.ghost = v
-
-var _active_dynamic_slot: TowerSlot:
-	get: return placement.active_dynamic_slot if placement != null else null
-	set(v):
-		if placement != null:
-			placement.active_dynamic_slot = v
-
-var _placement_ring: MeshInstance3D:
-	get: return placement.placement_ring if placement != null else null
-	set(v):
-		if placement != null:
-			placement.placement_ring = v
 
 ## Where the castle stands (set by main once the level is built).
 var castle_position: Vector3 = Vector3(INF, INF, INF):
@@ -92,14 +76,41 @@ var castle_position: Vector3 = Vector3(INF, INF, INF):
 
 ## Villager whose trade card is open.
 var trade_with: Villager = null
+
 ## Command to run when the hero reaches the selected slot, or &"".
 var pending_command: StringName = &""
 
+var _placement_validation_message: String:
+	get:
+		return placement.validation_message if placement != null else ""
+	set(v):
+		if placement != null:
+			placement.validation_message = v
+var _placement_ghost: Node3D:
+	get:
+		return placement.ghost if placement != null else null
+	set(v):
+		if placement != null:
+			placement.ghost = v
+var _active_dynamic_slot: TowerSlot:
+	get:
+		return placement.active_dynamic_slot if placement != null else null
+	set(v):
+		if placement != null:
+			placement.active_dynamic_slot = v
+var _placement_ring: MeshInstance3D:
+	get:
+		return placement.placement_ring if placement != null else null
+	set(v):
+		if placement != null:
+			placement.placement_ring = v
 var _pending_slot: TowerSlot = null
+
 ## The selected slot was picked by walking up to it (not by a tap): walking away drops it.
 var _auto_selected: bool = false
 var _auto_selecting: bool = false
 var _selected_near: bool = false
+
 ## The villager the player closed the card for (until the hero walks away), and
 ## whether the hero walks to the villager after a tap.
 var _trade_dismissed: Villager = null
@@ -163,7 +174,14 @@ func update() -> void:
 
 
 func _update_camp_proximity() -> void:
-	if _build_manager == null or _hero == null or pending_command != &"" or forge_open or workbench_open or placement.placement_mode:
+	if (
+		_build_manager == null
+		or _hero == null
+		or pending_command != &""
+		or forge_open
+		or workbench_open
+		or placement.placement_mode
+	):
 		return
 	var camp_selected: Node3D = _build_manager.selected_camp
 	var nearest_camp: Node3D = null
@@ -284,7 +302,11 @@ func _press_trade(id: StringName) -> bool:
 		if wanted > 0:
 			_commands.submit(GameCommand.trade_buy(wanted))
 	elif id == &"hire":
-		var index: int = _villagers.index_of(trade_with) if trade_with != null else _villagers.first_unhired_index()
+		var index: int = (
+			_villagers.index_of(trade_with)
+			if trade_with != null
+			else _villagers.first_unhired_index()
+		)
 		if index >= 0:
 			_commands.submit(GameCommand.hire(index))
 	else:
@@ -322,9 +344,15 @@ func refresh() -> void:
 			_upgrade_range_ring.hide()
 		_hide_placement_ring()
 		var data: TowerData = _build_manager.tower_types[placement.placement_tower_index]
-		var can_afford: bool = _game_state != null and _game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+		var can_afford: bool = (
+			_game_state != null and _game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+		)
 		_hud.show_hint("")
-		_hud.update_card(CommandCards.placement_mode(data, placement.placement_valid, can_afford, placement.validation_message))
+		_hud.update_card(
+			CommandCards.placement_mode(
+				data, placement.placement_valid, can_afford, placement.validation_message
+			)
+		)
 		return
 	if workbench_open:
 		_range_ring.hide()
@@ -340,7 +368,11 @@ func refresh() -> void:
 		if _upgrade_range_ring:
 			_upgrade_range_ring.hide()
 		_hide_placement_ring()
-		if pending_command == &"" and placement.active_dynamic_slot != null and placement.active_dynamic_slot.is_free():
+		if (
+			pending_command == &""
+			and placement.active_dynamic_slot != null
+			and placement.active_dynamic_slot.is_free()
+		):
 			_cleanup_unbuilt_dynamic_slot()
 	if forge_open:
 		_range_ring.hide()
@@ -368,7 +400,9 @@ func refresh() -> void:
 		if camp is CampStructures.LumberjackCamp:
 			_hud.update_card(CommandCards.lumberjack_camp(_villagers, _game_state))
 		elif camp is CampStructures.MercenaryCamp:
-			_hud.update_card(CommandCards.mercenary_camp(camp as CampStructures.MercenaryCamp, _game_state))
+			_hud.update_card(
+				CommandCards.mercenary_camp(camp as CampStructures.MercenaryCamp, _game_state)
+			)
 		return
 	if slot == null:
 		_hud.show_hint(_hint_text.call())
@@ -396,7 +430,11 @@ func on_slot_selected(slot: TowerSlot) -> void:
 	# Picking another slot drops a build/upgrade the hero was walking to do.
 	if pending_command != &"" and slot != _pending_slot:
 		_hero.cancel_order()
-	if placement.active_dynamic_slot != null and placement.active_dynamic_slot != slot and placement.active_dynamic_slot.is_free():
+	if (
+		placement.active_dynamic_slot != null
+		and placement.active_dynamic_slot != slot
+		and placement.active_dynamic_slot.is_free()
+	):
 		_cleanup_unbuilt_dynamic_slot()
 	refresh()
 
@@ -530,7 +568,14 @@ func _command_available(id: StringName, slot: TowerSlot) -> bool:
 
 
 func _auto_select_near_hero() -> void:
-	if pending_command != &"" or forge_open or workbench_open or placement.placement_mode or trade_with != null or (_build_manager != null and _build_manager.selected_camp != null):
+	if (
+		pending_command != &""
+		or forge_open
+		or workbench_open
+		or placement.placement_mode
+		or trade_with != null
+		or (_build_manager != null and _build_manager.selected_camp != null)
+	):
 		return
 	var moving: bool = _hero.velocity.length() >= 0.1
 	var current: TowerSlot = _build_manager.selected_slot
@@ -545,7 +590,9 @@ func _auto_select_near_hero() -> void:
 		var d: float = _flat_distance(current)
 		if d <= AUTO_RELEASE_REACH:
 			_selected_near = true
-		elif (moving and d > 5.5) or ((_auto_selected or _selected_near) and d > AUTO_RELEASE_REACH):
+		elif (
+			(moving and d > 5.5) or ((_auto_selected or _selected_near) and d > AUTO_RELEASE_REACH)
+		):
 			_auto_selected = false
 			_selected_near = false
 			_build_manager.clear_selection()

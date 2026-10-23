@@ -6,7 +6,8 @@ extends SceneTree
 ##   - First Run Bonus: +5 gems under "fw:<date>" and x2 treasury coins on first win of the day
 ##   - Profile persistence and merge (local / cloud)
 ## Run:
-##   mkdir -p /tmp/godot-test && env HOME=/tmp/godot-test /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_retention.gd
+##   mkdir -p /tmp/godot-test && env HOME=/tmp/godot-test godot --headless --path . \
+##     --script res://tests/test_retention.gd
 
 var fails := 0
 
@@ -52,7 +53,10 @@ func _check_camp_accumulation() -> void:
 
 	# Initial collection initializes last_collect without free coins
 	var init: Dictionary = Camp.collect(state, 1000)
-	check(init["collected"] == 0 and int(state["last_collect"]) == 1000, "init collection sets last_collect")
+	check(
+		init["collected"] == 0 and int(state["last_collect"]) == 1000,
+		"init collection sets last_collect"
+	)
 
 	# 1 hour elapsed (3600 s) -> 10 coins
 	var pending_1h: int = Camp.pending_coins(state, 1000 + 3600)
@@ -90,7 +94,9 @@ func _check_camp_cap() -> void:
 
 	# 12 hours elapsed: capped at 8 hours (80 coins), does not exceed
 	var pending_12h: int = Camp.pending_coins(state, 1000 + 12 * 3600)
-	check(pending_12h == max_coins, "12 hours is capped at %d coins (%d)" % [max_coins, pending_12h])
+	check(
+		pending_12h == max_coins, "12 hours is capped at %d coins (%d)" % [max_coins, pending_12h]
+	)
 
 	# 48 hours elapsed (2 days): still capped at 80 coins
 	var pending_48h: int = Camp.pending_coins(state, 1000 + 48 * 3600)
@@ -98,7 +104,10 @@ func _check_camp_cap() -> void:
 
 	# Collect at cap
 	var col: Dictionary = Camp.collect(state, 1000 + 48 * 3600)
-	check(col["collected"] == max_coins and state["coins"] == max_coins, "collect at cap pays 80 coins")
+	check(
+		col["collected"] == max_coins and state["coins"] == max_coins,
+		"collect at cap pays 80 coins"
+	)
 
 
 func _check_camp_monotonicity() -> void:
@@ -130,12 +139,18 @@ func _check_camp_upgrades() -> void:
 	var cost_lvl1: int = Camp.upgrade_cost(1)
 	check(cost_lvl1 == 150, "upgrade to level 2 costs 150 coins")
 	var fail_up: bool = Camp.upgrade(state)
-	check(not fail_up and state["level"] == 1 and state["coins"] == 100, "upgrade fails without sufficient funds")
+	check(
+		not fail_up and state["level"] == 1 and state["coins"] == 100,
+		"upgrade fails without sufficient funds"
+	)
 
 	# Add coins to 200 and upgrade
 	state["coins"] = 200
 	var ok_up: bool = Camp.upgrade(state)
-	check(ok_up and state["level"] == 2 and state["coins"] == 50, "upgrade succeeds, coins deducted (200 - 150 = 50)")
+	check(
+		ok_up and state["level"] == 2 and state["coins"] == 50,
+		"upgrade succeeds, coins deducted (200 - 150 = 50)"
+	)
 
 	# Level 2 stats: 15 coins/h, 10h cap
 	var rate_lvl2: int = Camp.rate_for_level(2)
@@ -146,7 +161,10 @@ func _check_camp_upgrades() -> void:
 	# 1h at level 2 -> 15 coins
 	check(Camp.pending_coins(state, 1000 + 3600) == 15, "level 2 pending for 1h is 15 coins")
 	# 12h at level 2 -> capped at 10h * 15 = 150 coins
-	check(Camp.pending_coins(state, 1000 + 12 * 3600) == 150, "level 2 pending for 12h is capped at 150")
+	check(
+		Camp.pending_coins(state, 1000 + 12 * 3600) == 150,
+		"level 2 pending for 12h is capped at 150"
+	)
 
 	# Upgrade through all levels up to MAX_LEVEL
 	state["coins"] = 100000
@@ -158,7 +176,10 @@ func _check_camp_upgrades() -> void:
 
 func _check_calendar_28() -> void:
 	var cal: Dictionary = Calendar28.empty()
-	check(cal["claimed_days"] == 0 and cal["last_claim"] == "", "fresh calendar starts at 0 claimed days")
+	check(
+		cal["claimed_days"] == 0 and cal["last_claim"] == "",
+		"fresh calendar starts at 0 claimed days"
+	)
 	var rewards: Array = Calendar28.rewards()
 	check(rewards.size() == 28, "calendar has 28 reward steps (%d)" % rewards.size())
 
@@ -169,35 +190,59 @@ func _check_calendar_28() -> void:
 
 	var step1: Dictionary = Calendar28.claim(cal, "2026-10-20", wallet, camp)
 	check(step1["success"] and step1["step"] == 1, "claimed step 1")
-	check(step1["coins"] > 0 and step1["gems"] > 0, "step 1 awards both coins and gems (%d, %d)" % [step1["coins"], step1["gems"]])
+	check(
+		step1["coins"] > 0 and step1["gems"] > 0,
+		"step 1 awards both coins and gems (%d, %d)" % [step1["coins"], step1["gems"]]
+	)
 	check(camp["coins"] == step1["coins"], "coins credited to camp")
 	check(Wallet.gems(wallet) == step1["gems"], "gems credited to wallet")
-	check(Wallet.has_claim(wallet, "cal:2026-10-20"), "idempotent claim key cal:2026-10-20 present in wallet")
+	check(
+		Wallet.has_claim(wallet, "cal:2026-10-20"),
+		"idempotent claim key cal:2026-10-20 present in wallet"
+	)
 
 	# Claiming again on the SAME day: fails
 	check(not Calendar28.can_claim(cal, "2026-10-20", wallet), "cannot claim again on the same day")
 	var again: Dictionary = Calendar28.claim(cal, "2026-10-20", wallet, camp)
-	check(not again["success"] and again["coins"] == 0 and again["gems"] == 0, "repeated claim returns failure and 0 rewards")
+	check(
+		not again["success"] and again["coins"] == 0 and again["gems"] == 0,
+		"repeated claim returns failure and 0 rewards"
+	)
 
 	# Skip 5 days (gap): visiting on 2026-10-25 advances to step 2, does NOT reset
-	check(Calendar28.can_claim(cal, "2026-10-25", wallet), "can claim on 2026-10-25 after a 5-day gap")
+	check(
+		Calendar28.can_claim(cal, "2026-10-25", wallet), "can claim on 2026-10-25 after a 5-day gap"
+	)
 	var step2: Dictionary = Calendar28.claim(cal, "2026-10-25", wallet, camp)
-	check(step2["success"] and step2["step"] == 2, "skipping days does not reset calendar; advances to step 2")
+	check(
+		step2["success"] and step2["step"] == 2,
+		"skipping days does not reset calendar; advances to step 2"
+	)
 	check(cal["claimed_days"] == 2, "claimed_days is 2")
 
 	# Clock rollback check
-	check(not Calendar28.can_claim(cal, "2026-10-21", wallet), "cannot claim with an earlier date than last claim (anti-cheat)")
+	check(
+		not Calendar28.can_claim(cal, "2026-10-21", wallet),
+		"cannot claim with an earlier date than last claim (anti-cheat)"
+	)
 
 	# Milestone steps
 	var day7_rew: Dictionary = Calendar28.reward_for_step(7)
-	check(int(day7_rew["coins"]) >= 100 and int(day7_rew["gems"]) >= 50, "day 7 is a weekly milestone")
+	check(
+		int(day7_rew["coins"]) >= 100 and int(day7_rew["gems"]) >= 50, "day 7 is a weekly milestone"
+	)
 	var day28_rew: Dictionary = Calendar28.reward_for_step(28)
-	check(int(day28_rew["coins"]) >= 300 and int(day28_rew["gems"]) >= 150, "day 28 is the grand milestone")
+	check(
+		int(day28_rew["coins"]) >= 300 and int(day28_rew["gems"]) >= 150,
+		"day 28 is the grand milestone"
+	)
 
 	# Cycle wrap-around after 28 days
 	var simulated: Dictionary = Calendar28.empty()
 	simulated["claimed_days"] = 28
-	check(Calendar28.next_step(int(simulated["claimed_days"])) == 1, "day 29 wraps around to step 1")
+	check(
+		Calendar28.next_step(int(simulated["claimed_days"])) == 1, "day 29 wraps around to step 1"
+	)
 	check(Calendar28.step_of(28) == 28, "step_of 28 is 28")
 	check(Calendar28.step_of(29) == 1, "step_of 29 is 1 (cycle)")
 
@@ -214,7 +259,13 @@ func _check_first_run_bonus() -> void:
 	var res1: Dictionary = Economy.award_first_run(day)
 	check(res1["first_win"], "first run of the day awarded first_win=true")
 	check(res1["gems"] == 5, "first run bonus awards 5 gems (%d)" % res1["gems"])
-	check(res1["coins"] == Camp.battle_reward() * 2, "first run bonus awards x2 treasury coins (%d == %d)" % [res1["coins"], Camp.battle_reward() * 2])
+	check(
+		res1["coins"] == Camp.battle_reward() * 2,
+		(
+			"first run bonus awards x2 treasury coins (%d == %d)"
+			% [res1["coins"], Camp.battle_reward() * 2]
+		)
+	)
 	check(Economy.balance() == 5, "wallet balance reflects +5 gems")
 	check(Camp.local()["coins"] == Camp.battle_reward() * 2, "camp balance reflects x2 coins")
 
@@ -222,9 +273,14 @@ func _check_first_run_bonus() -> void:
 	var res2: Dictionary = Economy.award_first_run(day)
 	check(not res2["first_win"], "second run on same day has first_win=false")
 	check(res2["gems"] == 0, "second run does not award gems")
-	check(res2["coins"] == Camp.battle_reward(), "second run awards 1x base coins (%d)" % res2["coins"])
+	check(
+		res2["coins"] == Camp.battle_reward(),
+		"second run awards 1x base coins (%d)" % res2["coins"]
+	)
 	check(Economy.balance() == 5, "wallet gems unchanged")
-	check(Camp.local()["coins"] == Camp.battle_reward() * 3, "camp coins increased by 1x base coins")
+	check(
+		Camp.local()["coins"] == Camp.battle_reward() * 3, "camp coins increased by 1x base coins"
+	)
 
 	# Next day (2026-10-21): first win bonus is available again
 	var next_day: String = "2026-10-21"
@@ -237,7 +293,10 @@ func _check_first_run_bonus() -> void:
 func _check_profile_save_and_merge() -> void:
 	_wipe()
 	var p: Dictionary = PlayerProfile.local()
-	check(p["schemaVersion"] == PlayerProfile.SCHEMA_VERSION and PlayerProfile.SCHEMA_VERSION >= 4, "schema version is at least 4")
+	check(
+		p["schemaVersion"] == PlayerProfile.SCHEMA_VERSION and PlayerProfile.SCHEMA_VERSION >= 4,
+		"schema version is at least 4"
+	)
 
 	# Populate camp and calendar
 	p["camp"]["level"] = 2
@@ -251,9 +310,18 @@ func _check_profile_save_and_merge() -> void:
 	LevelCatalog._save = null
 	LevelCatalog._save_loaded_from = ""
 	var loaded: Dictionary = PlayerProfile.local()
-	check(loaded["camp"]["level"] == 2 and loaded["camp"]["coins"] == 250, "camp state persists through save and reload")
+	check(
+		loaded["camp"]["level"] == 2 and loaded["camp"]["coins"] == 250,
+		"camp state persists through save and reload"
+	)
 	check(int(loaded["camp"]["last_collect"]) == 12345, "camp last_collect persists")
-	check(loaded["calendar"]["claimed_days"] == 6 and loaded["calendar"]["last_claim"] == "2026-10-20", "calendar persists through save and reload")
+	check(
+		(
+			loaded["calendar"]["claimed_days"] == 6
+			and loaded["calendar"]["last_claim"] == "2026-10-20"
+		),
+		"calendar persists through save and reload"
+	)
 
 	# Merge with another device profile
 	var cloud: Dictionary = PlayerProfile.empty()
@@ -264,6 +332,15 @@ func _check_profile_save_and_merge() -> void:
 	cloud["calendar"]["last_claim"] = "2026-10-24"
 
 	var merged: Dictionary = PlayerProfile.merge(loaded, cloud)
-	check(merged["camp"]["level"] == 3 and merged["camp"]["coins"] == 400, "merge takes higher camp level and coins")
+	check(
+		merged["camp"]["level"] == 3 and merged["camp"]["coins"] == 400,
+		"merge takes higher camp level and coins"
+	)
 	check(int(merged["camp"]["last_collect"]) == 20000, "merge takes later last_collect")
-	check(merged["calendar"]["claimed_days"] == 10 and merged["calendar"]["last_claim"] == "2026-10-24", "merge takes higher calendar days and later claim date")
+	check(
+		(
+			merged["calendar"]["claimed_days"] == 10
+			and merged["calendar"]["last_claim"] == "2026-10-24"
+		),
+		"merge takes higher calendar days and later claim date"
+	)

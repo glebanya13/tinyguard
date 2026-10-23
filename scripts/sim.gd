@@ -1,3 +1,4 @@
+# gdlint:disable=max-public-methods
 class_name Sim
 extends Node
 ## Clock and registry of the battle simulation. Real frame time is collected in

@@ -94,8 +94,12 @@ func _run() -> void:
 	await _click(pause)
 	check(paused, "click on Pause pauses")
 	var forge: Button = hud.get_node("Root/EndScreen").find_child("ForgeButton", true, false)
-	check(forge == null or not forge.is_visible_in_tree(), "Forge button is hidden in the pause menu")
-	var resume_btn: Button = hud.get_node("Root/EndScreen").find_child("ContinueButton", true, false)
+	check(
+		forge == null or not forge.is_visible_in_tree(), "Forge button is hidden in the pause menu"
+	)
+	var resume_btn: Button = hud.get_node("Root/EndScreen").find_child(
+		"ContinueButton", true, false
+	)
 	check(await _topmost(resume_btn), "Resume button is under the finger")
 	await _click(resume_btn)
 	check(not paused, "click on Resume resumes the game")
@@ -153,9 +157,15 @@ func _run() -> void:
 	var slot: TowerSlot = null
 	for node: Node in get_nodes_in_group(TowerSlot.GROUP):
 		var s := node as TowerSlot
-		if bm.mercenary_camp != null and s.global_position.distance_to(bm.mercenary_camp.global_position) < 4.0:
+		if (
+			bm.mercenary_camp != null
+			and s.global_position.distance_to(bm.mercenary_camp.global_position) < 4.0
+		):
 			continue
-		if bm.lumberjack_camp != null and s.global_position.distance_to(bm.lumberjack_camp.global_position) < 4.0:
+		if (
+			bm.lumberjack_camp != null
+			and s.global_position.distance_to(bm.lumberjack_camp.global_position) < 4.0
+		):
 			continue
 		slot = s
 		break

@@ -228,17 +228,23 @@ func _build_credits() -> void:
 		links.add_theme_constant_override("separation", 8)
 		_box.add_child(links)
 		if GameInfo.FEEDBACK_URL != "":
-			var feedback := _button(tr("FEEDBACK_BUTTON"), _open_link.bind(GameInfo.FEEDBACK_URL), true, 0)
+			var feedback := _button(
+				tr("FEEDBACK_BUTTON"), _open_link.bind(GameInfo.FEEDBACK_URL), true, 0
+			)
 			feedback.name = "Link_feedback"
 			feedback.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			links.add_child(feedback)
 		if GameInfo.PRIVACY_URL != "":
-			var privacy := _button(tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0)
+			var privacy := _button(
+				tr("SET_PRIVACY"), _open_link.bind(GameInfo.PRIVACY_URL), true, 0
+			)
 			privacy.name = "Link_privacy"
 			privacy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			links.add_child(privacy)
 		if GameInfo.DELETION_URL != "":
-			var deletion := _button(tr("SET_DELETION"), _open_link.bind(GameInfo.DELETION_URL), true, 0)
+			var deletion := _button(
+				tr("SET_DELETION"), _open_link.bind(GameInfo.DELETION_URL), true, 0
+			)
 			deletion.name = "Link_deletion"
 			deletion.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			links.add_child(deletion)
@@ -399,10 +405,13 @@ func _on_tap_to_move_pressed() -> void:
 
 func _update_tap_to_move_text() -> void:
 	if _tap_to_move_button != null:
-		_tap_to_move_button.text = "%s: %s" % [
-			tr("SET_TAP_TO_MOVE"),
-			tr("SET_ON") if GameSettings.is_tap_to_move() else tr("SET_OFF")
-		]
+		_tap_to_move_button.text = (
+			"%s: %s"
+			% [
+				tr("SET_TAP_TO_MOVE"),
+				tr("SET_ON") if GameSettings.is_tap_to_move() else tr("SET_OFF")
+			]
+		)
 
 
 func _on_auto_attack_pressed() -> void:
@@ -412,10 +421,13 @@ func _on_auto_attack_pressed() -> void:
 
 func _update_auto_attack_text() -> void:
 	if _auto_attack_button != null:
-		_auto_attack_button.text = "%s: %s" % [
-			tr("SET_AUTO_ATTACK"),
-			tr("SET_ON") if GameSettings.is_auto_attack() else tr("SET_OFF")
-		]
+		_auto_attack_button.text = (
+			"%s: %s"
+			% [
+				tr("SET_AUTO_ATTACK"),
+				tr("SET_ON") if GameSettings.is_auto_attack() else tr("SET_OFF")
+			]
+		)
 
 
 func _open_link(url: String) -> void:

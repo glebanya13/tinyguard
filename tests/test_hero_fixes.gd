@@ -93,7 +93,10 @@ func _run() -> void:
 		await process_frame
 
 	var mid_dist: float = hero.global_position.distance_to(enemy.global_position)
-	check(mid_dist < initial_dist - 0.5, "hero moves toward pursued enemy (%.2f -> %.2f)" % [initial_dist, mid_dist])
+	check(
+		mid_dist < initial_dist - 0.5,
+		"hero moves toward pursued enemy (%.2f -> %.2f)" % [initial_dist, mid_dist]
+	)
 
 	# Let hero reach attack range
 	for i in 120:
@@ -114,10 +117,7 @@ func _run() -> void:
 		await physics_frame
 		await process_frame
 
-	check(
-		hero.target_enemy == enemy,
-		"hero continues pursuing while enemy moves and lives"
-	)
+	check(hero.target_enemy == enemy, "hero continues pursuing while enemy moves and lives")
 	check(
 		hero.global_position.distance_to(enemy.global_position) <= hero.attack_range + 0.5,
 		"hero stays close to moving enemy"
@@ -139,10 +139,5 @@ func _run() -> void:
 	main.cards.on_ground_tapped(Vector3(100.0, 0.0, 100.0))
 	check(hero.target_enemy == null, "tapping ground far from enemies cancels chase")
 
-	print(
-		(
-			"RESULT: %s (%d failures)"
-			% ["PASS" if fails == 0 else "FAIL", fails]
-		)
-	)
+	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(0 if fails == 0 else 1)

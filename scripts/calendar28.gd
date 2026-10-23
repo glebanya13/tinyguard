@@ -31,7 +31,7 @@ const DEFAULT_REWARDS: Array[Dictionary] = [
 	{"coins": 55, "gems": 20},
 	{"coins": 60, "gems": 25},
 	{"coins": 70, "gems": 25},
-	{"coins": 200, "gems": 100}, # Day 21 milestone
+	{"coins": 200, "gems": 100},  # Day 21 milestone
 	{"coins": 50, "gems": 20},
 	{"coins": 55, "gems": 20},
 	{"coins": 60, "gems": 25},

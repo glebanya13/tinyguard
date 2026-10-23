@@ -1,3 +1,4 @@
+# gdlint:disable=max-file-lines
 class_name CampStructures
 extends RefCounted
 ## Factory and classes for 3D camp structures:
@@ -30,7 +31,8 @@ static func create_mercenary_camp() -> MercenaryCamp:
 # ==============================================================================
 # Lumberjack Camp
 # ==============================================================================
-class LumberjackCamp extends Node3D:
+class LumberjackCamp:
+	extends Node3D
 	signal camp_tapped
 
 	var is_selected: bool = false
@@ -115,7 +117,8 @@ class LumberjackCamp extends Node3D:
 # ==============================================================================
 # Mercenary Camp
 # ==============================================================================
-class MercenaryCamp extends Node3D:
+class MercenaryCamp:
+	extends Node3D
 	signal mercenary_hired(mercenary: Mercenary)
 	signal camp_tapped
 
@@ -208,16 +211,16 @@ class MercenaryCamp extends Node3D:
 		canvas_mat.roughness = 0.78
 
 		var blue_mat := StandardMaterial3D.new()
-		blue_mat.albedo_color = Color(0.14, 0.28, 0.64)    # Noble royal blue with rich satin sheen
+		blue_mat.albedo_color = Color(0.14, 0.28, 0.64)  # Noble royal blue with rich satin sheen
 		blue_mat.roughness = 0.48
 
 		var gold_mat := StandardMaterial3D.new()
-		gold_mat.albedo_color = Color(0.96, 0.82, 0.26)    # Heraldic gilded brass/gold
+		gold_mat.albedo_color = Color(0.96, 0.82, 0.26)  # Heraldic gilded brass/gold
 		gold_mat.metallic = 0.75
 		gold_mat.roughness = 0.26
 
 		var cord_mat := StandardMaterial3D.new()
-		cord_mat.albedo_color = Color(0.86, 0.74, 0.38)    # Braided gold/rope seam cords
+		cord_mat.albedo_color = Color(0.86, 0.74, 0.38)  # Braided gold/rope seam cords
 		cord_mat.roughness = 0.55
 
 		var dark_wood := StandardMaterial3D.new()
@@ -229,7 +232,7 @@ class MercenaryCamp extends Node3D:
 		dark_inside.roughness = 0.95
 
 		var steel_mat := StandardMaterial3D.new()
-		steel_mat.albedo_color = Color(0.92, 0.94, 0.98)   # Mirror-polished knight steel
+		steel_mat.albedo_color = Color(0.92, 0.94, 0.98)  # Mirror-polished knight steel
 		steel_mat.metallic = 0.96
 		steel_mat.roughness = 0.12
 
@@ -239,16 +242,16 @@ class MercenaryCamp extends Node3D:
 		dark_steel.roughness = 0.30
 
 		var red_mat := StandardMaterial3D.new()
-		red_mat.albedo_color = Color(0.72, 0.14, 0.14)     # Heraldic knight crimson red
+		red_mat.albedo_color = Color(0.72, 0.14, 0.14)  # Heraldic knight crimson red
 		red_mat.roughness = 0.45
 
 		var iron_mat := StandardMaterial3D.new()
-		iron_mat.albedo_color = Color(0.28, 0.30, 0.34)    # Forged iron bands and fittings
+		iron_mat.albedo_color = Color(0.28, 0.30, 0.34)  # Forged iron bands and fittings
 		iron_mat.metallic = 0.75
 		iron_mat.roughness = 0.38
 
 		var rope_mat := StandardMaterial3D.new()
-		rope_mat.albedo_color = Color(0.68, 0.58, 0.42)    # Woven hemp guy ropes
+		rope_mat.albedo_color = Color(0.68, 0.58, 0.42)  # Woven hemp guy ropes
 		rope_mat.roughness = 0.88
 
 		var lantern_brass := StandardMaterial3D.new()

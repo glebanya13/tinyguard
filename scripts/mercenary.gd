@@ -288,7 +288,9 @@ func _get_castle_position() -> Vector3:
 	return Vector3.ZERO
 
 
-func _push_away_from(point: Vector3, center: Vector3, min_dist: float = 3.5, safe_dist: float = 4.0) -> Vector3:
+func _push_away_from(
+	point: Vector3, center: Vector3, min_dist: float = 3.5, safe_dist: float = 4.0
+) -> Vector3:
 	var offset: Vector3 = point - center
 	offset.y = 0.0
 	var dist: float = offset.length()
@@ -319,7 +321,9 @@ func _patrol_step(delta: float) -> Vector3:
 		if _patrol_wait <= 0.0:
 			_patrol_angle += randf_range(1.2, 2.8)
 			var r: float = randf_range(0.6, patrol_radius)
-			var candidate: Vector3 = patrol_center + Vector3(cos(_patrol_angle) * r, 0.0, sin(_patrol_angle) * r)
+			var candidate: Vector3 = (
+				patrol_center + Vector3(cos(_patrol_angle) * r, 0.0, sin(_patrol_angle) * r)
+			)
 			candidate = _push_away_from(candidate, castle_pos)
 			if castle_pos != Vector3.ZERO:
 				candidate = _push_away_from(candidate, Vector3.ZERO)
@@ -330,7 +334,10 @@ func _patrol_step(delta: float) -> Vector3:
 
 
 func _update_target_enemy() -> void:
-	if target_enemy != null and (not is_instance_valid(target_enemy) or not target_enemy.is_alive()):
+	if (
+		target_enemy != null
+		and (not is_instance_valid(target_enemy) or not target_enemy.is_alive())
+	):
 		target_enemy = null
 	if target_enemy != null:
 		var d: float = global_position.distance_to(target_enemy.global_position)

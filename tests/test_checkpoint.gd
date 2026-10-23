@@ -33,20 +33,9 @@ func _run() -> void:
 		"sword_level": 1,
 		"difficulty": 0,
 		"endless": false,
-		"towers": [
-			{"slot_id": 0, "type": "archer", "level": 1, "priority": 0}
-		],
-		"villagers": {
-			"lots_sold": 2,
-			"lots_bought": 1,
-			"hired": [true, false]
-		},
-		"stats": {
-			"kills": 15,
-			"wood": 30,
-			"towers": 1,
-			"time": 45.0
-		}
+		"towers": [{"slot_id": 0, "type": "archer", "level": 1, "priority": 0}],
+		"villagers": {"lots_sold": 2, "lots_bought": 1, "hired": [true, false]},
+		"stats": {"kills": 15, "wood": 30, "towers": 1, "time": 45.0}
 	}
 
 	var saved: bool = BattleCheckpoint.save_checkpoint(test_data)
@@ -89,7 +78,13 @@ func _run() -> void:
 	_ok(not slot0.is_free(), "slot 0 has tower built")
 	if slot0.tower != null:
 		_ok(slot0.tower.level == 1, "tower level is 1 (actual: %d)" % slot0.tower.level)
-		_ok(slot0.tower.data != null and slot0.tower.data.resource_path.get_file().get_basename() == "archer", "tower type is archer")
+		_ok(
+			(
+				slot0.tower.data != null
+				and slot0.tower.data.resource_path.get_file().get_basename() == "archer"
+			),
+			"tower type is archer"
+		)
 
 	print("-- 3. Cleanup")
 	BattleCheckpoint.clear_checkpoint()

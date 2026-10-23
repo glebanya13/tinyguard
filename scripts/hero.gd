@@ -1,3 +1,4 @@
+# gdlint:disable=max-public-methods
 class_name Hero
 extends CharacterBody3D
 ## The guardian knight. Walks with the move_* actions (WASD, arrows, gamepad),
@@ -14,11 +15,14 @@ extends CharacterBody3D
 
 ## Emitted when an order's destination is reached (before its callback runs).
 signal order_finished
+
 ## Emitted when an order is dropped (player took control or the way is blocked).
 signal order_cancelled
+
 ## The sword swing / whirlwind started (visual effects listen; the hit is a Sim step).
 signal swung(origin: Vector3, yaw: float)
 signal spun(origin: Vector3)
+
 ## Emitted when a sword hit chops wood off a tree.
 signal wood_gathered(amount: int, at: Vector3)
 signal damaged(amount: float)
@@ -29,9 +33,66 @@ const GROUP := &"heroes"
 const HURT_SOUND: AudioStream = preload("res://assets/audio/hero_hurt.wav")
 const KNOCKOUT_DURATION: float = 8.0
 
+## Metres per second (without the "swift feet" perk, see walk_speed()).
+@export var speed: float = 3.2
+
+## Radians per second the model turns towards the walking direction.
+@export var turn_speed: float = 12.0
+
+## Seconds without progress after which an order gives up (blocked path).
+@export var stuck_timeout: float = 1.5
+
+@export_group("Attack")
+@export var attack_damage: float = 14.0
+
+## Sword damage per forge level (index 0 = starting sword).
+@export var sword_damage_levels: Array[float] = [14.0, 20.0, 28.0, 38.0]
+
+## Forge prices: [level 1 -> 2, 2 -> 3, 3 -> 4].
+@export var sword_upgrade_gold: Array[int] = [40, 90, 160]
+@export var sword_upgrade_wood: Array[int] = [30, 60, 100]
+
+## Reach of the sword from the hero's centre (metres).
+@export var attack_range: float = 1.4
+
+## Trees are hit from a little further away (their trunk is thick).
+@export var chop_range: float = 1.6
+@export var attack_cooldown: float = 0.5
+
+## Delay from the start of the swing to the moment the blade hits.
+@export var attack_hit_delay: float = 0.2
+
+## Targets this far away turn the hero towards them before the swing.
+@export var auto_aim_range: float = 2.4
+
+## Cosine of the half-angle of the hit cone in front of the hero.
+@export var attack_cone: float = 0.2
+
+## Extra reach (metres) for the moment the blade lands: the enemy keeps walking during
+## attack_hit_delay, the swing must not miss an enemy that was in reach when it began.
+@export var strike_slack: float = 0.4
+
+## Swing on its own at enemies/trees in reach while standing still.
+@export var auto_action: bool = true
+
+@export_group("Whirlwind")
+
+## Spin attack: hits every enemy around for attack damage x spin_damage_mult.
+@export var spin_radius: float = 2.2
+@export var spin_damage_mult: float = 1.8
+@export var spin_cooldown: float = 12.0
+
+## Seconds one whirlwind turn takes.
+@export var spin_duration: float = 0.45
+@export var spin_fx: PackedScene
+
+@export_group("Health")
+@export var max_health: float = 100.0
+
 var is_knocked_out: bool = false
 var knockout_timer: float = 0.0
 var respawn_position: Vector3 = Vector3.ZERO
+
 ## Map inspection before the battle: the knight stands still, takes no orders and no input.
 var controls_locked: bool = false:
 	set(value):
@@ -39,86 +100,42 @@ var controls_locked: bool = false:
 		if value:
 			joystick_vector = Vector2.ZERO
 			cancel_order()  # drops the chased enemy too
-
-## Metres per second (without the "swift feet" perk, see walk_speed()).
-@export var speed: float = 3.2
-## Radians per second the model turns towards the walking direction.
-@export var turn_speed: float = 12.0
-## Seconds without progress after which an order gives up (blocked path).
-@export var stuck_timeout: float = 1.5
-
-@export_group("Attack")
-@export var attack_damage: float = 14.0
-## Sword damage per forge level (index 0 = starting sword).
-@export var sword_damage_levels: Array[float] = [14.0, 20.0, 28.0, 38.0]
-## Forge prices: [level 1 -> 2, 2 -> 3, 3 -> 4].
-@export var sword_upgrade_gold: Array[int] = [40, 90, 160]
-@export var sword_upgrade_wood: Array[int] = [30, 60, 100]
-## Reach of the sword from the hero's centre (metres).
-@export var attack_range: float = 1.4
-## Trees are hit from a little further away (their trunk is thick).
-@export var chop_range: float = 1.6
-@export var attack_cooldown: float = 0.5
-## Delay from the start of the swing to the moment the blade hits.
-@export var attack_hit_delay: float = 0.2
-## Targets this far away turn the hero towards them before the swing.
-@export var auto_aim_range: float = 2.4
-## Cosine of the half-angle of the hit cone in front of the hero.
-@export var attack_cone: float = 0.2
-## Extra reach (metres) for the moment the blade lands: the enemy keeps walking during
-## attack_hit_delay, the swing must not miss an enemy that was in reach when it began.
-@export var strike_slack: float = 0.4
-## Swing on its own at enemies/trees in reach while standing still.
-@export var auto_action: bool = true
-
-@export_group("Whirlwind")
-## Spin attack: hits every enemy around for attack damage x spin_damage_mult.
-@export var spin_radius: float = 2.2
-@export var spin_damage_mult: float = 1.8
-@export var spin_cooldown: float = 12.0
-## Seconds one whirlwind turn takes.
-@export var spin_duration: float = 0.45
-@export var spin_fx: PackedScene
-
-@export_group("Health")
-@export var max_health: float = 100.0
 var health: float = 100.0
-var _damage_flash_timer: float = 0.0
-var _recoil_velocity: Vector3 = Vector3.ZERO
-var _last_synced_pos: Vector3 = Vector3.ZERO
-var _hurt_sound_player: AudioStreamPlayer3D = null
-var _flash_material: StandardMaterial3D = null
-var _meshes: Array[GeometryInstance3D] = []
 
 ## Where swings are submitted and what clock times them (set by the level).
 var commands: GameCommands = null
 var sim: Sim = null
+
 ## Co-op: the partner's knight. Takes no input and no physics: he is shown at the
 ## last position his commands carried and glides there (drawing only; what he does
 ## to the battle happens in Sim steps like any swing).
 var is_ghost: bool = false
+
 ## Co-op: the skin id of the partner whose ghost this is (validated by the caller).
 var skin_id: String = ""
+
 ## Set by the on-screen joystick (length 0..1).
 var joystick_vector: Vector2 = Vector2.ZERO
+
 ## Walkable grid for orders; without it the hero walks in a straight line.
 var walk_grid: WalkGrid = null
 
 ## Forge level of the sword, 0-based.
 var sword_level: int = 0
+
 ## Permanent bonuses from perks: sword damage multiplier, extra wood per chop, extra walking
 ## speed (0.18 = +18 %; the command validator reads walk_speed(), so it follows the perk).
 var damage_multiplier: float = 1.0
 var wood_bonus: int = 0
 var speed_bonus: float = 0.0
 
-var _target_enemy: Enemy = null
-var _knockout_label: Label3D = null
-
 ## Enemy the hero is pursuing and attacking.
 var target_enemy: Enemy:
 	get:
-		if _target_enemy != null and (not is_instance_valid(_target_enemy) or not _target_enemy.is_alive()):
+		if (
+			_target_enemy != null
+			and (not is_instance_valid(_target_enemy) or not _target_enemy.is_alive())
+		):
 			_target_enemy = null
 		return _target_enemy
 	set(value):
@@ -129,8 +146,17 @@ var target_enemy: Enemy:
 			if value != null and _has_order:
 				cancel_order(false)
 
+var _damage_flash_timer: float = 0.0
+var _recoil_velocity: Vector3 = Vector3.ZERO
+var _last_synced_pos: Vector3 = Vector3.ZERO
+var _hurt_sound_player: AudioStreamPlayer3D = null
+var _flash_material: StandardMaterial3D = null
+var _meshes: Array[GeometryInstance3D] = []
+var _target_enemy: Enemy = null
+var _knockout_label: Label3D = null
 var _has_order: bool = false
 var _order_target: Vector3 = Vector3.ZERO
+
 ## Remaining corners of the route to _order_target (the target is last).
 var _waypoints: PackedVector3Array = PackedVector3Array()
 var _replanned: bool = false
@@ -138,15 +164,18 @@ var _order_reach: float = 0.1
 var _on_arrive: Callable = Callable()
 var _stuck_time: float = 0.0
 var _last_distance: float = INF
+
 ## Simulation steps before which the next swing / whirlwind is refused.
 var _attack_ready_tick: int = 0
 var _spin_ready_tick: int = 0
+
 ## Co-op: a command takes the input delay to come back, so own commands wait until
 ## their effect (and cooldown) is due instead of flooding the network every frame.
 var _attack_gate_tick: int = 0
 var _spin_gate_tick: int = 0
 var _ghost_goal: Vector3 = Vector3.ZERO
 var _ghost_set: bool = false
+
 ## Seconds of swing animation left (the feet are planted meanwhile; drawing only).
 var _attack_left: float = 0.0
 
@@ -249,7 +278,13 @@ func _physics_process(delta: float) -> void:
 	velocity = direction * walk_speed() + _recoil_velocity
 	move_and_slide()
 	position.y = 0.0
-	if commands != null and commands.coop != null and sim != null and sim.running and sim.tick % 6 == 0:
+	if (
+		commands != null
+		and commands.coop != null
+		and sim != null
+		and sim.running
+		and sim.tick % 6 == 0
+	):
 		if (global_position - _last_synced_pos).length_squared() > 0.08:
 			_last_synced_pos = global_position
 			commands.submit(GameCommand.hero_move(global_position))

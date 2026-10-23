@@ -472,10 +472,7 @@ func _test_match() -> void:
 	check(
 		hires == [0, 1], "hired villagers 0 and 1, the double hire of 0 was refused: %s" % [hires]
 	)
-	check(
-		buyers.has(0) and buyers.has(1),
-		"both players bought wood: %s" % [buyers]
-	)
+	check(buyers.has(0) and buyers.has(1), "both players bought wood: %s" % [buyers])
 	var folk_h: Villagers = host.main.villagers
 	var folk_g: Villagers = guest.main.villagers
 	check(

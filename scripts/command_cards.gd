@@ -103,14 +103,17 @@ static func for_slot(
 			}
 		)
 	if near_villager != null:
-		buttons.append(
-			{
-				"id": &"talk_villager",
-				"icon": VILLAGER_ICON,
-				"caption": _t("CARD_TALK_VILLAGER"),
-				"enabled": true,
-				"tooltip": _t("CARD_TALK_VILLAGER_TIP"),
-			}
+		(
+			buttons
+			. append(
+				{
+					"id": &"talk_villager",
+					"icon": VILLAGER_ICON,
+					"caption": _t("CARD_TALK_VILLAGER"),
+					"enabled": true,
+					"tooltip": _t("CARD_TALK_VILLAGER_TIP"),
+				}
+			)
 		)
 	buttons.append(
 		{
@@ -345,13 +348,9 @@ static func lumberjack_camp(villagers: Villagers, game_state: GameState) -> Dict
 	var price: int = villagers.lot_price()
 	var next_unhired: int = villagers.first_unhired_index()
 	var title_str: String = _t("CARD_LUMBERJACK_CAMP")
-	var info := {
-		"title": title_str
-	}
+	var info := {"title": title_str}
 	var stats_template: String = _t("CARD_TRADE_STATS")
-	info["stats"] = (
-		stats_template % [lot, price, game_state.wood]
-	)
+	info["stats"] = (stats_template % [lot, price, game_state.wood])
 	var buttons: Array[Dictionary] = [
 		{
 			"id": &"trade_lot",
@@ -403,9 +402,7 @@ static func lumberjack_camp(villagers: Villagers, game_state: GameState) -> Dict
 ## Card of the Mercenary Camp: hire allied knight fighters for defense.
 static func mercenary_camp(camp: CampStructures.MercenaryCamp, game_state: GameState) -> Dictionary:
 	var camp_title: String = _t("CARD_MERCENARY_CAMP")
-	var info := {
-		"title": camp_title
-	}
+	var info := {"title": camp_title}
 	var hired_total: int = camp.hired_total if camp != null else 0
 	var alive_count: int = camp.alive_count() if camp != null else 0
 	var max_alive: int = camp.config.max_alive if camp != null else 0
@@ -453,27 +450,43 @@ static func build_menu(build_manager: BuildManager, game_state: GameState) -> Di
 	var any_affordable: bool = false
 	for i in tower_types.size():
 		var data: TowerData = tower_types[i]
-		var can_afford: bool = game_state != null and game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+		var can_afford: bool = (
+			game_state != null and game_state.can_afford(Vector2i(data.cost_gold, data.cost_wood))
+		)
 		if can_afford:
 			any_affordable = true
-		buttons.append({
-			"id": StringName("build_%d" % i),
-			"icon": data.icon,
-			"caption": _t(data.display_name),
-			"gold": data.cost_gold,
-			"wood": data.cost_wood,
-			"enabled": can_afford,
-			"tooltip": _t("CARD_TOWER_TIP") % [_t(data.display_name), i + 1, _t(data.role), data.stats_text(0)],
-		})
+		(
+			buttons
+			. append(
+				{
+					"id": StringName("build_%d" % i),
+					"icon": data.icon,
+					"caption": _t(data.display_name),
+					"gold": data.cost_gold,
+					"wood": data.cost_wood,
+					"enabled": can_afford,
+					"tooltip":
+					(
+						_t("CARD_TOWER_TIP")
+						% [_t(data.display_name), i + 1, _t(data.role), data.stats_text(0)]
+					),
+				}
+			)
+		)
 	if not any_affordable:
 		info["hint"] = _t("CARD_NEED_BOTH")
-	buttons.append({
-		"id": &"cancel",
-		"icon": CANCEL_ICON,
-		"label": "Esc",
-		"enabled": true,
-		"tooltip": _t("CARD_CLOSE_TIP"),
-	})
+	(
+		buttons
+		. append(
+			{
+				"id": &"cancel",
+				"icon": CANCEL_ICON,
+				"label": "Esc",
+				"enabled": true,
+				"tooltip": _t("CARD_CLOSE_TIP"),
+			}
+		)
+	)
 	info["buttons"] = buttons
 	return info
 
@@ -484,7 +497,11 @@ static func placement_mode(
 ) -> Dictionary:
 	var info := {
 		"title": _t(data.display_name),
-		"stats": "%s · %d %s, %d %s" % [_t(data.role), data.cost_gold, _t("HUD_GOLD"), data.cost_wood, _t("HUD_WOOD")],
+		"stats":
+		(
+			"%s · %d %s, %d %s"
+			% [_t(data.role), data.cost_gold, _t("HUD_GOLD"), data.cost_wood, _t("HUD_WOOD")]
+		),
 		"hint": hint_msg,
 	}
 	var buttons: Array[Dictionary] = [

@@ -70,42 +70,36 @@ func _build() -> void:
 
 	# 1. Daily Challenge Button
 	var daily_btn := _mode_button(
-		"DailyModeButton",
-		tr("DAILY_BUTTON"),
-		tr("MODES_DAILY_DESC"),
-		DAILY_ICON
+		"DailyModeButton", tr("DAILY_BUTTON"), tr("MODES_DAILY_DESC"), DAILY_ICON
 	)
-	daily_btn.pressed.connect(func() -> void:
-		close()
-		daily_selected.emit()
+	daily_btn.pressed.connect(
+		func() -> void:
+			close()
+			daily_selected.emit()
 	)
 	box.add_child(daily_btn)
 
 	# 2. Co-op Button (only if database/transport available)
 	if coop_available or CoopRun.transport() != null:
 		var coop_btn := _mode_button(
-			"CoopButton",
-			tr("COOP_BUTTON"),
-			tr("MODES_COOP_DESC"),
-			FRIENDS_ICON
+			"CoopButton", tr("COOP_BUTTON"), tr("MODES_COOP_DESC"), FRIENDS_ICON
 		)
-		coop_btn.pressed.connect(func() -> void:
-			close()
-			coop_selected.emit()
+		coop_btn.pressed.connect(
+			func() -> void:
+				close()
+				coop_selected.emit()
 		)
 		box.add_child(coop_btn)
 
 	# 3. Global Leaderboards Button (if online configured)
 	if online_available or Online.is_configured():
 		var records_btn := _mode_button(
-			"RecordsButton",
-			tr("MAP_RECORDS"),
-			tr("MODES_RECORDS_DESC"),
-			TROPHY_ICON
+			"RecordsButton", tr("MAP_RECORDS"), tr("MODES_RECORDS_DESC"), TROPHY_ICON
 		)
-		records_btn.pressed.connect(func() -> void:
-			close()
-			records_selected.emit()
+		records_btn.pressed.connect(
+			func() -> void:
+				close()
+				records_selected.emit()
 		)
 		box.add_child(records_btn)
 
@@ -121,7 +115,9 @@ func _build() -> void:
 	box.add_child(close_button)
 
 
-func _mode_button(btn_name: String, title_text: String, desc_text: String, icon_tex: Texture2D) -> Button:
+func _mode_button(
+	btn_name: String, title_text: String, desc_text: String, icon_tex: Texture2D
+) -> Button:
 	var button := Button.new()
 	button.name = btn_name
 	button.text = title_text

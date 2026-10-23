@@ -82,15 +82,24 @@ func _math() -> void:
 									for key: String in ["attack", "spin", "top_left", "top_right"]:
 										if (r["map"] as Rect2).intersects(r[key]):
 											bad.append("%s: map over %s" % [tag, key])
-									if joy.intersects(r["map"]) or joy.intersects(r["pin"]) or joy.intersects(r["strat"]):
+									if (
+										joy.intersects(r["map"])
+										or joy.intersects(r["pin"])
+										or joy.intersects(r["strat"])
+									):
 										bad.append("%s: joystick over the compass" % tag)
 									if (r["strat"] as Rect2).intersects(r["map"]):
 										bad.append("%s: strat over map" % tag)
 									if (r["pin"] as Rect2).intersects(r["strat"]):
 										bad.append("%s: pin over strat" % tag)
-									if (r["strat"] as Rect2).position.y <= (r["pin"] as Rect2).position.y:
+									if (
+										(r["strat"] as Rect2).position.y
+										<= (r["pin"] as Rect2).position.y
+									):
 										bad.append("%s: strat not below pin" % tag)
-								var r_hid: Dictionary = HudLayout.rects(size, js, jp, side, ms, mode, false)
+								var r_hid: Dictionary = HudLayout.rects(
+									size, js, jp, side, ms, mode, false
+								)
 								for key: String in ["pin", "strat"]:
 									if not bounds.encloses(r_hid[key]):
 										bad.append("%s (hidden): %s outside" % [tag, key])
@@ -158,13 +167,25 @@ func _live() -> void:
 	var pin: Control = hint.get_node("CompassButton")
 	var rect: Rect2 = HudLayout.current(hint.size)["pin"]
 	check(pin.position.is_equal_approx(rect.position), "pin button placed by HudLayout")
-	check(pin.position.x > 600.0 and pin.position.y < 300.0, "pin button is in the top-right quarter")
+	check(
+		pin.position.x > 600.0 and pin.position.y < 300.0, "pin button is in the top-right quarter"
+	)
 	var strat_btn: Control = hint.get_node("StrategicViewButton")
 	var strat_rect: Rect2 = HudLayout.current(hint.size)["strat"]
-	check(strat_btn.position.is_equal_approx(strat_rect.position), "strat button placed by HudLayout")
-	check(strat_btn.position.y > pin.position.y, "strat button sits vertically below compass button")
-	check(is_equal_approx(strat_btn.position.x, pin.position.x), "strat button aligns horizontally with compass button")
-	check(strat_btn.position.x > 600.0 and strat_btn.position.y < 300.0, "strat button is in the top-right quarter")
+	check(
+		strat_btn.position.is_equal_approx(strat_rect.position), "strat button placed by HudLayout"
+	)
+	check(
+		strat_btn.position.y > pin.position.y, "strat button sits vertically below compass button"
+	)
+	check(
+		is_equal_approx(strat_btn.position.x, pin.position.x),
+		"strat button aligns horizontally with compass button"
+	)
+	check(
+		strat_btn.position.x > 600.0 and strat_btn.position.y < 300.0,
+		"strat button is in the top-right quarter"
+	)
 	var map_rect: Rect2 = HudLayout.current(hint.size)["map"]
 	var pin_box := Rect2(pin.position, pin.size)
 	var strat_box := Rect2(strat_btn.position, strat_btn.size)
@@ -178,16 +199,35 @@ func _live() -> void:
 	check(not hint.compass_visible(), "mode hide: compass is not visible")
 	var hidden_r: Dictionary = HudLayout.current(hint.size, false)
 	var tr_rect: Rect2 = hidden_r["top_right"]
-	check(pin.position.is_equal_approx(hidden_r["pin"].position), "hidden: pin placed by HudLayout under speed")
-	check(strat_btn.position.is_equal_approx(hidden_r["strat"].position), "hidden: strat placed by HudLayout under pause")
-	check(is_equal_approx(pin.position.x, tr_rect.position.x), "hidden: pin x matches speed button x")
-	check(is_equal_approx(pin.position.y, tr_rect.end.y + HudLayout.GAP), "hidden: pin y sits directly below top_right")
 	check(
-		is_equal_approx(strat_btn.position.x, tr_rect.position.x + HudLayout.PIN_SIZE.x + HudLayout.GAP),
+		pin.position.is_equal_approx(hidden_r["pin"].position),
+		"hidden: pin placed by HudLayout under speed"
+	)
+	check(
+		strat_btn.position.is_equal_approx(hidden_r["strat"].position),
+		"hidden: strat placed by HudLayout under pause"
+	)
+	check(
+		is_equal_approx(pin.position.x, tr_rect.position.x), "hidden: pin x matches speed button x"
+	)
+	check(
+		is_equal_approx(pin.position.y, tr_rect.end.y + HudLayout.GAP),
+		"hidden: pin y sits directly below top_right"
+	)
+	check(
+		is_equal_approx(
+			strat_btn.position.x, tr_rect.position.x + HudLayout.PIN_SIZE.x + HudLayout.GAP
+		),
 		"hidden: strat x matches pause button x"
 	)
-	check(is_equal_approx(strat_btn.position.y, tr_rect.end.y + HudLayout.GAP), "hidden: strat y sits directly below top_right")
-	check(is_equal_approx(pin.position.y, strat_btn.position.y), "hidden: pin and strat are side by side")
+	check(
+		is_equal_approx(strat_btn.position.y, tr_rect.end.y + HudLayout.GAP),
+		"hidden: strat y sits directly below top_right"
+	)
+	check(
+		is_equal_approx(pin.position.y, strat_btn.position.y),
+		"hidden: pin and strat are side by side"
+	)
 	var hidden_pin_box := Rect2(pin.position, pin.size)
 	var hidden_strat_box := Rect2(strat_btn.position, strat_btn.size)
 	check(not hidden_pin_box.intersects(hidden_strat_box), "hidden: pin and strat do not overlap")
@@ -232,8 +272,14 @@ func _live() -> void:
 	check(
 		button != null and button.custom_minimum_size.y >= 84.0, "option buttons are at least 84 px"
 	)
-	check(joy._is_over_ui(button.global_position + button.size * 0.5), "joystick detects touches over settings UI button")
-	check(not joy.is_in_zone(button.global_position + button.size * 0.5), "is_in_zone returns false over UI button")
+	check(
+		joy._is_over_ui(button.global_position + button.size * 0.5),
+		"joystick detects touches over settings UI button"
+	)
+	check(
+		not joy.is_in_zone(button.global_position + button.size * 0.5),
+		"is_in_zone returns false over UI button"
+	)
 
 	var card: Control = hud.get_node("Root/CommandCard")
 	card.show()

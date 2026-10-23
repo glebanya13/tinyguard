@@ -66,24 +66,45 @@ func _test_spawn() -> void:
 	var level: Dictionary = LevelCatalog.get_level(LevelCatalog.selected_id)
 	var route_count: int = LevelCatalog.routes(level).size()
 
-	check(builder.outposts.size() == route_count, "outpost count (%d) matches routes (%d)" % [builder.outposts.size(), route_count])
+	check(
+		builder.outposts.size() == route_count,
+		"outpost count (%d) matches routes (%d)" % [builder.outposts.size(), route_count]
+	)
 	check(sim.outposts.size() == route_count, "sim registered all %d outposts" % route_count)
 
 	for outpost: Outpost in builder.outposts:
 		var n_trees: int = outpost.thicket_trees.size()
-		check(n_trees > 0 and n_trees <= Outpost.DEFAULT_TREES, "lane %d outpost has %d thicket trees (<= %d)" % [outpost.lane, n_trees, Outpost.DEFAULT_TREES])
+		check(
+			n_trees > 0 and n_trees <= Outpost.DEFAULT_TREES,
+			(
+				"lane %d outpost has %d thicket trees (<= %d)"
+				% [outpost.lane, n_trees, Outpost.DEFAULT_TREES]
+			)
+		)
 		check(outpost.flow_pct() == 100, "lane %d initial flow is 100%%" % outpost.lane)
-		check(is_equal_approx(outpost.multiplier(), 1.0), "lane %d initial multiplier is 1.0" % outpost.lane)
+		check(
+			is_equal_approx(outpost.multiplier(), 1.0),
+			"lane %d initial multiplier is 1.0" % outpost.lane
+		)
 
 		for tree: WoodTree in outpost.thicket_trees:
 			check(tree.is_thicket, "tree %d has is_thicket true" % tree.id)
-			check(tree.outpost_id == outpost.lane, "tree %d belongs to lane %d" % [tree.id, outpost.lane])
+			check(
+				tree.outpost_id == outpost.lane,
+				"tree %d belongs to lane %d" % [tree.id, outpost.lane]
+			)
 			check(
 				tree.wood_per_hit == outpost.thicket_wood_per_hit and tree.wood_per_hit > 0,
 				"tree %d gives wood like every choppable tree" % tree.id
 			)
-			check(is_equal_approx(tree.regrow_time, Outpost.THICKET_REGROW_TIME), "tree %d regrow time is 150s" % tree.id)
-			check(absf(tree.global_position.x) <= 21.0 and absf(tree.global_position.z) <= 13.8, "tree %d is inside hero bounds at %s" % [tree.id, tree.global_position])
+			check(
+				is_equal_approx(tree.regrow_time, Outpost.THICKET_REGROW_TIME),
+				"tree %d regrow time is 150s" % tree.id
+			)
+			check(
+				absf(tree.global_position.x) <= 21.0 and absf(tree.global_position.z) <= 13.8,
+				"tree %d is inside hero bounds at %s" % [tree.id, tree.global_position]
+			)
 			check(tree.grove != null, "tree %d is assigned to Grove MultiMesh" % tree.id)
 			check(sim.trees.has(tree), "tree %d is registered in sim.trees" % tree.id)
 
@@ -105,7 +126,10 @@ func _test_chopping_and_weakening() -> void:
 	)
 	# chop() only reports the wood; the hero's swing adds it (wood_gathered), so no change here.
 	check(gs.wood == initial_wood, "game_state wood is unchanged by chop() alone (%d)" % gs.wood)
-	check(first_tree.hits_left() == first_tree.hits - 1, "tree has %d hits left after 1 strike" % first_tree.hits_left())
+	check(
+		first_tree.hits_left() == first_tree.hits - 1,
+		"tree has %d hits left after 1 strike" % first_tree.hits_left()
+	)
 
 	# Finish chopping down the tree
 	while first_tree.is_choppable():
@@ -116,13 +140,22 @@ func _test_chopping_and_weakening() -> void:
 
 	# Check flow reduction
 	var expected_pct: int = 100 - (Outpost.SHIELD_PCT * 1) / outpost.total_trees
-	check(outpost.flow_pct() == expected_pct, "outpost flow reduced to %d%% (expected %d%%)" % [outpost.flow_pct(), expected_pct])
+	check(
+		outpost.flow_pct() == expected_pct,
+		"outpost flow reduced to %d%% (expected %d%%)" % [outpost.flow_pct(), expected_pct]
+	)
 	check(outpost.multiplier() < 1.0, "outpost multiplier is below 1.0: %f" % outpost.multiplier())
 
 	# Check wave plan weighting
 	var full_weights: Array = wm.plan.lane_weights(1, [1.0, 1.0, 1.0, 1.0])
 	var reduced_weights: Array = wm.plan.lane_weights(1, [outpost.multiplier(), 1.0, 1.0, 1.0])
-	check(float(reduced_weights[0]) < float(full_weights[0]), "lane 0 weight is reduced in WavePlan: %f < %f" % [float(reduced_weights[0]), float(full_weights[0])])
+	check(
+		float(reduced_weights[0]) < float(full_weights[0]),
+		(
+			"lane 0 weight is reduced in WavePlan: %f < %f"
+			% [float(reduced_weights[0]), float(full_weights[0])]
+		)
+	)
 
 
 func _test_floor_40_percent() -> void:
@@ -136,15 +169,25 @@ func _test_floor_40_percent() -> void:
 			tree.chop(Vector3.ZERO)
 	await process_frame
 
-	check(outpost.felled_count() == outpost.total_trees, "all %d trees felled" % outpost.total_trees)
-	check(outpost.flow_pct() == Outpost.FLOOR_PCT, "outpost flow reached exactly %d%% floor (got: %d%%)" % [Outpost.FLOOR_PCT, outpost.flow_pct()])
+	check(
+		outpost.felled_count() == outpost.total_trees, "all %d trees felled" % outpost.total_trees
+	)
+	check(
+		outpost.flow_pct() == Outpost.FLOOR_PCT,
+		(
+			"outpost flow reached exactly %d%% floor (got: %d%%)"
+			% [Outpost.FLOOR_PCT, outpost.flow_pct()]
+		)
+	)
 	check(is_equal_approx(outpost.multiplier(), 0.40), "outpost multiplier reached 0.40 floor")
 
 	# Test mock formula edge case (if felled > total_trees, still clamped to 40)
 	var prev_total: int = outpost.total_trees
 	outpost.total_trees = 5
 	var reduced_mock: int = 100 - (Outpost.SHIELD_PCT * 10) / outpost.total_trees
-	check(maxi(Outpost.FLOOR_PCT, reduced_mock) == 40, "floor strictly prevents dropping below 40%%")
+	check(
+		maxi(Outpost.FLOOR_PCT, reduced_mock) == 40, "floor strictly prevents dropping below 40%%"
+	)
 	outpost.total_trees = prev_total
 
 
@@ -161,7 +204,10 @@ func _test_regrowth() -> void:
 	check(not tree.is_choppable(), "tree is felled")
 	check(outpost.felled_count() == 1, "1 tree felled")
 	var regrow_tick: int = tree.regrow_at()
-	check(regrow_tick > sim.tick, "regrow scheduled in future at tick %d (now %d)" % [regrow_tick, sim.tick])
+	check(
+		regrow_tick > sim.tick,
+		"regrow scheduled in future at tick %d (now %d)" % [regrow_tick, sim.tick]
+	)
 
 	# Advance until just before regrow
 	while sim.tick < regrow_tick - 1:
@@ -179,7 +225,7 @@ func _test_regrowth() -> void:
 
 
 func _test_determinism() -> void:
-	var tree_scene: PackedScene = preload("res://scenes/wood_tree.tscn")
+	var tree_scene: PackedScene = load("res://scenes/wood_tree.tscn")
 	var trace1: Array[int] = []
 	var trace2: Array[int] = []
 
@@ -230,7 +276,10 @@ func _test_determinism() -> void:
 			trace1.append(sim1.state_hash())
 			trace2.append(sim2.state_hash())
 
-	check(trace1.size() > 0 and trace1 == trace2, "simulation traces match 100%% deterministically across runs")
+	check(
+		trace1.size() > 0 and trace1 == trace2,
+		"simulation traces match 100%% deterministically across runs"
+	)
 
 	# Control: check that an untouched sim has different hash from a chopped sim
 	var host_idle := Node3D.new()
@@ -252,7 +301,10 @@ func _test_determinism() -> void:
 	for step in 100:
 		sim_idle.step()
 
-	check(sim1.state_hash() != sim_idle.state_hash(), "chopping thicket tree modifies state hash (neg-control)")
+	check(
+		sim1.state_hash() != sim_idle.state_hash(),
+		"chopping thicket tree modifies state hash (neg-control)"
+	)
 
 	host1.queue_free()
 	host2.queue_free()

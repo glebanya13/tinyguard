@@ -159,7 +159,11 @@ func on_defeated() -> void:
 ## Chooses the most helpful hint based on what the player had or lacked during the loss.
 func _pick_defeat_tip() -> String:
 	# 1. Player had enough wood to repair castle walls but didn't:
-	if _game_state != null and _game_state.wood >= _game_state.repair_wood and _game_state.repair_wood > 0:
+	if (
+		_game_state != null
+		and _game_state.wood >= _game_state.repair_wood
+		and _game_state.repair_wood > 0
+	):
 		return tr("TIP_REPAIR") % [_game_state.repair_lives, _game_state.repair_wood]
 	# 2. Very few towers built:
 	if int(stats.get("towers", 0)) < 3:

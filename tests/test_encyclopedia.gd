@@ -1,9 +1,12 @@
 extends SceneTree
 ## Tests for Subagent 3:
 ##   1. Enemy HP bar: increased thickness, dark background/border, dynamic color.
-##   2. EncyclopediaPanel: open, close, tab switching, and data accuracy (towers, bestiary, village).
+##   2. EncyclopediaPanel: open, close, tab switching, and data accuracy
+##      (towers, bestiary, village).
 ##   3. CardController: next-level upgrade range preview ring.
 ## godot --headless --path . --script res://tests/test_encyclopedia.gd
+
+const ARCHER_PATH := "res://resources/towers/archer.tres"
 
 var fails := 0
 var _closed_fired := false
@@ -199,14 +202,10 @@ func _check_encyclopedia_panel() -> void:
 	check(archer_box != null, "archer tower entry exists in Towers tab")
 	check(cannon_box != null, "cannon tower entry exists in Towers tab")
 	if archer_box:
+		var archer_damage: float = (load(ARCHER_PATH) as TowerData).damage_levels[0]
 		var stats: Label = archer_box.find_child("Stats", true, false) as Label
 		check(
-			(
-				stats != null
-				and stats.text.contains(
-					str(int(load("res://resources/towers/archer.tres").damage_levels[0]))
-				)
-			),
+			stats != null and stats.text.contains(str(int(archer_damage))),
 			"archer base damage (from archer.tres) in stats"
 		)
 
@@ -244,7 +243,7 @@ func _check_upgrade_range_ring() -> void:
 	build_mgr.game_state = state
 	dummy_root.add_child(state)
 
-	var archer_data: TowerData = load("res://resources/towers/archer.tres") as TowerData
+	var archer_data: TowerData = load(ARCHER_PATH) as TowerData
 	check(archer_data != null, "archer.tres loaded")
 	build_mgr.tower_types = [archer_data]
 

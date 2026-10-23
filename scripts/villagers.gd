@@ -1,3 +1,4 @@
+# gdlint:disable=max-public-methods
 class_name Villagers
 extends Node3D
 ## Villagers of a level: settles them on free ground near the castle, away

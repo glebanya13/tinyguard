@@ -47,35 +47,54 @@ func _run() -> void:
 	# Toggle ON
 	var state: bool = cam.toggle_strategic_view()
 	check(state and cam.is_strategic_view(), "toggle returns true and strategic_view is true")
-	check(cam._target_size > initial_size * 1.35, "target size is 40-50%% larger (%f -> %f)" % [initial_size, cam._target_size])
+	check(
+		cam._target_size > initial_size * 1.35,
+		"target size is 40-50%% larger (%f -> %f)" % [initial_size, cam._target_size]
+	)
 
 	# Advance physics frames for smooth zoom transition
 	for i in 30:
 		await physics_frame
-	check(cam.size > initial_size * 1.3, "camera smoothly zoomed out towards strategic view (%f)" % cam.size)
+	check(
+		cam.size > initial_size * 1.3,
+		"camera smoothly zoomed out towards strategic view (%f)" % cam.size
+	)
 
 	# Toggle OFF
 	state = cam.toggle_strategic_view()
-	check(not state and not cam.is_strategic_view(), "toggle returns false and strategic_view is false")
+	check(
+		not state and not cam.is_strategic_view(),
+		"toggle returns false and strategic_view is false"
+	)
 	check(absf(cam._target_size - initial_size) < 0.01, "target size returned to normal size")
 
 	for i in 30:
 		await physics_frame
-	check(absf(cam.size - initial_size) < 0.5, "camera smoothly zoomed back to normal size (%f)" % cam.size)
+	check(
+		absf(cam.size - initial_size) < 0.5,
+		"camera smoothly zoomed back to normal size (%f)" % cam.size
+	)
 
 	# HUD and LaneHint toggle signals
 	hud.toggle_strategic_view()
 	check(cam.is_strategic_view(), "hud.toggle_strategic_view() triggers camera strategic view")
 	lane_hint.toggle_strategic_view()
 	check(not cam.is_strategic_view(), "lane_hint.toggle_strategic_view() toggles camera back")
-	# Button layout: when minimap is visible, strategic view button sits vertically below the compass button
+	# Button layout: when the minimap is visible, the strategic view button sits
+	# vertically below the compass button
 	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
 	lane_hint.apply_settings()
 	check(lane_hint.compass_visible(), "compass is visible in MAP_SHOW mode")
 	var compass_btn: Button = lane_hint.get_node("CompassButton")
 	var strat_btn: Button = lane_hint.get_node("StrategicViewButton")
-	check(strat_btn.position.y > compass_btn.position.y, "strategic button is positioned under compass button")
-	check(is_equal_approx(strat_btn.position.x, compass_btn.position.x), "strategic button aligned horizontally with compass button")
+	check(
+		strat_btn.position.y > compass_btn.position.y,
+		"strategic button is positioned under compass button"
+	)
+	check(
+		is_equal_approx(strat_btn.position.x, compass_btn.position.x),
+		"strategic button aligned horizontally with compass button"
+	)
 	var compass_box := Rect2(compass_btn.position, compass_btn.size)
 	var strat_box := Rect2(strat_btn.position, strat_btn.size)
 	var map_rect: Rect2 = HudLayout.current(lane_hint.size, true)["map"]
@@ -87,11 +106,20 @@ func _run() -> void:
 	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_HIDE)
 	lane_hint.apply_settings()
 	check(not lane_hint.compass_visible(), "compass is hidden in MAP_HIDE mode")
-	check(is_equal_approx(strat_btn.position.y, compass_btn.position.y), "hidden: buttons aligned vertically")
-	check(strat_btn.position.x > compass_btn.position.x, "hidden: strat button is to the right of compass button")
+	check(
+		is_equal_approx(strat_btn.position.y, compass_btn.position.y),
+		"hidden: buttons aligned vertically"
+	)
+	check(
+		strat_btn.position.x > compass_btn.position.x,
+		"hidden: strat button is to the right of compass button"
+	)
 	var hid_compass_box := Rect2(compass_btn.position, compass_btn.size)
 	var hid_strat_box := Rect2(strat_btn.position, strat_btn.size)
-	check(not hid_compass_box.intersects(hid_strat_box), "hidden: compass and strategic buttons do not overlap")
+	check(
+		not hid_compass_box.intersects(hid_strat_box),
+		"hidden: compass and strategic buttons do not overlap"
+	)
 
 	# Restore minimap mode to MAP_SHOW
 	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
@@ -123,13 +151,18 @@ func _run() -> void:
 	var trade: VillagerTrade = villagers.trade
 	gs.gold = 1000
 	var initial_left: int = villagers.buy_lots_left()
-	check(initial_left == trade.buy_max_lots, "initially all lots are available (%d)" % initial_left)
+	check(
+		initial_left == trade.buy_max_lots, "initially all lots are available (%d)" % initial_left
+	)
 
 	# Buy 2 lots
 	var bought: int = villagers.buy(2)
 	check(bought == 2, "bought 2 lots")
 	check(villagers.lots_bought == 2, "lots_bought is 2")
-	check(villagers.buy_lots_left() == trade.buy_max_lots - 2, "buy_lots_left decreased by 2 (%d)" % villagers.buy_lots_left())
+	check(
+		villagers.buy_lots_left() == trade.buy_max_lots - 2,
+		"buy_lots_left decreased by 2 (%d)" % villagers.buy_lots_left()
+	)
 
 	# Run the simulation to one tick before the restock interval
 	for i in Sim.ticks(villagers.trade.buy_restock_seconds) - 1:
@@ -138,14 +171,26 @@ func _run() -> void:
 
 	# The last tick of the interval restocks 1 lot
 	villagers.sim_step()
-	check(villagers.lots_bought == 1, "restocked 1 lot after buy_restock_seconds: lots_bought is now 1")
-	check(villagers.buy_lots_left() == trade.buy_max_lots - 1, "buy_lots_left replenished by +1 (%d)" % villagers.buy_lots_left())
+	check(
+		villagers.lots_bought == 1,
+		"restocked 1 lot after buy_restock_seconds: lots_bought is now 1"
+	)
+	check(
+		villagers.buy_lots_left() == trade.buy_max_lots - 1,
+		"buy_lots_left replenished by +1 (%d)" % villagers.buy_lots_left()
+	)
 
 	# One more interval restocks the second lot
 	for i in Sim.ticks(villagers.trade.buy_restock_seconds):
 		villagers.sim_step()
-	check(villagers.lots_bought == 0, "restocked the second lot one more interval later: lots_bought is now 0")
-	check(villagers.buy_lots_left() == trade.buy_max_lots, "buy_lots_left is back to maximum capacity (%d)" % villagers.buy_lots_left())
+	check(
+		villagers.lots_bought == 0,
+		"restocked the second lot one more interval later: lots_bought is now 0"
+	)
+	check(
+		villagers.buy_lots_left() == trade.buy_max_lots,
+		"buy_lots_left is back to maximum capacity (%d)" % villagers.buy_lots_left()
+	)
 
 	# Manual restock method test
 	villagers.buy(1)
@@ -162,7 +207,7 @@ func _run() -> void:
 	check(Tower.level_symbol(4) == "★", "level 4 symbol is '★'")
 
 	# Create a tower and verify indicator updates
-	var tower_scene: PackedScene = preload("res://scenes/towers/tower_archer.tscn")
+	var tower_scene: PackedScene = load("res://scenes/towers/tower_archer.tscn")
 	var tower: Tower = tower_scene.instantiate() as Tower
 	main.add_child(tower)
 	await process_frame
@@ -178,10 +223,13 @@ func _run() -> void:
 
 	tower.update_level_indicator(4)
 	check(tower.get_level_text() == "★", "level 4 displays '★' (%s)" % tower.get_level_text())
-	check(tower.level_indicator.modulate.r > 0.9 and tower.level_indicator.modulate.g > 0.7, "level 4 star is golden (%s)" % tower.level_indicator.modulate)
+	check(
+		tower.level_indicator.modulate.r > 0.9 and tower.level_indicator.modulate.g > 0.7,
+		"level 4 star is golden (%s)" % tower.level_indicator.modulate
+	)
 
 	# apply_level updates indicator
-	var archer_data: TowerData = preload("res://resources/towers/archer.tres")
+	var archer_data: TowerData = load("res://resources/towers/archer.tres")
 	tower.apply_level(archer_data, 0)
 	check(tower.get_level_text() == "I", "apply_level 0 sets indicator to 'I'")
 	tower.apply_level(archer_data, 1)

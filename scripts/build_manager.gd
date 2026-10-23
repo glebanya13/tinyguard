@@ -1,3 +1,4 @@
+# gdlint:disable=max-returns
 class_name BuildManager
 extends Node
 ## Picks tower slots with a camera ray, builds and upgrades towers for gold
@@ -16,17 +17,21 @@ signal tower_sold(slot: TowerSlot, refund: Vector2i)
 signal ground_tapped(point: Vector3)
 signal placement_moved(point: Vector3)
 
+const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
+
 ## Buildable tower types, in command card order.
 @export var tower_types: Array[TowerData] = []
 @export var game_state: GameState
 @export var camera: CameraFollow
 @export_flags_3d_physics var slot_collision_mask: int = 1
 @export var ray_length: float = 100.0
+
 ## A press that moves further than this before release is a drag, not a tap.
 @export var tap_slop: float = 24.0
 
 ## Towers built here join this simulation (set by the level).
 var sim: Sim = null
+
 ## Daily challenge: resource names of the towers that may be built (empty = all).
 var allowed_towers: Array[String] = []
 var selected_slot: TowerSlot = null
@@ -36,11 +41,10 @@ var mercenary_camp: CampStructures.MercenaryCamp = null
 var villagers: Villagers = null
 var commands: GameCommands = null
 var bounds: Rect2 = Rect2()
+
 ## Permanent tower damage bonus (perk), applied after every level change.
 var damage_multiplier: float = 1.0
 var placement_mode_active: bool = false
-
-const SLOT_SCENE: PackedScene = preload("res://scenes/tower_slot.tscn")
 
 var _press_position: Vector2 = Vector2.ZERO
 var _pressed: bool = false
@@ -109,7 +113,10 @@ func handle_tap(screen_pos: Vector2) -> void:
 		for s in get_tree().get_nodes_in_group(TowerSlot.GROUP):
 			if s is TowerSlot:
 				var ts: TowerSlot = s as TowerSlot
-				var d: float = Vector2(ground.x - ts.global_position.x, ground.z - ts.global_position.z).length()
+				var d: float = (
+					Vector2(ground.x - ts.global_position.x, ground.z - ts.global_position.z)
+					. length()
+				)
 				if d < best_dist:
 					best_dist = d
 					slot = ts
@@ -280,17 +287,27 @@ func _pick_camp(screen_pos: Vector2) -> Node3D:
 func _camp_near_ground(ground_pt: Vector3) -> Node3D:
 	var lj := lumberjack_camp
 	if lj == null and is_inside_tree():
-		lj = get_tree().current_scene.find_child("LumberjackCamp", true, false) as CampStructures.LumberjackCamp
+		lj = (
+			get_tree().current_scene.find_child("LumberjackCamp", true, false)
+			as CampStructures.LumberjackCamp
+		)
 	if lj != null:
-		var d_lj: float = Vector2(ground_pt.x - lj.global_position.x, ground_pt.z - lj.global_position.z).length()
+		var d_lj: float = (
+			Vector2(ground_pt.x - lj.global_position.x, ground_pt.z - lj.global_position.z).length()
+		)
 		if d_lj <= 2.2:
 			return lj
 
 	var mc := mercenary_camp
 	if mc == null and is_inside_tree():
-		mc = get_tree().current_scene.find_child("MercenaryCamp", true, false) as CampStructures.MercenaryCamp
+		mc = (
+			get_tree().current_scene.find_child("MercenaryCamp", true, false)
+			as CampStructures.MercenaryCamp
+		)
 	if mc != null:
-		var d_mc: float = Vector2(ground_pt.x - mc.global_position.x, ground_pt.z - mc.global_position.z).length()
+		var d_mc: float = (
+			Vector2(ground_pt.x - mc.global_position.x, ground_pt.z - mc.global_position.z).length()
+		)
 		if d_mc <= 2.5:
 			return mc
 
@@ -316,9 +333,10 @@ func is_valid_tower_placement(
 	ignore_slot: TowerSlot = null,
 	check_slots: bool = true
 ) -> bool:
-	return validate_placement_detailed(
-		pos, paths, trees, castle_pos, camps, ignore_slot, check_slots
-	).get("valid", false)
+	return (
+		validate_placement_detailed(pos, paths, trees, castle_pos, camps, ignore_slot, check_slots)
+		. get("valid", false)
+	)
 
 
 ## Detailed placement validation returning {"valid": bool, "message": String, "reason": String}.
@@ -335,13 +353,18 @@ func validate_placement_detailed(
 
 	# 1. Level bounds check
 	var effective_bounds := bounds
-	if effective_bounds.size == Vector2.ZERO and camera != null and camera.bounds.size != Vector2.ZERO:
+	if (
+		effective_bounds.size == Vector2.ZERO
+		and camera != null
+		and camera.bounds.size != Vector2.ZERO
+	):
 		effective_bounds = camera.bounds.grow(LevelBuilder.CAMERA_MARGIN)
 	if effective_bounds.size != Vector2.ZERO:
 		if not effective_bounds.has_point(pos_2d):
 			return {"valid": false, "reason": "bounds", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
 
-	# 2. Distance to all enemy Path3D curves (clearance >= 0.85m to keep paths clear while allowing building near the curb)
+	# 2. Distance to all enemy Path3D curves (clearance >= 0.85 m keeps paths clear
+	# while still allowing building near the curb)
 	var min_path_dist: float = 0.85
 	for p in paths:
 		if p is Path3D and p.curve != null:
@@ -363,16 +386,24 @@ func validate_placement_detailed(
 				return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
 		elif p is PackedVector2Array:
 			for i in range(p.size() - 1):
-				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(pos_2d, p[i], p[i + 1])
+				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(
+					pos_2d, p[i], p[i + 1]
+				)
 				if closest_pt.distance_to(pos_2d) < min_path_dist:
-					return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
+					return {
+						"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")
+					}
 		elif p is PackedVector3Array:
 			for i in range(p.size() - 1):
 				var seg_start := Vector2(p[i].x, p[i].z)
 				var seg_end := Vector2(p[i + 1].x, p[i + 1].z)
-				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(pos_2d, seg_start, seg_end)
+				var closest_pt: Vector2 = Geometry2D.get_closest_point_to_segment(
+					pos_2d, seg_start, seg_end
+				)
 				if closest_pt.distance_to(pos_2d) < min_path_dist:
-					return {"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")}
+					return {
+						"valid": false, "reason": "path", "message": tr("CARD_CANNOT_BUILD_PATH")
+					}
 
 	# 3. Distance to castle (>= 2.0m)
 	if castle_pos.is_finite():
@@ -416,21 +447,62 @@ func validate_placement_detailed(
 				if slot != null and is_instance_valid(slot) and slot != ignore_slot:
 					checked_slots.append(slot)
 					if slot.tower != null:
-						if Vector2(slot.global_position.x - pos.x, slot.global_position.z - pos.z).length() < 1.2:
-							return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
+						if (
+							(
+								Vector2(
+									slot.global_position.x - pos.x, slot.global_position.z - pos.z
+								)
+								. length()
+							)
+							< 1.2
+						):
+							return {
+								"valid": false,
+								"reason": "slot",
+								"message": tr("CARD_CANNOT_BUILD_OBSTACLE")
+							}
 		if is_inside_tree():
 			for slot_node in get_tree().get_nodes_in_group(TowerSlot.GROUP):
-				if slot_node is TowerSlot and is_instance_valid(slot_node) and slot_node != ignore_slot:
+				if (
+					slot_node is TowerSlot
+					and is_instance_valid(slot_node)
+					and slot_node != ignore_slot
+				):
 					if checked_slots.has(slot_node):
 						continue
 					if slot_node.tower != null:
-						if Vector2(slot_node.global_position.x - pos.x, slot_node.global_position.z - pos.z).length() < 1.2:
-							return {"valid": false, "reason": "slot", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
+						if (
+							(
+								Vector2(
+									slot_node.global_position.x - pos.x,
+									slot_node.global_position.z - pos.z
+								)
+								. length()
+							)
+							< 1.2
+						):
+							return {
+								"valid": false,
+								"reason": "slot",
+								"message": tr("CARD_CANNOT_BUILD_OBSTACLE")
+							}
 		if sim != null:
 			for tower in sim.towers:
 				if tower != null and is_instance_valid(tower):
-					if Vector2(tower.global_position.x - pos.x, tower.global_position.z - pos.z).length() < 1.2:
-						return {"valid": false, "reason": "tower", "message": tr("CARD_CANNOT_BUILD_OBSTACLE")}
+					if (
+						(
+							Vector2(
+								tower.global_position.x - pos.x, tower.global_position.z - pos.z
+							)
+							. length()
+						)
+						< 1.2
+					):
+						return {
+							"valid": false,
+							"reason": "tower",
+							"message": tr("CARD_CANNOT_BUILD_OBSTACLE")
+						}
 
 	return {"valid": true, "reason": "", "message": tr("CARD_PLACE_FREE_GROUND")}
 

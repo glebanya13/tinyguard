@@ -43,11 +43,23 @@ func _run() -> void:
 
 	check(builder.lumberjack_camp != null, "builder.lumberjack_camp exists")
 	check(builder.mercenary_camp != null, "builder.mercenary_camp exists")
-	check(builder.lumberjack_camp is CampStructures.LumberjackCamp, "lumberjack camp is LumberjackCamp instance")
-	check(builder.mercenary_camp is CampStructures.MercenaryCamp, "mercenary camp is MercenaryCamp instance")
-	check(builder.lumberjack_camp.find_child("LogCanopy", true, false) != null, "lumberjack camp has LogCanopy")
+	check(
+		builder.lumberjack_camp is CampStructures.LumberjackCamp,
+		"lumberjack camp is LumberjackCamp instance"
+	)
+	check(
+		builder.mercenary_camp is CampStructures.MercenaryCamp,
+		"mercenary camp is MercenaryCamp instance"
+	)
+	check(
+		builder.lumberjack_camp.find_child("LogCanopy", true, false) != null,
+		"lumberjack camp has LogCanopy"
+	)
 	check(builder.mercenary_camp.find_child("Tent", true, false) != null, "mercenary camp has Tent")
-	check(builder.mercenary_camp.find_child("WeaponRack", true, false) != null, "mercenary camp has WeaponRack")
+	check(
+		builder.mercenary_camp.find_child("WeaponRack", true, false) != null,
+		"mercenary camp has WeaponRack"
+	)
 
 	# Check clearance for Level 1
 	var c_pos: Vector3 = builder.castle.position
@@ -82,7 +94,12 @@ func _run() -> void:
 		var p2: float = LevelBuilder._min_dist_to_paths(Vector2(p_mc.x, p_mc.z), test_lvl["paths"])
 		if d1 < 3.5 or d2 < 3.5 or p1 < 2.5 or p2 < 2.5:
 			all_clear = false
-			print("Clearance failed on level %d: d1=%.2f, d2=%.2f, p1=%.2f, p2=%.2f" % [lvl_id, d1, d2, p1, p2])
+			print(
+				(
+					"Clearance failed on level %d: d1=%.2f, d2=%.2f, p1=%.2f, p2=%.2f"
+					% [lvl_id, d1, d2, p1, p2]
+				)
+			)
 	check(all_clear, "all 6 levels satisfy camp clearance (slot >= 3.5m, path >= 2.5m)")
 
 	# Ambient interactive rings (permanently visible warm translucent yellow)
@@ -92,8 +109,13 @@ func _run() -> void:
 	check(mc_amb != null, "mercenary camp has AmbientRing")
 	check((lj_amb as MeshInstance3D).visible, "lumberjack camp AmbientRing is permanently visible")
 	check((mc_amb as MeshInstance3D).visible, "mercenary camp AmbientRing is permanently visible")
-	check((lj_amb as MeshInstance3D).mesh is TorusMesh, "lumberjack camp AmbientRing mesh is TorusMesh")
-	check((mc_amb as MeshInstance3D).mesh is TorusMesh, "mercenary camp AmbientRing mesh is TorusMesh")
+	check(
+		(lj_amb as MeshInstance3D).mesh is TorusMesh,
+		"lumberjack camp AmbientRing mesh is TorusMesh"
+	)
+	check(
+		(mc_amb as MeshInstance3D).mesh is TorusMesh, "mercenary camp AmbientRing mesh is TorusMesh"
+	)
 
 	# Selection rings and Area3D
 	var lj_ring: Node = builder.lumberjack_camp.find_child("SelectionRing", true, false)
@@ -105,20 +127,38 @@ func _run() -> void:
 
 	builder.lumberjack_camp.select()
 	check((lj_ring as MeshInstance3D).visible, "lumberjack camp select() shows SelectionRing")
-	check((lj_amb as MeshInstance3D).visible, "lumberjack camp AmbientRing remains visible while selected")
+	check(
+		(lj_amb as MeshInstance3D).visible,
+		"lumberjack camp AmbientRing remains visible while selected"
+	)
 	builder.lumberjack_camp.deselect()
 	check(not (lj_ring as MeshInstance3D).visible, "lumberjack camp deselect() hides SelectionRing")
-	check((lj_amb as MeshInstance3D).visible, "lumberjack camp AmbientRing remains visible after deselect")
+	check(
+		(lj_amb as MeshInstance3D).visible,
+		"lumberjack camp AmbientRing remains visible after deselect"
+	)
 
 	builder.mercenary_camp.select()
 	check((mc_ring as MeshInstance3D).visible, "mercenary camp select() shows SelectionRing")
-	check((mc_amb as MeshInstance3D).visible, "mercenary camp AmbientRing remains visible while selected")
+	check(
+		(mc_amb as MeshInstance3D).visible,
+		"mercenary camp AmbientRing remains visible while selected"
+	)
 	builder.mercenary_camp.deselect()
 	check(not (mc_ring as MeshInstance3D).visible, "mercenary camp deselect() hides SelectionRing")
-	check((mc_amb as MeshInstance3D).visible, "mercenary camp AmbientRing remains visible after deselect")
+	check(
+		(mc_amb as MeshInstance3D).visible,
+		"mercenary camp AmbientRing remains visible after deselect"
+	)
 
-	check(builder.lumberjack_camp.find_child("CampArea", true, false) != null, "lumberjack camp has CampArea (Area3D)")
-	check(builder.mercenary_camp.find_child("CampArea", true, false) != null, "mercenary camp has CampArea (Area3D)")
+	check(
+		builder.lumberjack_camp.find_child("CampArea", true, false) != null,
+		"lumberjack camp has CampArea (Area3D)"
+	)
+	check(
+		builder.mercenary_camp.find_child("CampArea", true, false) != null,
+		"mercenary camp has CampArea (Area3D)"
+	)
 
 	# Card integration test
 	var bm := BuildManager.new()
@@ -129,7 +169,10 @@ func _run() -> void:
 
 	bm.select_camp(builder.lumberjack_camp)
 	check(bm.selected_camp == builder.lumberjack_camp, "BuildManager selects lumberjack camp")
-	check((lj_ring as MeshInstance3D).visible, "lumberjack camp SelectionRing visible after select_camp")
+	check(
+		(lj_ring as MeshInstance3D).visible,
+		"lumberjack camp SelectionRing visible after select_camp"
+	)
 
 	bm.select_camp(builder.mercenary_camp)
 	check(bm.selected_camp == builder.mercenary_camp, "BuildManager selects mercenary camp")
@@ -138,7 +181,10 @@ func _run() -> void:
 
 	bm.clear_selection()
 	check(bm.selected_camp == null, "clear_selection() clears selected camp")
-	check(not (mc_ring as MeshInstance3D).visible, "mercenary camp SelectionRing hidden after clear_selection")
+	check(
+		not (mc_ring as MeshInstance3D).visible,
+		"mercenary camp SelectionRing hidden after clear_selection"
+	)
 
 	print("-- 2. Mercenary ally recruitment and simulation")
 	var gs := GameState.new()
@@ -149,17 +195,38 @@ func _run() -> void:
 	check(sim.mercenaries.has(merc), "mercenary registered with Sim")
 	check(merc.is_alive(), "hired mercenary is alive")
 	check(merc.health == merc.max_health, "mercenary starts at max health (80)")
-	check(merc.patrol_center.distance_to(builder.castle.position) >= 4.0, "mercenary patrol_center is >= 4.0m from castle (dist=%.2f)" % merc.patrol_center.distance_to(builder.castle.position))
+	check(
+		merc.patrol_center.distance_to(builder.castle.position) >= 4.0,
+		(
+			"mercenary patrol_center is >= 4.0m from castle (dist=%.2f)"
+			% merc.patrol_center.distance_to(builder.castle.position)
+		)
+	)
 
 	# Test castle collision avoidance
 	merc.patrol_center = builder.castle.position
 	merc._ensure_castle_clearance()
-	check(merc.patrol_center.distance_to(builder.castle.position) >= 4.0, "patrol_center pushed out to >= 4.0m from castle if set at castle (dist=%.2f)" % merc.patrol_center.distance_to(builder.castle.position))
+	check(
+		merc.patrol_center.distance_to(builder.castle.position) >= 4.0,
+		(
+			"patrol_center pushed out to >= 4.0m from castle if set at castle (dist=%.2f)"
+			% merc.patrol_center.distance_to(builder.castle.position)
+		)
+	)
 	merc.patrol_center = Vector3.ZERO
 	merc._ensure_castle_clearance()
-	check(merc.patrol_center.length() >= 4.0, "patrol_center pushed out to >= 4.0m from Vector3.ZERO (dist=%.2f)" % merc.patrol_center.length())
+	check(
+		merc.patrol_center.length() >= 4.0,
+		(
+			"patrol_center pushed out to >= 4.0m from Vector3.ZERO (dist=%.2f)"
+			% merc.patrol_center.length()
+		)
+	)
 	merc._patrol_step(0.1)
-	check(merc._patrol_target.distance_to(builder.castle.position) >= 4.0, "patrol_step keeps patrol target >= 4.0m from castle")
+	check(
+		merc._patrol_target.distance_to(builder.castle.position) >= 4.0,
+		"patrol_step keeps patrol target >= 4.0m from castle"
+	)
 
 	# Mercenary damage and flash
 	merc.take_damage(20.0, Vector3.FORWARD)
@@ -172,7 +239,10 @@ func _run() -> void:
 	root.add_child(villagers)
 	var lj_card: Dictionary = CommandCards.lumberjack_camp(villagers, gs)
 	check(not lj_card.is_empty(), "CommandCards.lumberjack_camp() returns valid card")
-	check(lj_card.has("buttons") and lj_card["buttons"].size() >= 2, "lumberjack camp card has action buttons")
+	check(
+		lj_card.has("buttons") and lj_card["buttons"].size() >= 2,
+		"lumberjack camp card has action buttons"
+	)
 
 	var mc_card: Dictionary = CommandCards.mercenary_camp(builder.mercenary_camp, gs)
 	check(not mc_card.is_empty(), "CommandCards.mercenary_camp() returns valid card")

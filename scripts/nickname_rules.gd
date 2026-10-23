@@ -138,7 +138,14 @@ static func _error_code(name: String) -> String:
 static func generate_random_name() -> String:
 	var is_ru: bool = TranslationServer.get_locale().begins_with("ru")
 	var ru_names: Array[String] = [
-		"ХрабрыйСтраж", "Витязь", "БыстрыйКлинок", "Сокол", "ЛеснойСтраж", "Воин", "Барон", "ТихийДозор"  # i18n:keep
+		"ХрабрыйСтраж",  # i18n:keep
+		"Витязь",  # i18n:keep
+		"БыстрыйКлинок",  # i18n:keep
+		"Сокол",  # i18n:keep
+		"ЛеснойСтраж",  # i18n:keep
+		"Воин",  # i18n:keep
+		"Барон",  # i18n:keep
+		"ТихийДозор"  # i18n:keep
 	]
 	var en_names: Array[String] = [
 		"BraveKnight", "IronGuard", "SwiftBlade", "ShadowFox", "DawnShield", "StarOak", "StormRider"
@@ -146,4 +153,3 @@ static func generate_random_name() -> String:
 	var base: String = ru_names.pick_random() if is_ru else en_names.pick_random()
 	var num: int = randi_range(10, 99)
 	return "%s_%d" % [base, num]
-

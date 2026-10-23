@@ -114,9 +114,7 @@ func _physics_process(delta: float) -> void:
 		var keys: Vector2 = Input.get_vector(&"move_left", &"move_right", &"move_up", &"move_down")
 		if keys != Vector2.ZERO:
 			pan_by(_screen_to_ground(keys) * key_pan_speed * delta)
-		global_position = global_position.lerp(
-			_free_focus + _offset, 1.0 - exp(-smoothing * delta)
-		)
+		global_position = global_position.lerp(_free_focus + _offset, 1.0 - exp(-smoothing * delta))
 		return
 
 	if target == null:

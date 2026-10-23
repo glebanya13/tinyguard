@@ -25,14 +25,46 @@ const TOWER_RESOURCES: Array[String] = [
 ]
 
 const ENEMY_RESOURCES: Array[Dictionary] = [
-	{"path": "res://resources/enemies/slime_fast.tres", "icon": "res://ui/icons/slime_fast.png", "feat": "ENCYCLOPEDIA_FEAT_SCOUT"},
-	{"path": "res://resources/enemies/slime.tres", "icon": "res://ui/icons/slime.png", "feat": "ENCYCLOPEDIA_FEAT_FIGHTER"},
-	{"path": "res://resources/enemies/slime_bat.tres", "icon": "res://ui/icons/slime_bat.png", "feat": "ENCYCLOPEDIA_FEAT_FLYER"},
-	{"path": "res://resources/enemies/slime_shield.tres", "icon": "res://ui/icons/slime_shield.png", "feat": "ENCYCLOPEDIA_FEAT_SHIELD"},
-	{"path": "res://resources/enemies/slime_healer.tres", "icon": "res://ui/icons/slime_healer.png", "feat": "ENCYCLOPEDIA_FEAT_HEALER"},
-	{"path": "res://resources/enemies/slime_tank.tres", "icon": "res://ui/icons/slime.png", "feat": "ENCYCLOPEDIA_FEAT_TANK"},
-	{"path": "res://resources/enemies/stone_golem.tres", "icon": "res://ui/icons/stone_golem.png", "feat": "ENCYCLOPEDIA_FEAT_GOLEM"},
-	{"path": "res://resources/enemies/slime_king.tres", "icon": "res://ui/icons/boss.png", "feat": "ENCYCLOPEDIA_FEAT_BOSS"},
+	{
+		"path": "res://resources/enemies/slime_fast.tres",
+		"icon": "res://ui/icons/slime_fast.png",
+		"feat": "ENCYCLOPEDIA_FEAT_SCOUT"
+	},
+	{
+		"path": "res://resources/enemies/slime.tres",
+		"icon": "res://ui/icons/slime.png",
+		"feat": "ENCYCLOPEDIA_FEAT_FIGHTER"
+	},
+	{
+		"path": "res://resources/enemies/slime_bat.tres",
+		"icon": "res://ui/icons/slime_bat.png",
+		"feat": "ENCYCLOPEDIA_FEAT_FLYER"
+	},
+	{
+		"path": "res://resources/enemies/slime_shield.tres",
+		"icon": "res://ui/icons/slime_shield.png",
+		"feat": "ENCYCLOPEDIA_FEAT_SHIELD"
+	},
+	{
+		"path": "res://resources/enemies/slime_healer.tres",
+		"icon": "res://ui/icons/slime_healer.png",
+		"feat": "ENCYCLOPEDIA_FEAT_HEALER"
+	},
+	{
+		"path": "res://resources/enemies/slime_tank.tres",
+		"icon": "res://ui/icons/slime.png",
+		"feat": "ENCYCLOPEDIA_FEAT_TANK"
+	},
+	{
+		"path": "res://resources/enemies/stone_golem.tres",
+		"icon": "res://ui/icons/stone_golem.png",
+		"feat": "ENCYCLOPEDIA_FEAT_GOLEM"
+	},
+	{
+		"path": "res://resources/enemies/slime_king.tres",
+		"icon": "res://ui/icons/boss.png",
+		"feat": "ENCYCLOPEDIA_FEAT_BOSS"
+	},
 ]
 
 var _tab: int = 0
@@ -97,12 +129,7 @@ func _build() -> void:
 
 	var tab_group := ButtonGroup.new()
 	for i in TAB_KEYS.size():
-		var tab := _button(
-			tr(TAB_KEYS[i]),
-			set_tab.bind(i),
-			true,
-			0
-		)
+		var tab := _button(tr(TAB_KEYS[i]), set_tab.bind(i), true, 0)
 		tab.name = "Tab_%d" % i
 		tab.custom_minimum_size.y = 52.0
 		tab.theme_type_variation = &"ToggleButton"
@@ -152,13 +179,16 @@ func _build_towers() -> void:
 		role_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(role_lbl)
 
-		var stats_str: String = tr("ENCYCLOPEDIA_TOWER_STATS") % [
-			roundi(data.damage_levels[0]),
-			data.range_levels[0],
-			data.interval_levels[0],
-			data.cost_gold,
-			data.cost_wood
-		]
+		var stats_str: String = (
+			tr("ENCYCLOPEDIA_TOWER_STATS")
+			% [
+				roundi(data.damage_levels[0]),
+				data.range_levels[0],
+				data.interval_levels[0],
+				data.cost_gold,
+				data.cost_wood
+			]
+		)
 		var stats_lbl := _label(stats_str, 16, HIGHLIGHT_COLOR)
 		stats_lbl.name = "Stats"
 		col.add_child(stats_lbl)
@@ -210,11 +240,9 @@ func _build_bestiary() -> void:
 		name_lbl.name = "Name"
 		col.add_child(name_lbl)
 
-		var stats_str: String = tr("ENCYCLOPEDIA_ENEMY_STATS") % [
-			roundi(data.health),
-			data.speed,
-			data.reward
-		]
+		var stats_str: String = (
+			tr("ENCYCLOPEDIA_ENEMY_STATS") % [roundi(data.health), data.speed, data.reward]
+		)
 		var stats_lbl := _label(stats_str, 16, HIGHLIGHT_COLOR)
 		stats_lbl.name = "Stats"
 		col.add_child(stats_lbl)
@@ -254,11 +282,10 @@ func _build_village() -> void:
 	col1.add_child(name1)
 
 	if trade:
-		var stats1_str: String = tr("ENCYCLOPEDIA_VILLAGE_LUMBER_STATS") % [
-			trade.hire_gold,
-			trade.hire_wood_per_minute,
-			trade.hire_max
-		]
+		var stats1_str: String = (
+			tr("ENCYCLOPEDIA_VILLAGE_LUMBER_STATS")
+			% [trade.hire_gold, trade.hire_wood_per_minute, trade.hire_max]
+		)
 		var stats1 := _label(stats1_str, 16, HIGHLIGHT_COLOR)
 		stats1.name = "Stats"
 		col1.add_child(stats1)
@@ -293,12 +320,15 @@ func _build_village() -> void:
 	col2.add_child(name2)
 
 	if trade:
-		var stats2_str: String = tr("ENCYCLOPEDIA_VILLAGE_SELL_STATS") % [
-			trade.wood_per_lot,
-			roundi(trade.start_gold),
-			roundi((1.0 - trade.price_decay) * 100.0),
-			trade.min_gold
-		]
+		var stats2_str: String = (
+			tr("ENCYCLOPEDIA_VILLAGE_SELL_STATS")
+			% [
+				trade.wood_per_lot,
+				roundi(trade.start_gold),
+				roundi((1.0 - trade.price_decay) * 100.0),
+				trade.min_gold
+			]
+		)
 		var stats2 := _label(stats2_str, 16, HIGHLIGHT_COLOR)
 		stats2.name = "Stats"
 		col2.add_child(stats2)
@@ -333,12 +363,15 @@ func _build_village() -> void:
 	col3.add_child(name3)
 
 	if trade:
-		var stats3_str: String = tr("ENCYCLOPEDIA_VILLAGE_BUY_STATS") % [
-			trade.wood_per_lot,
-			roundi(trade.buy_start_gold),
-			roundi((trade.buy_growth - 1.0) * 100.0),
-			trade.buy_max_lots
-		]
+		var stats3_str: String = (
+			tr("ENCYCLOPEDIA_VILLAGE_BUY_STATS")
+			% [
+				trade.wood_per_lot,
+				roundi(trade.buy_start_gold),
+				roundi((trade.buy_growth - 1.0) * 100.0),
+				trade.buy_max_lots
+			]
+		)
 		var stats3 := _label(stats3_str, 16, HIGHLIGHT_COLOR)
 		stats3.name = "Stats"
 		col3.add_child(stats3)
@@ -374,13 +407,16 @@ func _build_village() -> void:
 	col4.add_child(name4)
 
 	var merc_cfg: MercenaryConfig = Mercenary.CONFIG
-	var stats4_str: String = tr("ENCYCLOPEDIA_VILLAGE_MERC_STATS") % [
-		merc_cfg.hire_gold,
-		merc_cfg.hire_gold_step,
-		merc_cfg.max_alive,
-		roundi(merc_cfg.max_health),
-		roundi(merc_cfg.attack_damage)
-	]
+	var stats4_str: String = (
+		tr("ENCYCLOPEDIA_VILLAGE_MERC_STATS")
+		% [
+			merc_cfg.hire_gold,
+			merc_cfg.hire_gold_step,
+			merc_cfg.max_alive,
+			roundi(merc_cfg.max_health),
+			roundi(merc_cfg.attack_damage)
+		]
+	)
 	var stats4 := _label(stats4_str, 16, HIGHLIGHT_COLOR)
 	stats4.name = "Stats"
 	col4.add_child(stats4)

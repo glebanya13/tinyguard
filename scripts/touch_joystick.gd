@@ -12,22 +12,21 @@ signal vector_changed(vector: Vector2)
 @export var force_visible: bool = false
 @export var floating: bool = true
 
-var _touch_index: int = -1
-var _center: Vector2
-var _knob: Vector2
-var _base_position: Vector2 = Vector2.ZERO
-var _base_set: bool = false
-
 var base_position: Vector2:
 	get:
 		return _base_position
 	set(v):
 		_base_position = v
 		_base_set = true
-
 var base_center: Vector2:
 	get:
 		return global_position + size * 0.5
+
+var _touch_index: int = -1
+var _center: Vector2
+var _knob: Vector2
+var _base_position: Vector2 = Vector2.ZERO
+var _base_set: bool = false
 
 
 func _ready() -> void:
@@ -62,7 +61,15 @@ func _control_hits_ui(c: Control, pos: Vector2) -> bool:
 	if c == self or not c.visible:
 		return false
 	if c.mouse_filter != Control.MOUSE_FILTER_IGNORE:
-		if c is BaseButton or c is PanelContainer or c is Panel or c is LineEdit or c is Tree or c is ItemList or c is Slider:
+		if (
+			c is BaseButton
+			or c is PanelContainer
+			or c is Panel
+			or c is LineEdit
+			or c is Tree
+			or c is ItemList
+			or c is Slider
+		):
 			if c.get_global_rect().has_point(pos):
 				return true
 	for child in c.get_children():

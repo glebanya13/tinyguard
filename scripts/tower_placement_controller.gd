@@ -59,7 +59,11 @@ func setup(
 
 
 func start_placement_mode(tower_index: int) -> void:
-	if _build_manager == null or tower_index < 0 or tower_index >= _build_manager.tower_types.size():
+	if (
+		_build_manager == null
+		or tower_index < 0
+		or tower_index >= _build_manager.tower_types.size()
+	):
 		return
 	if _build_manager != null:
 		_build_manager.clear_selection()
@@ -96,7 +100,9 @@ func update_placement_position(pos: Vector3) -> void:
 	if _commands != null:
 		for s in _commands.slots:
 			if s != null and is_instance_valid(s) and s.is_free():
-				var d: float = Vector2(s.global_position.x - pos.x, s.global_position.z - pos.z).length()
+				var d: float = (
+					Vector2(s.global_position.x - pos.x, s.global_position.z - pos.z).length()
+				)
 				if d <= 0.85:
 					test_pos = Vector3(s.global_position.x, 0.05, s.global_position.z)
 					break
@@ -138,7 +144,10 @@ func confirm_placement() -> Dictionary:
 	if _commands != null:
 		for s in _commands.slots:
 			if s != null and is_instance_valid(s) and s.is_free():
-				var d: float = Vector2(s.global_position.x - build_pos.x, s.global_position.z - build_pos.z).length()
+				var d: float = (
+					Vector2(s.global_position.x - build_pos.x, s.global_position.z - build_pos.z)
+					. length()
+				)
 				if d <= 0.85:
 					slot = s
 					break
@@ -180,17 +189,18 @@ func handle_ground_tap(point: Vector3) -> bool:
 		_build_manager.select_slot(slot)
 		show_placement_preview(snapped_pos, true)
 		return true
-	else:
-		cleanup_unbuilt_dynamic_slot()
-		show_placement_preview(snapped_pos, false)
-		return false
+	cleanup_unbuilt_dynamic_slot()
+	show_placement_preview(snapped_pos, false)
+	return false
 
 
 ## Handles cursor/touch movement when outside placement mode: updates preview ring.
 func handle_placement_moved(ground_pos: Vector3) -> void:
 	if _build_manager == null:
 		return
-	var snapped_pos := Vector3(roundf(ground_pos.x * 2.0) / 2.0, 0.05, roundf(ground_pos.z * 2.0) / 2.0)
+	var snapped_pos := Vector3(
+		roundf(ground_pos.x * 2.0) / 2.0, 0.05, roundf(ground_pos.z * 2.0) / 2.0
+	)
 	var paths: Array = _get_paths()
 	var trees: Array = _get_trees()
 	var camps: Array = _get_camps()
@@ -202,7 +212,11 @@ func handle_placement_moved(ground_pos: Vector3) -> void:
 
 func cleanup_unbuilt_dynamic_slot() -> void:
 	if active_dynamic_slot != null:
-		if is_instance_valid(active_dynamic_slot) and active_dynamic_slot.is_dynamic and active_dynamic_slot.is_free():
+		if (
+			is_instance_valid(active_dynamic_slot)
+			and active_dynamic_slot.is_dynamic
+			and active_dynamic_slot.is_free()
+		):
 			_build_manager.remove_dynamic_slot(active_dynamic_slot)
 		active_dynamic_slot = null
 	hide_placement_ring()
@@ -226,9 +240,17 @@ func show_placement_preview(pos: Vector3, valid: bool) -> void:
 			_invalid_preview_tween = _hero.create_tween()
 			if _invalid_preview_tween != null:
 				_invalid_preview_tween.tween_interval(0.6)
-				_invalid_preview_tween.tween_callback(func() -> void:
-					if placement_ring != null and not (active_dynamic_slot != null and _build_manager != null and _build_manager.selected_slot == active_dynamic_slot):
-						placement_ring.visible = false
+				_invalid_preview_tween.tween_callback(
+					func() -> void:
+						if (
+							placement_ring != null
+							and not (
+								active_dynamic_slot != null
+								and _build_manager != null
+								and _build_manager.selected_slot == active_dynamic_slot
+							)
+						):
+							placement_ring.visible = false
 				)
 
 
@@ -256,7 +278,11 @@ func _create_placement_ghost(data: TowerData) -> Node3D:
 		model_root.name = GHOST_MODEL
 		model_root.process_mode = Node.PROCESS_MODE_DISABLED
 		for child in model_root.get_children():
-			if child is AudioStreamPlayer or child is AudioStreamPlayer3D or child is CollisionShape3D:
+			if (
+				child is AudioStreamPlayer
+				or child is AudioStreamPlayer3D
+				or child is CollisionShape3D
+			):
 				child.queue_free()
 		new_ghost.add_child(model_root)
 

@@ -199,7 +199,10 @@ func _run() -> void:
 	main.cards.toggle_forge()
 	await frames(2)
 	await tap_key(KEY_U)
-	check(hero.sword_level == 1 and is_equal_approx(hero.attack_damage, hero.sword_damage_levels[1]), "sword upgraded")
+	check(
+		hero.sword_level == 1 and is_equal_approx(hero.attack_damage, hero.sword_damage_levels[1]),
+		"sword upgraded"
+	)
 	gs.lose_lives(5)
 	var lives: int = gs.lives
 	main.cards.on_command_pressed(&"repair")

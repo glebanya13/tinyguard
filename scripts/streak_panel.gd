@@ -62,9 +62,10 @@ func _build() -> void:
 	var can_cal: bool = Calendar28.can_claim(p.get("calendar", {}), day, p.get("wallet", {}))
 	cal_btn.text = tr("CALENDAR_BUTTON") + (" (!)" if can_cal else "")
 	cal_btn.icon = preload("res://ui/icons/hourglass.png")
-	cal_btn.pressed.connect(func() -> void:
-		close()
-		calendar_requested.emit()
+	cal_btn.pressed.connect(
+		func() -> void:
+			close()
+			calendar_requested.emit()
 	)
 	hub_row.add_child(cal_btn)
 	box.add_child(hub_row)

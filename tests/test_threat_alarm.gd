@@ -36,14 +36,20 @@ func _run() -> void:
 
 	hud.set_threat_danger(0.75)
 	_ok(vignette.visible, "ThreatVignette visible when threat danger is 0.75")
-	_ok(vignette.color.a > 0.1, "ThreatVignette alpha > 0.1 on danger (actual: %.2f)" % vignette.color.a)
+	_ok(
+		vignette.color.a > 0.1,
+		"ThreatVignette alpha > 0.1 on danger (actual: %.2f)" % vignette.color.a
+	)
 
 	hud.set_threat_danger(0.0)
 	_ok(not vignette.visible, "ThreatVignette hidden when threat danger is 0.0")
 
 	hud.flash_leak()
 	_ok(vignette.visible, "ThreatVignette visible on flash_leak")
-	_ok(vignette.color.a >= 0.4, "ThreatVignette alpha >= 0.4 on leak flash (actual: %.2f)" % vignette.color.a)
+	_ok(
+		vignette.color.a >= 0.4,
+		"ThreatVignette alpha >= 0.4 on leak flash (actual: %.2f)" % vignette.color.a
+	)
 
 	print("-- 2. Manual Tower Slot Selection Distance Auto-Deselect")
 	var bm: BuildManager = main_node.get_node("BuildManager")

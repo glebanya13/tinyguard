@@ -1,4 +1,4 @@
-# gdlint: disable=max-public-methods
+# gdlint: disable=max-public-methods,max-file-lines
 class_name Hud
 extends CanvasLayer
 ## Compact wave, gold, wood and lives chips, speed and pause buttons, a short
@@ -18,19 +18,25 @@ signal continue_pressed
 signal speed_pressed
 signal forge_pressed
 signal workbench_pressed
+
 ## Strategic camera overview ("General mode") toggled.
 signal strategic_view_pressed
+
 ## End screen of the Record Run: open the records table on the map.
 signal records_pressed
 signal next_level_pressed
+
 ## Early call of the next wave (only while the field is clear, see main.gd).
 signal call_wave_pressed
+
 ## "To battle!" of the map inspection: starts the battle once.
 signal start_battle_pressed
 signal joystick_changed(vector: Vector2)
+
 ## The thumb controls were re-placed (settings changed): the road compass follows.
 signal layout_changed
 
+const PLAY_ICON: Texture2D = preload("res://ui/icons/play.png")
 const BANNER_COLOR := Color(1.0, 0.86, 0.45)
 const BOSS_COLOR := Color(1.0, 0.55, 0.5)
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
@@ -40,9 +46,11 @@ const CAPTION_COLOR := Color(0.24, 0.15, 0.06)
 const GAIN_COLOR := Color(0.56, 0.96, 0.5)
 const WARN_COLOR := Color(1.0, 0.62, 0.55)
 const INFO_COLOR := Color(0.62, 0.86, 1.0)
+
 ## Command card buttons: 84 px is ~48 dp on a 1080p phone (720 px tall canvas).
 const CARD_BUTTON_SIZE := Vector2(84, 84)
 const CARD_ICON_HEIGHT := 46.0
+
 ## A button with a caption under its icon (tower name, "Upgrade", "Sell").
 const CARD_CAPTION_SIZE := Vector2(100, 130)
 const CARD_CAPTION_ICON_HEIGHT := 60.0
@@ -56,6 +64,7 @@ const GEAR_ICON: Texture2D = preload("res://ui/icons/gear.png")
 const BOOK_ICON: Texture2D = preload("res://ui/icons/map.png")
 const SWORD_ICON: Texture2D = preload("res://ui/icons/sword.png")
 const AXE_ICON: Texture2D = preload("res://ui/icons/axe.png")
+
 ## Keyboard/gamepad action for each command id.
 const SHORTCUTS := {
 	&"build_0": &"build_tower",
@@ -71,6 +80,7 @@ const SHORTCUTS := {
 
 ## Seconds the first-steps hint stays up after it last changed.
 @export var hint_seconds: float = 6.0
+
 ## Seconds the wave banner stays fully visible (plus fade in/out).
 @export var banner_seconds: float = 2.5
 
@@ -94,11 +104,22 @@ var _threat_vignette: ColorRect = null
 var _threat_tween: Tween = null
 var _threat_level: float = 0.0
 var _spin_shown: int = -1
+
 ## Co-op: "waiting for the partner" notice (built when the mode is switched on).
 var _coop_notice: PanelContainer = null
 var _coop_label: Label = null
+
 ## Touch build: no keyboard hints or hover tooltips.
 var _touch: bool = OS.has_feature("mobile")
+var _call_wave_button: Button = null
+var _wave_timer_pill: PanelContainer = null
+var _wave_timer_label: Label = null
+var _start_battle_button: Button = null
+
+## Map inspection before the battle: the knight's controls are hidden.
+var _inspecting: bool = false
+var _joystick_before_inspection: bool = true
+var _star_audio: AudioStreamPlayer = null
 
 @onready var _wave_label: Label = $Root/TopBar/WavePill/Row/WaveLabel
 @onready var _gold_label: Label = $Root/TopBar/GoldPill/Row/GoldLabel
@@ -135,14 +156,6 @@ var _touch: bool = OS.has_feature("mobile")
 @onready var _pause_button: Button = $Root/TopRight/PauseButton
 @onready var _restart_button: Button = $Root/EndScreen/Content/RestartButton
 @onready var _map_button: Button = $Root/EndScreen/Content/MapButton
-var _call_wave_button: Button = null
-var _wave_timer_pill: PanelContainer = null
-var _wave_timer_label: Label = null
-var _start_battle_button: Button = null
-## Map inspection before the battle: the knight's controls are hidden.
-var _inspecting: bool = false
-var _joystick_before_inspection: bool = true
-var _star_audio: AudioStreamPlayer = null
 
 
 func _ready() -> void:
@@ -188,7 +201,7 @@ func _ready() -> void:
 	_call_wave_button = Button.new()
 	_call_wave_button.name = "CallWaveButton"
 	_call_wave_button.theme_type_variation = &"SecondaryButton"
-	_call_wave_button.icon = preload("res://ui/icons/play.png")
+	_call_wave_button.icon = PLAY_ICON
 	_call_wave_button.expand_icon = true
 	_call_wave_button.custom_minimum_size = Vector2(170, 48)
 	_call_wave_button.focus_mode = Control.FOCUS_NONE
@@ -262,7 +275,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"forge") and not _end_screen.visible:
 		forge_pressed.emit()
 		get_viewport().set_input_as_handled()
-	elif not _end_screen.visible and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+	elif (
+		not _end_screen.visible
+		and event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.physical_keycode == KEY_B
+	):
 		workbench_pressed.emit()
 		get_viewport().set_input_as_handled()
 
@@ -305,7 +324,11 @@ func set_call_wave_info(seconds_left: float, bonus_gold: int, can_call: bool = t
 
 
 func get_call_wave_pos() -> Vector2:
-	if _call_wave_button != null and is_instance_valid(_call_wave_button) and _call_wave_button.is_visible_in_tree():
+	if (
+		_call_wave_button != null
+		and is_instance_valid(_call_wave_button)
+		and _call_wave_button.is_visible_in_tree()
+	):
 		return _call_wave_button.global_position + _call_wave_button.size * 0.5
 	return Vector2(300.0, 40.0)
 
@@ -314,7 +337,7 @@ func _build_start_battle_button() -> void:
 	_start_battle_button = Button.new()
 	_start_battle_button.name = "StartBattleButton"
 	_start_battle_button.theme_type_variation = &"PrimaryButton"
-	_start_battle_button.icon = preload("res://ui/icons/play.png")
+	_start_battle_button.icon = PLAY_ICON
 	_start_battle_button.expand_icon = true
 	_start_battle_button.custom_minimum_size = Vector2(240, 64)
 	_start_battle_button.anchor_left = 0.5
@@ -327,9 +350,10 @@ func _build_start_battle_button() -> void:
 	_start_battle_button.offset_bottom = 32.0
 	_start_battle_button.focus_mode = Control.FOCUS_NONE
 	_start_battle_button.text = tr("HUD_START_BATTLE")
-	_start_battle_button.pressed.connect(func() -> void:
-		hide_start_battle_button()
-		start_battle_pressed.emit()
+	_start_battle_button.pressed.connect(
+		func() -> void:
+			hide_start_battle_button()
+			start_battle_pressed.emit()
 	)
 	_start_battle_button.visible = false
 	$Root.add_child(_start_battle_button)
@@ -564,10 +588,11 @@ func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String 
 			var delay: float = 0.3 + 0.25 * i
 			var tween := star.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 			tween.tween_interval(delay)
-			tween.tween_callback(func() -> void:
-				if LevelCatalog.sound_on() and _star_audio != null:
-					_star_audio.pitch_scale = 1.0 + 0.25 * i
-					_star_audio.play()
+			tween.tween_callback(
+				func() -> void:
+					if LevelCatalog.sound_on() and _star_audio != null:
+						_star_audio.pitch_scale = 1.0 + 0.25 * i
+						_star_audio.play()
 			)
 			(
 				tween
@@ -873,16 +898,18 @@ func _build_settings() -> void:
 	_settings_panel = SettingsPanel.new()
 	_settings_panel.z_index = 10  # above the chips, which are layered by kind
 	_root.add_child(_settings_panel)
-	_settings_button.pressed.connect(func() -> void:
-		$Root/TopBar.hide()
-		$Root/TopRight.hide()
-		_settings_panel.open()
+	_settings_button.pressed.connect(
+		func() -> void:
+			$Root/TopBar.hide()
+			$Root/TopRight.hide()
+			_settings_panel.open()
 	)
-	_settings_panel.closed.connect(func() -> void:
-		if not _end_screen.visible:
-			$Root/TopBar.show()
-			$Root/TopRight.show()
-		_update_sound_label()
+	_settings_panel.closed.connect(
+		func() -> void:
+			if not _end_screen.visible:
+				$Root/TopBar.show()
+				$Root/TopRight.show()
+			_update_sound_label()
 	)
 	_settings_panel.language_changed.connect(_on_language_changed)
 	_settings_panel.layout_changed.connect(apply_layout)
@@ -902,15 +929,17 @@ func _build_encyclopedia() -> void:
 	_encyclopedia_panel = EncyclopediaPanel.new()
 	_encyclopedia_panel.z_index = 10
 	_root.add_child(_encyclopedia_panel)
-	_encyclopedia_button.pressed.connect(func() -> void:
-		$Root/TopBar.hide()
-		$Root/TopRight.hide()
-		_encyclopedia_panel.open()
+	_encyclopedia_button.pressed.connect(
+		func() -> void:
+			$Root/TopBar.hide()
+			$Root/TopRight.hide()
+			_encyclopedia_panel.open()
 	)
-	_encyclopedia_panel.closed.connect(func() -> void:
-		if not _end_screen.visible:
-			$Root/TopBar.show()
-			$Root/TopRight.show()
+	_encyclopedia_panel.closed.connect(
+		func() -> void:
+			if not _end_screen.visible:
+				$Root/TopBar.show()
+				$Root/TopRight.show()
 	)
 
 
@@ -977,7 +1006,7 @@ func flash_leak() -> void:
 	_threat_tween.tween_property(_threat_vignette, "color:a", 0.0, 0.65).set_trans(Tween.TRANS_SINE)
 
 
-## Sets persistent threat danger level (0.0..1.0) when enemies are within critical reach of the gate.
+## Sets the persistent threat level (0.0..1.0) while enemies are within reach of the gate.
 func set_threat_danger(danger: float) -> void:
 	_threat_level = clampf(danger, 0.0, 1.0)
 	if _threat_vignette == null:
@@ -990,5 +1019,3 @@ func set_threat_danger(danger: float) -> void:
 	else:
 		_threat_vignette.color.a = 0.0
 		_threat_vignette.visible = false
-
-

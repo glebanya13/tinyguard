@@ -27,7 +27,7 @@ const FRIENDS_ICON: Texture2D = preload("res://ui/icons/friends.png")
 const CLOUD_OK_ICON: Texture2D = preload("res://ui/icons/cloud_ok.png")
 const CLOUD_OFF_ICON: Texture2D = preload("res://ui/icons/cloud_off.png")
 const COIN_ICON: Texture2D = preload("res://ui/icons/coin.png")
-const CALENDAR_ICON: Texture2D = preload("res://ui/icons/hourglass.png")
+const CALENDAR_ICON: Texture2D = DAILY_ICON
 const ModesPanel := preload("res://scripts/modes_panel.gd")
 const GOLD := Color(1.0, 0.88, 0.45)
 ## Tint of the difficulty crown: Hard, Nightmare.
@@ -115,9 +115,10 @@ func _ready() -> void:
 	_play_button.pressed.connect(_start.bind(false))
 	_endless_button.pressed.connect(_on_endless_pressed)
 	_sound_button.pressed.connect(_on_sound_pressed)
-	_treasury.find_child("CloseButton", true, false).pressed.connect(func() -> void:
-		_treasury.hide()
-		_refresh_stars()
+	_treasury.find_child("CloseButton", true, false).pressed.connect(
+		func() -> void:
+			_treasury.hide()
+			_refresh_stars()
 	)
 	_treasury.find_child("ResetButton", true, false).pressed.connect(_on_reset_pressed)
 	_update_sound_icon()
@@ -293,9 +294,10 @@ func _build_tabs() -> void:
 	_daily.start_requested.connect(_start_daily)
 	_calendar_panel = CalendarPanel.new()
 	_ui_root.add_child(_calendar_panel)
-	_calendar_panel.reward_claimed.connect(func(_s: int, _c: int, _g: int) -> void:
-		_gems.refresh()
-		_update_retention_dots()
+	_calendar_panel.reward_claimed.connect(
+		func(_s: int, _c: int, _g: int) -> void:
+			_gems.refresh()
+			_update_retention_dots()
 	)
 	_modes_panel = ModesPanel.new()
 	_ui_root.add_child(_modes_panel)
@@ -791,9 +793,7 @@ func _start(endless: bool) -> void:
 	var cp_endless: bool = bool(cp.get("endless", false))
 	var cp_diff: int = int(cp.get("difficulty", 0))
 	var has_valid_cp: bool = (
-		not cp.is_empty()
-		and cp_endless == endless
-		and (endless or cp_diff == _difficulty)
+		not cp.is_empty() and cp_endless == endless and (endless or cp_diff == _difficulty)
 	)
 	LevelCatalog.resume_checkpoint = has_valid_cp
 	if not has_valid_cp and not cp.is_empty() and cp_endless == endless:

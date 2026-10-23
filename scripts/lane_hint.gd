@@ -10,12 +10,17 @@ extends Control
 ##    by the button under the pause button.
 ## It only draws: the wave plan, the camera and the level are handed in.
 
+signal strategic_view_requested
+
 ## Seconds the rings stay (the last second fades out).
 const SHOW_SECONDS := 6.0
+
 ## Seconds the compass stays open at the start of a wave (unless pinned by the button).
 const COMPASS_SECONDS := 10.0
+
 ## The edge arrows go out by themselves after this long if nobody calls finish().
 const ARROW_SECONDS := 60.0
+
 ## Margins (left, top, right, bottom) of the area the edge arrows live in, canvas pixels:
 ## they keep clear of the counters, the pause buttons, the card and the swing buttons.
 const EDGE_MARGINS := Vector4(40.0, 108.0, 150.0, 120.0)
@@ -29,9 +34,8 @@ const ROAD_DIM := Color(0.74, 0.8, 0.94, 0.6)
 const BUTTON_ICON: Texture2D = preload("res://ui/icons/compass.png")
 const STRAT_ICON: Texture2D = preload("res://ui/icons/map.png")
 
-signal strategic_view_requested
-
 var camera: Camera3D = null
+
 ## The level being played ("paths", "castle"): the compass is drawn from it.
 var level: Dictionary = {}
 var sim: Sim = null
@@ -39,9 +43,11 @@ var sim: Sim = null
 var _points: Array[Vector3] = []
 var _left: float = 0.0
 var _age: float = 0.0
+
 ## Portals of the level and the indices of the roads the current wave uses.
 var _portals: Array[Node3D] = []
 var _lanes: Array[int] = []
+
 ## Side text per active lane ("From the north!"), same order as _lanes.
 var _lane_texts: Array[String] = []
 var _arrow_left: float = 0.0
@@ -53,6 +59,7 @@ var _map := LaneMap.new()
 var _panel_style: StyleBoxFlat = null
 var _button: Button = null
 var _strat_button: Button = null
+
 ## Compass mode from the settings (GameSettings): see apply_settings().
 var _mode: int = HudLayout.MAP_WAVE
 var _last_compass_visible: bool = false

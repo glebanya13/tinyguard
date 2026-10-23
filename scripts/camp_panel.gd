@@ -146,10 +146,7 @@ func _build() -> void:
 		var up_box := VBoxContainer.new()
 		up_box.add_theme_constant_override("separation", 6)
 		var up_info := _label(
-			tr("CAMP_UPGRADE_NEXT") % [level, level + 1, next_rate, next_cap],
-			16,
-			SOFT_COLOR,
-			true
+			tr("CAMP_UPGRADE_NEXT") % [level, level + 1, next_rate, next_cap], 16, SOFT_COLOR, true
 		)
 		up_box.add_child(up_info)
 
@@ -188,9 +185,7 @@ func _on_collect_pressed() -> void:
 		PlayerProfile.save_local(p)
 		collected.emit(int(res["collected"]))
 		Toast.show_on(
-			self,
-			tr("CAMP_COLLECTED") % int(res["collected"]),
-			"+%d 🪙" % int(res["collected"])
+			self, tr("CAMP_COLLECTED") % int(res["collected"]), "+%d 🪙" % int(res["collected"])
 		)
 		_build()
 

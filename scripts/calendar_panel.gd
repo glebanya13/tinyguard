@@ -115,7 +115,7 @@ func _build_day_cell(step: int, claimed: int, next_s: int, can_claim: bool) -> C
 	cell.custom_minimum_size = Vector2(0, 80)
 
 	var cycle_step: int = Calendar28.step_of(claimed)
-	var is_claimed: bool = (step <= cycle_step and claimed > 0)
+	var is_claimed: bool = step <= cycle_step and claimed > 0
 	var is_today: bool = can_claim and (step == next_s)
 
 	if is_today:
@@ -178,9 +178,7 @@ func _on_claim_pressed() -> void:
 		PlayerProfile.save_local(p)
 		reward_claimed.emit(int(res["step"]), int(res["coins"]), int(res["gems"]))
 		Toast.show_on(
-			self,
-			tr("CALENDAR_CLAIMED"),
-			"+%d 🪙  +%d 💎" % [int(res["coins"]), int(res["gems"])]
+			self, tr("CALENDAR_CLAIMED"), "+%d 🪙  +%d 💎" % [int(res["coins"]), int(res["gems"])]
 		)
 		_build()
 

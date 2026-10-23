@@ -32,8 +32,10 @@ func _run() -> void:
 	check(gold.format_value(1) == "+15", "perk value text")
 	check(Perks.get_perk(&"sword").format_value(2) == "+40%", "percent perk text")
 	check(
-		Perks.get_perk(&"axe").format_value(0) != "нет"
-		and Perks.get_perk(&"axe").format_value(0) != "none",
+		(
+			Perks.get_perk(&"axe").format_value(0) != "нет"
+			and Perks.get_perk(&"axe").format_value(0) != "none"
+		),
 		"axe base value is not none"
 	)
 	check(Perks.get_perk(&"sword").format_value(0) == "0 %", "sword base value is 0 %")
