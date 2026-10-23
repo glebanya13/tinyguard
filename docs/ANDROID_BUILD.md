@@ -1,12 +1,11 @@
 # Сборка Android (Bimbleguard)
 
-> **Статус: сборка APK не проверена.** На машине разработчика (macOS, Godot 4.7.2) есть
-> JDK 17 (Temurin), Android SDK (`~/Library/Android/sdk`, build-tools 33–36, platforms 28–37)
-> и `~/.android/debug.keystore`, но **не установлены export templates 4.7.2**
-> (`godot --headless --export-debug Android` падает с «Шаблоны экспорта не найдены»
-> и «Требуется указать верный путь к Java SDK»). Ниже — инструкция, а не отчёт о выполненной
-> сборке. Проверенное: `export_presets.cfg` читается Godot 4.7.2, пресет находится, ошибки
-> конфигурации — только перечисленные (templates, путь к Java SDK в настройках редактора).
+> **Статус (2026-10-24):** на машине разработчика (macOS, Godot 4.7.2, JDK 17, Android SDK, export
+> templates 4.7.2) собираются и подписываются: debug APK, debug APK через Gradle и **AAB для Play**
+> (раздел «AAB для Google Play», актуальная версия 0.6.2, код 9). Подпись AAB проверена `jarsigner`
+> (ключ загрузки). **На устройстве AAB и APK из этих инструкций не запускались, в Play не загружались.**
+> Раздел «Пошагово (debug APK)» ниже описывает настройку с нуля; на настроенной машине достаточно команд
+> экспорта из раздела про AAB.
 
 ## Что настроено в `export_presets.cfg`
 
@@ -14,7 +13,7 @@
 |---|---|---|
 | `package/unique_name` | `com.bimbleguard.app` | id приложения; после публикации менять нельзя |
 | `package/name` | `Bimbleguard` | название под иконкой |
-| `version/name` / `version/code` | `0.5.1` / `6` | **`code` увеличивать на каждую выкладку**; `name` = `config/version` |
+| `version/name` / `version/code` | `0.6.2` / `9` | **`code` увеличивать на каждую выкладку**; `name` = `config/version` |
 | Иконки | `res://icon.png`, адаптивные `ui/app/icon_foreground.png`, `icon_background.png` | |
 | Ориентация | `project.godot`: `window/handheld/orientation=4` (сенсорная альбомная) | проверяется `validate_project.py` |
 | Архитектуры | только `arm64-v8a` | все Android 2020+; `armeabi-v7a` отключён ради размера (+~25 МБ AAB за ABI; охват и решение: `docs/DEVICE_COMPATIBILITY.md`, разд. 1) |
