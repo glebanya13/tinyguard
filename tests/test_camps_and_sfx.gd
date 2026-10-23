@@ -182,6 +182,33 @@ func _run() -> void:
 			has_hire_btn = true
 	check(has_hire_btn, "mercenary camp card has hire_mercenary button")
 
+	# Limits (resources/mercenary.tres): the price grows with every hire, few alive at once,
+	# and the dead free a place (but not the price).
+	var camp: CampStructures.MercenaryCamp = builder.mercenary_camp
+	var cfg: MercenaryConfig = camp.config
+	check(camp.hire_cost() == cfg.hire_gold + cfg.hire_gold_step, "second hire costs more")
+	gs.gold = 10000
+	while camp.can_hire_more():
+		check(camp.hire_mercenary(gs, sim) != null, "hire below the limit works")
+	check(camp.alive_count() == cfg.max_alive, "alive mercenaries capped at %d" % cfg.max_alive)
+	var gold_capped: int = gs.gold
+	check(camp.hire_mercenary(gs, sim) == null, "no hire above the limit")
+	check(gs.gold == gold_capped, "a refused hire costs nothing")
+	var capped_card: Dictionary = CommandCards.mercenary_camp(camp, gs)
+	for btn: Dictionary in capped_card["buttons"]:
+		if btn.get("id") == &"hire_mercenary":
+			check(not btn["enabled"], "card: hire disabled at the limit (%s)" % btn.get("label"))
+	var hired_before: int = camp.hired_total
+	camp.mercenaries[0].take_damage(100000.0)
+	check(camp.alive_count() == cfg.max_alive - 1, "a dead mercenary frees a place")
+	check(
+		camp.hire_cost() == cfg.hire_cost(hired_before),
+		"the price does not drop when one dies (%d)" % camp.hire_cost()
+	)
+	check(is_equal_approx(cfg.bite_dps(1, 1), cfg.contact_dps), "a plain enemy bites contact_dps")
+	check(cfg.bite_dps(5, 1) > cfg.bite_dps(1, 1) * 4.0, "a king bites five times harder")
+	check(cfg.bite_dps(1, 30) > cfg.bite_dps(1, 1), "bites grow with the wave")
+
 	# Cleanup test nodes
 	bm.queue_free()
 	villagers.queue_free()

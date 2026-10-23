@@ -55,7 +55,10 @@ func _initialize() -> void:
 	LevelCatalog.save_path = SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
 	# Start resources for co-op integration test (two players hiring and buying):
-	LevelCatalog.levels()[0]["start"] = {"gold": 90, "wood": 60, "lives": 20}
+	# (two hires at resources/villager_trade.tres hire_gold and two lots must fit in the gold).
+	LevelCatalog.levels()[0]["start"] = {"gold": 150, "wood": 60, "lives": 20}
+	for lv: Dictionary in LevelCatalog.levels():
+		lv["start"]["gold"] = maxi(int(lv["start"]["gold"]), 150)
 	# Cheap castle upgrades so that both players can afford some within the short battle.
 	CastleUpgrades.rows()
 	CastleUpgrades._rows = [

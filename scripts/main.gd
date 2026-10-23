@@ -24,6 +24,8 @@ const WOOD_COLOR := Color(0.85, 0.65, 0.42)
 const WALK_OBSTACLE_MASK := 1 | 4
 ## Radius a built tower blocks on the walk grid.
 const TOWER_BLOCK_RADIUS := 0.6
+## Resuming an old checkpoint that has no saved wave clock: the next wave after this long.
+const RESUME_FALLBACK_DELAY := 5.0
 
 ## Radius of the ring under the hero's target (tree, enemy, boss), metres.
 @export var ring_radius_tree: float = 0.8
@@ -71,7 +73,9 @@ var _fx: Fx = null
 var _leaving: bool = false
 ## "С севера!" for the wave that is starting.
 var _wave_direction: String = ""
-var _ready_phase: bool = false
+## Map inspection before the battle (docs/GAME_DESIGN.md): the battle clock stands, the knight
+## waits, the camera is panned freely until "To battle!".
+var _inspecting: bool = false
 
 @onready var _level_root: Node3D = $Level
 @onready var _enemy_path: Path3D = $Level/EnemyPath
@@ -209,6 +213,7 @@ func _ready() -> void:
 	_hud.records_pressed.connect(_on_records_pressed)
 	_hud.next_level_pressed.connect(_on_next_level_pressed)
 	_hud.call_wave_pressed.connect(_on_call_wave_pressed)
+	_hud.start_battle_pressed.connect(_begin_battle)
 	_hero.knocked_out.connect(func() -> void:
 		_hud.show_banner(tr("HERO_KNOCKED_OUT"), tr("HERO_REVIVING_SUBTITLE"), false)
 		_hud.set_hero_knocked_out(true)
@@ -223,10 +228,7 @@ func _ready() -> void:
 	_hud.workbench_pressed.connect(_on_workbench_pressed)
 	_hud.strategic_view_pressed.connect(_on_strategic_view_toggle)
 	_hud.joystick_changed.connect(
-		func(v: Vector2) -> void:
-			_hero.joystick_vector = v
-			if v != Vector2.ZERO and _camera != null and _camera.has_method("stop_flyover"):
-				_camera.stop_flyover()
+		func(v: Vector2) -> void: _hero.joystick_vector = v
 	)
 	_hero.wood_gathered.connect(_on_wood_gathered)
 	if coop != null:
@@ -234,7 +236,9 @@ func _ready() -> void:
 	villagers.name = "Villagers"
 	villagers.game_state = _game_state
 	villagers.seed_value = _sim.seed_value
-	villagers.wood_economy = not _endless  # the Record Run and the daily challenge: sell only
+	# Buying wood and lumberjacks: off only in the Record Run (one all-time table); the daily
+	# challenge has them (one seed and the same rules for everyone that day).
+	villagers.wood_economy = not _record
 	villagers.wood_sold.connect(_on_wood_sold)
 	villagers.wood_bought.connect(_on_wood_bought)
 	villagers.lumberjack_chopped.connect(_on_lumberjack_chopped)
@@ -262,27 +266,17 @@ func _ready() -> void:
 	_start_tracker()
 	if _endless and _daily_key == "":
 		Online.start_run(int(level["id"]))  # server-side start time for the record check
-	if not LevelCatalog.tutorial and not (LevelCatalog.resume_checkpoint and BattleCheckpoint.has_checkpoint(level["id"])):
-		_ready_phase = true
-		_hud.show_banner(
-			tr("HUD_INSPECT_MAP_TITLE"),
-			tr("HUD_INSPECT_MAP_SUB"),
-			false
-		)
-		_hud.show_start_battle_button()
-	else:
+	_inspecting = LevelCatalog.inspect_map and not LevelCatalog.tutorial and not _coop_on()
+	LevelCatalog.inspect_map = false
+	if not _resuming():
+		# The wave clock is set now but runs with the battle clock (after the inspection).
 		_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
-		_hud.show_banner(
-			tr("WAVE_FIRST_IN") % LevelCatalog.seconds_text(_wave_manager.plan.first_delay)
-		)
+	if _inspecting:
+		_enter_inspection()
+	elif not _resuming():
+		_show_wave_clock_banner()
 	_build_walk_grid.call_deferred()
 	_start_tutorial()
-	if not LevelCatalog.tutorial and _camera != null and _camera.has_method("start_flyover"):
-		var spawns: Array[Vector3] = []
-		for p: Node3D in builder.portals:
-			spawns.append(p.global_position)
-		var castle_pos: Vector3 = builder.castle.global_position if builder.castle != null else Vector3.ZERO
-		_camera.start_flyover(spawns, castle_pos, 7.0)
 
 
 func _exit_tree() -> void:
@@ -309,24 +303,19 @@ func _notification(what: int) -> void:
 
 
 func _process(delta: float) -> void:
-	battle_end.add_time(delta)
+	if not _inspecting:
+		battle_end.add_time(delta)  # the battle time starts with "To battle!"
 	cards.update()
 	_focus = _hero.get_focus_target()
 	_update_target_ring()
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 	guide.update_arrow(_focus, _build_manager.selected_slot == null and not cards.forge_open)
 	_update_threat_detection()
-	if _ready_phase:
+	if _inspecting or LevelCatalog.tutorial or not _wave_manager.has_next_wave():
 		_hud.set_call_wave_info(-1.0, 0)
-	elif not LevelCatalog.tutorial and _wave_manager != null and _wave_manager.has_next_wave():
-		var time_left: float = _wave_manager.time_to_next_wave()
-		if time_left > 0.0:
-			var bonus: int = maxi(5, int(time_left * 0.3) + 5)
-			_hud.set_call_wave_info(time_left, bonus)
-		else:
-			_hud.set_call_wave_info(-1.0, 0)
 	else:
-		_hud.set_call_wave_info(-1.0, 0)
+		var time_left: float = _wave_manager.time_to_next_wave()
+		_hud.set_call_wave_info(time_left, _call_wave_bonus(time_left), _can_call_wave())
 
 
 func _update_threat_detection() -> void:
@@ -369,6 +358,8 @@ func _on_forge_pressed() -> void:
 
 
 func _on_workbench_pressed() -> void:
+	if _inspecting:
+		return  # towers are placed once the battle has begun
 	if _paused:
 		_toggle_pause()
 	elif _coop_on() and _coop_menu_open:
@@ -391,7 +382,7 @@ func _on_pause_changed(on: bool) -> void:
 		_save_checkpoint()
 	else:
 		_hud.hide_pause_menu()
-		if _ready_phase and _hud != null:
+		if _inspecting:
 			_hud.show_start_battle_button()
 
 
@@ -456,7 +447,7 @@ func _on_replay_begun(header: Dictionary) -> void:
 	_difficulty = clampi(int(header.get("difficulty", 0)), 0, Balance.difficulty_count() - 1)
 	_apply_perks(header.get("perks", {}))
 	_apply_difficulty()
-	villagers.wood_economy = not bool(header.get("endless", false))
+	villagers.wood_economy = not bool(header.get("endless", false)) or header.has("daily")
 	if int(header.get("sim_version", 0)) < 3:
 		villagers.restock_enabled = false
 		# Legacy sim_version < 3 journals were recorded with original 90 gold / 60 wood for level 1 and 2.
@@ -538,10 +529,11 @@ func _build_walk_grid() -> void:
 		LevelBuilder.ground(level["hero"]),
 		slots
 	)
-	if LevelCatalog.resume_checkpoint and BattleCheckpoint.has_checkpoint(level["id"]):
+	if _resuming():
 		restore_from_checkpoint(BattleCheckpoint.load_checkpoint())
-		LevelCatalog.resume_checkpoint = false
-	_sim.start()  # the level is complete: the battle clock may run
+	LevelCatalog.resume_checkpoint = false
+	if not _inspecting:
+		_sim.start()  # the level is complete: the battle clock may run
 
 
 ## Tutorial mode: only on its level, never in co-op or the siege.
@@ -743,11 +735,6 @@ func _on_strategic_view_toggle() -> void:
 
 
 func _on_wave_started(wave: int, total: int, boss: bool) -> void:
-	_ready_phase = false
-	if _hud != null:
-		_hud.hide_start_battle_button()
-	if _camera != null and _camera.has_method("stop_flyover"):
-		_camera.stop_flyover()
 	if wave % CRASH_LOG_WAVE_STEP == 0:
 		CrashReporter.set_key("wave", wave)
 		CrashReporter.log_line("wave %d" % wave)
@@ -798,24 +785,90 @@ func _on_wave_started(wave: int, total: int, boss: bool) -> void:
 	_hud.show_banner(title, next, boss)
 
 
+## Early call of the next wave for a gold bonus. Only while the field is clear (no enemy of
+## any wave alive or still to come), so the waves cannot be skipped through one after another.
 func _on_call_wave_pressed() -> void:
-	if _ready_phase:
-		_ready_phase = false
-		if _hud != null:
-			_hud.hide_start_battle_button()
-		if _camera != null and _camera.has_method("stop_flyover"):
-			_camera.stop_flyover()
-		_wave_manager.start_next_wave()
-		return
-	if _wave_manager == null or not _wave_manager.has_next_wave():
+	if not _can_call_wave():
 		return
 	var time_left: float = _wave_manager.time_to_next_wave()
-	if time_left <= 0.0:
-		return
-	var bonus: int = maxi(5, int(time_left * 0.3) + 5)
+	var bonus: int = _call_wave_bonus(time_left)
 	_game_state.add_gold(bonus)
-	_hud.popup("+%d" % bonus, _hud.get_call_wave_pos(), Color(0.98, 0.8, 0.4), preload("res://ui/icons/coin.png"))
+	_hud.popup("+%d" % bonus, _hud.get_call_wave_pos(), GOLD_COLOR, COIN_ICON)
 	_wave_manager.start_next_wave()
+
+
+func _can_call_wave() -> bool:
+	return (
+		not _inspecting
+		and not LevelCatalog.tutorial
+		and not _coop_on()
+		and not battle_end.ended
+		and _wave_manager.has_next_wave()
+		and _wave_manager.time_to_next_wave() > 0.0
+		and not _wave_manager.is_wave_active()
+	)
+
+
+func _call_wave_bonus(time_left: float) -> int:
+	return maxi(5, int(time_left * 0.3) + 5)
+
+
+## True when this battle continues a saved checkpoint (campaign / Record Run only).
+func _resuming() -> bool:
+	return (
+		LevelCatalog.resume_checkpoint
+		and _daily_key == ""
+		and not _coop_on()
+		and not LevelCatalog.tutorial
+		and BattleCheckpoint.has_checkpoint(level["id"])
+	)
+
+
+## Map inspection: the camera is the player's, the knight and the battle clock wait.
+func _enter_inspection() -> void:
+	_hero.controls_locked = true
+	_build_manager.set_process_unhandled_input(false)  # no taps on slots / ground
+	_hud.set_inspection(true)
+	_camera.set_free_look(true)
+	var title: String = tr("HUD_INSPECT_MAP_TITLE")
+	if _resuming():
+		title = tr("CHECKPOINT_CONTINUE") % int(BattleCheckpoint.load_checkpoint().get("wave", 0))
+	_hud.show_banner(title, tr("HUD_INSPECT_MAP_SUB"), false)
+	_hud.show_start_battle_button()
+
+
+func _end_inspection() -> void:
+	_inspecting = false
+	_hero.controls_locked = false
+	_build_manager.set_process_unhandled_input(true)
+	_hud.set_inspection(false)
+	_hud.hide_start_battle_button()
+	_camera.set_free_look(false)
+
+
+## "To battle!": ends the inspection and starts the battle clock, once. The wave clock was set
+## up before (the first wave after first_delay, or the clock of the resumed checkpoint) and
+## stood still, so the time on the banner and the timer is the real one.
+func _begin_battle() -> void:
+	if not _inspecting or battle_end.ended:
+		return
+	_end_inspection()
+	_show_wave_clock_banner()
+	_sim.start()
+
+
+## Banner with the real time to the next wave ("First wave in 30 s" / "Continue (wave 3)").
+func _show_wave_clock_banner() -> void:
+	var time_left: float = _wave_manager.time_to_next_wave()
+	if time_left <= 0.0:
+		return  # the wave starts at once: its own banner follows
+	var wait: String = LevelCatalog.seconds_text(time_left)
+	if _wave_manager.current_wave == 0:
+		_hud.show_banner(tr("WAVE_FIRST_IN") % wait)
+	else:
+		_hud.show_banner(
+			tr("CHECKPOINT_CONTINUE") % _wave_manager.current_wave, tr("WAVE_NEXT_IN") % wait
+		)
 
 
 ## All level state lives in this scene's nodes, so reloading it restores the
@@ -825,6 +878,7 @@ func _on_restart_pressed() -> void:
 	if _coop_on():
 		return  # one player cannot restart a shared battle
 	BattleCheckpoint.clear_checkpoint()
+	LevelCatalog.inspect_map = true
 	_leave_to("")
 
 
@@ -845,6 +899,7 @@ func _on_next_level_pressed() -> void:
 		coop.leave()
 	BattleCheckpoint.clear_checkpoint()
 	LevelCatalog.selected_id = mini(LevelCatalog.selected_id + 1, LevelCatalog.MAX_LEVEL)
+	LevelCatalog.inspect_map = not _coop_on()
 	_leave_to("")
 
 
@@ -921,9 +976,17 @@ func _save_checkpoint() -> void:
 		"towers": battle_end.stats.get("towers", 0),
 		"time": battle_end.stats.get("time", 0.0)
 	}
+	# A wave still running is not kept (its enemies are not saved): the checkpoint resumes
+	# after the last cleared wave and plays the running one again at once.
+	var cleared: int = _wave_manager.cleared_through()
+	var next_wave_in: float = _wave_manager.time_to_next_wave()
+	if cleared < _wave_manager.current_wave:
+		next_wave_in = 0.0
 	var data := {
 		"level_id": int(level["id"]),
-		"wave": _wave_manager.current_wave,
+		"wave": cleared,
+		"next_wave_in": next_wave_in,
+		"hero_pos": [_hero.global_position.x, _hero.global_position.z],
 		"gold": _game_state.gold,
 		"wood": _game_state.wood,
 		"castle_lives": _game_state.lives,
@@ -1033,10 +1096,27 @@ func restore_from_checkpoint(data: Dictionary) -> void:
 	_wave_manager.current_wave = wave
 	battle_end.waves_cleared = wave
 	_hud.set_wave(wave, 0 if _endless else _wave_manager.get_total_waves())
+	_restore_hero_position(data.get("hero_pos", []))
 	if _wave_manager.has_next_wave():
-		_wave_manager.schedule_next_wave(5.0)
-		_hud.show_banner(tr("CHECKPOINT_CONTINUE") % wave, tr("WAVE_NEXT_IN") % "5s")
+		# The wave clock as it was (it stands until "To battle!" when the map is inspected).
+		var delay: float = float(data.get("next_wave_in", RESUME_FALLBACK_DELAY))
+		_wave_manager.schedule_next_wave(maxf(delay, 0.0))
+		if not _inspecting:
+			_show_wave_clock_banner()
 	else:
 		BattleCheckpoint.clear_checkpoint()
 	cards.refresh()
+
+
+## The knight stands where he stood when the checkpoint was saved (if that is on the map).
+func _restore_hero_position(saved: Array) -> void:
+	if saved.size() < 2:
+		return
+	var at := Vector3(float(saved[0]), 0.0, float(saved[1]))
+	var map: Rect2 = LevelBuilder.map_rect(level)
+	if not map.has_point(Vector2(at.x, at.z)):
+		return
+	_hero.global_position = at
+	_commands.set_hero_limits(at, map)  # his next swing is checked from here
+	_camera.snap()
 

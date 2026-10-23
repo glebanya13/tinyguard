@@ -2,7 +2,9 @@ class_name Mercenary
 extends CharacterBody3D
 ## Allied mercenary fighter: patrols castle gate or follows the hero,
 ## attacks nearby chupacabras/enemies with melee weapon, reacts to damage
-## with red flash, armor clang sound, and light recoil.
+## with red flash, armor clang sound, and light recoil. Walking enemies within
+## `config.contact_radius` bite him every simulation step (MercenaryConfig.bite_dps), so
+## a mercenary dies in a crowd instead of clearing the lanes alone.
 
 signal damaged(amount: float)
 signal died
@@ -17,6 +19,7 @@ const SWING_SOUND: AudioStream = preload("res://assets/audio/sword_swing.wav")
 const MODEL_SCENE: PackedScene = preload("res://assets/models/hero_knight.glb")
 const DEATH_FX: PackedScene = preload("res://scenes/fx/death_fx.tscn")
 const GROUP := &"mercenaries"
+const CONFIG: MercenaryConfig = preload("res://resources/mercenary.tres")
 
 @export var max_health: float = 80.0
 @export var health: float = 80.0
@@ -28,6 +31,8 @@ const GROUP := &"mercenaries"
 @export var detection_radius: float = 9.0
 @export var patrol_radius: float = 2.5
 
+## Balance numbers (resources/mercenary.tres): health, sword and the enemies' bite.
+var config: MercenaryConfig = CONFIG
 var mode: Mode = Mode.PATROL_GATE
 var patrol_center: Vector3 = Vector3.ZERO
 var hero: Hero = null
@@ -54,6 +59,9 @@ var _badge: Label3D = null
 
 func _ready() -> void:
 	add_to_group(GROUP)
+	if config != null:
+		max_health = config.max_health
+		attack_damage = config.attack_damage
 	health = max_health
 	if patrol_center == Vector3.ZERO:
 		patrol_center = global_position
@@ -222,18 +230,20 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	if not is_alive():
 		return
 	health = maxf(health - amount, 0.0)
-	_damage_flash_timer = 0.25
-	_set_flash_overlay(true)
 	_update_hp_bar()
-	if _hurt_sound != null:
-		_hurt_sound.pitch_scale = randf_range(0.92, 1.08)
-		_hurt_sound.play()
-	var recoil_dir: Vector3 = from_dir.normalized()
-	if recoil_dir.length_squared() < 0.01:
-		recoil_dir = -transform.basis.z
-	recoil_dir.y = 0.0
-	_recoil_velocity = recoil_dir.normalized() * 3.5
 	damaged.emit(amount)
+	# Bites come every step: flash, clang and recoil at most once per flash.
+	if _damage_flash_timer <= 0.0 and health > 0.0:
+		_damage_flash_timer = 0.25
+		_set_flash_overlay(true)
+		if _hurt_sound != null:
+			_hurt_sound.pitch_scale = randf_range(0.92, 1.08)
+			_hurt_sound.play()
+		var recoil_dir: Vector3 = from_dir.normalized()
+		if recoil_dir.length_squared() < 0.01:
+			recoil_dir = -transform.basis.z
+		recoil_dir.y = 0.0
+		_recoil_velocity = recoil_dir.normalized() * 1.5
 	if health <= 0.0:
 		_die()
 
@@ -365,6 +375,29 @@ func sim_step() -> void:
 	if not is_alive():
 		return
 	_update_target_enemy()
+	_take_bites()
+
+
+## Every walking enemy in contact bites (whole simulation steps, Sim.TICK_DT each).
+func _take_bites() -> void:
+	if sim == null or config == null:
+		return
+	var reach_sq: float = config.contact_radius * config.contact_radius
+	var total: float = 0.0
+	var from_dir := Vector3.ZERO
+	for enemy: Enemy in sim.enemies:
+		if enemy == null or not is_instance_valid(enemy) or not enemy.is_alive():
+			continue
+		if enemy.is_flying():
+			continue
+		var offset: Vector3 = global_position - enemy.sim_position()
+		offset.y = 0.0
+		if offset.length_squared() > reach_sq:
+			continue
+		total += config.bite_dps(enemy.base_damage, enemy.wave) * Sim.TICK_DT
+		from_dir += offset
+	if total > 0.0:
+		take_damage(total, from_dir)
 
 
 func state_ints() -> Array[int]:

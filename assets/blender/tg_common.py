@@ -248,6 +248,66 @@ def from_pydata(name, verts, faces, mat=None, smooth=True):
     return obj
 
 
+def sweep(name, path, half_w, half_h, mat=None, ring=8, side=(1, 0, 0)):
+    """Tapered tube along `path` (list of points), closed to a point at both ends.
+    half_w(t) / half_h(t) give the cross-section half sizes along `side` and across it
+    (t = 0..1 along the path): a cheap way to build fins, feathers and curved horns."""
+    pts = [Vector(p) for p in path]
+    side = Vector(side).normalized()
+    n = len(pts)
+    verts, faces = [tuple(pts[0])], []
+    for i in range(1, n - 1):
+        t = i / (n - 1)
+        tangent = (pts[i + 1] - pts[i - 1]).normalized()
+        up = tangent.cross(side).normalized()
+        sx = side - tangent * side.dot(tangent)
+        sx.normalize()
+        for k in range(ring):
+            a = 2 * math.pi * k / ring
+            verts.append(tuple(pts[i] + sx * math.cos(a) * half_w(t) + up * math.sin(a) * half_h(t)))
+    verts.append(tuple(pts[-1]))
+    rings = n - 2
+    tip = len(verts) - 1
+    for k in range(ring):
+        k2 = (k + 1) % ring
+        faces.append((0, 1 + k2, 1 + k))
+        last = 1 + (rings - 1) * ring
+        faces.append((tip, last + k, last + k2))
+    for r in range(rings - 1):
+        a, b = 1 + r * ring, 1 + (r + 1) * ring
+        for k in range(ring):
+            k2 = (k + 1) % ring
+            faces.append((a + k, a + k2, b + k2, b + k))
+    obj = from_pydata(name, verts, faces, mat)
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    return obj
+
+
+def bezier(p0, p1, p2, p3, steps: int) -> list:
+    """Points of a cubic Bezier curve (steps + 1 points, ends included)."""
+    p0, p1, p2, p3 = (Vector(p) for p in (p0, p1, p2, p3))
+    out = []
+    for i in range(steps + 1):
+        t = i / steps
+        u = 1 - t
+        out.append(p0 * u ** 3 + p1 * 3 * u * u * t + p2 * 3 * u * t * t + p3 * t ** 3)
+    return out
+
+
+def ring_band(name, r_out_bottom, r_out_top, thickness, height, loc=(0, 0, 0), mat=None, steps=20):
+    """Open ring with wall thickness (no caps): crown bands, rims, collars."""
+    z0 = loc[2]
+    profile = [(r_out_bottom, z0), (r_out_top, z0 + height), (r_out_top - thickness, z0 + height),
+               (r_out_bottom - thickness, z0), (r_out_bottom, z0)]
+    obj = lathe(name, profile, mat, steps=steps, loc=(loc[0], loc[1], 0))
+    shade(obj, 40)
+    return obj
+
+
 def lathe(name, profile, mat=None, steps=16, loc=(0, 0, 0), smooth=True):
     """Revolve a (radius, z) profile around Z. Profile goes bottom -> top."""
     verts, faces = [], []

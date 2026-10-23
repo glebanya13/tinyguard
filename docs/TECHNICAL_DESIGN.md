@@ -433,8 +433,12 @@ Metal/GL Compatibility, `TOTAL_DRAW_CALLS_IN_FRAME` с HUD): каждая пло
 «Первая волна через 30 секунд» в начале, «Волна N!» + «Следующая через 30 секунд» при старте
 волны, «Последняя волна!»; волна с боссом — тот же баннер с иконкой короля и коралловым
 заголовком), `CommandCard`, `AttackButton`/`SpinButton`, `Joystick`, `EndScreen`.
-Вызова волны раньше времени нет: волны идут строго по таймеру `WavePlan.wave_duration`;
-при старте волны звучит `wave_boom.wav`.
+Волны идут по таймеру `WavePlan.wave_duration` (фишка с часами в `TopBar`); досрочный вызов
+(`CallWaveButton`) показывается, только пока поле чистое (`WaveManager.is_wave_active()` ложно).
+До «В бой!» (`StartBattleButton`, осмотр карты — `main.gd`, `_enter_inspection`) `Sim` не
+запущен, рыцарь заблокирован (`Hero.controls_locked`), камера в свободном режиме
+(`CameraFollow.free_look`, панорама пальцем), ввод `BuildManager` выключен, а `Hud.set_inspection`
+прячет джойстик и кнопки меча. При старте волны звучит `wave_boom.wav`.
 
 - Кузница открывается тапом по замку (`CardController.is_castle_tap`, радиус
   `CASTLE_TAP_REACH` = 1.9 м; проверяется после врагов и деревьев, чтобы тап по врагу у

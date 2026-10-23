@@ -58,6 +58,9 @@ var _mix: Array = []
 var _boss_growth_exponent: float = 1.0
 ## One more boss per this many waves.
 var _boss_per_waves: int = 30
+## Kill gold tapers in long battles: from wave "from" every wave takes "per_wave" off the
+## gold of a kill, down to "floor" ("reward_taper" in resources/balance.json; empty = none).
+var _taper: Dictionary = {}
 ## "record" block of resources/balance.json (empty outside the record run) and its data.
 var _rec: Dictionary = {}
 var _rec_mix_data: Array[EnemyData] = []
@@ -75,6 +78,7 @@ func _init(waves: Dictionary, endless_siege: bool = false, record: bool = false)
 	_mix = rules["mix"]
 	_boss_growth_exponent = float(rules["boss_growth_exponent"])
 	_boss_per_waves = int(rules["boss_per_waves"])
+	_taper = rules.get("reward_taper", {})
 	for mix: Array in _mix:
 		_mix_data.append(load(ENEMY_PATH % mix[1]))
 	_lanes = waves.get("lanes", {})
@@ -111,6 +115,15 @@ func reward_scale(index: int) -> float:
 	if record_run:
 		scale *= float(_rec["reward_mult"])
 	return scale * float(Balance.difficulty(index)["reward"])
+
+
+## Share of a kill's gold that an enemy of `wave` still brings (1 before the taper starts):
+## the crowd grows every wave, the gold per kill falls a little, so gold stays a choice.
+func reward_taper(wave: int) -> float:
+	if _taper.is_empty() or wave <= int(_taper["from"]):
+		return 1.0
+	var cut: float = float(_taper["per_wave"]) * (wave - int(_taper["from"]))
+	return maxf(float(_taper["floor"]), 1.0 - cut)
 
 
 ## Daily challenge: all waves faster (< 1) or slower (> 1) than the level says. Absolute,

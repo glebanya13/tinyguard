@@ -39,6 +39,10 @@ static var open_records: bool = false
 static var tutorial: bool = false
 ## True when entering battle to resume from a saved battle checkpoint.
 static var resume_checkpoint: bool = false
+## The next battle opens with the map inspection (free camera, the knight and the battle clock
+## wait for "To battle!"). Set by the screens that start a battle for the player (the map,
+## restart, next level); read once by the battle. Tests that load the level directly leave it off.
+static var inspect_map: bool = false
 ## Date ("yyyy-mm-dd") of the daily challenge being played, "" otherwise. Daily runs
 ## are endless sieges with the day's seed and modifiers (see DailyRun).
 static var daily_key: String = ""

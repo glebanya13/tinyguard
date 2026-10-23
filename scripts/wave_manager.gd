@@ -107,6 +107,15 @@ func is_wave_active() -> bool:
 	return not _remaining.is_empty()
 
 
+## Highest wave N such that waves 1..N have no enemy left on the map or still to come
+## (a battle checkpoint resumes after it: a wave still running is played again).
+func cleared_through() -> int:
+	var n: int = current_wave
+	for wave: int in _remaining:
+		n = mini(n, wave - 1)
+	return n
+
+
 func has_next_wave() -> bool:
 	return not _stopped and current_wave < plan.wave_count
 
@@ -230,6 +239,9 @@ func _spawn_enemy(entry: Dictionary, wave: int, path: Path3D = null) -> Enemy:
 		enemy.reward = roundi(enemy.reward * float(entry["reward_mult"]))
 	if reward_scale != 1.0:
 		enemy.reward = roundi(enemy.reward * reward_scale)
+	var taper: float = plan.reward_taper(wave) if plan != null else 1.0
+	if taper < 1.0:
+		enemy.reward = maxi(roundi(enemy.reward * taper), 1)
 	enemy.wave = wave
 	enemy.crowd = crowd
 	enemy.sim = sim

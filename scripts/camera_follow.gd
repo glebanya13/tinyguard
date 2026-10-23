@@ -3,6 +3,8 @@ extends Camera3D
 ## Fixed isometric camera that follows a target (the hero) with smoothing.
 ## The look-at point is clamped to `bounds` (XZ) so the view stays on the map.
 ## Zoom: pinch with two fingers, mouse wheel or trackpad pinch.
+## Free look (the map inspection before the battle): the camera leaves the hero and the
+## player pans it with one finger (or the mouse, or the movement keys).
 
 @export var target: Node3D
 ## Higher is snappier.
@@ -15,9 +17,12 @@ extends Camera3D
 @export var wheel_factor: float = 1.1
 ## Multiplier of camera size in strategic view (45% zoom out).
 @export var strategic_zoom_factor: float = 1.45
+## Free look: panning speed of the movement keys, metres per second.
+@export var key_pan_speed: float = 12.0
 
 var strategic_view: bool = false
-var flyover_active: bool = false
+## The camera looks where the player pans it instead of following the target.
+var free_look: bool = false
 
 var _offset: Vector3
 ## Active touches not taken by the HUD: index -> position.
@@ -27,9 +32,8 @@ var _pinch_distance: float = 0.0
 var _default_size: float = 18.0
 var _normal_size: float = 18.0
 var _target_size: float = 18.0
-var _flyover_waypoints: Array[Vector3] = []
-var _flyover_progress: float = 0.0
-var _flyover_duration: float = 6.0
+## Free look: the ground point the camera looks at.
+var _free_focus: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
@@ -49,8 +53,6 @@ func toggle_strategic_view() -> bool:
 
 
 func set_strategic_view(on: bool) -> void:
-	if flyover_active:
-		stop_flyover()
 	strategic_view = on
 	if strategic_view:
 		_target_size = clampf(_default_size * strategic_zoom_factor, min_size, max_size)
@@ -68,52 +70,37 @@ func is_strategic_view() -> bool:
 	return strategic_view
 
 
-## Starts a smooth tactical flyover along spawns towards castle before wave 1.
-func start_flyover(spawns: Array[Vector3], castle_pos: Vector3, duration: float = 6.0) -> void:
-	if spawns.is_empty():
-		return
-	_flyover_waypoints.clear()
-	for s: Vector3 in spawns:
-		_flyover_waypoints.append(Vector3(s.x, 0.0, s.z))
-	_flyover_waypoints.append(Vector3(castle_pos.x, 0.0, castle_pos.z))
-	_flyover_duration = maxf(duration, 2.0)
-	_flyover_progress = 0.0
-	flyover_active = true
-	var start_focus: Vector3 = _clamp_bounds(_flyover_waypoints[0])
-	global_position = start_focus + _offset
+## Free look on: the camera stays where it looks now and follows the player's pans;
+## off: it glides back to the target.
+func set_free_look(on: bool) -> void:
+	if on and not free_look:
+		_free_focus = _clamp_bounds(global_position - _offset)
+	free_look = on
 
 
-func stop_flyover() -> void:
-	if not flyover_active:
+## Free look: moves the point the camera looks at by `delta` (ground metres, XZ).
+func pan_by(delta: Vector3) -> void:
+	if not free_look:
 		return
-	flyover_active = false
-	_flyover_waypoints.clear()
+	_free_focus = _clamp_bounds(_free_focus + Vector3(delta.x, 0.0, delta.z))
+	global_position = _free_focus + _offset
 
 
-func _process_flyover(delta: float) -> void:
-	if _flyover_waypoints.size() < 2 or _flyover_duration <= 0.0:
-		stop_flyover()
-		return
-	_flyover_progress += delta / _flyover_duration
-	if _flyover_progress >= 1.0:
-		stop_flyover()
-		return
-	var seg_count: int = _flyover_waypoints.size() - 1
-	var total_t: float = _flyover_progress * float(seg_count)
-	var seg_idx: int = clampi(floori(total_t), 0, seg_count - 1)
-	var seg_t: float = total_t - float(seg_idx)
-	# Smoothstep curve for pleasant motion
-	seg_t = seg_t * seg_t * (3.0 - 2.0 * seg_t)
-	var from_pt: Vector3 = _flyover_waypoints[seg_idx]
-	var to_pt: Vector3 = _flyover_waypoints[seg_idx + 1]
-	var current_focus: Vector3 = _clamp_bounds(from_pt.lerp(to_pt, seg_t))
-	var goal: Vector3 = current_focus + _offset
-	global_position = global_position.lerp(goal, 1.0 - exp(-smoothing * delta))
+## The point on the ground (y = 0) under screen position `screen_pos`.
+func ground_at(screen_pos: Vector2) -> Vector3:
+	var origin: Vector3 = project_ray_origin(screen_pos)
+	var normal: Vector3 = project_ray_normal(screen_pos)
+	if absf(normal.y) < 0.001:
+		return Vector3(origin.x, 0.0, origin.z)
+	return origin + normal * (-origin.y / normal.y)
 
 
 ## Jump to the target without smoothing (after the level moved it).
+## In free look the camera looks at the target from there on.
 func snap() -> void:
 	if target:
+		if free_look:
+			_free_focus = _focus()
 		global_position = _focus() + _offset
 
 
@@ -123,8 +110,13 @@ func _physics_process(delta: float) -> void:
 	if absf(size - _target_size) > 0.01:
 		size = lerpf(size, _target_size, 1.0 - exp(-smoothing * delta))
 
-	if flyover_active:
-		_process_flyover(delta)
+	if free_look:
+		var keys: Vector2 = Input.get_vector(&"move_left", &"move_right", &"move_up", &"move_down")
+		if keys != Vector2.ZERO:
+			pan_by(_screen_to_ground(keys) * key_pan_speed * delta)
+		global_position = global_position.lerp(
+			_free_focus + _offset, 1.0 - exp(-smoothing * delta)
+		)
 		return
 
 	if target == null:
@@ -134,9 +126,6 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if flyover_active and (event is InputEventScreenTouch or event is InputEventScreenDrag or event is InputEventMouseButton):
-		stop_flyover()
-
 	var touch := event as InputEventScreenTouch
 	if touch:
 		if touch.pressed:
@@ -156,6 +145,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _pinch_distance > 0.0 and spread > 0.0:
 				zoom_by(_pinch_distance / spread)
 			_pinch_distance = spread
+		elif free_look and not _pinched:
+			# One finger drags the map: the ground point under it stays under it.
+			pan_by(ground_at(drag.position - drag.relative) - ground_at(drag.position))
 		return
 	var wheel := event as InputEventMouseButton
 	if wheel and wheel.pressed:
@@ -200,6 +192,15 @@ func _touch_spread() -> float:
 		return 0.0
 	var points: Array = _touches.values()
 	return (points[0] as Vector2).distance_to(points[1])
+
+
+## Screen direction (x right, y down) as a flat ground direction of the same length.
+func _screen_to_ground(dir: Vector2) -> Vector3:
+	var right: Vector3 = global_transform.basis.x
+	var down: Vector3 = -global_transform.basis.y
+	right.y = 0.0
+	down.y = 0.0
+	return (right.normalized() * dir.x + down.normalized() * dir.y).limit_length(1.0)
 
 
 func _focus() -> Vector3:

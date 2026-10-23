@@ -16,6 +16,8 @@ extends Resource
 @export var buy_start_gold: float = 14.0
 @export var buy_growth: float = 1.08
 @export var buy_max_lots: int = 6
+## One bought lot comes back for sale every this many seconds (an emergency valve, not a mine).
+@export var buy_restock_seconds: float = 60.0
 
 @export_group("Lumberjacks")
 ## A villager hired for `hire_gold` chops `hire_wood_per_minute` wood a minute (wood only,

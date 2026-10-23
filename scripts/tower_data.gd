@@ -42,7 +42,10 @@ const PRIORITY_HINT_KEYS: Array[String] = [
 @export var chain_levels: Array[int] = [0, 0, 0]
 ## Max jump distance of a chain bolt (metres).
 @export var chain_range: float = 2.2
-## Damage type passed to enemies: &"arrow" is weak against shields.
+## Share of the damage every next chain jump keeps (0.8 = -20% a jump).
+@export var chain_falloff: float = 0.8
+## Damage type passed to enemies: &"arrow" is weak against shields, &"shock"
+## (Enemy.ARMOR_PIERCING) goes through armor.
 @export var damage_kind: StringName = &""
 ## Who the tower shoots first unless the player changes it.
 @export var default_priority: Priority = Priority.FIRST

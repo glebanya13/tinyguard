@@ -78,7 +78,10 @@ func _test_spawn() -> void:
 		for tree: WoodTree in outpost.thicket_trees:
 			check(tree.is_thicket, "tree %d has is_thicket true" % tree.id)
 			check(tree.outpost_id == outpost.lane, "tree %d belongs to lane %d" % [tree.id, outpost.lane])
-			check(tree.wood_per_hit == 0, "tree %d gives 0 wood per hit" % tree.id)
+			check(
+				tree.wood_per_hit == outpost.thicket_wood_per_hit and tree.wood_per_hit > 0,
+				"tree %d gives wood like every choppable tree" % tree.id
+			)
 			check(is_equal_approx(tree.regrow_time, Outpost.THICKET_REGROW_TIME), "tree %d regrow time is 150s" % tree.id)
 			check(absf(tree.global_position.x) <= 21.0 and absf(tree.global_position.z) <= 13.8, "tree %d is inside hero bounds at %s" % [tree.id, tree.global_position])
 			check(tree.grove != null, "tree %d is assigned to Grove MultiMesh" % tree.id)
@@ -96,8 +99,12 @@ func _test_chopping_and_weakening() -> void:
 
 	check(first_tree.is_choppable(), "tree is initially choppable")
 	var gained: int = first_tree.chop(Vector3.ZERO)
-	check(gained == 0, "chopping thicket tree grants 0 wood (gained: %d)" % gained)
-	check(gs.wood == initial_wood, "game_state wood is unchanged (%d)" % gs.wood)
+	check(
+		gained == outpost.thicket_wood_per_hit and gained > 0,
+		"chopping a thicket tree gives wood like any choppable tree (gained: %d)" % gained
+	)
+	# chop() only reports the wood; the hero's swing adds it (wood_gathered), so no change here.
+	check(gs.wood == initial_wood, "game_state wood is unchanged by chop() alone (%d)" % gs.wood)
 	check(first_tree.hits_left() == first_tree.hits - 1, "tree has %d hits left after 1 strike" % first_tree.hits_left())
 
 	# Finish chopping down the tree

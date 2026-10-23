@@ -13,7 +13,8 @@ const LEGACY_JOURNAL := (
 	+ '"perks":{}},"commands":[[0,0,0,0,0],[30,0,0,1,1],[60,0,10,0,2],[200,0,0,2,2]]}'
 )
 const LEGACY_HASH := -3468069466603712493
-const LEGACY_TOWERS := 2
+## 3 since 2026-10-23: the towers cost less wood, so one more build of the journal goes through.
+const LEGACY_TOWERS := 3
 
 var fails := 0
 var _level: int = 1
@@ -82,8 +83,12 @@ func _test_numbers() -> void:
 	check(trade.buy_lot_gold(0) == 14, "first bought lot: 14 gold (%d)" % trade.buy_lot_gold(0))
 	check(trade.buy_max_lots == 6, "at most 6 lots a battle")
 	check(
-		trade.hire_gold == 25 and trade.hire_max == 2 and trade.hire_wood_per_minute == 5,
-		"lumberjack: 25 gold, 2 at most, 5 wood a minute"
+		trade.hire_gold == 40 and trade.hire_max == 2 and trade.hire_wood_per_minute == 12,
+		"lumberjack: 40 gold, 2 at most, 12 wood a minute"
+	)
+	check(
+		Sim.TICK_RATE * 60 % trade.hire_wood_per_minute == 0,
+		"lumberjack wood comes on whole ticks (%d per minute)" % trade.hire_wood_per_minute
 	)
 	var prices: Array[int] = []
 	for i in trade.buy_max_lots:
@@ -221,7 +226,7 @@ func _test_production() -> void:
 	var folk: Villagers = main.villagers
 	var trade: VillagerTrade = folk.trade
 	var per_wood: int = trade.chop_accum_limit() / trade.hire_wood_per_minute  # ticks per wood
-	check(per_wood == 360, "one lumberjack: one wood per 360 ticks (12 s)")
+	check(per_wood == 150, "one lumberjack: one wood per 150 ticks (5 s)")
 	var hash_idle: int = sim.state_hash()
 	var wood: int = gs.wood
 	var gold: int = gs.gold
@@ -234,16 +239,20 @@ func _test_production() -> void:
 	var hash_hired: int = sim.state_hash()
 	check(hash_hired != hash_idle, "the hash knows about the lumberjack")
 	_steps(sim, per_wood - 1)
-	check(gs.wood == wood, "359 ticks: no wood yet")
+	check(gs.wood == wood, "one tick short: no wood yet")
 	_steps(sim, 1)
-	check(gs.wood == wood + 1, "tick 360: exactly one wood")
+	check(gs.wood == wood + 1, "the last tick: exactly one wood")
 	_steps(sim, 9 * per_wood)
-	check(gs.wood == wood + 10, "10 wood in 2 minutes (%d)" % (gs.wood - wood))
+	check(gs.wood == wood + 10, "10 wood in 10 intervals (%d)" % (gs.wood - wood))
 	check(gs.gold == gold, "no gold from a lumberjack")
 	commands.submit(GameCommand.hire(1))
 	wood = gs.wood
 	_steps(sim, 3600)
-	check(gs.wood == wood + 20, "two lumberjacks: 20 wood in 2 minutes (%d)" % (gs.wood - wood))
+	var two_minutes: int = 2 * 2 * trade.hire_wood_per_minute
+	check(
+		gs.wood == wood + two_minutes,
+		"two lumberjacks: %d wood in 2 minutes (%d)" % [two_minutes, gs.wood - wood]
+	)
 	# The accumulator is part of the state: same ticks, different phase, different hash.
 	var phase_a: int = sim.state_hash()
 	var main2: Node = await _load_level()
@@ -285,7 +294,10 @@ func _test_card() -> void:
 	for spec: Dictionary in info["buttons"]:
 		by_id[String(spec["id"])] = spec
 	check(by_id["buy_lot"]["gold"] == 14 and by_id["buy_lot"]["enabled"], "buy a lot: 14 gold")
-	check(by_id["hire"]["gold"] == 25 and by_id["hire"]["enabled"], "hire: 25 gold")
+	check(
+		by_id["hire"]["gold"] == trade.hire_gold and by_id["hire"]["enabled"],
+		"hire: %d gold" % trade.hire_gold
+	)
 	check(
 		by_id["buy_all"]["gold"] == trade.buy_quote(0, folk.buy_lots_affordable()),
 		"buy all shows the quote of what 100 gold allows"
@@ -331,10 +343,29 @@ func _test_card() -> void:
 	check(sim.tick == 0 or sim.tick > 0, "clock exists")
 
 
-## Record Run and daily challenge: no buying, no hiring, and nothing is journaled.
+## Record Run: no buying, no hiring, and nothing is journaled. The daily challenge has the
+## wood economy (one seed and the same rules for everyone that day).
 func _test_modes() -> void:
 	print("-- modes")
-	for mode in ["record", "daily"]:
+	LevelCatalog.endless = false
+	LevelCatalog.daily_key = "2026-10-17"
+	var daily: Node = await _load_level()
+	var daily_gs: GameState = daily.get_node("GameState")
+	var daily_folk: Villagers = daily.villagers
+	check(daily_folk.wood_economy, "daily: the wood economy is on")
+	daily_gs.gold = 500
+	check(
+		(daily.get_node("GameCommands") as GameCommands).submit(GameCommand.trade_buy(1)),
+		"daily: buying wood works"
+	)
+	var daily_ids: Array[String] = []
+	var daily_card: Dictionary = CommandCards.trade(
+		daily_folk, daily_gs, daily_folk.get_villagers()[0]
+	)
+	for spec: Dictionary in daily_card["buttons"]:
+		daily_ids.append(String(spec["id"]))
+	check("buy_lot" in daily_ids and "hire" in daily_ids, "daily: card has buy/hire %s" % daily_ids)
+	for mode in ["record"]:
 		LevelCatalog.endless = mode == "record"
 		LevelCatalog.daily_key = "2026-10-17" if mode == "daily" else ""
 		var main: Node = await _load_level()

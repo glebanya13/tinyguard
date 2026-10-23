@@ -1,5 +1,5 @@
 extends SceneTree
-## Tests for Subagent 4: Strategic camera zoom, flyover, villager wood restock over
+## Tests for Subagent 4: Strategic camera zoom, free look, villager wood restock over
 ## simulation time, tower level visual badges (I..III, ★), and minimap enemy markers.
 ## godot --headless --fixed-fps 60 --path . --script res://tests/test_strategic_view.gd
 
@@ -37,7 +37,7 @@ func _run() -> void:
 	var sim: Sim = main.get_node("Sim") as Sim
 	var gs: GameState = main.get_node("GameState") as GameState
 
-	print("-- 1. Camera strategic view and flyover")
+	print("-- 1. Camera strategic view and free look")
 	check(cam != null, "camera exists")
 	check(cam.has_method("toggle_strategic_view"), "camera has toggle_strategic_view()")
 	check(not cam.is_strategic_view(), "starts in normal view")
@@ -97,12 +97,20 @@ func _run() -> void:
 	GameSettings.set_layout_value("minimap_mode", HudLayout.MAP_SHOW)
 	lane_hint.apply_settings()
 
-	# Flyover
-	check(cam.has_method("start_flyover") and cam.has_method("stop_flyover"), "camera has flyover methods")
-	cam.start_flyover([Vector3(10, 0, 10)], Vector3.ZERO, 4.0)
-	check(cam.flyover_active, "flyover starts active")
-	cam.stop_flyover()
-	check(not cam.flyover_active, "stop_flyover deactivates flyover")
+	# Free look (the map inspection before the battle): the player pans, no scripted flight.
+	check(not cam.has_method("start_flyover"), "no scripted flyover any more")
+	cam.set_free_look(true)
+	var before_pan: Vector3 = cam.global_position
+	cam.pan_by(Vector3(1.5, 0.0, 0.0))
+	check(cam.free_look, "free look is on")
+	check(
+		is_equal_approx(cam.global_position.x - before_pan.x, 1.5),
+		"free look: a pan moves the camera by the same ground distance"
+	)
+	cam.set_free_look(false)
+	var stuck: Vector3 = cam.global_position
+	cam.pan_by(Vector3(3.0, 0.0, 0.0))
+	check(cam.global_position == stuck, "free look off: pans are ignored")
 
 	# GameCamera class check
 	var game_cam := GameCamera.new()
@@ -123,20 +131,20 @@ func _run() -> void:
 	check(villagers.lots_bought == 2, "lots_bought is 2")
 	check(villagers.buy_lots_left() == trade.buy_max_lots - 2, "buy_lots_left decreased by 2 (%d)" % villagers.buy_lots_left())
 
-	# Run simulation for 1799 ticks (just before 60 seconds at 30 ticks/s)
-	for i in Villagers.RESTOCK_INTERVAL_TICKS - 1:
+	# Run the simulation to one tick before the restock interval
+	for i in Sim.ticks(villagers.trade.buy_restock_seconds) - 1:
 		villagers.sim_step()
-	check(villagers.lots_bought == 2, "no restock before 60 seconds (1799 ticks)")
+	check(villagers.lots_bought == 2, "no restock before buy_restock_seconds")
 
-	# Step 1800th tick -> restocks 1 lot!
+	# The last tick of the interval restocks 1 lot
 	villagers.sim_step()
-	check(villagers.lots_bought == 1, "restocked 1 lot at 60s: lots_bought is now 1")
+	check(villagers.lots_bought == 1, "restocked 1 lot after buy_restock_seconds: lots_bought is now 1")
 	check(villagers.buy_lots_left() == trade.buy_max_lots - 1, "buy_lots_left replenished by +1 (%d)" % villagers.buy_lots_left())
 
-	# Another 60 seconds (1800 ticks) -> restocks second lot!
-	for i in Villagers.RESTOCK_INTERVAL_TICKS:
+	# One more interval restocks the second lot
+	for i in Sim.ticks(villagers.trade.buy_restock_seconds):
 		villagers.sim_step()
-	check(villagers.lots_bought == 0, "restocked second lot at 120s: lots_bought is now 0")
+	check(villagers.lots_bought == 0, "restocked the second lot one more interval later: lots_bought is now 0")
 	check(villagers.buy_lots_left() == trade.buy_max_lots, "buy_lots_left is back to maximum capacity (%d)" % villagers.buy_lots_left())
 
 	# Manual restock method test

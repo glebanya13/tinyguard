@@ -219,7 +219,7 @@ static func castle_button(game_state: GameState) -> Dictionary:
 
 ## Trade card of the villager `who`: sell wood (the price drops with every lot), buy wood
 ## (dearer, a few lots a battle) and hire him as a lumberjack. The last two exist only where
-## Villagers.wood_economy is on (the campaign and co-op); elsewhere the card says so.
+## Villagers.wood_economy is on (campaign, co-op, daily); in the Record Run the card says why.
 static func trade(villagers: Villagers, game_state: GameState, who: Villager = null) -> Dictionary:
 	var lot: int = villagers.trade.wood_per_lot
 	var lots: int = villagers.lots_affordable()
@@ -406,26 +406,29 @@ static func mercenary_camp(camp: CampStructures.MercenaryCamp, game_state: GameS
 	var info := {
 		"title": camp_title
 	}
-	var hired_total: int = camp.mercenaries.size() if camp != null else 0
-	var alive_count: int = 0
-	if camp != null:
-		for m in camp.mercenaries:
-			if m != null and m.is_alive():
-				alive_count += 1
-	var cost: int = CampStructures.MercenaryCamp.HIRE_COST
+	var hired_total: int = camp.hired_total if camp != null else 0
+	var alive_count: int = camp.alive_count() if camp != null else 0
+	var max_alive: int = camp.config.max_alive if camp != null else 0
+	var cost: int = camp.hire_cost() if camp != null else 0
 	var stats_tmpl: String = _t("CARD_MERCENARY_STATS")
-	info["stats"] = stats_tmpl % [alive_count, hired_total]
+	info["stats"] = stats_tmpl % [alive_count, max_alive, hired_total]
 	var hint_str: String = _t("CARD_MERCENARY_HINT")
+	if camp != null:
+		hint_str = hint_str % [roundi(camp.config.max_health), roundi(camp.config.attack_damage)]
 	info["hint"] = hint_str
 	var tip_tmpl: String = _t("CARD_MERCENARY_TIP")
 	var hire_button := {
 		"id": &"hire_mercenary",
 		"icon": SWORD_ICON,
 		"caption": _t("CARD_HIRE_NAME"),
-		"gold": cost,
-		"enabled": game_state.gold >= cost if game_state != null else false,
-		"tooltip": tip_tmpl % cost
+		"enabled": false,
+		"tooltip": tip_tmpl % [cost, max_alive]
 	}
+	if camp != null and not camp.can_hire_more():
+		hire_button["label"] = "%d/%d" % [alive_count, max_alive]
+	else:
+		hire_button["gold"] = cost
+		hire_button["enabled"] = game_state.gold >= cost if game_state != null else false
 	info["buttons"] = [
 		hire_button,
 		{

@@ -7,9 +7,7 @@ extends RefCounted
 ##   canopy entrance, guy ropes, heraldic swallowtail pennant, weapon rack with shields,
 ##   swords, armor stand, mercenary hiring, and selection ring.
 
-const LOG_PILE_MODEL: String = "res://assets/models/log_pile.glb"
-const TREE_STUMP_MODEL: String = "res://assets/models/tree_stump.glb"
-const AXE_MODEL: String = "res://assets/models/icon_axe.glb"
+const CAMP_MODEL: String = "res://assets/models/camp_lumber.glb"
 const FLAG_MODEL: String = "res://assets/models/icon_flag.glb"
 const SWORD_MODEL: String = "res://assets/models/icon_sword.glb"
 const MERCENARY_SCENE: String = "res://scenes/mercenary.tscn"
@@ -107,276 +105,24 @@ class LumberjackCamp extends Node3D:
 		add_child(area)
 
 	func _build_structure() -> void:
-		var dark_wood := StandardMaterial3D.new()
-		dark_wood.albedo_color = Color(0.36, 0.24, 0.14)
-		dark_wood.roughness = 0.88
-
-		var plank_wood := StandardMaterial3D.new()
-		plank_wood.albedo_color = Color(0.48, 0.34, 0.20)
-		plank_wood.roughness = 0.82
-
-		var cut_wood := StandardMaterial3D.new()
-		cut_wood.albedo_color = Color(0.82, 0.72, 0.48)
-		cut_wood.roughness = 0.7
-
-		var metal_mat := StandardMaterial3D.new()
-		metal_mat.albedo_color = Color(0.72, 0.75, 0.80)
-		metal_mat.metallic = 0.85
-		metal_mat.roughness = 0.3
-
-		var banner_mat := StandardMaterial3D.new()
-		banner_mat.albedo_color = Color(0.24, 0.42, 0.22)
-		banner_mat.roughness = 0.8
-
-		# --- 1. Rustic Timber Lodge / Canopy (LogCanopy) ---
-		var canopy := Node3D.new()
-		canopy.name = "LogCanopy"
-		add_child(canopy)
-
-		# Timber floor / foundation base
-		var deck_mesh := BoxMesh.new()
-		deck_mesh.material = dark_wood
-		deck_mesh.size = Vector3(2.5, 0.08, 1.9)
-		var deck := MeshInstance3D.new()
-		deck.name = "TimberDeck"
-		deck.mesh = deck_mesh
-		deck.position = Vector3(0.0, 0.04, 0.0)
-		deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(deck)
-
-		# 6 solid timber support posts
-		var post_mesh := CylinderMesh.new()
-		post_mesh.material = dark_wood
-		post_mesh.top_radius = 0.075
-		post_mesh.bottom_radius = 0.085
-		post_mesh.height = 1.65
-		post_mesh.radial_segments = 8
-
-		var post_coords := [
-			Vector3(-1.05, 0.825, -0.75),
-			Vector3(0.0, 0.825, -0.75),
-			Vector3(1.05, 0.825, -0.75),
-			Vector3(-1.05, 0.825, 0.75),
-			Vector3(0.0, 0.825, 0.75),
-			Vector3(1.05, 0.825, 0.75),
-		]
-		for i in post_coords.size():
-			var post := MeshInstance3D.new()
-			post.name = "Post%d" % i
-			post.mesh = post_mesh
-			post.position = post_coords[i]
-			post.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			canopy.add_child(post)
-
-		# Horizontal timber header beams (X-direction)
-		var beam_x_mesh := BoxMesh.new()
-		beam_x_mesh.material = dark_wood
-		beam_x_mesh.size = Vector3(2.4, 0.12, 0.12)
-
-		var beam_back := MeshInstance3D.new()
-		beam_back.mesh = beam_x_mesh
-		beam_back.position = Vector3(0.0, 1.65, -0.75)
-		beam_back.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(beam_back)
-
-		var beam_front := MeshInstance3D.new()
-		beam_front.mesh = beam_x_mesh
-		beam_front.position = Vector3(0.0, 1.65, 0.75)
-		beam_front.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(beam_front)
-
-		# Horizontal timber tie beams (Z-direction)
-		var beam_z_mesh := BoxMesh.new()
-		beam_z_mesh.material = dark_wood
-		beam_z_mesh.size = Vector3(0.12, 0.12, 1.62)
-
-		for z_x in [-1.05, 1.05]:
-			var bz := MeshInstance3D.new()
-			bz.mesh = beam_z_mesh
-			bz.position = Vector3(z_x, 1.65, 0.0)
-			bz.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			canopy.add_child(bz)
-
-		# Central ridge beam at apex
-		var ridge_mesh := BoxMesh.new()
-		ridge_mesh.material = dark_wood
-		ridge_mesh.size = Vector3(2.5, 0.12, 0.12)
-		var ridge := MeshInstance3D.new()
-		ridge.name = "RidgeBeam"
-		ridge.mesh = ridge_mesh
-		ridge.position = Vector3(0.0, 2.05, 0.0)
-		ridge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(ridge)
-
-		# Gable end vertical struts & triangular trusses
-		var truss_mesh := BoxMesh.new()
-		truss_mesh.material = dark_wood
-		truss_mesh.size = Vector3(0.08, 0.4, 0.08)
-		for gx in [-1.05, 1.05]:
-			var strut := MeshInstance3D.new()
-			strut.mesh = truss_mesh
-			strut.position = Vector3(gx, 1.85, 0.0)
-			strut.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			canopy.add_child(strut)
-
-		# Sloping rafters under the roof planes
-		var rafter_mesh := BoxMesh.new()
-		rafter_mesh.material = dark_wood
-		rafter_mesh.size = Vector3(0.06, 0.06, 1.05)
-
-		for rx in [-0.9, 0.0, 0.9]:
-			var r_back := MeshInstance3D.new()
-			r_back.mesh = rafter_mesh
-			r_back.position = Vector3(rx, 1.85, -0.42)
-			r_back.rotation.x = deg_to_rad(-25.0)
-			r_back.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			canopy.add_child(r_back)
-
-			var r_front := MeshInstance3D.new()
-			r_front.mesh = rafter_mesh
-			r_front.position = Vector3(rx, 1.85, 0.42)
-			r_front.rotation.x = deg_to_rad(25.0)
-			r_front.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			canopy.add_child(r_front)
-
-		# Pitched wooden roof cover: two sloping cedar plank planes
-		var roof_half_mesh := BoxMesh.new()
-		roof_half_mesh.material = plank_wood
-		roof_half_mesh.size = Vector3(2.6, 0.05, 1.05)
-
-		var roof_back := MeshInstance3D.new()
-		roof_back.name = "RoofBack"
-		roof_back.mesh = roof_half_mesh
-		roof_back.position = Vector3(0.0, 1.88, -0.44)
-		roof_back.rotation.x = deg_to_rad(-25.0)
-		roof_back.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(roof_back)
-
-		var roof_front := MeshInstance3D.new()
-		roof_front.name = "RoofFront"
-		roof_front.mesh = roof_half_mesh
-		roof_front.position = Vector3(0.0, 1.88, 0.44)
-		roof_front.rotation.x = deg_to_rad(25.0)
-		roof_front.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(roof_front)
-
-		# Woodcutter banner hanging from front beam
-		var banner := MeshInstance3D.new()
-		banner.name = "Banner"
-		var banner_m := BoxMesh.new()
-		banner_m.material = banner_mat
-		banner_m.size = Vector3(0.42, 0.65, 0.02)
-		banner.mesh = banner_m
-		banner.position = Vector3(-0.75, 1.35, 0.78)
-		banner.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		canopy.add_child(banner)
-
-		# --- 2. Firewood Piles (Поленницы дров) ---
-		var pile_root := Node3D.new()
-		pile_root.name = "FirewoodPiles"
-		add_child(pile_root)
-
-		if ResourceLoader.exists(LOG_PILE_MODEL):
-			var pile_scene: PackedScene = load(LOG_PILE_MODEL)
-			var pile1: Node3D = pile_scene.instantiate()
-			pile1.position = Vector3(-0.35, 0.08, -0.15)
-			pile1.scale = Vector3(0.75, 0.75, 0.75)
-			pile1.rotation.y = deg_to_rad(10)
-			pile_root.add_child(pile1)
-		else:
-			# Procedural stacked round firewood logs
-			var log_mesh := CylinderMesh.new()
-			log_mesh.material = dark_wood
-			log_mesh.top_radius = 0.085
-			log_mesh.bottom_radius = 0.085
-			log_mesh.height = 0.95
-			log_mesh.radial_segments = 8
-
-			var log_offsets := [
-				Vector3(-0.45, 0.16, -0.2), Vector3(-0.25, 0.16, -0.2), Vector3(-0.05, 0.16, -0.2),
-				Vector3(-0.35, 0.31, -0.2), Vector3(-0.15, 0.31, -0.2),
-				Vector3(-0.25, 0.46, -0.2)
-			]
-			for offset in log_offsets:
-				var l := MeshInstance3D.new()
-				l.mesh = log_mesh
-				l.rotation.z = deg_to_rad(90)
-				l.position = offset
-				l.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				pile_root.add_child(l)
-
-		# --- 3. Chopping Stump with Axe (Чурбак с топором) ---
-		var stump_root := Node3D.new()
-		stump_root.name = "ChoppingStump"
-		stump_root.position = Vector3(0.9, 0.0, 1.05)
-		add_child(stump_root)
-
-		if ResourceLoader.exists(TREE_STUMP_MODEL):
-			var stump_scene: PackedScene = load(TREE_STUMP_MODEL)
-			var stump: Node3D = stump_scene.instantiate()
-			stump.scale = Vector3(0.55, 0.55, 0.55)
-			stump_root.add_child(stump)
-		else:
-			var stump_mesh := CylinderMesh.new()
-			stump_mesh.material = dark_wood
-			stump_mesh.top_radius = 0.28
-			stump_mesh.bottom_radius = 0.34
-			stump_mesh.height = 0.48
-			stump_mesh.radial_segments = 10
-			var sm := MeshInstance3D.new()
-			sm.mesh = stump_mesh
-			sm.position.y = 0.24
-			stump_root.add_child(sm)
-
-			var cap_mesh := CylinderMesh.new()
-			cap_mesh.material = cut_wood
-			cap_mesh.top_radius = 0.26
-			cap_mesh.bottom_radius = 0.26
-			cap_mesh.height = 0.02
-			var cap := MeshInstance3D.new()
-			cap.mesh = cap_mesh
-			cap.position.y = 0.48
-			stump_root.add_child(cap)
-
-		# Axe embedded in the stump
-		if ResourceLoader.exists(AXE_MODEL):
-			var axe_scene: PackedScene = load(AXE_MODEL)
-			var axe: Node3D = axe_scene.instantiate()
-			axe.name = "Axe"
-			axe.position = Vector3(0.0, 0.38, 0.0)
-			axe.rotation.x = deg_to_rad(22)
-			axe.rotation.y = deg_to_rad(45)
-			axe.scale = Vector3(0.48, 0.48, 0.48)
-			stump_root.add_child(axe)
-		else:
-			# Procedural woodcutter axe
-			var handle_mesh := CylinderMesh.new()
-			handle_mesh.material = dark_wood
-			handle_mesh.top_radius = 0.022
-			handle_mesh.bottom_radius = 0.025
-			handle_mesh.height = 0.65
-			var handle := MeshInstance3D.new()
-			handle.mesh = handle_mesh
-			handle.position = Vector3(0.08, 0.55, 0.0)
-			handle.rotation.z = deg_to_rad(-28)
-			stump_root.add_child(handle)
-
-			var axe_head := BoxMesh.new()
-			axe_head.material = metal_mat
-			axe_head.size = Vector3(0.04, 0.14, 0.2)
-			var ahm := MeshInstance3D.new()
-			ahm.mesh = axe_head
-			ahm.position = Vector3(0.0, 0.48, 0.0)
-			stump_root.add_child(ahm)
+		# Lodge, firewood stack, chopping block with axe and banner are one baked model
+		# (assets/blender/build_camp.py): one mesh, one draw call, the shared palette material.
+		var model: Node3D = (load(CAMP_MODEL) as PackedScene).instantiate()
+		model.name = "LogCanopy"
+		add_child(model)
 
 
 # ==============================================================================
 # Mercenary Camp
 # ==============================================================================
 class MercenaryCamp extends Node3D:
-	const HIRE_COST: int = 40
 	signal mercenary_hired(mercenary: Mercenary)
 	signal camp_tapped
+
+	## Prices, the limit of living knights and their stats (resources/mercenary.tres).
+	var config: MercenaryConfig = Mercenary.CONFIG
+	## Hires this battle (the dead count too): every hire makes the next one dearer.
+	var hired_total: int = 0
 
 	var game_state: GameState = null
 	var sim: Sim = null
@@ -1216,12 +962,32 @@ class MercenaryCamp extends Node3D:
 		visor.position = Vector3(0.0, 1.25, 0.07)
 		armor_stand.add_child(visor)
 
-	## Hires a mercenary for 40 gold and registers it with the simulation.
+	## Gold of the next hire (grows with every hire of the battle).
+	func hire_cost() -> int:
+		return config.hire_cost(hired_total)
+
+	## Mercenaries alive now (the dead leave `mercenaries` when they fall).
+	func alive_count() -> int:
+		var n: int = 0
+		for m: Mercenary in mercenaries:
+			if is_instance_valid(m) and m.is_alive():
+				n += 1
+		return n
+
+	## True while one more knight may be hired (below `config.max_alive`).
+	func can_hire_more() -> bool:
+		return alive_count() < config.max_alive
+
+	## Hires a mercenary for hire_cost() gold and registers it with the simulation.
+	## Null: the limit of living mercenaries is reached or the gold is short.
 	func hire_mercenary(gs: GameState = null, s: Sim = null) -> Mercenary:
 		var target_gs := gs if gs != null else game_state
 		var target_sim := s if s != null else sim
-		if target_gs != null and not target_gs.spend(Vector2i(HIRE_COST, 0)):
+		if not can_hire_more():
 			return null
+		if target_gs != null and not target_gs.spend(Vector2i(hire_cost(), 0)):
+			return null
+		hired_total += 1
 
 		var merc: Mercenary = null
 		if ResourceLoader.exists(MERCENARY_SCENE):
@@ -1234,6 +1000,8 @@ class MercenaryCamp extends Node3D:
 		merc.position = spawn_pos
 		merc.patrol_center = gate_position if gate_position != Vector3.ZERO else spawn_pos
 		merc.hero = hero
+		merc.config = config
+		merc.died.connect(_on_mercenary_died.bind(merc))
 		add_sibling(merc)
 		mercenaries.append(merc)
 
@@ -1242,3 +1010,6 @@ class MercenaryCamp extends Node3D:
 
 		mercenary_hired.emit(merc)
 		return merc
+
+	func _on_mercenary_died(merc: Mercenary) -> void:
+		mercenaries.erase(merc)

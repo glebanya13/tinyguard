@@ -17,8 +17,6 @@ const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const BODY_POINTS: Array[Vector2] = [
 	Vector2.ZERO, Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN
 ]
-## Simulation ticks between wood lot restocks: 60 seconds at 30 ticks/s.
-const RESTOCK_INTERVAL_TICKS: int = 60 * 30
 
 @export var trade: VillagerTrade = preload("res://resources/villager_trade.tres")
 ## Villagers per level (each costs a few draw calls).
@@ -50,11 +48,12 @@ var seed_value: int = 0
 var lots_sold: int = 0
 ## Lots bought this level (at most trade.buy_max_lots).
 var lots_bought: int = 0
-## Buying wood and hiring lumberjacks: on in the campaign and in co-op, off in the Record
-## Run and the Daily Challenge (their tables must stay comparable). Decided by the mode,
-## the same on every client; a replay takes it from its journal header.
+## Buying wood and hiring lumberjacks: on in the campaign, co-op and the Daily Challenge, off
+## in the Record Run (its all-time table must stay comparable). Decided by the mode, the same
+## on every client; a replay takes it from its journal header.
 var wood_economy: bool = true
-## Restocking of bought lots (+1 lot every 60s); disabled for legacy replays (< sim_version 3).
+## Restocking of bought lots (+1 lot every trade.buy_restock_seconds); off for legacy replays
+## (< sim_version 3).
 var restock_enabled: bool = true
 
 var _villagers: Array[Villager] = []
@@ -285,11 +284,11 @@ func restock(lots: int = 1) -> bool:
 
 
 ## One simulation step: every lumberjack (by index) earns wood, a whole piece at a time;
-## periodically restocks wood lots (+1 lot every 60 seconds).
+## periodically restocks wood lots (+1 lot every trade.buy_restock_seconds).
 func sim_step() -> void:
 	if wood_economy and restock_enabled and buy_lots_left() < trade.buy_max_lots:
 		_restock_ticks += 1
-		if _restock_ticks >= RESTOCK_INTERVAL_TICKS:
+		if _restock_ticks >= Sim.ticks(trade.buy_restock_seconds):
 			_restock_ticks = 0
 			restock(1)
 	else:

@@ -10,6 +10,7 @@
 | `build_chupa.py` | `slime*.glb` (имена файлов прежние) — чупакабры: обычная, быстрая, громила, нетопырь, щитовик, двойняшка, чупачонок, шаман, король; анимация `idle` |
 | `build_villager.py` | `villager.glb` — житель (покупает дерево), анимации `idle`, `walk`, `wave` |
 | `build_castle.py` | `castle.glb`, `spawn_portal.glb` |
+| `build_camp.py` | `camp_lumber.glb` — лагерь лесорубов (навес, поленница, колода с топором, знамя), один меш |
 | `build_environment.py` | `tree_round`, `tree_pine`, `rock_a`, `rock_b`, `bush`, `flowers` |
 | `build_terrain.py` | `level_01_terrain.glb` (земля, тропа, мелкий декор), `level_01_decor.glb` (деревья, кусты) |
 | `tg_common.py` | палитра, примитивы, AO, анимации, экспорт, настройки импорта Godot |
@@ -33,7 +34,7 @@ cd ~/путь/к/bimbleguard
   --python assets/blender/build_all.py
 ```
 
-Имена наборов: `hero`, `tower`, `chupa`, `villager`, `castle`, `environment`, `terrain`.
+Имена наборов: `hero`, `tower`, `chupa`, `villager`, `castle`, `camp`, `environment`, `terrain`.
 `--blend` сохраняет сцены для осмотра в `assets/blender/out/` (в `.gitignore`).
 
 После сборки откройте проект в Godot: он переимпортирует изменённые `.glb`.

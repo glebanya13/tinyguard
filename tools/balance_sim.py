@@ -21,7 +21,11 @@ Difficulty (--diff 0|1|2: Normal / Hard / Nightmare, multipliers from "difficult
 resources/balance.json) and the Record Run (--record: free mode, every wave harder, rules from
 "record" in the same file; the result is the wave the castle falls on) are played as well.
 
-Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [--no-wood-economy] [--no-castle] [level_id ...]
+Usage: python3 tools/balance_sim.py [--diff N] [--record] [--table] [--sanity] [--no-wood-economy] [--no-castle]
+       [--econ] [--chop X] [--order a,b,...] [level_id ...]
+  --econ   per battle: gold and wood earned and left, seconds the next purchase waited for gold / wood
+  --chop X the hero chops X wood a second (default 1.5: the bot chops between every fight; a human ~0.6)
+  --order  build only these towers, e.g. --order archer,cannon (is every tower needed?)
   --no-wood-economy  the campaign without buying wood and lumberjacks (the numbers from before
                      docs/ECONOMY_V2.md stage 1)
   --no-castle  the players do not upgrade the castle (the numbers from before the feature)
@@ -41,6 +45,14 @@ DT = 0.1
 # Perk "Меткие стрелки" etc. are not counted: a fresh player.
 TOWER_BONUS = 1.0
 WOOD_PER_SECOND = 1.5  # the hero chops 3 wood a swing between fights
+# `--chop X`: a human hero chops less (he fights, walks, builds): X wood a second instead.
+if "--chop" in sys.argv:
+    WOOD_PER_SECOND = float(sys.argv[sys.argv.index("--chop") + 1])
+# `--econ`: after every battle print what the gold and wood went into and how long the next
+# purchase waited for gold or for wood (which resource is the bottleneck).
+ECON = "--econ" in sys.argv
+# `--order a,b,..`: build only these towers in this order (e.g. archer,cannon): is a tower needed?
+ORDER = sys.argv[sys.argv.index("--order") + 1].split(",") if "--order" in sys.argv else None
 # Sword per forge level (scripts/hero.gd: sword_damage_levels, sword_upgrade_*); only the "skilled" player forges.
 SWORD_DAMAGE = [14.0, 20.0, 28.0, 38.0]
 SWORD_GOLD = [40, 90, 160]
@@ -65,6 +77,13 @@ REC = _BALANCE["record"]
 RECORD_WAVE_LIMIT = 70  # the simulation stops here ("nobody gets further")
 BOSS_GROWTH_EXPONENT = _RULES["boss_growth_exponent"]
 BOSS_PER_WAVES = _RULES["boss_per_waves"]
+TAPER = _RULES.get("reward_taper")  # scripts/wave_plan.gd reward_taper()
+
+
+def reward_taper(wave: int) -> float:
+    if not TAPER or wave <= TAPER["from"]:
+        return 1.0
+    return max(TAPER["floor"], 1.0 - TAPER["per_wave"] * (wave - TAPER["from"]))
 INTERVAL_DECAY = 0.97
 
 
@@ -96,14 +115,20 @@ CASTLE = json.loads((ROOT / "resources/castle_upgrades.json").read_text())["leve
 CASTLE_ON = "--no-castle" not in sys.argv
 
 
+PIERCING = "shock"  # scripts/enemy.gd ARMOR_PIERCING: lightning ignores armor
 TOWERS = {k: tres(f"resources/towers/{k}.tres") for k in ("archer", "cannon", "frost", "lightning")}
 ENEMIES = {k: tres(f"resources/enemies/{k}.tres")
            for k in ("slime", "slime_fast", "slime_tank", "slime_king", "slime_bat", "slime_shield",
                      "slime_splitter", "slime_mini", "slime_healer", "stone_golem")}
 # [level key, enemy, every Nth, offset] from resources/balance.json
 MIX = [tuple(row) for row in _RULES["mix"]]
-BUILD_ORDER = ["archer", "archer", "cannon", "frost", "lightning", "archer", "cannon", "lightning", "frost",
+# Cheap archers cover the paths first, then the specialists come (as players do); before 2026-10-23
+# the order was archer, archer, cannon, frost, lightning, archer, cannon, lightning, frost, archer,
+# cannon, lightning (pass it with --order to compare with old numbers).
+BUILD_ORDER = ["archer", "archer", "archer", "cannon", "lightning", "archer", "frost", "cannon", "lightning",
                "archer", "cannon", "lightning"]
+if ORDER:
+    BUILD_ORDER = ORDER
 NEVER = 100000
 # The balanced player keeps this many anti-air towers within this radius of the castle.
 AIR_GUARD_TOWERS = 3
@@ -310,6 +335,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     hero = {"kind": "hero", "level": 0, "x": hx, "z": hz, "cd": 0.0, "whirl": 0.0}
 
     hero_goal = [hx, hz]
+    econ = {"gold_in": 0.0, "wood_in": 0.0, "wait_gold": 0.0, "wait_wood": 0.0, "wood_bought": 0, "gold_for_wood": 0}
 
     def steer_hero(enemies: list) -> None:
         """The player keeps the hero on the approach of the enemy closest to the castle (walking
@@ -384,6 +410,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         gold -= cost
         wood += lots * LOT_WOOD
         bought += lots
+        econ["wood_bought"] += lots * LOT_WOOD
+        econ["gold_for_wood"] += cost
         return wood >= need_wood
 
     def castle_due() -> bool:
@@ -394,6 +422,18 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         if len(towers) < slot_cap or min(tw["level"] for tw in towers) < min(castle // 2 + 1, 2):
             return False
         return gold >= CASTLE[castle]["gold"] and wood >= CASTLE[castle]["wood"]
+
+    def wanted():
+        """(gold, wood) of the next tower or upgrade the player saves up for, or None."""
+        if len(towers) < slot_cap:
+            dd = TOWERS[BUILD_ORDER[len(towers) % len(BUILD_ORDER)]]
+            return dd["cost_gold"], dd["cost_wood"]
+        ups = [tw for tw in towers if tw["level"] < 2]
+        if not ups:
+            return None
+        tw = min(ups, key=lambda tw: tw["level"])
+        dd = TOWERS[tw["kind"]]
+        return dd["upgrade_gold"][tw["level"]], dd["upgrade_wood"][tw["level"]]
 
     def shop():
         nonlocal gold, wood, lives, lives_cap, castle
@@ -431,6 +471,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                 if gold >= d["cost_gold"] and (wood >= d["cost_wood"] or top_up(d["cost_gold"], d["cost_wood"])):
                     gold -= d["cost_gold"]
                     wood -= d["cost_wood"]
+                    econ.setdefault("spent", {})[kind] = econ.get("spent", {}).get(kind, 0) + d["cost_gold"]
                     x, z = pick_slot()
                     free_slots.remove([x, z] if [x, z] in free_slots else (x, z))
                     towers.append({"kind": kind, "level": 0, "x": x, "z": z, "cd": 0.0})
@@ -443,13 +484,14 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                     if gold >= g and (wood >= wd or top_up(g, wd)):
                         gold -= g
                         wood -= wd
+                        econ.setdefault("spent", {})[tw["kind"]] = econ.get("spent", {}).get(tw["kind"], 0) + g
                         tw["level"] += 1
                         changed = True
                         break
 
     spawned = {}  # kind -> enemies of that kind so far: picks the next path
 
-    def add_enemy(enemies, kind, mult, lane=None, extra=None, d=0.0, route=None):
+    def add_enemy(enemies, kind, mult, lane=None, extra=None, d=0.0, route=None, born=None):
         e = ENEMIES[kind]
         if route is None:
             if lane is None:
@@ -460,7 +502,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         else:
             lane_id = None
         rmult = (extra or {}).get("elite", 1.0)
-        enemies.append({"kind": kind, "hp": e["health"] * mult, "max": e["health"] * mult, "mult": mult, "d": d,
+        enemies.append({"kind": kind, "wave": born or wave, "hp": e["health"] * mult, "max": e["health"] * mult, "mult": mult, "d": d,
                         "slow": 1.0, "slow_t": 0.0, "heal_t": 0.0, "route": route, "rmult": rmult, "lane": lane_id,
                         "pos": route.at(d)})
 
@@ -473,12 +515,18 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     while True:
         t += DT
         wood += (WOOD_PER_SECOND + hired * HIRE_WOOD_PER_SECOND) * DT
+        econ["wood_in"] += (WOOD_PER_SECOND + hired * HIRE_WOOD_PER_SECOND) * DT
         shop()
+        want = wanted()
+        if want and (wave < w["count"] or record):
+            econ["wait_gold"] += DT if gold < want[0] else 0.0
+            econ["wait_wood"] += DT if wood < want[1] else 0.0
         steer_hero(enemies)
         if (record or wave < w["count"]) and t >= next_wave_at:
             wave += 1
             queue = wave_spawns(w, wave, record, hp_scale, count_scale)
-            spawners.append({"queue": queue, "interval": window_for(w, wave, record) / max(len(queue), 1), "left": 0.0})
+            spawners.append({"queue": queue, "interval": window_for(w, wave, record) / max(len(queue), 1), "left": 0.0,
+                             "wave": wave})
             next_wave_at = t + duration
             if not record and (wave % w["boss_every"] == 0 or wave == w["count"]):
                 levels = sum(tw["level"] + 1 for tw in towers)
@@ -486,7 +534,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         for sp in list(spawners):
             sp["left"] -= DT
             if sp["left"] <= 0:
-                add_enemy(enemies, *sp["queue"].pop(0))
+                kind_, hp_, lane_, extra_ = sp["queue"].pop(0)
+                add_enemy(enemies, kind_, hp_, lane_, extra_, born=sp["wave"])
                 sp["left"] += sp["interval"]
                 if not sp["queue"]:
                     spawners.remove(sp)
@@ -550,16 +599,21 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                     hit.append(min(rest, key=lambda en: math.dist(en["pos"], hit[-1]["pos"])))
             else:
                 hit = [target]
+            shots = econ.setdefault("shots", {}).setdefault(tw["kind"], [0, 0, 0.0])
+            shots[0] += 1
+            shots[1] += len(hit)
             for k, en in enumerate(hit):
                 e = ENEMIES[en["kind"]]
-                dmg = d["damage_levels"][lvl] * (0.8 ** k if chain else 1.0) * (1.0 if tw["kind"] == "hero" else TOWER_BONUS)
+                falloff = d.get("chain_falloff", 0.8) ** k if chain else 1.0
+                dmg = d["damage_levels"][lvl] * falloff * (1.0 if tw["kind"] == "hero" else TOWER_BONUS)
                 if chain and en["slow"] < 1.0:
                     dmg *= d.get("chilled_bonus", 1.0)
                 if d.get("damage_kind") == "arrow":
                     dmg *= e.get("arrow_damage_mult", 1.0)
-                if e.get("armor", 0):
+                if e.get("armor", 0) and d.get("damage_kind") != PIERCING:
                     dmg = max(dmg - e["armor"], 1.0)
                 en["hp"] -= dmg
+                shots[2] += dmg
                 if d["slow_levels"][lvl] < 1.0:
                     en["slow"] = min(en["slow"], d["slow_levels"][lvl])
                     en["slow_t"] = d.get("slow_duration", 1.6)
@@ -578,14 +632,28 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
                     hero["whirl"] = 0.2
         for en in [en for en in enemies if en["hp"] <= 0]:
             e = ENEMIES[en["kind"]]
-            gold += rnd(rnd(e["reward"] * en["rmult"]) * reward_mult)  # roundi() twice, as in wave_manager.gd
+            got = rnd(rnd(e["reward"] * en["rmult"]) * reward_mult)  # roundi() twice, as in wave_manager.gd
+            if reward_taper(en["wave"]) < 1.0:
+                got = max(rnd(got * reward_taper(en["wave"])), 1)
+            gold += got
+            econ["gold_in"] += got
             enemies.remove(en)
             if e.get("split_count"):
                 for k in range(int(e["split_count"])):
-                    add_enemy(enemies, "slime_mini", en["mult"], None, None, max(en["d"] - 0.35 * k, 0.0), en["route"])
+                    add_enemy(enemies, "slime_mini", en["mult"], None, None, max(en["d"] - 0.35 * k, 0.0), en["route"],
+                              en["wave"])
         if not record and wave >= w["count"] and not spawners and not enemies:
             break
     play.last_wave = wave  # the wave the battle ended on (for tuning scripts)
+    play.econ = econ
+    if ECON:
+        print(f"   {lv['id']} [{strategy}] золото +{econ['gold_in']:.0f} (осталось {gold:.0f}), дерево +{econ['wood_in']:.0f}"
+              f" (осталось {wood:.0f}); ждал золота {econ['wait_gold']:.0f} с, дерева {econ['wait_wood']:.0f} с;"
+              f" куплено дерева {econ['wood_bought']} за {econ['gold_for_wood']} з, бой {t:.0f} с")
+        spent = econ.get("spent", {})
+        print("      попаданий за выстрел / урон / урон на 1 золото: " + ", ".join(
+            f"{k} {v[1] / max(v[0], 1):.2f} / {v[2]:.0f} / {v[2] / spent[k]:.0f}" if k in spent else
+            f"{k} {v[1] / max(v[0], 1):.2f} / {v[2]:.0f}" for k, v in sorted(econ.get("shots", {}).items())))
     if record:
         reached = wave if lives <= 0 else RECORD_WAVE_LIMIT
         if verbose:
@@ -605,7 +673,7 @@ def main() -> None:
     record = "--record" in args
     table = "--table" in args or "--sanity" in args
     strategies = tuple(SANITY) if "--sanity" in args else STRATEGIES
-    only = {int(a) for a in args if a.isdigit() and args[args.index(a) - 1] != "--diff"}
+    only = {int(a) for i, a in enumerate(args) if a.isdigit() and (i == 0 or args[i - 1] not in ("--diff", "--chop"))}
     for lv in levels:
         if only and lv["id"] not in only:
             continue
