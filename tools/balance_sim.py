@@ -357,6 +357,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
             hero["z"] += (gz - hero["z"]) / dist * step
     t = 0.0
     report = []
+    maxed_at = None  # the wave on which every tower the strategy builds is at the top level
 
     lanes_cfg = w.get("lanes", {}).get("patterns", [])
     free_slots = list(slots)
@@ -517,6 +518,8 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         wood += (WOOD_PER_SECOND + hired * HIRE_WOOD_PER_SECOND) * DT
         econ["wood_in"] += (WOOD_PER_SECOND + hired * HIRE_WOOD_PER_SECOND) * DT
         shop()
+        if maxed_at is None and towers and len(towers) >= slot_cap and all(tw["level"] >= 2 for tw in towers):
+            maxed_at = max(wave, 1)
         want = wanted()
         if want and (wave < w["count"] or record):
             econ["wait_gold"] += DT if gold < want[0] else 0.0
@@ -645,6 +648,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
         if not record and wave >= w["count"] and not spawners and not enemies:
             break
     play.last_wave = wave  # the wave the battle ended on (for tuning scripts)
+    play.maxed_at = maxed_at
     play.econ = econ
     if ECON:
         print(f"   {lv['id']} [{strategy}] золото +{econ['gold_in']:.0f} (осталось {gold:.0f}), дерево +{econ['wood_in']:.0f}"
@@ -662,6 +666,7 @@ def play(lv: dict, verbose: bool = True, strategy: str = "balanced", diff: int =
     if verbose:
         lost = ", ".join(f"{k} {v}" for k, v in sorted(leaks.items(), key=lambda kv: -kv[1]))
         print(f"{lv['id']}. {lv['name']} ({len(paths)} пути): " + "; ".join(report)
+              + (f" | всё докачано на волне {maxed_at}/{w['count']}" if maxed_at else "")
               + f" | итог: жизни {max(lives, 0)}/{lives_start}" + (f", замок {castle}/{len(CASTLE)}" if castle else "") + (f" | прорвались: {lost}" if lost else ""))
     return max(lives, 0)
 

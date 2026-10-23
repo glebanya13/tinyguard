@@ -2318,7 +2318,7 @@
         "lives": 12
       },
       "waves": {
-        "count": 30,
+        "count": 22,
         "first_delay": 30,
         "boss_every": 10,
         "boss_last": true,
@@ -2326,7 +2326,7 @@
         "count_base": 10,
         "count_step": 1.66,
         "hp_mult": 2.492,
-        "hp_growth": 1.0266,
+        "hp_growth": 1.0275,
         "fast_from": 3,
         "tank_from": 6,
         "bat_from": 4,
@@ -3180,15 +3180,15 @@
         "lives": 12
       },
       "waves": {
-        "count": 35,
+        "count": 26,
         "first_delay": 30,
         "boss_every": 10,
         "boss_last": true,
-        "boss_hp_mult": 4.936,
+        "boss_hp_mult": 4.2,
         "count_base": 8,
         "count_step": 1.85,
         "hp_mult": 0.538,
-        "hp_growth": 1.026,
+        "hp_growth": 1.0268,
         "fast_from": 3,
         "tank_from": 5,
         "bat_from": 6,
@@ -4026,7 +4026,7 @@
         "lives": 10
       },
       "waves": {
-        "count": 40,
+        "count": 30,
         "first_delay": 30,
         "boss_every": 10,
         "boss_last": true,
@@ -4034,7 +4034,7 @@
         "count_base": 8,
         "count_step": 1.14,
         "hp_mult": 1.662,
-        "hp_growth": 1.0345,
+        "hp_growth": 1.0356,
         "fast_from": 3,
         "tank_from": 5,
         "bat_from": 6,
