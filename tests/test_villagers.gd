@@ -88,10 +88,13 @@ func _run() -> void:
 	await process_frame
 	check(main.cards.trade_with == v0, "trade card opens next to a villager")
 	check(not v0.is_walking(), "villager stops to trade")
-	gs.add_wood(trade.wood_per_lot * 3)
+	gs.add_wood(trade.wood_per_lot * (trade.step_lots() + 2))
 	gold = gs.gold
 	main.cards.on_command_pressed(&"trade_lot")
-	check(gs.wood == trade.wood_per_lot * 2 and gs.gold > gold, "card button sells one lot")
+	check(
+		gs.wood == trade.wood_per_lot * 2 and gs.gold > gold,
+		"card button sells one step of wood (%d)" % trade.sell_step_wood
+	)
 	main.cards.on_command_pressed(&"trade_all")
 	check(gs.wood == 0, "card button sells everything")
 	main.cards.on_command_pressed(&"cancel")

@@ -227,6 +227,10 @@ static func trade(villagers: Villagers, game_state: GameState, who: Villager = n
 	var lot: int = villagers.trade.wood_per_lot
 	var lots: int = villagers.lots_affordable()
 	var price: int = villagers.lot_price()
+	# "Sell" takes a step of wood (50) at once, or what the hero has when it is less.
+	var step: int = (
+		mini(villagers.trade.step_lots(), lots) if lots > 0 else villagers.trade.step_lots()
+	)
 	var index: int = villagers.index_of(who) if who != null else -1
 	var hired_here: bool = villagers.is_hired(index)
 	var info := {
@@ -239,11 +243,12 @@ static func trade(villagers: Villagers, game_state: GameState, who: Villager = n
 		{
 			"id": &"trade_lot",
 			"icon": VILLAGER_ICON,
-			"caption": TranslationServer.translate("CARD_SELL_NAME"),
-			"gold": price,
+			"caption": TranslationServer.translate("CARD_SELL_STEP_NAME") % (step * lot),
+			"gold": villagers.quote(step),
 			"gain": true,
 			"enabled": lots > 0,
-			"tooltip": TranslationServer.translate("CARD_TRADE_LOT_TIP") % [lot, price]
+			"tooltip":
+			TranslationServer.translate("CARD_TRADE_LOT_TIP") % [step * lot, villagers.quote(step)]
 		},
 		{
 			"id": &"trade_all",

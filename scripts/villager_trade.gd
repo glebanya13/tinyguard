@@ -9,6 +9,9 @@ extends Resource
 @export var start_gold: float = 6.0
 @export var price_decay: float = 0.93
 @export var min_gold: int = 2
+## The "Sell" button sells this much wood at once (whole lots; less when the hero has less):
+## two lots for a few coins each were too slow (playtest 2026-10-24).
+@export var sell_step_wood: int = 50
 
 @export_group("Buying wood")
 ## The villager sells wood back in the same lots: the first lot costs `buy_start_gold`,
@@ -25,6 +28,11 @@ extends Resource
 @export var hire_gold: int = 25
 @export var hire_max: int = 2
 @export var hire_wood_per_minute: int = 5
+
+
+## Lots the "Sell" button sells at once.
+func step_lots() -> int:
+	return maxi(1, int(sell_step_wood / maxi(wood_per_lot, 1)))
 
 
 ## Gold for one lot after `sold` lots were already sold this level.
