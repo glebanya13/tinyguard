@@ -47,6 +47,6 @@ jobs:
       - name: Validate project structure
         run: python3 tools/validate_project.py
       - name: Import resources
-        run: "$GODOT" --headless --path . --import
+        run: '"$GODOT" --headless --path . --import'
       - name: Tests (130 launches, ~15 min)
         run: bash tests/run_all.sh "$GODOT"
