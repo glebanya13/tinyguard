@@ -1,6 +1,6 @@
 # Roadmap — Bimbleguard
 
-Статус на 2026-10-24 (версия 0.6.2, код 9). Даты не обещаем: этапы идут по одному, каждый заканчивается
+Статус на 2026-10-26 (версия 0.6.3, код 10, выкачена в Google Play). Даты не обещаем: этапы идут по одному, каждый заканчивается
 запускаемой версией, проверенной в Godot (`tests/run_all.sh`). Подробности
 передачи работы — `docs/HANDOFF.md`, замечания ревью — `docs/CODE_REVIEW.md`.
 
@@ -64,7 +64,8 @@ Gradle-сборка подписанного AAB (0.6.2, код 9) и Crashlytic
 непроверенного кода.
 
 ### Путь A — «выпустить и узнать»
-- [x] Собрать APK и AAB (export templates, Gradle-шаблон). Поставить на телефон и пройти ручной список из `docs/AUDIT_2026-10-23.md` §6 — **не сделано**.
+- [x] Собрать APK и AAB (export templates, Gradle-шаблон), поставить на телефон, пройти ручной список
+      из `docs/AUDIT_2026-10-23.md` §6 и выкачасть 0.6.3 (код 10) в Play — **сделано 2026-10-26**.
 - [ ] Измерить FPS и draw calls на реальном устройстве (`tools/measure_draw_calls.gd`),
       при необходимости урезать (цель < 100 draw calls, 60 FPS).
 - [ ] Живая проверка Firebase: вход, ник, рекорды, удаление аккаунта, почта.
@@ -84,10 +85,15 @@ Gradle-сборка подписанного AAB (0.6.2, код 9) и Crashlytic
 - [ ] Рекорды кооператива и проверка реплеем (анти-чит: сейчас только нижняя граница времени).
 
 ### Путь D — технический долг (в работе)
+- [x] CI на GitHub Actions (2026-10-26): gdlint + gdformat, `validate_project.py`, импорт и полный
+      `tests/run_all.sh` на Godot 4.7.2 (`.github/workflows/ci.yml`).
+- [x] Инструменты релиза (2026-10-26): `tools/bump_version.py` (версия в 4 местах), `tools/build_aab.sh`
+      (шаблон + экспорт + проверка отпечатка одной командой).
 - [x] `scripts/main.gd` разбит по ответственности: `LevelBuilder`, `CardController`,
       `GuideHints`, `BattleEnd`, `CoopHooks`; правило gdlint `max-file-lines` включено.
 - [x] Числа баланса из кода в данные (ревью M3).
 - [x] Туториал, подсказки, тап по деревьям — без `get_nodes_in_group` (реестры `Sim`).
+- [x] Флак `test_villagers` стабилизирован (2026-10-26): ожидание условия вместо одного кадра.
 - [ ] Утечки при выходе тестов (`AudioStreamPlaybackWAV`): причина — headless-аудио, в игре не воспроизводится; см. `docs/CODE_REVIEW.md` (M2).
 - [x] Размер репозитория: меры и варианты — `docs/REPO_SIZE.md`; `tools/slim_repo.sh` (dry-run). Сама очистка истории — по решению владельца.
 - [x] `Online` разбит на сервисы за фасадом (`OnlineSession/Sync/Nicknames/Accounts/Records/Daily/Coop`), `AuthErrors`, `BattleSetup`.
