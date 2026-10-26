@@ -323,15 +323,23 @@ def generated_layout(rng):
         if not free_spot(x, z, 1.0) or not spaced(x, z, 1.3):
             continue
         kind = rng.choice(["pine", "pine", "round", "bush"])
-        tall.append((kind, x, z, rng.uniform(0, 360), rng.uniform(0.85, 1.2)))
+        # Bushes are low and small (the knight walks through them, see build_level); the draws of
+        # the random stream stay the same, so nothing else moves.
+        size = rng.uniform(0.85, 1.2)
+        if kind == "bush":
+            size *= 0.65
+        tall.append((kind, x, z, rng.uniform(0, 360), size))
         taken.append((x, z))
     tries = 0
     while len(small) < SMALL_PROPS and tries < 12000:
         tries += 1
         x, z = rng.uniform(-PLAY_X + 0.5, PLAY_X - 0.5), rng.uniform(-PLAY_Z + 0.5, PLAY_Z - 0.5)
         if free_spot(x, z, 0.8):
-            small.append((rng.choice(["flowers", "rock_a", "rock_b"]), x, z, rng.uniform(0, 360),
-                          rng.uniform(0.8, 1.2)))
+            kind = rng.choice(["flowers", "rock_a", "rock_b"])
+            yaw, size = rng.uniform(0, 360), rng.uniform(0.8, 1.2)
+            if kind != "flowers":
+                size *= 0.6  # pebbles the knight steps over, not stones he clips through
+            small.append((kind, x, z, yaw, size))
     # Forest ring: dense next to the walls, sparser further out.
     ring = []
     gx = -PLAY_X - 13.0
@@ -405,12 +413,11 @@ def build_level(lv: dict) -> list:
         marker.rotation_euler = (0, 0, math.radians(yaw))
         marker.scale = (s, s, s)
         tg.parent(marker, decor)
-    # Bushes inside the play area block the hero (chop trees have their own bodies).
-    cols = [tg.collider_cylinder(f"trunk{i}", 0.28 if kind in TREES else 0.32, 1.2, b(x, z, 0))
-            for i, (kind, x, z, _, s) in enumerate(gen_tall)]
-    if cols:
-        for col in cols:  # separate: one convex cylinder per trunk
-            tg.parent(col, decor)
+    # Bushes are low and the knight walks through them (playtest 2026-10-24: he kept snagging on
+    # bushes and stones), so they have no bodies; a Bush_<i> marker tells Godot where they stand
+    # (the groves of choppable trees keep away from them). Chop trees have their own bodies.
+    for i, (kind, x, z, _, s) in enumerate(gen_tall):
+        tg.parent(tg.empty(f"Bush_{i}", b(x, z, 0)), decor)
     chunks = [c for c in decor.children if c.type == "MESH" and not tg.is_collider(c)] + list(forest.children)
 
     def tint(co):

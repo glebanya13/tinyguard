@@ -237,7 +237,10 @@ def build_cannon_turret():
     tg.pivot(turret, (0, 0, TOP))
     barrel = tg.lathe("barrel", [(0.085, -0.12), (0.095, -0.08), (0.075, 0.0), (0.065, 0.2), (0.075, 0.24),
                                  (0.07, 0.27)], "iron", steps=12)
-    barrel.rotation_euler = (math.radians(-90 + 10), 0, 0)  # points -Y, tilted up
+    # The lathe's axis (+Z) turned +80 deg about X points -Y (forward, the muzzle: the bands and the
+    # muzzle ring below sit there) and 10 deg up. It was -80: the barrel pointed back over the
+    # breech and the bands and the muzzle ring hung in the air in front (playtest 2026-10-24).
+    barrel.rotation_euler = (math.radians(90 - 10), 0, 0)
     tg.apply_all_transforms(barrel)
     bands = [
         tg.torus("band0", 0.080, 0.010, (0, 0.003, 0.001), "gold", seg=12, minor_seg=4, rot=(80, 0, 0)),
