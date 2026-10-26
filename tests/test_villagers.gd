@@ -13,6 +13,16 @@ func check(c: bool, w: String) -> void:
 		fails += 1
 
 
+## Polls the condition once a frame: the card and the strolls move in _process, so a check one
+## frame after a teleport raced it (the known flak of this test, AGENTS.md trap 6).
+func wait_until(cond: Callable, frames: int = 30) -> bool:
+	for i in frames:
+		if cond.call():
+			return true
+		await process_frame
+	return cond.call()
+
+
 func _initialize() -> void:
 	LevelCatalog.save_path = "user://test_villagers.cfg"
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LevelCatalog.save_path))
@@ -84,9 +94,10 @@ func _run() -> void:
 		if other != v0:
 			other.global_position += Vector3(200.0, 0.0, 200.0)
 	hero.global_position = v0.global_position + Vector3(0.8, 0.0, 0.0)
-	await process_frame
-	await process_frame
-	check(main.cards.trade_with == v0, "trade card opens next to a villager")
+	check(
+		await wait_until(func() -> bool: return main.cards.trade_with == v0),
+		"trade card opens next to a villager"
+	)
 	check(not v0.is_walking(), "villager stops to trade")
 	gs.add_wood(trade.wood_per_lot * (trade.step_lots() + 2))
 	gold = gs.gold
@@ -98,16 +109,22 @@ func _run() -> void:
 	main.cards.on_command_pressed(&"trade_all")
 	check(gs.wood == 0, "card button sells everything")
 	main.cards.on_command_pressed(&"cancel")
-	await process_frame
-	check(main.cards.trade_with == null, "closed card stays closed while the hero stands there")
+	check(
+		await wait_until(func() -> bool: return main.cards.trade_with == null),
+		"closed card stays closed while the hero stands there"
+	)
 	hero.global_position = v0.global_position + Vector3(6.0, 0.0, 0.0)
 	await process_frame
 	hero.global_position = v0.global_position + Vector3(0.8, 0.0, 0.0)
-	await process_frame
-	check(main.cards.trade_with == v0, "card opens again after walking away and back")
+	check(
+		await wait_until(func() -> bool: return main.cards.trade_with == v0),
+		"card opens again after walking away and back"
+	)
 	hero.global_position = v0.global_position + Vector3(6.0, 0.0, 0.0)
-	await process_frame
-	check(main.cards.trade_with != v0, "card closes when the hero walks away")
+	check(
+		await wait_until(func() -> bool: return main.cards.trade_with != v0),
+		"card closes when the hero walks away"
+	)
 
 	# Enemies ignore villagers: the hero's targets never include them.
 	check(not v0.is_in_group(Enemy.GROUP), "villagers are not enemies")
