@@ -115,7 +115,10 @@ func build(
 	)
 
 	if decor_node != null:
-		_plant_trees(decor_node, outposts)
+		var camps: Array[Vector2] = []
+		for spot: Vector3 in camp_positions.values():
+			camps.append(Vector2(spot.x, spot.z))
+		_plant_trees(decor_node, outposts, camps)
 
 	wave_manager.build_air_paths(LevelCatalog.air_routes(level), _root, PATH_HEIGHT)
 
@@ -127,7 +130,9 @@ func build(
 	mercenary_camp.position = camp_positions["mercenary"]
 	mercenary_camp.sim = _sim
 	mercenary_camp.hero = hero
-	mercenary_camp.gate_position = camp_positions["mercenary"] + Vector3(0.0, 0.0, 1.5)
+	mercenary_camp.gate_position = (
+		camp_positions["mercenary"] + Vector3(0.0, 0.0, CampStructures.MercenaryCamp.GATE_OFFSET)
+	)
 	_root.add_child(mercenary_camp)
 
 	for point: Array in level["slots"]:
@@ -142,27 +147,46 @@ func build(
 	camera.snap()
 
 
-## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees,
-## and plants thicket grove trees around each outpost.
-## Ensures no tree ever spawns within 3.0m of lumberjack_camp or mercenary_camp.
+## Replaces the Chop_<kind>_<i> markers of the decor model with choppable trees, each with a
+## few neighbours (TreeClusters: groves of 2..5 away from `camps`), and plants thicket grove
+## trees around each outpost.
 ## Standing trees are drawn by one Grove (MultiMesh) to save draw calls.
-func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
+func _plant_trees(
+	decor: Node3D, active_outposts: Array[Outpost] = [], camps: Array[Vector2] = []
+) -> void:
 	var grove := Grove.new()
 	grove.name = "Grove"
 	_root.add_child(grove)
 	var trees: Array[WoodTree] = []
 	var biome: String = _level.get("biome", "meadow")
-	for marker: Node in decor.find_children("Chop_*", "Node3D", true, false):
-		var spot := marker as Node3D
-		var tree := TREE_SCENE.instantiate() as WoodTree
+	var markers: Array[Node] = decor.find_children("Chop_*", "Node3D", true, false)
+	var spots: Array[Vector2] = []
+	for marker: Node in markers:
+		var at: Vector3 = (marker as Node3D).global_position
+		spots.append(Vector2(at.x, at.z))
+	var blocked: Array[Vector2] = []
+	# Bushes: Bush_<i> markers (older level models: their trunk bodies).
+	var bushes: Array[Node] = decor.find_children("Bush_*", "Node3D", true, false)
+	bushes.append_array(decor.find_children("*", "StaticBody3D", true, false))
+	for bush: Node in bushes:
+		var at: Vector3 = (bush as Node3D).global_position
+		blocked.append(Vector2(at.x, at.z))
+	for outpost: Outpost in active_outposts:
+		blocked.append_array(LevelCatalog.outpost_thickets(_level, outpost.lane))
+	var groves: Array = TreeClusters.neighbours(_level, spots, blocked, camps)
+	for i in markers.size():
+		var spot := markers[i] as Node3D
 		var kind: String = String(spot.name).get_slice("_", 1)
-		tree.variant = StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
-		tree.model_scale = spot.scale.x
-		tree.grove = grove
-		tree.sim = _sim
-		tree.position = spot.global_position
-		_root.add_child(tree)
-		trees.append(tree)
+		var variant := StringName(kind if biome == "meadow" else "%s_%s" % [kind, biome])
+		trees.append(_plant(variant, spot.scale.x, spot.global_position, grove))
+		# The neighbours are pines (190 triangles against 1184 of a round tree): a grove adds
+		# little to the frame.
+		var neighbour := StringName("pine" if biome == "meadow" else "pine_%s" % biome)
+		for k in (groves[i] as Array).size():
+			var at: Vector2 = groves[i][k]
+			# A little smaller and of its own size, so a grove does not look stamped.
+			var size: float = spot.scale.x * (0.82 + 0.06 * float((i + k) % 4))
+			trees.append(_plant(neighbour, size, Vector3(at.x, 0.0, at.y), grove))
 		spot.queue_free()
 
 	# Thicket grove trees around each outpost (MultiMesh, <= 24 trees per side)
@@ -182,6 +206,17 @@ func _plant_trees(decor: Node3D, active_outposts: Array[Outpost] = []) -> void:
 			trees.append(tree)
 
 	grove.build(trees)
+
+
+func _plant(variant: StringName, size: float, at: Vector3, grove: Grove) -> WoodTree:
+	var tree := TREE_SCENE.instantiate() as WoodTree
+	tree.variant = variant
+	tree.model_scale = size
+	tree.grove = grove
+	tree.sim = _sim
+	tree.position = at
+	_root.add_child(tree)
+	return tree
 
 
 ## Finds clear positions for lumberjack camp (towards trees) and mercenary camp (defensive flank),

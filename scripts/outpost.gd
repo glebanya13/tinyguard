@@ -16,9 +16,10 @@ const THICKET_REGROW_TIME := 150.0
 
 @export var lane: int = 0
 @export var total_trees: int = 24
-## Wood per hit and hits of a thicket tree: less than a field tree (12), since felling it also
-## weakens the outpost; but every tree that can be chopped gives wood.
-@export var thicket_wood_per_hit: int = 2
+## Wood per hit and hits of a thicket tree: a swing pays like on a field tree (the axe perk adds
+## the same +1: playtest 2026-10-24 saw 3 here and 4 on a field tree), but a thicket tree falls
+## sooner (9 wood against 12) since felling it also weakens the outpost.
+@export var thicket_wood_per_hit: int = 3
 @export var thicket_hits: int = 3
 
 var sim: Sim = null

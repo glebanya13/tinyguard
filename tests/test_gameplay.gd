@@ -110,21 +110,27 @@ func _run() -> void:
 	check(wm.get_total_waves() == int(level["waves"]["count"]), "waves: %d" % wm.get_total_waves())
 
 	# Chop a tree: standing next to it is enough (auto action).
-	# A tree with no other tree within 4 m, so the hero chops only this one.
+	# Trees grow in groves: take the one with the fewest neighbours within 4 m and stand on its
+	# far side from them, so it is the nearest tree to the knight (a swing chops only that one).
 	var tree: WoodTree = null
+	var away := Vector3.RIGHT
+	var fewest: int = 1000
 	for node: Node in get_nodes_in_group(WoodTree.GROUP):
-		var alone: bool = true
+		var here: Vector3 = (node as Node3D).global_position
+		var count: int = 0
+		var centre := Vector3.ZERO
 		for other: Node in get_nodes_in_group(WoodTree.GROUP):
-			var apart: float = (node as Node3D).global_position.distance_to(
-				(other as Node3D).global_position
-			)
-			if other != node and apart < 4.0:
-				alone = false
-				break
-		if alone:
+			var there: Vector3 = (other as Node3D).global_position
+			if other != node and here.distance_to(there) < 4.0:
+				count += 1
+				centre += there
+		if count < fewest:
+			fewest = count
 			tree = node as WoodTree
-			break
-	check(tree != null, "an isolated tree exists")
+			away = Vector3.RIGHT if count == 0 else (here - centre / count)
+	away.y = 0.0
+	away = away.normalized() if away.length() > 0.01 else Vector3.RIGHT
+	check(tree != null, "a tree to chop (%d neighbours within 4 m)" % fewest)
 	# A swing starts where the knight stands (the hit lands 0.2 s later at that
 	# spot): let one begun at his spawn point finish before teleporting him.
 	hero.auto_action = false
@@ -132,7 +138,7 @@ func _run() -> void:
 	hero.auto_action = true
 	gs.wood = 0
 	gs.wood_changed.emit(0)
-	hero.global_position = tree.global_position + Vector3(1.0, 0, 0)
+	hero.global_position = tree.global_position + away * 0.9
 	await wait_until(func() -> bool: return gs.wood > 0, 120)
 	# 3 from the tree (a thicket tree in the same swing cone may add its own wood).
 	check(gs.wood >= 3, "auto chop gives wood: %d" % gs.wood)

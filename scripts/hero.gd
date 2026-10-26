@@ -592,15 +592,24 @@ func _strike(origin: Vector3, yaw: float) -> void:
 			hit_enemy = true
 	if hit_enemy:
 		return  # an enemy in reach always comes before a tree
-	var chopped := false
+	# One tree per swing, the nearest in reach: a dense wood (the thicket by a portal) must not
+	# pay two or three trees a swing (playtest 2026-10-24).
+	var nearest: WoodTree = null
+	var nearest_sq: float = INF
 	for tree in sim.trees:
 		if tree.is_choppable() and _in_cone(origin, tree.global_position, forward, chop_range):
-			var wood: int = tree.chop(origin)
-			if wood > 0:
-				wood_gathered.emit(wood + wood_bonus, tree.global_position)
-			chopped = true
-	if chopped:
-		_chop_sound.play()
+			var flat := Vector2(
+				tree.global_position.x - origin.x, tree.global_position.z - origin.z
+			)
+			if flat.length_squared() < nearest_sq:
+				nearest_sq = flat.length_squared()
+				nearest = tree
+	if nearest == null:
+		return
+	var wood: int = nearest.chop(origin)
+	if wood > 0:
+		wood_gathered.emit(wood + wood_bonus, nearest.global_position)
+	_chop_sound.play()
 
 
 func _in_cone(origin: Vector3, point: Vector3, forward: Vector3, reach: float) -> bool:
