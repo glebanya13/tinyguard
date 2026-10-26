@@ -240,6 +240,11 @@ func heal(amount: float) -> void:
 	_update_own_bar()
 
 
+## Health multiplier of the wave this enemy came with (setup()).
+func health_mult() -> float:
+	return _health_mult
+
+
 func is_flying() -> bool:
 	return data != null and data.flying
 

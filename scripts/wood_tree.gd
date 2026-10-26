@@ -4,7 +4,8 @@ extends StaticBody3D
 ## leaves and chips; when the tree runs out it falls, leaves a stump and grows
 ## back later. `variant` picks the model before the node enters the tree.
 ## With a `grove` the standing tree is drawn by the grove's MultiMesh and the
-## node's own model is shown only while it animates.
+## node's own model is made the first time it animates (not before: two nodes less per
+## tree, and a level has 250 of them) and shown only while it does.
 ## What chopping does (hits left, regrowing after regrow_time) is simulation state
 ## counted in Sim steps; the tweens only show it.
 
@@ -55,12 +56,9 @@ func _ready() -> void:
 		add_to_group(&"thicket_trees")
 	if sim != null:
 		sim.add_tree(self)
-	_tree = model_scene(variant).instantiate()
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
-	_tree.quaternion = _yaw
-	_tree.scale = Vector3.ONE * model_scale
-	add_child(_tree)
-	_tree.visible = grove == null
+	if grove == null:
+		_model()
 	_hits_left = hits
 	if _stump != null:
 		_stump.visible = false
@@ -78,7 +76,8 @@ func set_highlighted(on: bool) -> void:
 	if on == _highlighted:
 		return
 	_highlighted = on
-	for node: Node in _tree.find_children("*", "GeometryInstance3D", true, false) + [_tree]:
+	var model: Node3D = _model()
+	for node: Node in model.find_children("*", "GeometryInstance3D", true, false) + [model]:
 		if node is GeometryInstance3D:
 			(node as GeometryInstance3D).material_overlay = HIGHLIGHT if on else null
 	if _tween == null or not _tween.is_running():
@@ -117,6 +116,7 @@ func chop(from: Vector3) -> int:
 	away.y = 0.0
 	away = away.normalized() if away.length() > 0.01 else Vector3.FORWARD
 	var axis: Vector3 = Vector3.UP.cross(away).normalized()
+	_model()
 	_set_animated(true)
 	if _tween:
 		_tween.kill()
@@ -150,6 +150,29 @@ func chop(from: Vector3) -> int:
 	return wood_per_hit
 
 
+## A battle checkpoint puts the tree back as it was: `hits_left` hits left, or (0) felled and
+## growing back in `regrow_in` steps. No animation: the level is just being loaded.
+func restore_state(hits_left: int, regrow_in: int) -> void:
+	if hits_left > 0:
+		_hits_left = mini(hits_left, hits)
+		return
+	_hits_left = 0
+	if has_node("Shape"):
+		$Shape.set_deferred("disabled", true)
+	if _stump != null:
+		_stump.visible = true
+	if _tree != null:
+		_tree.hide()
+	if grove != null:
+		grove.set_tree_visible(self, false)
+	var delay: int = maxi(regrow_in, 1)
+	_regrow_at = sim.tick + delay
+	sim.schedule_in(delay, _regrow)
+	felled.emit(self)
+	if outpost != null:
+		outpost.on_tree_felled(self)
+
+
 ## Integers describing the simulated state (for Sim.state_hash).
 func state_ints() -> Array[int]:
 	return [id, _hits_left, _regrow_at]
@@ -161,6 +184,7 @@ func _regrow() -> void:
 	_hits_left = hits
 	_regrow_at = -1
 	_yaw = Quaternion(Vector3.UP, randf() * TAU)
+	_model()
 	_tree.quaternion = _yaw
 	_tree.scale = Vector3.ONE * 0.05 * model_scale
 	_tree.show()
@@ -186,5 +210,19 @@ func _set_animated(animated: bool) -> void:
 	if grove == null:
 		return
 	animated = animated or (_highlighted and _hits_left > 0)
-	_tree.visible = animated
+	if animated:
+		_model()
+	if _tree != null:
+		_tree.visible = animated
 	grove.set_tree_visible(self, not animated)
+
+
+## The node's own model (made on first use; hidden at first when the grove draws the tree).
+func _model() -> Node3D:
+	if _tree == null:
+		_tree = model_scene(variant).instantiate()
+		_tree.quaternion = _yaw
+		_tree.scale = Vector3.ONE * model_scale
+		_tree.visible = grove == null
+		add_child(_tree)
+	return _tree

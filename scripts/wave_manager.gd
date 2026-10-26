@@ -108,7 +108,7 @@ func is_wave_active() -> bool:
 
 
 ## Highest wave N such that waves 1..N have no enemy left on the map or still to come
-## (a battle checkpoint resumes after it: a wave still running is played again).
+## (the waves the battle counts as cleared).
 func cleared_through() -> int:
 	var n: int = current_wave
 	for wave: int in _remaining:
@@ -207,6 +207,126 @@ func lanes_of(queue: Array[Dictionary]) -> Array:
 	return lanes
 
 
+## The running waves for a battle checkpoint: the enemies on the map (kind, path, metres walked,
+## health) and those still to come out, the wave clock and the counters. JSON-safe.
+func snapshot() -> Dictionary:
+	var enemies: Array = []
+	for path: Path3D in _all_paths():
+		for child: Node in path.get_children():
+			var enemy := child as Enemy
+			if enemy != null and enemy.is_alive() and enemy.data != null:
+				enemies.append(_enemy_entry(enemy))
+	var spawners: Array = []
+	for spawner: Dictionary in _spawners:
+		var queue: Array = []
+		for entry: Dictionary in spawner["queue"]:
+			queue.append(_queue_entry(entry))
+		(
+			spawners
+			. append(
+				{
+					"wave": int(spawner["wave"]),
+					"queue": queue,
+					"elapsed": sim.tick - int(spawner["start"]),
+					"span": int(spawner["span"]),
+					"index": int(spawner["index"]),
+				}
+			)
+		)
+	var by_kind: Dictionary = {}
+	for data: EnemyData in _spawned_by_kind:
+		by_kind[data.resource_path] = int(_spawned_by_kind[data])
+	return {
+		"current_wave": current_wave,
+		"next_wave_in": _next_wave_tick - sim.tick if _next_wave_tick >= 0 else -1,
+		"killed": killed,
+		"leaked": leaked,
+		"enemies": enemies,
+		"spawners": spawners,
+		"by_kind": by_kind,
+	}
+
+
+## Sorted indices of the paths the enemies on the map and still to come walk (the edge arrows
+## of a continued battle).
+func running_lanes() -> Array:
+	var lanes: Array = []
+	var paths: Array[Path3D] = get_paths()
+	for spawner: Dictionary in _spawners:
+		for lane: int in lanes_of(spawner["queue"]):
+			if not lanes.has(lane):
+				lanes.append(lane)
+	for i in paths.size():
+		var walkers: bool = paths[i].get_child_count() > 0
+		var fliers: bool = i < air_paths.size() and air_paths[i].get_child_count() > 0
+		if (walkers or fliers) and not lanes.has(i):
+			lanes.append(i)
+	lanes.sort()
+	return lanes
+
+
+## Puts back the running waves of snapshot(): on a fresh level, before its clock runs.
+func restore(state: Dictionary) -> void:
+	current_wave = int(state.get("current_wave", current_wave))
+	killed = int(state.get("killed", 0))
+	leaked = int(state.get("leaked", 0))
+	var next_in: int = int(state.get("next_wave_in", -1))
+	_next_wave_tick = sim.tick + next_in if next_in >= 0 and has_next_wave() else -1
+	_spawned_by_kind.clear()
+	var by_kind: Dictionary = state.get("by_kind", {})
+	for res_path: String in by_kind:
+		var kind := _enemy_data(res_path)
+		if kind != null:
+			_spawned_by_kind[kind] = int(by_kind[res_path])
+	var all_paths: Array[Path3D] = _all_paths()
+	for item: Variant in state.get("enemies", []):
+		var saved: Dictionary = item
+		var data := _enemy_data(str(saved.get("data", "")))
+		var index: int = int(saved.get("path", 0))
+		if data == null or index < 0 or index >= all_paths.size():
+			continue
+		var wave: int = int(saved.get("wave", current_wave))
+		_remaining[wave] = int(_remaining.get(wave, 0)) + 1
+		var entry := {
+			"data": data,
+			"hp": float(saved.get("hp", 1.0)),
+			"elite": bool(saved.get("elite", false)),
+			"scale": float(saved.get("scale", 1.0)),
+			"reward_mult": 1.0,
+		}
+		var enemy := _spawn_enemy(entry, wave, all_paths[index])
+		enemy.reward = int(saved.get("reward", enemy.reward))
+		enemy.place(float(saved.get("progress", 0.0)))
+		enemy.health = clampf(float(saved.get("health", enemy.max_health)), 1.0, enemy.max_health)
+	for item: Variant in state.get("spawners", []):
+		var saved: Dictionary = item
+		var queue: Array[Dictionary] = []
+		for raw: Variant in saved.get("queue", []):
+			var entry: Dictionary = (raw as Dictionary).duplicate()
+			entry["data"] = _enemy_data(str(entry.get("data", "")))
+			if entry["data"] != null:
+				if entry.has("lane"):
+					entry["lane"] = int(entry["lane"])
+				queue.append(entry)
+		var index: int = mini(int(saved.get("index", 0)), queue.size())
+		if index >= queue.size():
+			continue
+		var wave: int = int(saved.get("wave", current_wave))
+		_remaining[wave] = int(_remaining.get(wave, 0)) + queue.size() - index
+		(
+			_spawners
+			. append(
+				{
+					"wave": wave,
+					"queue": queue,
+					"start": sim.tick - int(saved.get("elapsed", 0)),
+					"span": maxi(int(saved.get("span", 1)), 1),
+					"index": index,
+				}
+			)
+		)
+
+
 ## Adds an extra enemy of `data` at `progress` along `path` (default: the first)
 ## (e.g. the halves of a splitting slime); it counts towards `wave`.
 func spawn_extra(
@@ -275,3 +395,38 @@ func _on_enemy_gone(_value: int, wave: int, was_killed: bool) -> void:
 		wave_cleared.emit(wave)
 	if not _stopped and not has_next_wave() and _remaining.is_empty() and _spawners.is_empty():
 		all_waves_cleared.emit()
+
+
+## The ground paths, then the flight lines: an enemy's path is saved as its index here.
+func _all_paths() -> Array[Path3D]:
+	var out: Array[Path3D] = get_paths().duplicate()
+	out.append_array(air_paths)
+	return out
+
+
+func _enemy_entry(enemy: Enemy) -> Dictionary:
+	var all_paths: Array[Path3D] = _all_paths()
+	return {
+		"data": enemy.data.resource_path,
+		"hp": enemy.health_mult(),
+		"health": enemy.health,
+		"progress": enemy.sim_progress,
+		"path": all_paths.find(enemy.path),
+		"wave": enemy.wave,
+		"elite": enemy.elite,
+		"scale": enemy.elite_scale,
+		"reward": enemy.reward,
+	}
+
+
+## A spawn-list entry with its EnemyData as a resource path (JSON-safe).
+func _queue_entry(entry: Dictionary) -> Dictionary:
+	var out: Dictionary = entry.duplicate()
+	out["data"] = (entry["data"] as EnemyData).resource_path
+	return out
+
+
+func _enemy_data(res_path: String) -> EnemyData:
+	if not res_path.begins_with("res://") or not ResourceLoader.exists(res_path):
+		return null
+	return load(res_path) as EnemyData

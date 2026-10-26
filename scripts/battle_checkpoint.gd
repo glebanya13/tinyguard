@@ -1,7 +1,8 @@
 class_name BattleCheckpoint
 extends RefCounted
 ## Manages mid-level and endless battle checkpoints saved to user://battle_checkpoint.json.
-## Enables players to leave lengthy battles and resume from the latest cleared wave.
+## Enables players to leave lengthy battles and resume where they left: the running wave with
+## its enemies (WaveManager.snapshot) and the felled trees with their regrow clocks.
 
 const SAVE_PATH := "user://battle_checkpoint.json"
 const TMP_PATH := "user://battle_checkpoint.json.tmp"
@@ -57,3 +58,26 @@ static func clear_checkpoint() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 	if FileAccess.file_exists(TMP_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP_PATH))
+
+
+## Trees that are not whole: [index in sim.trees, hits left, steps until regrown or -1].
+static func tree_states(sim: Sim) -> Array:
+	var out: Array = []
+	for i in sim.trees.size():
+		var tree: WoodTree = sim.trees[i]
+		var regrow_at: int = tree.regrow_at()
+		if tree.hits_left() < tree.hits or regrow_at >= 0:
+			var regrow_in: int = maxi(regrow_at - sim.tick, 1) if regrow_at >= 0 else -1
+			out.append([i, tree.hits_left(), regrow_in])
+	return out
+
+
+## Puts the trees of tree_states() back (the level plants them in the same order every time).
+static func restore_trees(sim: Sim, states: Array) -> void:
+	for item: Variant in states:
+		var state: Array = item as Array
+		if state.size() < 3:
+			continue
+		var index: int = int(state[0])
+		if index >= 0 and index < sim.trees.size():
+			sim.trees[index].restore_state(int(state[1]), int(state[2]))
