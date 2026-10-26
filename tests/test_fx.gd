@@ -119,6 +119,10 @@ func _run() -> void:
 		check(trace == off_trace, "effects level %d: same hashes as with effects off" % level)
 		var fx: Fx = played["main"].get_node("Fx")
 		check(fx._dots != null, "effects level %d: the layers were built" % level)
+		check(
+			fx._next_damage_ms > 0,
+			"effects level %d: hits show damage numbers (also at the minimum)" % level
+		)
 
 	print("RESULT: %s (%d failures)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)
