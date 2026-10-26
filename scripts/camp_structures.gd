@@ -122,6 +122,9 @@ class MercenaryCamp:
 	signal mercenary_hired(mercenary: Mercenary)
 	signal camp_tapped
 
+	## The gate (where the mercenaries come out and patrol) is this far in front of the tent.
+	const GATE_OFFSET := 1.5
+
 	## Prices, the limit of living knights and their stats (resources/mercenary.tres).
 	var config: MercenaryConfig = Mercenary.CONFIG
 	## Hires this battle (the dead count too): every hire makes the next one dearer.
@@ -135,6 +138,7 @@ class MercenaryCamp:
 	var is_selected: bool = false
 
 	var _selection_ring: MeshInstance3D = null
+	var _guard_ring: MeshInstance3D = null
 
 	func _init() -> void:
 		_build_structure()
@@ -144,6 +148,12 @@ class MercenaryCamp:
 		is_selected = selected
 		if _selection_ring != null:
 			_selection_ring.visible = selected
+		if _guard_ring != null:
+			_guard_ring.visible = selected
+
+	## True while the guard area is on the ground.
+	func guard_area_visible() -> bool:
+		return _guard_ring != null and _guard_ring.visible
 
 	func select() -> void:
 		set_selected(true)
@@ -189,6 +199,28 @@ class MercenaryCamp:
 		_selection_ring.visible = false
 		_selection_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(_selection_ring)
+
+		# Guard area: where the mercenaries go for enemies (shown while the tent is selected;
+		# playtest 2026-10-24: they went back into the tent and left the king alone).
+		_guard_ring = MeshInstance3D.new()
+		_guard_ring.name = "GuardArea"
+		var reach: float = Mercenary.guard_reach()
+		var guard_mesh := TorusMesh.new()
+		guard_mesh.inner_radius = reach - 0.12
+		guard_mesh.outer_radius = reach
+		guard_mesh.rings = 64
+		guard_mesh.ring_segments = 4
+		var guard_mat := StandardMaterial3D.new()
+		guard_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		guard_mat.albedo_color = Color(0.45, 0.95, 0.85, 0.75)
+		guard_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_guard_ring.mesh = guard_mesh
+		_guard_ring.material_override = guard_mat
+		_guard_ring.scale = Vector3(1.0, 0.05, 1.0)
+		_guard_ring.position = Vector3(0.0, 0.06, GATE_OFFSET)
+		_guard_ring.visible = false
+		_guard_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_guard_ring)
 
 		# Tap detection via Area3D on collision layer 1
 		var area := Area3D.new()

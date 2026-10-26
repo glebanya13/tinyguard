@@ -386,7 +386,8 @@ static func _castle_color(
 
 
 ## Draws active enemies on the minimap in frame pixels.
-## Red dots = ground, blue = flying, large orange/yellow = bosses.
+## Red dots = ground, blue = flying; a boss is a big crimson dot in a pulsing white ring (an
+## orange dot was lost on the orange lit roads: "the slime king is not on the minimap").
 func draw_enemies(canvas: CanvasItem, enemies: Array, fade: float = 1.0) -> void:
 	if enemies.is_empty():
 		return
@@ -411,8 +412,8 @@ func draw_enemies(canvas: CanvasItem, enemies: Array, fade: float = 1.0) -> void
 		var col: Color
 		var rad: float
 		if is_boss:
-			col = Color(1.0, 0.72, 0.12, fade)
-			rad = 5.5
+			col = Color(0.78, 0.05, 0.12, fade)
+			rad = 7.0
 		elif is_flyer:
 			col = Color(0.28, 0.65, 1.0, fade)
 			rad = 3.0
@@ -420,7 +421,10 @@ func draw_enemies(canvas: CanvasItem, enemies: Array, fade: float = 1.0) -> void
 			col = Color(0.95, 0.22, 0.22, fade)
 			rad = 3.0
 
+		if is_boss:
+			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
+			canvas.draw_arc(at, rad + 3.5 + 2.0 * pulse, 0.0, TAU, 24, Color(1, 1, 1, fade), 2.5)
 		canvas.draw_circle(at, rad + 1.2, Color(0.08, 0.05, 0.12, 0.85 * fade))
 		canvas.draw_circle(at, rad, col)
 		if is_boss:
-			canvas.draw_circle(at, rad * 0.45, Color(1.0, 0.95, 0.7, fade))
+			canvas.draw_circle(at, rad * 0.4, Color(1.0, 0.92, 0.6, fade))

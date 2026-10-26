@@ -102,7 +102,6 @@ var _encyclopedia_button: Button = null
 var _encyclopedia_panel: EncyclopediaPanel = null
 var _threat_vignette: ColorRect = null
 var _threat_tween: Tween = null
-var _threat_level: float = 0.0
 var _spin_shown: int = -1
 
 ## Co-op: "waiting for the partner" notice (built when the mode is switched on).
@@ -265,6 +264,9 @@ func _ready() -> void:
 ## over the safe area the HUD root is inset to) and a panel centred on the screen.
 func _frame_end_screen() -> void:
 	var frame := DialogFrame.attach(_end_screen, 592.0, 0.45)
+	# The menu is shown on a paused tree: its scroll must still take the finger (a long victory
+	# screen did not scroll on a phone, playtest 2026-10-24).
+	frame.process_mode = Node.PROCESS_MODE_ALWAYS
 	var content: Control = _end_screen.get_node("Content")
 	content.reparent(frame.body, false)
 	frame.body.add_theme_constant_override("separation", 0)
@@ -563,6 +565,7 @@ func set_speed(multiplier: int) -> void:
 ## Victory/defeat screen with 0..3 stars and a stats summary. Its buttons work
 ## while the tree is paused.
 func show_end_screen(text: String, victory: bool, stars: int = 0, stats: String = "") -> void:
+	clear_leak_flash()
 	_show_menu(text, &"RibbonLabelGold" if victory else &"RibbonLabelRed")
 	_restart_button.theme_type_variation = &""
 	_stats.text = stats
@@ -994,7 +997,8 @@ func toggle_strategic_view() -> void:
 	strategic_view_pressed.emit()
 
 
-## Flashes the threat vignette bright red when the castle leaks/takes damage.
+## Flashes the threat vignette bright red when the castle leaks/takes damage. (Enemies that are
+## about to reach the castle get a "!" over them instead of a dark screen: see LaneHint.)
 func flash_leak() -> void:
 	if _threat_vignette == null:
 		return
@@ -1004,18 +1008,13 @@ func flash_leak() -> void:
 	_threat_vignette.color = Color(0.85, 0.08, 0.08, 0.45)
 	_threat_tween = create_tween()
 	_threat_tween.tween_property(_threat_vignette, "color:a", 0.0, 0.65).set_trans(Tween.TRANS_SINE)
+	_threat_tween.tween_callback(_threat_vignette.hide)
 
 
-## Sets the persistent threat level (0.0..1.0) while enemies are within reach of the gate.
-func set_threat_danger(danger: float) -> void:
-	_threat_level = clampf(danger, 0.0, 1.0)
-	if _threat_vignette == null:
-		return
+## Puts the leak flash out at once (a tween of a paused tree would hold it red on the end screen).
+func clear_leak_flash() -> void:
 	if _threat_tween and _threat_tween.is_valid():
-		return
-	if _threat_level > 0.05:
-		_threat_vignette.visible = true
-		_threat_vignette.color = Color(0.85, 0.08, 0.08, _threat_level * 0.28)
-	else:
+		_threat_tween.kill()
+	if _threat_vignette != null:
 		_threat_vignette.color.a = 0.0
 		_threat_vignette.visible = false

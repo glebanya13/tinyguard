@@ -33,6 +33,13 @@ const CASTLE_TAP_REACH := 1.9
 
 ## The trade card stays open until the hero is this much further than the trade reach.
 const TRADE_KEEP_SLACK := 0.6
+
+## Walking this close to the castle centre opens its card (the forge) by itself, like a slot.
+const CASTLE_NEAR_REACH := 2.2
+
+## The castle card closes when the hero is this far from the castle centre again (opened away
+## from the castle, by the HUD button or a tap from afar, it stays until closed).
+const CASTLE_LEAVE_REACH := 3.4
 const TowerPlacementController := preload("res://scripts/tower_placement_controller.gd")
 
 var forge_open: bool = false
@@ -111,6 +118,11 @@ var _auto_selected: bool = false
 var _auto_selecting: bool = false
 var _selected_near: bool = false
 
+## The castle card was opened by the castle (it closes when the knight leaves), and the player
+## closed it there (it stays shut until the knight walks away).
+var _forge_by_castle: bool = false
+var _forge_dismissed: bool = false
+
 ## The villager the player closed the card for (until the hero walks away), and
 ## whether the hero walks to the villager after a tap.
 var _trade_dismissed: Villager = null
@@ -171,6 +183,34 @@ func update() -> void:
 	_auto_select_near_hero()
 	_update_trade()
 	_update_camp_proximity()
+	_update_castle_proximity()
+
+
+## The castle card opens when the knight walks up to the castle and closes when he leaves it,
+## like the cards of slots, villagers and camps.
+func _update_castle_proximity() -> void:
+	if _hero == null or not castle_position.is_finite():
+		return
+	var to_castle: float = _flat_distance_to(castle_position)
+	if forge_open:
+		if _forge_by_castle and to_castle > CASTLE_LEAVE_REACH:
+			forge_open = false
+			refresh()
+		return
+	if to_castle > CASTLE_LEAVE_REACH:
+		_forge_dismissed = false
+	if (
+		to_castle > CASTLE_NEAR_REACH
+		or _forge_dismissed
+		or pending_command != &""
+		or workbench_open
+		or placement.placement_mode
+		or trade_with != null
+		or _build_manager.selected_slot != null
+		or _build_manager.selected_camp != null
+	):
+		return
+	toggle_forge()
 
 
 func _update_camp_proximity() -> void:
@@ -181,7 +221,8 @@ func _update_camp_proximity() -> void:
 		or forge_open
 		or workbench_open
 		or placement.placement_mode
-	):
+		or trade_with != null
+	):  # a villager by the camp: his card stays (it was shut every frame)
 		return
 	var camp_selected: Node3D = _build_manager.selected_camp
 	var nearest_camp: Node3D = null
@@ -240,6 +281,8 @@ func on_command_pressed(id: StringName) -> void:
 			return
 		_trade_dismissed = trade_with
 		_set_trade(null)
+		if forge_open and _flat_distance_to(castle_position) <= CASTLE_LEAVE_REACH:
+			_forge_dismissed = true
 		forge_open = false
 		_hero.cancel_order()
 		_cleanup_unbuilt_dynamic_slot()
@@ -294,7 +337,9 @@ func _press_forge(id: StringName) -> bool:
 ## The villager's buttons: sell, buy, hire. False if `id` is none of them.
 func _press_trade(id: StringName) -> bool:
 	if id == &"trade_lot" or id == &"trade_all":
-		var lots: int = 1 if id == &"trade_lot" else _villagers.lots_affordable()
+		var lots: int = _villagers.lots_affordable()
+		if id == &"trade_lot":
+			lots = mini(lots, _villagers.trade.step_lots())
 		if lots > 0:
 			_commands.submit(GameCommand.trade(lots))
 	elif id == &"buy_lot" or id == &"buy_all":
@@ -334,6 +379,9 @@ func toggle_forge() -> void:
 	forge_open = not forge_open
 	if forge_open:
 		_build_manager.clear_selection()
+		_forge_by_castle = _flat_distance_to(castle_position) <= CASTLE_LEAVE_REACH
+	elif _flat_distance_to(castle_position) <= CASTLE_LEAVE_REACH:
+		_forge_dismissed = true
 	refresh()
 
 
@@ -624,6 +672,12 @@ func _auto_select(slot: TowerSlot) -> void:
 
 func _flat_distance(node: Node3D) -> float:
 	var offset: Vector3 = node.global_position - _hero.global_position
+	offset.y = 0.0
+	return offset.length()
+
+
+func _flat_distance_to(point: Vector3) -> float:
+	var offset: Vector3 = point - _hero.global_position
 	offset.y = 0.0
 	return offset.length()
 

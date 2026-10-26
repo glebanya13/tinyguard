@@ -70,8 +70,13 @@ func _run() -> void:
 		),
 		"stars rule"
 	)
+	main.get_node("HUD").flash_leak()  # the last enemy hit the gate, the castle still stands
 	main.battle_end.on_all_waves_cleared()
 	await process_frame
+	check(
+		not (main.get_node("HUD").find_child("ThreatVignette", true, false) as CanvasItem).visible,
+		"the victory screen is not left tinted red by the last hit on the gate"
+	)
 	check(
 		(
 			paused
@@ -88,6 +93,13 @@ func _run() -> void:
 		"victory with stars"
 	)
 	check(LevelCatalog.stars(1) == 3, "stars saved")
+	var end_scroll: ScrollContainer = (
+		main.get_node("HUD/Root/EndScreen").find_child("Scroll", true, false) as ScrollContainer
+	)
+	check(
+		end_scroll != null and end_scroll.can_process(),
+		"the victory screen scrolls on the paused tree (its scroll takes input)"
+	)
 	check(is_equal_approx(Engine.time_scale, 1.0), "speed reset at end")
 	LevelCatalog.set_sound_on(false)
 	check(AudioServer.is_bus_mute(0) and not LevelCatalog.sound_on(), "sound off saved and applied")

@@ -9,7 +9,7 @@ extends Node3D
 ## positions they carry) but never writes simulation state, never uses the sim
 ## RNG (it has its own, seeded randomly) and adds nothing the state hash sees.
 ## GameSettings.effects_now() decides how much happens: off = nothing, minimum = the
-## essentials (gold numbers, death puffs, build rings, castle hit, confetti),
+## essentials (gold and damage numbers, death puffs, build rings, castle hit, confetti),
 ## full = everything. The level creates one Fx and calls setup().
 
 const CLICK_SOUND: AudioStream = preload("res://assets/audio/ui_click.wav")
@@ -35,6 +35,10 @@ const TRANSPARENT := Color(1, 1, 1, 0)
 ## At most one damage number per enemy this often, and overall (milliseconds).
 const DAMAGE_GAP_MS := 220
 const DAMAGE_GAP_ALL_MS := 70
+## The same, at the minimum effects (a weak phone: the quality guard lowers the effects there,
+## and the damage numbers had gone with them, playtest 2026-10-24): fewer, never none.
+const DAMAGE_GAP_MIN_MS := 400
+const DAMAGE_GAP_ALL_MIN_MS := 160
 ## Hits from this much damage are drawn bigger and orange.
 const BIG_HIT := 20.0
 const BURST_DRAG := 2.0
@@ -191,14 +195,15 @@ func _on_enemy_died(reward: int, enemy: Enemy) -> void:
 
 
 func _on_enemy_damaged(amount: float, enemy: Enemy) -> void:
-	if not full() or not is_instance_valid(enemy) or enemy.health <= 0.0:
+	if not enabled() or not is_instance_valid(enemy) or enemy.health <= 0.0:
 		return
 	var now: int = Time.get_ticks_msec()
 	var id: int = enemy.get_instance_id()
 	if now < _next_damage_ms or now < int(_damage_gate.get(id, 0)):
 		return
-	_next_damage_ms = now + DAMAGE_GAP_ALL_MS
-	_damage_gate[id] = now + DAMAGE_GAP_MS
+	var rich: bool = full()
+	_next_damage_ms = now + (DAMAGE_GAP_ALL_MS if rich else DAMAGE_GAP_ALL_MIN_MS)
+	_damage_gate[id] = now + (DAMAGE_GAP_MS if rich else DAMAGE_GAP_MIN_MS)
 	var big: bool = amount >= BIG_HIT
 	_text(
 		str(roundi(amount)),

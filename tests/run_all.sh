@@ -129,6 +129,8 @@ run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_camps_
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_strategic_view.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_battle_start.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_checkpoint.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_checkpoint_wave.gd
+run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_battle_map.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_encyclopedia.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_hero_fixes.gd
 run "$GODOT" --headless --fixed-fps 60 --path . --script res://tests/test_retention.gd

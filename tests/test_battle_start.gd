@@ -100,11 +100,18 @@ func _test_inspection_and_start() -> void:
 	var cam_before: Vector3 = cam.global_position
 	cam.pan_by(Vector3(-2.0, 0.0, 1.0))
 	_ok(cam.global_position != cam_before, "the player pans the camera over the map")
+	var normal_size: float = cam._default_size
+	cam.zoom_by(1.6)
+	_ok(cam._target_size > normal_size * 1.2, "the player zooms the map out to look around")
 
 	print("-- 2. 'To battle!' starts the clock once; the timer is the real one")
 	(hud.get_node("Root/StartBattleButton") as Button).pressed.emit()
 	_ok(sim.running, "the battle clock runs")
 	_ok(not hero.controls_locked and not cam.free_look, "the knight is free, the camera on him")
+	_ok(
+		is_equal_approx(cam._target_size, normal_size),
+		"the camera goes back to the normal zoom (%.1f / %.1f)" % [cam._target_size, normal_size]
+	)
 	_ok(not _visible(hud, "Root/StartBattleButton"), "'To battle!' is gone")
 	_ok(wm.current_wave == 0, "no wave at once")
 	_ok(is_equal_approx(wm.time_to_next_wave(), plan_delay), "the first wave after first_delay")
@@ -222,10 +229,18 @@ func _test_checkpoint_resume() -> void:
 	_steps(sim, 3)
 	_ok(wm.current_wave == saved_wave + 1, "the next wave on the saved clock")
 
-	print("-- 6. A wave still running is played again after 'Continue'")
+	print("-- 6. A wave still running is kept with its enemies (not played again)")
 	_steps(sim, 3)
 	_ok(wm.is_wave_active(), "a wave is on the field")
 	main.call("_save_checkpoint")
 	cp = BattleCheckpoint.load_checkpoint()
-	_ok(int(cp.get("wave", -1)) == saved_wave, "the running wave is not counted as cleared")
-	_ok(float(cp.get("next_wave_in", -1.0)) == 0.0, "it comes again at once on resume")
+	_ok(int(cp.get("wave", -1)) == saved_wave + 1, "the running wave is the checkpoint's wave")
+	_ok(int(cp.get("cleared", -1)) == saved_wave, "it is not counted as cleared")
+	var waves: Dictionary = cp.get("waves", {})
+	_ok(
+		(
+			not (waves.get("enemies", []) as Array).is_empty()
+			or not (waves.get("spawners", []) as Array).is_empty()
+		),
+		"its enemies are saved"
+	)

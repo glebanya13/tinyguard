@@ -27,6 +27,8 @@ const WALK_OBSTACLE_MASK := 1 | 4
 const TOWER_BLOCK_RADIUS := 0.6
 ## Resuming an old checkpoint that has no saved wave clock: the next wave after this long.
 const RESUME_FALLBACK_DELAY := 5.0
+## Seconds between two looks for enemies about to reach the castle (CastleThreat).
+const THREAT_CHECK_SECONDS := 0.25
 
 ## Radius of the ring under the hero's target (tree, enemy, boss), metres.
 @export var ring_radius_tree: float = 0.8
@@ -69,6 +71,8 @@ var _tracker: AchievementTracker = null
 var _coop_menu_open: bool = false
 var _coop_hooks := CoopHooks.new()
 var _lane_hint: LaneHint = null
+## The whole field from above with every unit (the minimap button opens it).
+var _battle_map: BattleMap = null
 var _fx: Fx = null
 ## The battle is being left (map / restart): the scene change is queued, ignore more taps.
 var _leaving: bool = false
@@ -77,6 +81,7 @@ var _wave_direction: String = ""
 ## Map inspection before the battle (docs/GAME_DESIGN.md): the battle clock stands, the knight
 ## waits, the camera is panned freely until "To battle!".
 var _inspecting: bool = false
+var _threat_timer: float = 0.0
 
 @onready var _level_root: Node3D = $Level
 @onready var _enemy_path: Path3D = $Level/EnemyPath
@@ -259,6 +264,16 @@ func _ready() -> void:
 	hud_root.add_child(_lane_hint)
 	hud_root.move_child(_lane_hint, 0)  # under the banner, the hint and the buttons
 	_hud.layout_changed.connect(_lane_hint.apply_settings)
+	_battle_map = BattleMap.new()
+	_battle_map.name = "BattleMap"
+	_battle_map.level = level
+	_battle_map.sim = _sim
+	_battle_map.hero = _hero
+	_battle_map.threats = _lane_hint.threats
+	if builder.mercenary_camp != null:
+		_battle_map.guard_center = builder.mercenary_camp.gate_position
+	hud_root.add_child(_battle_map)  # over the buttons: a tap anywhere closes it
+	_lane_hint.battle_map_requested.connect(_battle_map.toggle)
 	cards.refresh()
 	_start_fx()
 	_start_diagnostics()
@@ -291,6 +306,8 @@ func _notification(what: int) -> void:
 			# it works like "To the map".
 			if battle_end.ended:
 				_on_map_pressed()
+			elif _battle_map.visible:
+				_battle_map.close()
 			else:
 				_toggle_pause()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
@@ -309,7 +326,7 @@ func _process(delta: float) -> void:
 	_update_target_ring()
 	_hud.set_spin_cooldown(_hero.spin_cooldown_left())
 	guide.update_arrow(_focus, _build_manager.selected_slot == null and not cards.forge_open)
-	_update_threat_detection()
+	_update_threat_detection(delta)
 	if _inspecting or LevelCatalog.tutorial or not _wave_manager.has_next_wave():
 		_hud.set_call_wave_info(-1.0, 0)
 	else:
@@ -317,20 +334,17 @@ func _process(delta: float) -> void:
 		_hud.set_call_wave_info(time_left, _call_wave_bonus(time_left), _can_call_wave())
 
 
-func _update_threat_detection() -> void:
-	if builder != null and builder.castle != null and _sim != null:
-		var castle_pos := builder.castle.global_position
-		var min_dist: float = 999.0
-		for enemy in _sim.enemies:
-			if enemy != null and is_instance_valid(enemy) and enemy.is_alive():
-				var d: float = enemy.global_position.distance_to(castle_pos)
-				if d < min_dist:
-					min_dist = d
-		if min_dist < 4.5:
-			var danger: float = clampf(1.0 - (min_dist / 4.5), 0.0, 1.0)
-			_hud.set_threat_danger(danger)
-		else:
-			_hud.set_threat_danger(0.0)
+## Castle alarm: a "!" over the enemies that will reach the castle alive (CastleThreat),
+## a few times a second.
+func _update_threat_detection(delta: float) -> void:
+	_threat_timer -= delta
+	if _threat_timer > 0.0:
+		return
+	_threat_timer = THREAT_CHECK_SECONDS
+	if _inspecting or battle_end.ended:
+		_lane_hint.set_threats([])
+		return
+	_lane_hint.set_threats(CastleThreat.find(_sim.enemies, _sim.towers))
 
 
 func _toggle_pause() -> void:
@@ -711,6 +725,9 @@ func _on_enemy_reached_base(damage: int) -> void:
 func _on_wave_lanes(_wave: int, lanes: Array) -> void:
 	_wave_direction = LevelCatalog.direction_text(level, lanes)
 	_lane_hint.announce(builder.portals, lanes)
+	var lit: Array[int] = []
+	lit.assign(lanes)
+	_battle_map.set_lanes(lit)
 
 
 ## The arrows of the wave go out when no wave has enemies left.
@@ -719,12 +736,14 @@ func _on_wave_cleared(_wave: int) -> void:
 		villagers.restock(1)
 	if not _wave_manager.is_wave_active():
 		_lane_hint.finish()
+		_battle_map.set_lanes([])
 	if not battle_end.ended:
 		_save_checkpoint()
 
 
 func _on_battle_finished() -> void:
 	_lane_hint.stop()
+	_battle_map.close()
 	BattleCheckpoint.clear_checkpoint()
 
 
@@ -843,6 +862,9 @@ func _end_inspection() -> void:
 	_hud.set_inspection(false)
 	_hud.hide_start_battle_button()
 	_camera.set_free_look(false)
+	# Back to the knight at the normal zoom: a map zoomed out to look around is far too small
+	# to fight in, and the stick leaves little room for a pinch.
+	_camera.reset_zoom()
 
 
 ## "To battle!": ends the inspection and starts the battle clock, once. The wave clock was set
@@ -977,16 +999,15 @@ func _save_checkpoint() -> void:
 		"towers": battle_end.stats.get("towers", 0),
 		"time": battle_end.stats.get("time", 0.0)
 	}
-	# A wave still running is not kept (its enemies are not saved): the checkpoint resumes
-	# after the last cleared wave and plays the running one again at once.
-	var cleared: int = _wave_manager.cleared_through()
-	var next_wave_in: float = _wave_manager.time_to_next_wave()
-	if cleared < _wave_manager.current_wave:
-		next_wave_in = 0.0
+	# The running waves are kept with their enemies (on the map and still to come) and the
+	# felled trees with their regrow clocks: continuing never replays or skips anything.
 	var data := {
 		"level_id": int(level["id"]),
-		"wave": cleared,
-		"next_wave_in": next_wave_in,
+		"wave": _wave_manager.current_wave,
+		"cleared": _wave_manager.cleared_through(),
+		"next_wave_in": _wave_manager.time_to_next_wave(),
+		"waves": _wave_manager.snapshot(),
+		"trees": BattleCheckpoint.tree_states(_sim),
 		"hero_pos": [_hero.global_position.x, _hero.global_position.z],
 		"gold": _game_state.gold,
 		"wood": _game_state.wood,
@@ -1088,24 +1109,33 @@ func restore_from_checkpoint(data: Dictionary) -> void:
 		battle_end.stats["towers"] = int(s_data.get("towers", 0))
 		battle_end.stats["time"] = float(s_data.get("time", 0.0))
 
+	BattleCheckpoint.restore_trees(_sim, data.get("trees", []))
+
 	# Restore wave progress
 	var wave: int = int(data.get("wave", 0))
-	if not _endless and _wave_manager.plan != null and wave >= _wave_manager.plan.wave_count:
+	if data.has("waves"):
+		# The running waves as they were (the clock stands until "To battle!" when inspecting).
+		_wave_manager.restore(data["waves"])
+		battle_end.waves_cleared = int(data.get("cleared", wave))
+		if _wave_manager.is_wave_active():
+			_on_wave_lanes(_wave_manager.current_wave, _wave_manager.running_lanes())
+	elif not _endless and _wave_manager.plan != null and wave >= _wave_manager.plan.wave_count:
 		BattleCheckpoint.clear_checkpoint()
 		_wave_manager.schedule_next_wave(_wave_manager.plan.first_delay)
 		return
-	_wave_manager.current_wave = wave
-	battle_end.waves_cleared = wave
-	_hud.set_wave(wave, 0 if _endless else _wave_manager.get_total_waves())
-	_restore_hero_position(data.get("hero_pos", []))
-	if _wave_manager.has_next_wave():
-		# The wave clock as it was (it stands until "To battle!" when the map is inspected).
-		var delay: float = float(data.get("next_wave_in", RESUME_FALLBACK_DELAY))
-		_wave_manager.schedule_next_wave(maxf(delay, 0.0))
-		if not _inspecting:
-			_show_wave_clock_banner()
 	else:
+		# An older checkpoint: saved after the last cleared wave.
+		_wave_manager.current_wave = wave
+		battle_end.waves_cleared = wave
+		if _wave_manager.has_next_wave():
+			var delay: float = float(data.get("next_wave_in", RESUME_FALLBACK_DELAY))
+			_wave_manager.schedule_next_wave(maxf(delay, 0.0))
+	_hud.set_wave(_wave_manager.current_wave, 0 if _endless else _wave_manager.get_total_waves())
+	_restore_hero_position(data.get("hero_pos", []))
+	if not _wave_manager.has_next_wave() and not _wave_manager.is_wave_active():
 		BattleCheckpoint.clear_checkpoint()
+	elif not _inspecting:
+		_show_wave_clock_banner()
 	cards.refresh()
 
 

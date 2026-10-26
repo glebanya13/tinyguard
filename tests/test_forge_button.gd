@@ -153,6 +153,34 @@ func _run() -> void:
 	await process_frame
 	check(not main.cards.forge_open, "toggling closes the forge")
 
+	# Walking up to the castle opens its card, walking away closes it (playtest 2026-10-24).
+	var castle_at: Vector3 = main.builder.castle.global_position
+	hero.auto_action = false
+	hero.global_position = castle_at + Vector3(0.0, 0.0, 1.9)
+	for i in 3:
+		await process_frame
+	check(main.cards.forge_open, "the castle card opens when the knight walks up to the castle")
+	hero.global_position = castle_at + Vector3(0.0, 0.0, 4.5)
+	for i in 3:
+		await process_frame
+	check(not main.cards.forge_open, "...and closes when he walks away")
+	hero.global_position = castle_at + Vector3(0.0, 0.0, 1.9)
+	for i in 3:
+		await process_frame
+	main.cards.on_command_pressed(&"cancel")
+	for i in 3:
+		await process_frame
+	check(not main.cards.forge_open, "closed by the castle, it does not pop up again at once")
+	hero.global_position = castle_at + Vector3(0.0, 0.0, 4.5)
+	await process_frame
+	hero.global_position = castle_at + Vector3(0.0, 0.0, 1.9)
+	for i in 3:
+		await process_frame
+	check(main.cards.forge_open, "after walking away and back it opens again")
+	main.cards.toggle_forge()
+	hero.global_position = castle_at + Vector3(0.0, 0.0, 4.5)
+	await process_frame
+
 	# Slot cards: build / upgrade / priority / sell.
 	var slot: TowerSlot = null
 	for node: Node in get_nodes_in_group(TowerSlot.GROUP):

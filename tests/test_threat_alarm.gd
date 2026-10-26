@@ -34,15 +34,42 @@ func _run() -> void:
 	_ok(vignette != null, "HUD contains ThreatVignette")
 	_ok(not vignette.visible, "ThreatVignette initially hidden")
 
-	hud.set_threat_danger(0.75)
-	_ok(vignette.visible, "ThreatVignette visible when threat danger is 0.75")
+	print("-- 1b. Castle alarm: a '!' over an enemy that will reach the castle, not a dark screen")
+	var sim: Sim = main_node.get_node("Sim")
+	var wm: WaveManager = main_node.get_node("WaveManager")
+	sim.manual = true
+	wm.start_next_wave()
+	for i in 30:
+		sim.step()
+	var walker: Enemy = sim.enemies[0]
+	var length: float = walker.path.curve.get_baked_length()
+	walker.place(length - walker.speed * 6.0)  # six seconds from the gate
+	var far: Enemy = sim.enemies[1] if sim.enemies.size() > 1 else null
+	if far != null:
+		far.place(0.0)
+	var threats: Array[Enemy] = CastleThreat.find(sim.enemies, sim.towers)
+	_ok(threats.has(walker), "an enemy six seconds from the castle with no towers is announced")
+	_ok(far == null or not threats.has(far), "an enemy at its portal is not")
+	_ok(CastleThreat.WARN_SECONDS >= 12.0, "the alarm comes early enough to run to the castle")
+	walker.health = 1.0
+	var tower_scene: PackedScene = load("res://scenes/towers/tower_archer.tscn")
+	var tower: Tower = tower_scene.instantiate()
+	main_node.add_child(tower)
+	tower.global_position = walker.sim_position()
+	tower.apply_level(load("res://resources/towers/archer.tres"), 0)
+	var guarded: Array[Tower] = [tower]
 	_ok(
-		vignette.color.a > 0.1,
-		"ThreatVignette alpha > 0.1 on danger (actual: %.2f)" % vignette.color.a
+		not CastleThreat.find(sim.enemies, guarded).has(walker),
+		"an enemy the towers on its road will kill is not announced"
 	)
-
-	hud.set_threat_danger(0.0)
-	_ok(not vignette.visible, "ThreatVignette hidden when threat danger is 0.0")
+	tower.queue_free()
+	main_node._threat_timer = 0.0
+	main_node._process(0.016)
+	var hint: LaneHint = main_node._lane_hint
+	_ok(hint.threats().has(walker), "the battle hands the alarm to the screen")
+	_ok(not vignette.visible, "the screen is not darkened by enemies near the castle")
+	main_node.battle_end.on_all_waves_cleared()
+	_ok(hint.threats().is_empty(), "no alarm once the battle is over")
 
 	hud.flash_leak()
 	_ok(vignette.visible, "ThreatVignette visible on flash_leak")

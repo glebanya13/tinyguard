@@ -3,10 +3,17 @@ extends Control
 ## On-screen floating dynamic joystick for touch devices. Reports a vector of length 0..1.
 ## Uses touch events (multi-touch safe: the stick keeps its own finger while
 ## another finger presses HUD buttons).
-## When touched within the joystick zone (e.g. left half of screen), the base centers
-## at the touch position, and returns to its home position when released.
+## When touched within the joystick zone (the home place of the stick and a margin around it,
+## never more than ZONE_MAX_WIDTH of the screen), the base centers at the touch position,
+## and returns to its home position when released. The rest of the screen stays free for the
+## camera (pinch zoom) and taps (playtest 2026-10-24: a zone of half the screen ate the pinch).
 
 signal vector_changed(vector: Vector2)
+
+## The touch zone is the home rect grown by this share of its side on every side.
+const ZONE_GROW := 0.5
+## ... and never wider than this share of the screen from its own edge.
+const ZONE_MAX_WIDTH := 0.38
 
 @export var radius: float = 80.0
 @export var force_visible: bool = false
@@ -87,11 +94,20 @@ func is_in_zone(pos: Vector2) -> bool:
 		return true
 	if pos.y < 72.0:
 		return false
+	return zone().has_point(pos)
+
+
+## Where a touch grabs the stick: around its home place, not half of the screen.
+func zone() -> Rect2:
+	var home := Rect2(_base_position if _base_set else global_position, size)
+	var area: Rect2 = home.grow(maxf(size.x, size.y) * ZONE_GROW)
 	var vp_size: Vector2 = get_viewport_rect().size
-	var right: bool = GameSettings.joystick_side() == HudLayout.SIDE_RIGHT
-	if right:
-		return pos.x >= vp_size.x * 0.5
-	return pos.x < vp_size.x * 0.5
+	var limit: float = vp_size.x * ZONE_MAX_WIDTH
+	if GameSettings.joystick_side() == HudLayout.SIDE_RIGHT:
+		area = area.intersection(Rect2(vp_size.x - limit, 0.0, limit, vp_size.y))
+	else:
+		area = area.intersection(Rect2(0.0, 0.0, limit, vp_size.y))
+	return area
 
 
 func _input(event: InputEvent) -> void:

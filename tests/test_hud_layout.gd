@@ -258,6 +258,15 @@ func _live() -> void:
 		joy.position.is_equal_approx(want_home.position),
 		"отпускание возвращает джойстик в исходное базовое положение"
 	)
+	var vp: Vector2 = joy.get_viewport_rect().size
+	check(
+		not joy.is_in_zone(Vector2(vp.x * 0.45, vp.y * 0.35)),
+		"the stick does not take the middle of the left half (pinch and taps work there)"
+	)
+	check(
+		not joy.is_in_zone(Vector2(vp.x * 0.42, vp.y * 0.8)),
+		"nor the bottom of the screen far from its place"
+	)
 	GameSettings.set_layout_value("joystick_side", 1)
 	hud.apply_layout()
 	await process_frame

@@ -6,11 +6,15 @@ extends Control
 ##    on screen or not, blinking, with the side written next to it ("From the north!");
 ##  - a compass in the corner (the map from above, see LaneMap: the castle, the roads of
 ##    this wave lit and pulsing, the others dim, the portals on the rim with the side written)
-##    that opens with every wave for a few seconds and
-##    by the button under the pause button.
+##    that opens with every wave for a few seconds; its button (and a tap on it) opens the
+##    battle map over the screen (BattleMap, signal battle_map_requested);
+##  - a pulsing "!" over every enemy that will reach the castle alive (CastleThreat), on the
+##    screen edge when it is off screen.
 ## It only draws: the wave plan, the camera and the level are handed in.
 
 signal strategic_view_requested
+## The minimap button or a tap on the minimap: open the battle map (BattleMap).
+signal battle_map_requested
 
 ## Seconds the rings stay (the last second fades out).
 const SHOW_SECONDS := 6.0
@@ -33,6 +37,12 @@ const PANEL_ALPHA := 0.72
 const ROAD_DIM := Color(0.74, 0.8, 0.94, 0.6)
 const BUTTON_ICON: Texture2D = preload("res://ui/icons/compass.png")
 const STRAT_ICON: Texture2D = preload("res://ui/icons/map.png")
+## Castle alarm badge: a little bigger than the wave arrows, pulsing (never full screen).
+const ALERT_RADIUS := 30.0
+const ALERT_PULSE := 0.18
+const ALERT_COLOR := Color(0.92, 0.16, 0.14)
+## Metres above an enemy's aim point the badge floats at.
+const ALERT_LIFT := 1.1
 
 var camera: Camera3D = null
 
@@ -63,6 +73,8 @@ var _strat_button: Button = null
 ## Compass mode from the settings (GameSettings): see apply_settings().
 var _mode: int = HudLayout.MAP_WAVE
 var _last_compass_visible: bool = false
+## Enemies the castle alarm points at (set_threats).
+var _threats: Array[Enemy] = []
 
 
 func _ready() -> void:
@@ -79,8 +91,8 @@ func _ready() -> void:
 	_button.custom_minimum_size = HudLayout.PIN_SIZE
 	_button.size = HudLayout.PIN_SIZE
 	_button.theme_type_variation = &"SecondaryButton"
-	_button.tooltip_text = tr("LANES_COMPASS")
-	_button.pressed.connect(toggle_compass)
+	_button.tooltip_text = tr("LANES_BATTLE_MAP")
+	_button.pressed.connect(battle_map_requested.emit)
 	var btn_icon := TextureRect.new()
 	btn_icon.name = "Icon"
 	btn_icon.texture = BUTTON_ICON
@@ -136,7 +148,7 @@ func _process(delta: float) -> void:
 	if _last_compass_visible != now_visible:
 		_last_compass_visible = now_visible
 		_place_button()
-	if busy or _pinned:
+	if busy or _pinned or not _threats.is_empty():
 		queue_redraw()
 
 
@@ -192,6 +204,7 @@ func finish() -> void:
 func stop() -> void:
 	_stopped = true
 	_pinned = false
+	_threats.clear()
 	finish()
 	_left = 0.0
 	_button.hide()
@@ -214,6 +227,19 @@ func toggle_compass() -> void:
 ## Toggles strategic view ("General mode") of the camera.
 func toggle_strategic_view() -> void:
 	strategic_view_requested.emit()
+
+
+## Castle alarm: the enemies that will reach the castle alive (empty = no alarm).
+func set_threats(enemies: Array[Enemy]) -> void:
+	if enemies.is_empty() and _threats.is_empty():
+		return
+	_threats = enemies
+	queue_redraw()
+
+
+## Enemies the castle alarm points at now.
+func threats() -> Array[Enemy]:
+	return _threats
 
 
 ## True while the rings are shown.
@@ -270,7 +296,7 @@ func _gui_input(event: InputEvent) -> void:
 			var box: Rect2 = HudLayout.current(size)["map"]
 			var frame := Rect2(box.position + _map.frame.position, _map.frame.size)
 			if frame.has_point(mb.position):
-				toggle_strategic_view()
+				battle_map_requested.emit()
 				accept_event()
 				return
 
@@ -285,6 +311,8 @@ func _draw() -> void:
 		_draw_edge_arrows(safe)
 	if compass_visible():
 		_draw_compass()
+	if not _threats.is_empty():
+		_draw_threats(safe)
 
 
 func _draw_rings(safe: Vector4) -> void:
@@ -352,6 +380,42 @@ func _draw_edge_arrow(area: Rect2, target: Vector2, pulse: float, alpha: float) 
 	shape.append(tip)
 	draw_polyline(shape, Color(OUTLINE, alpha), 4.0)
 	return tip
+
+
+## A pulsing "!" over every enemy of the castle alarm (on the screen edge when off screen).
+func _draw_threats(safe: Vector4) -> void:
+	var area: Rect2 = _arrow_area(safe)
+	var font: Font = get_theme_default_font()
+	var pulse: float = 1.0 + ALERT_PULSE * sin(_age * 6.0)
+	var radius: float = ALERT_RADIUS * pulse
+	for enemy: Enemy in _threats:
+		if not is_instance_valid(enemy) or not enemy.is_alive():
+			continue
+		var world: Vector3 = enemy.get_aim_point() + Vector3.UP * ALERT_LIFT
+		var at: Vector2 = camera.unproject_position(world)
+		if camera.is_position_behind(world) or not area.has_point(at):
+			var centre: Vector2 = area.get_center()
+			var dir: Vector2 = at - centre
+			if camera.is_position_behind(world):
+				dir = -dir
+			var t: float = minf(
+				area.size.x * 0.5 / maxf(absf(dir.x), 0.001),
+				area.size.y * 0.5 / maxf(absf(dir.y), 0.001)
+			)
+			at = centre + dir * t - dir.normalized() * radius
+		draw_circle(at, radius + 4.0, Color(OUTLINE, 0.9))
+		draw_circle(at, radius, ALERT_COLOR)
+		var mark_size: int = roundi(radius * 1.3)
+		var width: float = font.get_string_size("!", HORIZONTAL_ALIGNMENT_LEFT, -1, mark_size).x
+		draw_string(
+			font,
+			at + Vector2(-width * 0.5, mark_size * 0.36),
+			"!",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			mark_size,
+			Color(1.0, 0.97, 0.9)
+		)
 
 
 ## The side's name next to an arrow, kept inside the screen.

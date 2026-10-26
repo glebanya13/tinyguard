@@ -20,6 +20,10 @@ const MODEL_SCENE: PackedScene = preload("res://assets/models/hero_knight.glb")
 const DEATH_FX: PackedScene = preload("res://scenes/fx/death_fx.tscn")
 const GROUP := &"mercenaries"
 const CONFIG: MercenaryConfig = preload("res://resources/mercenary.tres")
+## How far a mercenary looks for enemies (metres), and how much nearer the gate of his tent
+## counts: he takes enemies up to DETECTION_RADIUS / GATE_WEIGHT from the gate (guard_reach()).
+const DETECTION_RADIUS := 9.0
+const GATE_WEIGHT := 0.8
 
 @export var max_health: float = 80.0
 @export var health: float = 80.0
@@ -28,7 +32,7 @@ const CONFIG: MercenaryConfig = preload("res://resources/mercenary.tres")
 @export var attack_cooldown: float = 0.55
 @export var speed: float = 3.0
 @export var turn_speed: float = 12.0
-@export var detection_radius: float = 9.0
+@export var detection_radius: float = DETECTION_RADIUS
 @export var patrol_radius: float = 2.5
 
 ## Balance numbers (resources/mercenary.tres): health, sword and the enemies' bite.
@@ -351,7 +355,7 @@ func _update_target_enemy() -> void:
 				continue
 			var d: float = global_position.distance_to(enemy.global_position)
 			var d_gate: float = enemy.global_position.distance_to(patrol_center)
-			var score: float = minf(d, d_gate * 0.8)
+			var score: float = minf(d, d_gate * GATE_WEIGHT)
 			if score <= best_d:
 				best_d = score
 				best = enemy
@@ -368,6 +372,11 @@ func _animate(direction: Vector3, delta: float) -> void:
 		if offset.length() > 0.01:
 			var yaw: float = atan2(offset.x, offset.z)
 			_model.rotation.y = rotate_toward(_model.rotation.y, yaw, turn_speed * delta)
+
+
+## Radius around the tent gate the mercenaries guard (the ring shown by the tent).
+static func guard_reach() -> float:
+	return DETECTION_RADIUS / GATE_WEIGHT
 
 
 func is_alive() -> bool:
